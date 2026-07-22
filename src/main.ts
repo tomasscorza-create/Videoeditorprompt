@@ -80,7 +80,12 @@ const ui = {
   seek: required<HTMLInputElement>('#seek'),
   viewerCurrent: required<HTMLElement>('#viewer-current'),
   viewerDuration: required<HTMLElement>('#viewer-duration'),
-  themeToggle: required<HTMLButtonElement>('#theme-toggle'),
+  settingsOpen: required<HTMLButtonElement>('#settings-open'),
+  settingsModal: required<HTMLDialogElement>('#settings-modal'),
+  settingsClose: required<HTMLButtonElement>('#settings-close'),
+  themeSelect: required<HTMLSelectElement>('#theme-select'),
+  loopToggle: required<HTMLInputElement>('#loop-toggle'),
+  speedSelect: required<HTMLSelectElement>('#speed-select'),
 };
 
 // Segundos a m:ss para las etiquetas del visor.
@@ -104,20 +109,30 @@ function setPlaybackState(state: PlaybackState): void {
 setPlaybackState('loading');
 
 // Configuración inicial del tema
+function applyTheme(theme: string): void {
+  const isLight = theme === 'light' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
+  document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
+}
+
 function initTheme(): void {
-  const savedTheme = localStorage.getItem('app-theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-  document.documentElement.dataset.theme = savedTheme;
-  ui.themeToggle.textContent = savedTheme === 'light' ? '🌙' : '☀️';
+  const savedTheme = localStorage.getItem('app-theme') || 'system';
+  ui.themeSelect.value = savedTheme;
+  applyTheme(savedTheme);
   
-  ui.themeToggle.addEventListener('click', () => {
-    const isLight = document.documentElement.dataset.theme === 'light';
-    const newTheme = isLight ? 'dark' : 'light';
-    document.documentElement.dataset.theme = newTheme;
+  ui.themeSelect.addEventListener('change', () => {
+    const newTheme = ui.themeSelect.value;
+    applyTheme(newTheme);
     localStorage.setItem('app-theme', newTheme);
-    ui.themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
   });
 }
 initTheme();
+
+// Manejo del Modal de Configuración
+ui.settingsOpen.addEventListener('click', () => ui.settingsModal.showModal());
+ui.settingsClose.addEventListener('click', () => ui.settingsModal.close());
+ui.settingsModal.addEventListener('click', (e) => {
+  if (e.target === ui.settingsModal) ui.settingsModal.close();
+});
 
 void start().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
@@ -236,9 +251,24 @@ async function start(): Promise<void> {
     render(0);
   });
   audio.addEventListener('ended', () => {
-    ui.audio.textContent = 'Finalizado';
-    setPlaybackState('ended');
+    if (!ui.loopToggle.checked) {
+      ui.audio.textContent = 'Finalizado';
+      setPlaybackState('ended');
+    }
   });
+
+  // Configurar loop y velocidad según inputs
+  audio.loop = ui.loopToggle.checked;
+  audio.playbackRate = Number(ui.speedSelect.value) || 1;
+
+  ui.loopToggle.addEventListener('change', () => {
+    audio.loop = ui.loopToggle.checked;
+  });
+
+  ui.speedSelect.addEventListener('change', () => {
+    audio.playbackRate = Number(ui.speedSelect.value) || 1;
+  });
+
   ui.seek.addEventListener('pointerdown', () => { scrubbing = true; });
   const stopScrub = (): void => { scrubbing = false; };
   ui.seek.addEventListener('pointerup', stopScrub);

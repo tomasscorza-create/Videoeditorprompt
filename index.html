@@ -14,7 +14,6 @@
           <button id="pause" type="button" disabled>Pausar</button>
           <button id="restart" type="button" disabled>Reiniciar</button>
           <a id="download" class="button-link" href="#" download hidden>Descargar MP4</a>
-          <button id="theme-toggle" type="button" class="button-icon" aria-label="Cambiar tema" title="Alternar modo claro/oscuro">☀️</button>
         </div>
         <details class="diagnostics">
           <summary>Detalles técnicos</summary>
@@ -50,6 +49,41 @@
         </div>
       </aside>
     </main>
+
+    <button id="settings-open" class="button-icon settings-button" aria-label="Configuración" title="Configuración">⚙️</button>
+    
+    <dialog id="settings-modal" class="modal">
+      <div class="modal-content">
+        <header class="modal-header">
+          <h2>Configuración</h2>
+          <button id="settings-close" class="button-icon" aria-label="Cerrar modal">✖</button>
+        </header>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label for="theme-select">Tema visual</label>
+            <select id="theme-select" class="select-input">
+              <option value="system">Sistema</option>
+              <option value="light">Claro</option>
+              <option value="dark">Oscuro</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label for="loop-toggle">Bucle automático (Loop)</label>
+            <input type="checkbox" id="loop-toggle" />
+          </div>
+          <div class="setting-item">
+            <label for="speed-select">Velocidad de reproducción</label>
+            <select id="speed-select" class="select-input">
+              <option value="0.5">0.5x</option>
+              <option value="1">1x (Normal)</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
