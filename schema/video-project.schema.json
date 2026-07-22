@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/video-project-v1.json",
+  "title": "Proyecto editable de video vertical",
+  "description": "Documento de autoría portable compartido por edición manual y generación guiada.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "title", "video", "seed", "resourceCatalog", "scenes"],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "video": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "fps"],
+      "properties": {
+        "width": { "const": 1080 },
+        "height": { "const": 1920 },
+        "fps": { "const": 30 }
+      }
+    },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "resourceCatalog": { "$ref": "#/$defs/assetPath" },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/scene" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "assetPath": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "transform": {
+      "type": "object",
+      "description": "Transform editable en el canvas: origen (0,0) arriba a la izquierda, X hacia la derecha, Y hacia abajo, ancla normalizada y rotación positiva en sentido horario.",
+      "additionalProperties": false,
+      "required": ["x", "y", "anchorX", "anchorY", "scale", "rotationDegrees", "opacity", "zIndex"],
+      "properties": {
+        "x": { "type": "number", "minimum": -1080, "maximum": 2160, "description": "Posición horizontal en píxeles desde el borde izquierdo." },
+        "y": { "type": "number", "minimum": -1920, "maximum": 3840, "description": "Posición vertical en píxeles desde el borde superior." },
+        "anchorX": { "type": "number", "minimum": 0, "maximum": 1, "description": "Pivote horizontal normalizado dentro del elemento." },
+        "anchorY": { "type": "number", "minimum": 0, "maximum": 1, "description": "Pivote vertical normalizado dentro del elemento." },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180, "description": "Rotación en grados; los valores positivos giran en sentido horario." },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+      }
+    },
+    "characterElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "resourceId", "transform", "poseId", "animationPreset"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "character" },
+        "resourceId": { "$ref": "#/$defs/id" },
+        "transform": { "$ref": "#/$defs/transform" },
+        "poseId": { "$ref": "#/$defs/id" },
+        "animationPreset": { "$ref": "#/$defs/id" }
+      }
+    },
+    "imageElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "resourceId", "transform"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "image" },
+        "resourceId": { "$ref": "#/$defs/id" },
+        "transform": { "$ref": "#/$defs/transform" }
+      }
+    },
+    "textElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "text", "stylePreset", "transform"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "text" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "stylePreset": { "enum": ["title", "body", "caption"] },
+        "transform": { "$ref": "#/$defs/transform" }
+      }
+    },
+    "dialogueTurn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "speakerElementId", "text", "voiceId", "gestureId", "gapAfterSeconds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "speakerElementId": { "$ref": "#/$defs/id" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "voiceId": { "$ref": "#/$defs/id" },
+        "gestureId": { "enum": ["neutral", "point"] },
+        "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preset", "durationSeconds"],
+      "properties": {
+        "preset": { "enum": ["cut", "fade"] },
+        "durationSeconds": { "type": "number", "minimum": 0, "maximum": 2 }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "background", "elements", "dialogue"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "background": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["resourceId", "cameraPreset"],
+          "properties": {
+            "resourceId": { "$ref": "#/$defs/id" },
+            "cameraPreset": { "$ref": "#/$defs/id" }
+          }
+        },
+        "elements": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/characterElement" },
+              { "$ref": "#/$defs/imageElement" },
+              { "$ref": "#/$defs/textElement" }
+            ]
+          }
+        },
+        "dialogue": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/dialogueTurn" }
+        },
+        "transitionToNext": { "$ref": "#/$defs/transition" }
+      }
+    }
+  }
+}

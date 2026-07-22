@@ -1,0 +1,333 @@
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import path from 'node:path';
+import Ajv2020 from 'ajv/dist/2020.js';
+import { ensureDirectory, ffprobe, isMain, projectRoot, readJson, run, writeJson } from '../stage1/common.mjs';
+import { PipelineError, serializeError } from '../stage1/errors.mjs';
+import { createJobContext } from '../stage1/job-context.mjs';
+import { runPipeline } from '../stage1/pipeline.mjs';
+import { createProgressReporter } from '../stage1/progress.mjs';
+import { compileVideoProject } from './compile-video-project.mjs';
+import { createProjectCompilationContext } from './project-compilation-context.mjs';
+
+const ajv = new Ajv2020({ allErrors: true, strict: true });
+const validateRenderedProjectSchema = ajv.compile(readJson(path.join(projectRoot, 'schema', 'rendered-project.schema.json')));
+
+export function runProjectPipeline(context) {
+  const report = createProgressReporter(context);
+  try {
+    const compiled = compileVideoProject(context, { report, emitCompleted: false });
+    const sceneRuns = renderCompiledScenes(context, compiled.manifest, report);
+    const assemblyPlan = buildAssemblyPlan(sceneRuns.map((scene, index) => ({
+      id: scene.id,
+      renderDurationSeconds: scene.renderDurationSeconds,
+      transitionToNext: compiled.manifest.scenes[index].transitionToNext,
+    })));
+    const outputs = [1, 2].map((runNumber) => assembleProjectRun(context, sceneRuns, assemblyPlan, runNumber, report));
+    const verification = verifyProjectRender(context, compiled.manifest, sceneRuns, assemblyPlan, outputs);
+    const manifest = {
+      version: 1,
+      jobId: context.jobId,
+      projectId: compiled.manifest.projectId,
+      compiledProject: 'compiled/compiled-project.json',
+      compiledSemanticHash: compiled.manifest.semanticHash,
+      video: compiled.manifest.video,
+      timeline: {
+        durationSeconds: assemblyPlan.durationSeconds,
+        scenes: assemblyPlan.scenes.map((timelineScene, index) => ({
+          index,
+          id: timelineScene.id,
+          sceneJobId: sceneRuns[index].sceneJobId,
+          config: sceneRuns[index].config,
+          runtime: sceneRuns[index].runtime,
+          render1: sceneRuns[index].render1,
+          render2: sceneRuns[index].render2,
+          audioDurationSeconds: sceneRuns[index].audioDurationSeconds,
+          renderDurationSeconds: sceneRuns[index].renderDurationSeconds,
+          startSeconds: timelineScene.startSeconds,
+          endSeconds: timelineScene.endSeconds,
+          verificationPassed: sceneRuns[index].verificationPassed,
+          ...(timelineScene.transitionToNext ? { transitionToNext: timelineScene.transitionToNext } : {}),
+        })),
+      },
+      outputs: outputs.map(({ probe, ...output }) => output),
+      deterministic: outputs[0].sha256 === outputs[1].sha256,
+      verification: 'verification.json',
+    };
+    assertRenderedManifest(manifest);
+    writeJson(path.join(context.resultRoot, 'project-manifest.json'), manifest);
+    report('completed', {
+      stage: 'project_pipeline',
+      result: 'project-manifest.json',
+      scenes: sceneRuns.length,
+      durationSeconds: assemblyPlan.durationSeconds,
+      deterministic: manifest.deterministic,
+      passed: verification.passed,
+    });
+    return { manifest, verification };
+  } catch (error) {
+    report('failed', serializeError(error, 'project_pipeline'));
+    throw error;
+  }
+}
+
+function renderCompiledScenes(context, compiledManifest, report) {
+  const sceneWorkRoot = ensureDirectory(path.join(context.jobRoot, 'scene-work'));
+  const sceneOutputRoot = ensureDirectory(path.join(context.jobRoot, 'scene-output'));
+  return compiledManifest.scenes.map((scene, index) => {
+    const sceneJobId = createSceneJobId(index, scene.id);
+    const configPath = resolveWithin(context.jobRoot, scene.config, `configuración de ${scene.id}`);
+    report('preparing', { stage: 'rendering_scene', sceneId: scene.id, sceneIndex: index, sceneJobId });
+    const sceneContext = createJobContext({
+      'job-id': sceneJobId,
+      config: configPath,
+      'assets-dir': context.assetsRoot,
+      'work-dir': sceneWorkRoot,
+      'output-dir': sceneOutputRoot,
+      'tts-root': context.ttsRoot,
+    });
+    const result = runPipeline(sceneContext);
+    const runtime = readJson(path.join(sceneContext.runtimeRoot, 'scene-runtime.json'));
+    const metrics = readJson(path.join(sceneContext.resultRoot, 'export-metrics-1.json'));
+    if (!result.manifest.deterministic) {
+      throw new PipelineError({
+        code: 'SCENE_RENDER_NOT_DETERMINISTIC',
+        stage: 'rendering_scene',
+        message: `La escena ${scene.id} no produjo dos renders deterministas.`,
+        suggestedAction: 'Revise el evaluador, los assets y las herramientas antes de ensamblar el proyecto.',
+      });
+    }
+    return {
+      index,
+      id: scene.id,
+      sceneJobId,
+      config: toPortable(path.relative(context.jobRoot, sceneContext.jobConfigPath)),
+      runtime: toPortable(path.relative(context.jobRoot, path.join(sceneContext.runtimeRoot, 'scene-runtime.json'))),
+      render1: toPortable(path.relative(context.jobRoot, path.join(sceneContext.resultRoot, 'render-1.mp4'))),
+      render2: toPortable(path.relative(context.jobRoot, path.join(sceneContext.resultRoot, 'render-2.mp4'))),
+      render1File: path.join(sceneContext.resultRoot, 'render-1.mp4'),
+      render2File: path.join(sceneContext.resultRoot, 'render-2.mp4'),
+      audioDurationSeconds: runtime.audio.durationSeconds,
+      renderDurationSeconds: metrics.renderDurationSeconds,
+      verificationPassed: result.verification.passed,
+    };
+  });
+}
+
+export function buildAssemblyPlan(scenes) {
+  if (!Array.isArray(scenes) || scenes.length === 0) {
+    throw new PipelineError({
+      code: 'PROJECT_SCENES_EMPTY',
+      stage: 'assembling_project',
+      message: 'No hay escenas para ensamblar.',
+      suggestedAction: 'Compile un proyecto con al menos una escena.',
+    });
+  }
+  const filters = [];
+  for (let index = 0; index < scenes.length; index += 1) {
+    filters.push(`[${index}:v]fps=30,scale=1080:1920:flags=lanczos,format=yuv420p,settb=AVTB,setpts=PTS-STARTPTS[v${index}]`);
+    filters.push(`[${index}:a]aresample=22050,aformat=sample_fmts=fltp:sample_rates=22050:channel_layouts=mono,asetpts=PTS-STARTPTS[a${index}]`);
+  }
+  const timelineScenes = [{
+    id: scenes[0].id,
+    startSeconds: 0,
+    endSeconds: roundSeconds(scenes[0].renderDurationSeconds),
+  }];
+  let videoLabel = 'v0';
+  let audioLabel = 'a0';
+  let durationSeconds = Number(scenes[0].renderDurationSeconds);
+
+  for (let index = 1; index < scenes.length; index += 1) {
+    const previous = scenes[index - 1];
+    const transition = previous.transitionToNext;
+    if (!transition) assemblyError(index - 1, 'falta la transición hacia la escena siguiente');
+    const nextDuration = Number(scenes[index].renderDurationSeconds);
+    let nextStart;
+    if (transition.preset === 'fade') {
+      const fadeDuration = Number(transition.durationSeconds);
+      if (!(fadeDuration > 0 && fadeDuration < durationSeconds && fadeDuration < nextDuration)) {
+        assemblyError(index - 1, 'el fundido debe ser menor que ambas duraciones conectadas');
+      }
+      nextStart = durationSeconds - fadeDuration;
+      filters.push(`[${videoLabel}][v${index}]xfade=transition=fade:duration=${formatNumber(fadeDuration)}:offset=${formatNumber(nextStart)}[vj${index}]`);
+      filters.push(`[${audioLabel}][a${index}]acrossfade=d=${formatNumber(fadeDuration)}:c1=tri:c2=tri[aj${index}]`);
+      durationSeconds += nextDuration - fadeDuration;
+    } else if (transition.preset === 'cut') {
+      if (transition.durationSeconds !== 0) assemblyError(index - 1, 'un corte debe durar 0 segundos');
+      nextStart = durationSeconds;
+      filters.push(`[${videoLabel}][v${index}]concat=n=2:v=1:a=0[vj${index}]`);
+      filters.push(`[${audioLabel}][a${index}]concat=n=2:v=0:a=1[aj${index}]`);
+      durationSeconds += nextDuration;
+    } else {
+      assemblyError(index - 1, `transición desconocida: ${transition.preset}`);
+    }
+    const previousTimeline = timelineScenes[index - 1];
+    previousTimeline.transitionToNext = {
+      ...transition,
+      startSeconds: roundSeconds(nextStart),
+      endSeconds: roundSeconds(nextStart + transition.durationSeconds),
+    };
+    timelineScenes.push({
+      id: scenes[index].id,
+      startSeconds: roundSeconds(nextStart),
+      endSeconds: roundSeconds(nextStart + nextDuration),
+    });
+    videoLabel = `vj${index}`;
+    audioLabel = `aj${index}`;
+  }
+  return {
+    filters,
+    videoLabel,
+    audioLabel,
+    durationSeconds: roundSeconds(durationSeconds),
+    scenes: timelineScenes,
+  };
+}
+
+function assembleProjectRun(context, sceneRuns, plan, runNumber, report) {
+  const renderId = `render-${runNumber}`;
+  report('encoding', { stage: 'assembling_project', renderId, scenes: sceneRuns.length, durationSeconds: plan.durationSeconds });
+  const inputs = sceneRuns.flatMap((scene) => ['-i', runNumber === 1 ? scene.render1File : scene.render2File]);
+  const outputFile = path.join(context.resultRoot, `${renderId}.mp4`);
+  run('ffmpeg', [
+    '-hide_banner', '-loglevel', 'warning', '-y', ...inputs,
+    '-filter_complex_threads', '1', '-filter_complex', plan.filters.join(';'),
+    '-map', `[${plan.videoLabel}]`, '-map', `[${plan.audioLabel}]`,
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac', '-b:a', '128k', '-ar', '22050', '-ac', '1',
+    '-r', '30', '-t', formatNumber(plan.durationSeconds), '-map_metadata', '-1', '-movflags', '+faststart', outputFile,
+  ], { stage: 'assembling_project', errorCode: 'FFMPEG_PROJECT_ASSEMBLY_EXIT_NONZERO' });
+  const probe = ffprobe(outputFile);
+  return {
+    runNumber,
+    file: `${renderId}.mp4`,
+    sha256: fileHash(outputFile),
+    bytes: statSync(outputFile).size,
+    durationSeconds: Number(probe.format.duration),
+    probe,
+  };
+}
+
+function verifyProjectRender(context, compiledManifest, sceneRuns, plan, outputs) {
+  const checks = [];
+  const check = (name, condition, evidence) => {
+    if (!condition) {
+      throw new PipelineError({
+        code: 'PROJECT_VERIFICATION_FAILED',
+        stage: 'verifying_project',
+        message: `Falló la verificación multiescena: ${name}.`,
+        technicalDetail: JSON.stringify(evidence),
+        suggestedAction: 'Revise los renders de escena, la timeline y el ensamblaje FFmpeg.',
+      });
+    }
+    checks.push({ name, passed: true, evidence });
+  };
+  check('Cantidad de escenas consistente', sceneRuns.length === compiledManifest.scenes.length && plan.scenes.length === sceneRuns.length, sceneRuns.length);
+  check('Escenas verificadas individualmente', sceneRuns.every((scene) => scene.verificationPassed > 0), sceneRuns.map((scene) => scene.verificationPassed));
+  check('Duraciones medidas presentes', sceneRuns.every((scene) => scene.audioDurationSeconds > 0 && scene.renderDurationSeconds >= scene.audioDurationSeconds), sceneRuns.map((scene) => ({ audio: scene.audioDurationSeconds, render: scene.renderDurationSeconds })));
+  check('Timeline termina en la duración calculada', Math.abs(plan.scenes.at(-1).endSeconds - plan.durationSeconds) < 1e-8, plan);
+  for (const output of outputs) {
+    const video = output.probe.streams.find((stream) => stream.codec_type === 'video');
+    const audio = output.probe.streams.find((stream) => stream.codec_type === 'audio');
+    check(`MP4 ${output.runNumber} H.264/AAC/yuv420p`, video?.codec_name === 'h264' && video?.pix_fmt === 'yuv420p' && audio?.codec_name === 'aac', { video, audio });
+    check(`MP4 ${output.runNumber} vertical 30 fps`, video?.width === 1080 && video?.height === 1920 && video?.r_frame_rate === '30/1', video);
+    check(`MP4 ${output.runNumber} duración completa`, Math.abs(output.durationSeconds - plan.durationSeconds) <= 0.08, { actual: output.durationSeconds, expected: plan.durationSeconds });
+  }
+  check('MP4 finales binariamente idénticos', outputs[0].sha256 === outputs[1].sha256, outputs[0].sha256);
+  const result = {
+    version: 1,
+    jobId: context.jobId,
+    verifiedAt: new Date().toISOString(),
+    passed: checks.length,
+    failed: 0,
+    checks,
+    outputs: outputs.map((output) => ({ runNumber: output.runNumber, file: output.file, sha256: output.sha256, probe: output.probe })),
+  };
+  writeJson(path.join(context.resultRoot, 'verification.json'), result);
+  return result;
+}
+
+function assertRenderedManifest(manifest) {
+  if (validateRenderedProjectSchema(manifest)) return;
+  const detail = [...(validateRenderedProjectSchema.errors || [])]
+    .slice(0, 12)
+    .map((error) => `${error.instancePath || '/'} ${error.message}`)
+    .join('; ');
+  throw new PipelineError({
+    code: 'RENDERED_PROJECT_SCHEMA_INVALID',
+    stage: 'verifying_project',
+    message: 'El pipeline produjo un manifiesto multiescena incompatible.',
+    technicalDetail: detail,
+    suggestedAction: 'Revise el schema y el mapeo del resultado final.',
+  });
+}
+
+function resolveWithin(root, relativePath, label) {
+  if (path.isAbsolute(relativePath) || path.win32.isAbsolute(relativePath) || relativePath.includes('\\') || relativePath.includes(':')) {
+    pathError(label, relativePath);
+  }
+  const resolved = path.resolve(root, relativePath);
+  const relative = path.relative(root, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative) || !existsSync(resolved)) pathError(label, relativePath);
+  return resolved;
+}
+
+function pathError(label, value) {
+  throw new PipelineError({
+    code: 'COMPILED_PROJECT_PATH_INVALID',
+    stage: 'preparing',
+    message: `La ruta de ${label} no es segura o no existe.`,
+    technicalDetail: value,
+    suggestedAction: 'Recompile el proyecto dentro del trabajo actual.',
+  });
+}
+
+function assemblyError(sceneIndex, detail) {
+  throw new PipelineError({
+    code: 'PROJECT_TRANSITION_INVALID',
+    stage: 'assembling_project',
+    message: 'No se puede ensamblar una transición del proyecto.',
+    technicalDetail: `/scenes/${sceneIndex} ${detail}`,
+    suggestedAction: 'Use cut con duración 0 o fade menor que las dos escenas conectadas.',
+  });
+}
+
+function createSceneJobId(index, sceneId) {
+  return `scene-${String(index + 1).padStart(3, '0')}-${sceneId}`.slice(0, 64);
+}
+
+function fileHash(file) {
+  return createHash('sha256').update(readFileSync(file)).digest('hex');
+}
+
+function formatNumber(value) {
+  return String(roundSeconds(value));
+}
+
+function roundSeconds(value) {
+  return Number(Number(value).toFixed(9));
+}
+
+function toPortable(value) {
+  return value.split(path.sep).join('/');
+}
+
+if (isMain(import.meta.url)) {
+  let context;
+  try {
+    context = createProjectCompilationContext();
+    const result = runProjectPipeline(context);
+    process.stdout.write(`${JSON.stringify({
+      version: 1,
+      jobId: context.jobId,
+      completed: true,
+      scenes: result.manifest.timeline.scenes.length,
+      durationSeconds: result.manifest.timeline.durationSeconds,
+      deterministic: result.manifest.deterministic,
+      passed: result.verification.passed,
+    })}\n`);
+  } catch (error) {
+    if (!context) process.stderr.write(`${JSON.stringify({ version: 1, state: 'failed', ...serializeError(error, 'project_pipeline') })}\n`);
+    process.exitCode = 1;
+  }
+}

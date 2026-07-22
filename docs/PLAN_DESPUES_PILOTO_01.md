@@ -2,13 +2,13 @@
 
 Fecha: 22 de julio de 2026.
 
-Estado: Etapas 2B–2F implementadas y verificadas técnicamente. Antes de comenzar 3A falta la aprobación humana del gate completo de 2F.
+Estado: Etapas 2B–2F implementadas y aprobadas. 3A.0–3A.2 completan el recorrido multiescena y 3B.0 aporta el núcleo de comandos del editor. El próximo incremento es conectarlo a la interfaz local.
 
 ## Conclusión
 
-El Piloto 01 aprobó el circuito técnico completo, pero todavía no aprobó la calidad de animación de un producto real. El proyecto continúa en la **Fase 1: núcleo local confiable**.
+El Piloto 01 aprobó el circuito técnico y el gate 2F aceptó su calidad como base, con ajustes finos no bloqueantes. El proyecto continúa en la **Fase 1: núcleo local confiable**.
 
-La infraestructura de Fase 1 está bastante avanzada: configuración validada, TTS, FFprobe, evaluador determinista, frames, MP4, jobs aislados, caché, errores y preview técnico. La capa de producción visual todavía es inicial: faltan personajes reutilizables reales, gestos, diálogos, fondos animados, subtítulos temporizados y varias escenas.
+La infraestructura de Fase 1 está bastante avanzada: configuración validada, TTS, FFprobe, evaluador determinista, frames, MP4, jobs aislados, caché, errores y preview técnico. Ya existen personajes reutilizables, gestos, diálogo medido, fondos con parallax y un proyecto editable que se compila y renderiza como un único video de varias escenas. Falta construir la interfaz de edición y ampliar los recursos/capacidades creativas según su uso real.
 
 Como aproximación orientativa:
 
@@ -162,21 +162,28 @@ Alcance:
 - entrada/salida o reacción sencilla;
 - límites para que la cámara no muestre zonas vacías.
 
-### Etapa 2F — Contrato creativo y gate de calidad — IMPLEMENTADA TÉCNICAMENTE
+### Etapa 2F — Contrato creativo y gate de calidad — APROBADA
 
 Antes de multiplicar la composición a varias escenas se validará una escena de calidad más representativa y un vertical slice de assets paramétricos.
 
 Se divide en:
 
 - **2F.0 — definición documental:** flujo prompt → proyecto editable, separación entre autoría/runtime/artefactos, rig paramétrico y catálogo. Completada en `docs/VISION_PRODUCTO_Y_ETAPA_2F.md`.
-- **2F.1 — calidad:** piloto de 20,47 segundos con texto TTS normalizado, dos voces/configuraciones, boca RMS estabilizada, parpadeo, idle, gesto y actuación de hablante/oyente. Implementado; pendiente de aprobación humana.
+- **2F.1 — calidad:** piloto de 20,47 segundos con texto TTS normalizado, dos voces/configuraciones, boca RMS estabilizada, parpadeo, idle, gesto y actuación de hablante/oyente. Aceptado como base; su ajuste fino no bloquea 3A.
 - **2F.2 — asset paramétrico:** definición geométrica segura, dos variantes, joints, dos poses, manifest v2, PNG transparentes y catálogo resoluble por ID. Implementado y verificado de forma determinista.
 
 Esta etapa no implementa todavía IA real, editor, varias escenas, generación de imágenes por modelo ni rig avanzado.
 
-### Etapa 3A — Varias escenas y transiciones
+### Etapa 3A — Proyecto editable, varias escenas y transiciones
 
-Solo después de superar el gate de 2F dentro de una escena:
+El gate 2F fue superado. 3A.0 ya incorporó el contrato y la validación de:
+
+- proyecto portable con hasta ocho escenas;
+- personajes, voces y fondos seleccionados por ID;
+- instancias con posición, escala, rotación, ancla, opacidad y orden visual;
+- diálogo y transiciones cerradas.
+
+3A.1 implementó la lista ordenada y la compilación determinista a configuraciones v2. 3A.2 implementó:
 
 - lista lineal de escenas;
 - duración medida/compilada;
@@ -245,10 +252,13 @@ La decisión React/Electron debe posponerse. El visor 2B puede continuar con Vit
 2. **Etapa 2C — completada técnicamente:** personaje real por capas con boca, ojos, idle y manos.
 3. **Etapa 2D — completada técnicamente:** diálogo por turnos, voces parametrizadas y subtítulos temporizados.
 4. **Etapa 2E — completada técnicamente:** fondo/cámara/parallax.
-5. **Etapa 2F — implementada técnicamente:** calidad de voz/boca/actuación y vertical slice paramétrico; falta aprobación humana del gate.
-6. **Etapa 3A — siguiente solo después de aprobar el gate 2F:** varias escenas y transiciones.
-7. **Diseño UX en paralelo; implementación del editor MVP después de estabilizar 2F/3A.**
+5. **Etapa 2F — aprobada:** calidad de voz/boca/actuación y vertical slice paramétrico; ajustes finos no bloqueantes.
+6. **Etapa 3A.0 — completada:** proyecto editable, catálogo de autoría, canvas y validación.
+7. **Etapa 3A.1 — completada:** compilación determinista a configuraciones v2 por escena.
+8. **Etapa 3A.2 — completada:** preparación medida, subjobs de render, unión y transiciones deterministas.
+9. **Etapa 3B.0 — completada:** estado inmutable, comandos semánticos, recursos por ID, coordenadas, undo/redo y exportación portable.
+10. **Siguiente:** integrar el diseño UX con 3B.0 y el proyecto de autoría real.
 
 ## Decisión propuesta
 
-La Etapa 2F ya tiene evidencia técnica de calidad mejorada y recursos paramétricos reutilizables por ID. El siguiente acto no es ampliar automáticamente el núcleo: primero debe revisarse el video de 2F.1 y el piloto paramétrico, confirmar que Claude puede representar sus IDs/variantes/poses y aprobar o devolver el gate. Solo entonces se retomará 3A sin convertir el preview en un editor profesional.
+La Etapa 2F quedó aprobada, 3A.0–3A.2 producen el MP4 multiescena y 3B.0 ya manipula los datos mediante comandos seguros. El próximo acto es conectar esa capacidad a la interfaz y después incorporar el puente local de render, sin prometer todavía una timeline profesional.

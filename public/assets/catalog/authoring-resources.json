@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "mono-azul-v1",
+      "type": "character",
+      "label": "Mono presentador azul",
+      "tags": ["geometrico", "mono", "presentador"],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "mono-parametrico-azul-v1"
+      },
+      "capabilities": {
+        "poses": ["neutral", "point"],
+        "animationPresets": ["idle-calm", "talk-calm"]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "mono-ciruela-v1",
+      "type": "character",
+      "label": "Mono analista ciruela",
+      "tags": ["analista", "geometrico", "mono"],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "mono-parametrico-ciruela-v1"
+      },
+      "capabilities": {
+        "poses": ["neutral", "point"],
+        "animationPresets": ["idle-calm", "talk-calm"]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "voz-daniela-ar-v1",
+      "type": "voice",
+      "label": "Daniela — español de Argentina",
+      "tags": ["argentina", "espanol", "piper"],
+      "voice": {
+        "provider": "piper",
+        "model": "es_AR-daniela-high",
+        "locale": "es_AR",
+        "lengthScale": 1.08,
+        "volume": 1
+      },
+      "provenance": {
+        "source": "Piper Voices, modelo es_AR-daniela-high; dataset OpenSLR 61.",
+        "license": "Motor GPL-3.0-or-later; dataset CC BY-SA 4.0."
+      }
+    },
+    {
+      "id": "voz-davefx-es-v1",
+      "type": "voice",
+      "label": "DaveFX — español de España",
+      "tags": ["espana", "espanol", "piper"],
+      "voice": {
+        "provider": "piper",
+        "model": "es_ES-davefx-medium",
+        "locale": "es_ES",
+        "lengthScale": 1.04,
+        "volume": 1
+      },
+      "provenance": {
+        "source": "Piper Voices, revisión fijada del modelo es_ES-davefx-medium.",
+        "license": "Repositorio de voces MIT; dataset de origen declarado CC0."
+      }
+    },
+    {
+      "id": "fondo-estudio-parallax-v1",
+      "type": "background",
+      "label": "Estudio con parallax",
+      "tags": ["estudio", "parallax", "vertical"],
+      "backgroundManifest": "assets/backgrounds/studio-parallax-v1/background.manifest.json",
+      "capabilities": {
+        "cameraPresets": ["static", "slow-pan", "slow-zoom"]
+      },
+      "provenance": {
+        "source": "Creación vectorial determinista del proyecto.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    }
+  ]
+}

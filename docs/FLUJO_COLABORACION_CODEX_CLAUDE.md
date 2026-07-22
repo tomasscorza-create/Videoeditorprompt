@@ -170,7 +170,7 @@ Codex decide la implementación técnica del contrato junto con el usuario. Clau
 | `public/generated/`, `.local-video/` | Outputs regenerables; no usarlos para resolver conflictos |
 | `docs/` | Dividir por tema; evitar editar simultáneamente el mismo documento |
 
-El prototipo de Claude debe vivir separado del preview vigente mientras cambien los contratos. La implementación real del editor se integrará cuando 2F y 3A hayan estabilizado los datos que la interfaz editará. Claude puede usar desde ahora `docs/VISION_PRODUCTO_Y_ETAPA_2F.md` como brief de experiencia, manteniendo los datos ejecutables como mocks hasta que el motor apruebe sus schemas.
+El prototipo de Claude debe vivir separado del preview vigente mientras se integra. 2F y 3A ya estabilizaron el primer subconjunto de datos ejecutables; la implementación real del editor puede comenzar contra `video-project` v1 y el catálogo de autoría, sin inventar propiedades fuera de esos contratos.
 
 ## Política de commits
 
@@ -248,9 +248,9 @@ Esta rama permite resolver y probar la combinación sin romper `main`. Después 
 - Se hace una demostración conjunta por hito, no por cada archivo.
 - Solo se integra a `main` cuando motor e interfaz coinciden en el flujo demostrado.
 
-El próximo hito conjunto recomendado, después de completar técnicamente 2F.2, es revisar y cerrar el gate 2F:
+El gate 2F fue aprobado, 3A.0–3A.2 ofrecen el recorrido hasta MP4 multiescena y 3B.0 añade el núcleo portable de edición en `shared/project-editor.js`. El próximo hito conjunto es conectar ese módulo al editor visual:
 
-- **Codex:** mantener estables `asset-catalog` v1, `character-manifest` v2 y la resolución por `characterAssetId`; atender únicamente correcciones observadas durante la revisión.
-- **Claude:** representar en UX el recorrido prompt → preguntas/variantes → proyecto editable usando los dos IDs reales del catálogo, las poses `neutral`/`point` y las capacidades declaradas; registrar cualquier dato faltante como necesidad de contrato.
+- **Codex:** mantener contratos, comandos y pipeline; diseñar después el puente local seguro de ejecución sin acoplarlo a la UI.
+- **Claude:** consumir `createProjectEditor` y `applyProjectEditorCommand` desde la UX, representar el estado real y distinguir funciones conectadas de prototipos visuales.
 
-Al superar el gate 2F, Codex retomará 3A y Claude podrá adaptar sus componentes a estos schemas ejecutables aprobados. Los joints del manifest v2 son por ahora metadatos: la UI no debe prometer manipulación articular continua hasta que el runtime la implemente.
+Los joints del manifest v2 son por ahora metadatos: la UI no debe prometer manipulación articular continua hasta que el runtime la implemente. El preview PixiJS tampoco reproduce todavía la timeline multiescena final; esa limitación debe mostrarse con claridad.

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/background-manifest-v1.json",
+  "title": "Manifest de fondo por capas",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "canvas", "layers", "provenance"],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "$ref": "#/$defs/id" },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "const": 1080 },
+        "height": { "const": 1920 }
+      }
+    },
+    "layers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["far", "mid", "front"],
+      "properties": {
+        "far": { "$ref": "#/$defs/assetPath" },
+        "mid": { "$ref": "#/$defs/assetPath" },
+        "front": { "$ref": "#/$defs/assetPath" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "license"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "license": { "type": "string", "minLength": 1, "maxLength": 160 }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "assetPath": { "type": "string", "minLength": 1, "maxLength": 512 }
+  }
+}

@@ -2,7 +2,7 @@
 
 Fecha: 22 de julio de 2026.
 
-Estado: visión aprobada por el usuario. 2F.0–2F.2 están implementadas técnicamente; falta la aprobación humana del gate completo antes de autorizar 3A. Este trabajo no implementa IA ni editor.
+Estado: visión y gate 2F aprobados por el usuario. 2F.0–2F.2 están implementadas; 3A.0–3A.2 producen un MP4 multiescena determinista y 3B.0 aporta el núcleo funcional del editor. Todavía no implementa IA ni la integración visual del editor.
 
 ## Decisión principal
 
@@ -72,7 +72,7 @@ Reglas:
 
 ## Separación de contratos
 
-Para no acoplar el editor, la IA y el render se distinguirán tres niveles. Los nombres son conceptuales hasta aprobar schemas posteriores.
+Para no acoplar el editor, la IA y el render se distinguen tres niveles. El proyecto de autoría tiene un schema inicial en `schema/video-project.schema.json`; 3A.2 implementa la composición multiescena como un pipeline padre sobre runtimes v2 de una escena.
 
 ### 1. Proyecto de autoría
 

@@ -9,13 +9,13 @@ Construimos una herramienta local, dirigida por datos, para producir videos anim
 Estado vigente:
 
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
-- La Etapa 2F.0 está documentada y 2F.1–2F.2 están implementadas y verificadas técnicamente. La calidad humana de 2F.1 y el gate conjunto de 2F deben aprobarse antes de comenzar 3A.
-- Existe un prototipo de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC.
+- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, todavía sin integración visual.
+- Existe un runtime probado de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC. Un pipeline padre ya compone varias de esas escenas en un MP4 mediante cortes o fundidos.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
 - `public/generated` es solo una publicación opcional e indexada por `jobId` para el preview; no es almacenamiento del motor.
 
-Fuera del alcance actual salvo pedido explícito: varias escenas, editor, React, Electron, director IA, llama.cpp, lip sync fonético, usuarios, backend, base de datos, API HTTP, storage remoto, colas, Docker, suscripciones y monetización.
+Fuera del alcance actual salvo pedido explícito: editor, preview multiescena interactivo, React, Electron, director IA, llama.cpp, lip sync fonético, usuarios, backend, base de datos, API HTTP, storage remoto, colas, Docker, suscripciones y monetización.
 
 Dirección de largo plazo: núcleo local confiable → creación dirigida por prompt → herramientas creativas open source → editor local → separación web/worker → plataforma multiusuario → optimización económica → monetización. El roadmap no autoriza implementar una fase por anticipado.
 
@@ -82,15 +82,29 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `schema/parametric-character.schema.json`: definición geométrica declarativa y segura de un personaje y sus variantes.
 - `schema/character-manifest-v2.schema.json`: rig compilado con capas, miniaturas, joints, poses, variante y procedencia.
 - `schema/asset-catalog.schema.json`: índice local portable de assets seleccionables por ID.
+- `schema/video-project.schema.json`: contrato versión 1 del proyecto editable con hasta ocho escenas, instancias sobre canvas, diálogo por IDs y transiciones cerradas.
+- `schema/authoring-resource-catalog.schema.json`: catálogo de autoría para personajes compilados, voces, fondos e imágenes.
+- `schema/background-manifest.schema.json`: contrato portable del fondo por tres capas.
+- `schema/compiled-project.schema.json`: manifiesto versionado que vincula proyecto, hashes, escenas v2 compiladas y transiciones.
+- `schema/rendered-project.schema.json`: contrato del manifiesto final con timeline medida, subtrabajos, outputs y verificación.
+- `schema/editor-command.schema.json`: vocabulario cerrado de operaciones semánticas soportadas por el editor local.
+- `shared/project-editor.js`: estado inmutable, validación, comandos, undo/redo, catálogo y exportación del proyecto de autoría.
+- `scripts/stage3a/validate-video-project.mjs`: validación estructural, semántica y de recursos del proyecto editable.
+- `scripts/stage3a/project-compilation-context.mjs`: congelado del proyecto y aislamiento de la compilación por `jobId`.
+- `scripts/stage3a/compile-video-project.mjs`: mapeo determinista de autoría a configuraciones v2 compatibles con el motor actual.
+- `scripts/stage3a/project-pipeline.mjs`: orquestador padre que ejecuta un job aislado por escena y ensambla cortes/fundidos con FFmpeg.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.
 - `pilots/personaje-mono-01/scene.config.json`: piloto vigente del personaje animable real.
 - `pilots/dialogo-monos-01/scene.config.json`: piloto del contrato v2 con dos hablantes y tres turnos.
 - `pilots/fondo-parallax-01/scene.config.json`: piloto v2 con tres planos, paneo, zoom y parallax.
 - `pilots/parametric-character-01/scene.config.json`: piloto v2 que resuelve dos variantes mediante `characterAssetId` y catálogo.
+- `pilots/proyecto-editable-01/project.json`: piloto de autoría con dos escenas; aún no es consumido por el render.
+- `pilots/proyecto-compilable-01/project.json`: subconjunto de dos escenas compilable al contrato v2 actual.
 - `scripts/stage2c/generate-monkey-character.mjs`: generador determinista de las fuentes SVG y capas PNG del mono; no forma parte del render normal.
 - `scripts/stage2f/parametric-character.mjs`: compilador determinista de definición geométrica a SVG, PNG, manifest v2 y catálogo.
 - `public/assets/character-definitions/mono-parametrico-v1.json`: definición fuente del vertical slice 2F.2.
 - `public/assets/catalog/index.json`: catálogo mínimo con las dos variantes paramétricas.
+- `public/assets/catalog/authoring-resources.json`: capa de autoría que ofrece personajes, voces y fondo mediante IDs estables.
 - `scripts/*.mjs`, `assets/` y `tts-test/`: evidencia/flujo legacy de Etapa 0. No usarlos como base para funciones nuevas.
 - `.local-video/`: trabajos y evidencia local regenerable; no versionar.
 
@@ -102,6 +116,13 @@ npm run stage1:test-jobs   # dos trabajos headless y determinismo
 npm run stage2b:test-preview # publicación aislada e índice de previews
 npm run stage2f:test-parametric # seguridad, portabilidad y determinismo del compilador paramétrico
 npm run stage2f:parametric-pipeline # piloto por IDs del catálogo
+npm run stage3a:validate-project # valida el proyecto editable piloto
+npm run stage3a:test-project # contrato, referencias, rutas y límites de 3A.0
+npm run stage3a:compile-project # compila el piloto a scene.config v2 por escena
+npm run stage3a:test-compiler # compatibilidad, límites y determinismo de 3A.1
+npm run stage3a:test-assembly # cálculo temporal de cortes/fundidos y límites de 3A.2
+npm run stage3a:project-pipeline # render real de dos escenas y MP4 final determinista
+npm run stage3b:test-editor # comandos, undo/redo, seguridad y exportación compatible
 npm run build              # TypeScript + Vite
 ```
 
@@ -109,12 +130,14 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 
 ### Brechas vigentes (no confundir con capacidades implementadas)
 
-- Los contratos v1 y v2 están deliberadamente limitados a una escena; todavía no existe el contrato futuro de proyectos con varias escenas.
+- Los contratos de runtime v1 y v2 siguen limitados a una escena. 3A.2 los ejecuta como subtrabajos aislados y ensambla el resultado; no existe todavía un runtime ni preview PixiJS multiescena continuo.
+- 3B.0 edita proyectos existentes del subconjunto compilable, pero todavía no crea/elimina elementos o turnos ni está conectado a la interfaz visual. El navegador tampoco lanza aún el pipeline local.
+- 3A.1 solo compila escenas con exactamente dos personajes, al menos dos turnos, pose inicial neutral, ancla central, rotación 0 y opacidad 1. Texto, imágenes y otros transforms se rechazan explícitamente hasta que el runtime pueda representarlos.
 - El rig versión 2 y el catálogo demuestran `neutral` y `point`, pero todavía no modelan una biblioteca general de gestos o animaciones.
 - Los joints y rotaciones del manifest v2 son metadatos validados; el runtime actual sigue alternando capas PNG de poses y todavía no aplica articulación continua por jerarquía.
-- El piloto 2D reutiliza el mismo rig y modelo Piper; 2F.1 agrega dos rigs y dos voces, pero su casting visual/vocal sigue pendiente de aprobación humana.
+- El piloto 2D reutiliza el mismo rig y modelo Piper; 2F.1 agrega dos rigs y dos voces. El usuario aceptó su calidad como base y dejó el ajuste fino de casting visual/vocal como mejora no bloqueante.
 - El fondo del piloto 2C es estático; cámara, parallax y elementos ambientales pertenecen a una etapa posterior.
-- 2E implementa paneo/zoom global y parallax por capa; todavía no existen keyframes libres, loops ambientales configurables ni varias escenas.
+- 2E implementa paneo/zoom global y parallax por capa; todavía no existen keyframes libres ni loops ambientales configurables. 3A.2 puede ensamblar varias escenas, pero cada una conserva las capacidades cerradas del runtime v2.
 - La boca sigue una envolvente RMS estabilizada, no fonemas; su mejora técnica no equivale a aprobación visual.
 - La voz `es_ES-davefx-medium` está instalada solo en el runtime local y requiere evaluación auditiva antes de aceptarse como voz de producto.
 - `prepare-scene.mjs` conoce directamente Piper, su modelo y `venv/Scripts/python.exe`; proveedor reemplazable y Linux aún son objetivos, no hechos.

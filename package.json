@@ -29,7 +29,14 @@
     "stage2f:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-calidad-dialogo-01 --config=pilots/calidad-dialogo-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
     "stage2f:parametric-assets": "node scripts/stage2f/generate-parametric-character.mjs --assets-dir=public --definition=assets/character-definitions/mono-parametrico-v1.json --output-base=assets/characters --catalog=assets/catalog/index.json",
     "stage2f:test-parametric": "node scripts/stage2f/test-parametric-character.mjs",
-    "stage2f:parametric-pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-parametrico-01 --config=pilots/parametric-character-01/scene.config.json --assets-dir=public --publish-dir=public/generated"
+    "stage2f:parametric-pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-parametrico-01 --config=pilots/parametric-character-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
+    "stage3a:validate-project": "node scripts/stage3a/validate-video-project.mjs --project=pilots/proyecto-editable-01/project.json --assets-dir=public",
+    "stage3a:test-project": "node scripts/stage3a/test-video-project.mjs",
+    "stage3a:compile-project": "node scripts/stage3a/compile-video-project.mjs --job-id=proyecto-compilable-01 --project=pilots/proyecto-compilable-01/project.json --assets-dir=public",
+    "stage3a:test-compiler": "node scripts/stage3a/test-project-compiler.mjs",
+    "stage3a:test-assembly": "node scripts/stage3a/test-project-assembly.mjs",
+    "stage3a:project-pipeline": "node scripts/stage3a/project-pipeline.mjs --job-id=piloto-multiescena-02 --project=pilots/proyecto-compilable-01/project.json --assets-dir=public",
+    "stage3b:test-editor": "node scripts/stage3b/test-project-editor.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",

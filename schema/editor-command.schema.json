@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/editor-command-v1.json",
+  "title": "Comando semántico del editor local",
+  "oneOf": [
+    { "$ref": "#/$defs/selectScene" },
+    { "$ref": "#/$defs/setProjectTitle" },
+    { "$ref": "#/$defs/setSceneTitle" },
+    { "$ref": "#/$defs/setSceneBackground" },
+    { "$ref": "#/$defs/setCharacterResource" },
+    { "$ref": "#/$defs/setCharacterTransform" },
+    { "$ref": "#/$defs/setDialogueTurn" },
+    { "$ref": "#/$defs/setTransition" },
+    { "$ref": "#/$defs/reorderScenes" }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "selectScene": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId"],
+      "properties": { "type": { "const": "select-scene" }, "sceneId": { "$ref": "#/$defs/id" } }
+    },
+    "setProjectTitle": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "title"],
+      "properties": { "type": { "const": "set-project-title" }, "title": { "type": "string", "minLength": 1, "maxLength": 120 } }
+    },
+    "setSceneTitle": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "title"],
+      "properties": { "type": { "const": "set-scene-title" }, "sceneId": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1, "maxLength": 120 } }
+    },
+    "setSceneBackground": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "resourceId", "cameraPreset"],
+      "properties": { "type": { "const": "set-scene-background" }, "sceneId": { "$ref": "#/$defs/id" }, "resourceId": { "$ref": "#/$defs/id" }, "cameraPreset": { "$ref": "#/$defs/id" } }
+    },
+    "setCharacterResource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId", "resourceId"],
+      "properties": { "type": { "const": "set-character-resource" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" }, "resourceId": { "$ref": "#/$defs/id" } }
+    },
+    "setCharacterTransform": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId"],
+      "anyOf": [
+        { "properties": { "x": true }, "required": ["x"] },
+        { "properties": { "y": true }, "required": ["y"] },
+        { "properties": { "scale": true }, "required": ["scale"] },
+        { "properties": { "zIndex": true }, "required": ["zIndex"] }
+      ],
+      "properties": {
+        "type": { "const": "set-character-transform" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" },
+        "x": { "type": "number", "minimum": -1080, "maximum": 2160 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 3840 },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+      }
+    },
+    "setDialogueTurn": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "turnId"],
+      "anyOf": [
+        { "properties": { "text": true }, "required": ["text"] },
+        { "properties": { "voiceId": true }, "required": ["voiceId"] },
+        { "properties": { "gestureId": true }, "required": ["gestureId"] },
+        { "properties": { "gapAfterSeconds": true }, "required": ["gapAfterSeconds"] }
+      ],
+      "properties": {
+        "type": { "const": "set-dialogue-turn" }, "sceneId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 500 }, "voiceId": { "$ref": "#/$defs/id" },
+        "gestureId": { "enum": ["neutral", "point"] }, "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
+      }
+    },
+    "setTransition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "preset", "durationSeconds"],
+      "properties": { "type": { "const": "set-transition" }, "sceneId": { "$ref": "#/$defs/id" }, "preset": { "enum": ["cut", "fade"] }, "durationSeconds": { "type": "number", "minimum": 0, "maximum": 2 } }
+    },
+    "reorderScenes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneIds"],
+      "properties": { "type": { "const": "reorder-scenes" }, "sceneIds": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } } }
+    }
+  }
+}

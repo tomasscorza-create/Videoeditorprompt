@@ -4,9 +4,9 @@ Este roadmap define dirección y criterios de avance; no autoriza por sí solo i
 
 ## Estado base — julio de 2026
 
-Las Etapas técnicas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector local 2B están aprobadas. Las Etapas 2C–2F están implementadas y verificadas técnicamente: el contrato v2 compila dos personajes, turnos medidos, fondo opcional con parallax y personajes paramétricos seleccionables por IDs de un catálogo portable. El pipeline sigue siendo local/headless, de una escena, aislado por `jobId` y equivalente en preview PixiJS y MP4 H.264/AAC.
+Las Etapas técnicas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector local 2B están aprobadas. Las Etapas 2C–2F están implementadas y verificadas técnicamente: el contrato v2 compila dos personajes, turnos medidos, fondo opcional con parallax y personajes paramétricos seleccionables por IDs de un catálogo portable. El usuario aprobó el gate humano de 2F con ajustes finos no bloqueantes.
 
-La siguiente decisión pertenece todavía a la Fase 1. Antes de multiplicar el sistema a varias escenas, debe aprobarse humanamente el gate 2F ya implementado: calidad de voz/boca/actuación y vertical slice de assets paramétricos/catalogados. La visión completa y el gate están en `docs/VISION_PRODUCTO_Y_ETAPA_2F.md`.
+3A.0 incorpora un proyecto editable versionado con escenas, instancias sobre canvas, voces y recursos por ID y transiciones cerradas. 3A.1 lo compila a configuraciones v2 portables por escena. 3A.2 ejecuta cada escena como subtrabajo aislado y ensambla un MP4 final determinista. 3B.0 ya aporta estado inmutable, comandos cerrados, undo/redo y exportación del proyecto. El próximo incremento es conectar ese núcleo a la UX/UI y permitir edición manual real, sin convertirla todavía en una timeline profesional.
 
 ## Principios de avance
 
@@ -21,7 +21,7 @@ La siguiente decisión pertenece todavía a la Fase 1. Antes de multiplicar el s
 
 ## Fase 1 — Núcleo local confiable
 
-**Estado:** en progreso; la base técnica de una escena está validada.
+**Estado:** en progreso; la base técnica y el render lineal multiescena están validados.
 
 ### Objetivo
 

@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "id": "proyecto-editable-01",
+  "title": "Conversación editable de dos escenas",
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "seed": 31001,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "scenes": [
+    {
+      "id": "escena-introduccion",
+      "title": "Presentación",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-pan"
+      },
+      "elements": [
+        {
+          "id": "presentadora",
+          "type": "character",
+          "resourceId": "mono-azul-v1",
+          "transform": { "x": 300, "y": 1100, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.7, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        },
+        {
+          "id": "analista",
+          "type": "character",
+          "resourceId": "mono-ciruela-v1",
+          "transform": { "x": 780, "y": 1100, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.7, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        },
+        {
+          "id": "titulo",
+          "type": "text",
+          "text": "Un proyecto, dos formas de crearlo",
+          "stylePreset": "title",
+          "transform": { "x": 540, "y": 210, "anchorX": 0.5, "anchorY": 0.5, "scale": 1, "rotationDegrees": 0, "opacity": 1, "zIndex": 40 }
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-intro-01",
+          "speakerElementId": "presentadora",
+          "text": "La inteligencia artificial puede proponer una primera versión del video.",
+          "voiceId": "voz-daniela-ar-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "turno-intro-02",
+          "speakerElementId": "analista",
+          "text": "Y después podemos ajustar cada escena manualmente.",
+          "voiceId": "voz-davefx-es-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ],
+      "transitionToNext": { "preset": "fade", "durationSeconds": 0.35 }
+    },
+    {
+      "id": "escena-cierre",
+      "title": "Edición manual",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-zoom"
+      },
+      "elements": [
+        {
+          "id": "presentadora",
+          "type": "character",
+          "resourceId": "mono-azul-v1",
+          "transform": { "x": 540, "y": 1110, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.78, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "point",
+          "animationPreset": "talk-calm"
+        },
+        {
+          "id": "mensaje-final",
+          "type": "text",
+          "text": "Generar, editar y exportar localmente",
+          "stylePreset": "title",
+          "transform": { "x": 540, "y": 230, "anchorX": 0.5, "anchorY": 0.5, "scale": 1, "rotationDegrees": 0, "opacity": 1, "zIndex": 40 }
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-cierre-01",
+          "speakerElementId": "presentadora",
+          "text": "El mismo proyecto sirve para generar, editar y exportar sin perder el control.",
+          "voiceId": "voz-daniela-ar-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}

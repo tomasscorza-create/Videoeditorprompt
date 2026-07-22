@@ -10,15 +10,20 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] 2F.1 implementa el piloto de calidad con dos personajes y voces, boca RMS estabilizada y actuación por turnos.
 - [x] 2F.2 implementa definición geométrica segura, dos variantes, joints, poses, manifest v2 y catálogo por IDs.
 - [x] Pipeline paramétrico verificado: 54/54 controles, preview PixiJS y dos MP4 deterministas.
-- [ ] Revisar auditiva y visualmente `piloto-calidad-dialogo-01` y registrar defectos concretos.
-- [ ] Revisar visualmente `piloto-parametrico-01`: variantes, capas, pose neutral/point y consistencia preview/MP4.
-- [ ] Confirmar con el trabajo UX de Claude que catálogo, variante y pose pueden representarse sin inventar contratos.
-- [ ] Aprobar explícitamente el gate conjunto de 2F o solicitar ajustes acotados.
-- [ ] Comenzar 3A —varias escenas y transiciones— únicamente después de aprobar ese gate.
+- [x] Usuario revisó y aprobó el gate 2F; calidad de voz, boca y actuación queda como ajuste fino no bloqueante.
+- [x] 3A.0 define proyecto editable v1, catálogo de autoría, coordenadas de canvas, voces por ID y transiciones cerradas.
+- [x] Piloto `proyecto-editable-01` con dos escenas validado estructural y semánticamente.
+- [x] 3A.1 compila recursos, voces, transforms y transiciones a configuraciones v2 por escena con hashes deterministas.
+- [x] El compilador rechaza texto, imágenes y transforms todavía no representables; no descarta decisiones de autoría silenciosamente.
+- [x] 3A.2 prepara cada escena con TTS/FFprobe en jobs aislados y ensambla cortes/fundidos en un MP4 determinista.
+- [x] Piloto multiescena: 2 escenas, 13,683 s calculados, 11/11 controles finales y dos MP4 binariamente idénticos.
+- [x] 3B.0 implementa estado inmutable, comandos cerrados, selección por ID, coordenadas, diálogo, transiciones, undo/redo y exportación portable.
+- [ ] Próximo gate 3B.1: conectar la UX/UI al núcleo, abrir un proyecto real, editarlo y descargar el JSON sin escribirlo manualmente.
+- [ ] Después: puente local seguro para congelar el proyecto exportado y lanzar el pipeline headless.
 
-Evidencia vigente: `ETAPA_2F_CALIDAD_RESULTADOS.md` y `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.
+Evidencia vigente: `ETAPA_2F_CALIDAD_RESULTADOS.md`, `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.
 
-No comenzar todavía el editor, IA directora, React, Electron, lip sync fonético, backend ni funciones multiusuario.
+El próximo incremento debe conectar 3B.0 con la interfaz visual. No incorporar todavía IA directora, Electron, timeline profesional, lip sync fonético, backend ni funciones multiusuario.
 
 ## Antes de comenzar
 
