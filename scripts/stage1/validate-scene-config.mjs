@@ -17,7 +17,9 @@ const handKeys = ['handNeutral', 'handPoint'];
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateSchemaV1 = ajv.compile(readSchema('scene-config.schema.json'));
 const validateSchemaV2 = ajv.compile(readSchema('scene-config-v2.schema.json'));
-const validateCharacterSchema = ajv.compile(readSchema('character-manifest.schema.json'));
+const validateCharacterSchemaV1 = ajv.compile(readSchema('character-manifest.schema.json'));
+const validateCharacterSchemaV2 = ajv.compile(readSchema('character-manifest-v2.schema.json'));
+const validateAssetCatalogSchema = ajv.compile(readSchema('asset-catalog.schema.json'));
 
 export function loadAndValidateJobConfig(context) {
   if (context.config) return context.config;
@@ -172,16 +174,63 @@ function resolveDialogueAssets(config, context) {
     }),
   } : null;
   context.characterRig = null;
+  const catalog = config.assetCatalog ? resolveAssetCatalog(context, config.assetCatalog) : null;
+  context.assetCatalog = catalog;
   context.resolvedCharacters = config.characters.map((character, index) => {
-    const resolved = resolveCharacterManifest(context, character.characterManifest, `/characters/${index}/characterManifest`);
+    let manifestPath = character.characterManifest;
+    let catalogEntry = null;
+    if (character.characterAssetId) {
+      if (!catalog) semanticError(`/characters/${index}/characterAssetId`, 'requiere /assetCatalog');
+      catalogEntry = catalog.entries.find((entry) => entry.id === character.characterAssetId);
+      if (!catalogEntry) semanticError(`/characters/${index}/characterAssetId`, 'debe existir en /assetCatalog');
+      manifestPath = catalogEntry.manifest;
+    }
+    const resolved = resolveCharacterManifest(context, manifestPath, character.characterAssetId
+      ? `/characters/${index}/characterAssetId`
+      : `/characters/${index}/characterManifest`);
     return {
       id: character.id,
       assets: resolved.assets,
       characterRig: resolved.characterRig,
       transform: character.transform,
       blink: character.blink,
+      ...(catalogEntry ? { catalogEntry: { id: catalogEntry.id, thumbnail: catalogEntry.thumbnail } } : {}),
     };
   });
+}
+
+function resolveAssetCatalog(context, catalogPath) {
+  assertPortableRelativePath(catalogPath, '/assetCatalog');
+  const catalogFile = resolveAsset(context, catalogPath, 'assetCatalog');
+  let catalog;
+  try {
+    catalog = JSON.parse(readFileSync(catalogFile, 'utf8'));
+  } catch (error) {
+    throw new PipelineError({
+      code: 'ASSET_CATALOG_JSON_INVALID',
+      stage: 'validating_config',
+      message: 'El catálogo de assets no contiene JSON válido.',
+      technicalDetail: error instanceof SyntaxError ? error.message : undefined,
+      suggestedAction: 'Corrija o regenere el catálogo local.',
+    });
+  }
+  assertSchema(validateAssetCatalogSchema, catalog, {
+    code: 'ASSET_CATALOG_SCHEMA_INVALID',
+    message: 'El catálogo de assets no cumple el contrato versión 1.',
+    suggestedAction: 'Regenere el catálogo desde definiciones válidas.',
+  });
+  const ids = new Set();
+  assertPortableRelativePath(catalog.generatedFrom, '/assetCatalog/generatedFrom');
+  resolveAsset(context, catalog.generatedFrom, 'assetCatalog/generatedFrom');
+  for (const [index, entry] of catalog.entries.entries()) {
+    if (ids.has(entry.id)) semanticError(`/assetCatalog/entries/${index}/id`, 'debe ser único');
+    ids.add(entry.id);
+    for (const [name, value] of [['manifest', entry.manifest], ['thumbnail', entry.thumbnail]]) {
+      assertPortableRelativePath(value, `/assetCatalog/entries/${index}/${name}`);
+      resolveAsset(context, value, `assetCatalog/${entry.id}/${name}`);
+    }
+  }
+  return { path: catalogPath, entries: catalog.entries, generatedFrom: catalog.generatedFrom };
 }
 
 function resolveCharacterManifest(context, manifestPath, jsonPath) {
@@ -199,9 +248,10 @@ function resolveCharacterManifest(context, manifestPath, jsonPath) {
       suggestedAction: 'Corrija la sintaxis del manifest del personaje.',
     });
   }
+  const validateCharacterSchema = manifest?.version === 2 ? validateCharacterSchemaV2 : validateCharacterSchemaV1;
   assertSchema(validateCharacterSchema, manifest, {
     code: 'CHARACTER_MANIFEST_SCHEMA_INVALID',
-    message: 'El manifest del personaje no cumple el contrato versión 1.',
+    message: `El manifest del personaje no cumple el contrato versión ${manifest?.version ?? 'desconocida'}.`,
     suggestedAction: 'Revise ID, canvas, pivot, capas y procedencia del personaje.',
   });
   const manifestDirectory = path.posix.dirname(manifestPath);
@@ -221,6 +271,11 @@ function resolveCharacterManifest(context, manifestPath, jsonPath) {
     assets[name] = path.posix.join(manifestDirectory, relativePath);
     resolveAsset(context, assets[name], `${jsonPath}/${name}`);
   }
+  if (manifest.version === 2) {
+    validateCharacterRigSemantics(manifest, jsonPath);
+    assertPortableRelativePath(manifest.sourceDefinition, `${jsonPath}/sourceDefinition`);
+    resolveAsset(context, manifest.sourceDefinition, `${jsonPath}/sourceDefinition`);
+  }
   return {
     assets,
     characterRig: {
@@ -229,8 +284,51 @@ function resolveCharacterManifest(context, manifestPath, jsonPath) {
       manifestPath,
       pivot: manifest.pivot,
       provenance: manifest.provenance,
+      ...(manifest.version === 2 ? {
+        sourceDefinition: manifest.sourceDefinition,
+        variant: manifest.variant,
+        joints: manifest.joints,
+        poses: manifest.poses,
+      } : {}),
     },
   };
+}
+
+function validateCharacterRigSemantics(manifest, jsonPath) {
+  const jointIds = new Set();
+  for (const [index, joint] of manifest.joints.entries()) {
+    if (jointIds.has(joint.id)) characterManifestSemanticError(`${jsonPath}/joints/${index}/id`, 'debe ser único');
+    jointIds.add(joint.id);
+  }
+  if (manifest.joints.filter((joint) => joint.parentId === null).length !== 1) {
+    characterManifestSemanticError(`${jsonPath}/joints`, 'debe contener exactamente una raíz');
+  }
+  for (const [index, joint] of manifest.joints.entries()) {
+    if (joint.parentId !== null && !jointIds.has(joint.parentId)) {
+      characterManifestSemanticError(`${jsonPath}/joints/${index}/parentId`, 'debe referenciar un joint existente');
+    }
+    const visited = new Set([joint.id]);
+    let parentId = joint.parentId;
+    while (parentId !== null) {
+      if (visited.has(parentId)) characterManifestSemanticError(`${jsonPath}/joints/${index}`, 'no puede formar un ciclo');
+      visited.add(parentId);
+      parentId = manifest.joints.find((candidate) => candidate.id === parentId)?.parentId ?? null;
+    }
+  }
+  const poseIds = new Set();
+  for (const [poseIndex, pose] of manifest.poses.entries()) {
+    if (poseIds.has(pose.id)) characterManifestSemanticError(`${jsonPath}/poses/${poseIndex}/id`, 'debe ser único');
+    poseIds.add(pose.id);
+    const poseJoints = new Set();
+    for (const [jointIndex, item] of pose.joints.entries()) {
+      if (!jointIds.has(item.jointId)) characterManifestSemanticError(`${jsonPath}/poses/${poseIndex}/joints/${jointIndex}/jointId`, 'debe referenciar un joint existente');
+      if (poseJoints.has(item.jointId)) characterManifestSemanticError(`${jsonPath}/poses/${poseIndex}/joints/${jointIndex}/jointId`, 'no puede repetirse dentro de la pose');
+      poseJoints.add(item.jointId);
+    }
+  }
+  for (const required of ['neutral', 'point']) {
+    if (!poseIds.has(required)) characterManifestSemanticError(`${jsonPath}/poses`, `debe incluir ${required}`);
+  }
 }
 
 function validateGestureOrder(gestures) {
@@ -278,6 +376,16 @@ function semanticError(jsonPath, rule) {
     message: 'La configuración contiene valores incompatibles entre sí.',
     technicalDetail: `${jsonPath} ${rule}`,
     suggestedAction: 'Corrija la relación indicada entre los valores.',
+  });
+}
+
+function characterManifestSemanticError(jsonPath, rule) {
+  throw new PipelineError({
+    code: 'CHARACTER_MANIFEST_SEMANTIC_INVALID',
+    stage: 'validating_config',
+    message: 'El rig del personaje contiene referencias incompatibles.',
+    technicalDetail: `${jsonPath} ${rule}`,
+    suggestedAction: 'Corrija la jerarquía de joints y las poses del manifest.',
   });
 }
 

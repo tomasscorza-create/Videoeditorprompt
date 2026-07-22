@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "id": "mono-parametrico-v1",
+  "canvas": { "width": 1080, "height": 1920 },
+  "pivot": { "x": 540, "y": 960 },
+  "variants": [
+    {
+      "id": "azul",
+      "outputId": "mono-parametrico-azul-v1",
+      "label": "Mono presentador azul",
+      "palette": {
+        "outline": "#24150f",
+        "fur": "#9a5636",
+        "lightFur": "#d89a69",
+        "suit": "#24385f",
+        "shirt": "#f4e9d9",
+        "accent": "#e35b55",
+        "white": "#fffaf0",
+        "mouthDark": "#3a1720",
+        "tongue": "#ef7c78",
+        "shadow": "#0a102059"
+      }
+    },
+    {
+      "id": "ciruela",
+      "outputId": "mono-parametrico-ciruela-v1",
+      "label": "Mono analista ciruela",
+      "palette": {
+        "outline": "#20151c",
+        "fur": "#68453d",
+        "lightFur": "#c78c72",
+        "suit": "#5a294f",
+        "shirt": "#fff1d6",
+        "accent": "#f2b84b",
+        "white": "#fffaf0",
+        "mouthDark": "#351923",
+        "tongue": "#ef8085",
+        "shadow": "#0a102059"
+      }
+    }
+  ],
+  "joints": [
+    { "id": "root", "parentId": null, "x": 540, "y": 960, "pivotX": 540, "pivotY": 960 },
+    { "id": "head", "parentId": "root", "x": 540, "y": 700, "pivotX": 540, "pivotY": 700 },
+    { "id": "shoulder_left", "parentId": "root", "x": 390, "y": 1010, "pivotX": 390, "pivotY": 1010 },
+    { "id": "shoulder_right", "parentId": "root", "x": 690, "y": 1010, "pivotX": 690, "pivotY": 1010 },
+    { "id": "elbow_right", "parentId": "shoulder_right", "x": 770, "y": 1130, "pivotX": 770, "pivotY": 1130 },
+    { "id": "wrist_right", "parentId": "elbow_right", "x": 790, "y": 1260, "pivotX": 790, "pivotY": 1260 }
+  ],
+  "poses": [
+    {
+      "id": "neutral",
+      "handState": "neutral",
+      "joints": [
+        { "jointId": "shoulder_right", "rotationDegrees": 0 },
+        { "jointId": "elbow_right", "rotationDegrees": 0 }
+      ]
+    },
+    {
+      "id": "point",
+      "handState": "point",
+      "joints": [
+        { "jointId": "shoulder_right", "rotationDegrees": -42 },
+        { "jointId": "elbow_right", "rotationDegrees": -24 },
+        { "jointId": "wrist_right", "rotationDegrees": -8 }
+      ]
+    }
+  ],
+  "layers": {
+    "body": [
+      { "type": "ellipse", "cx": 540, "cy": 1440, "rx": 260, "ry": 55, "fill": "$shadow" },
+      { "type": "path", "d": "M438 1260 C385 1335 375 1410 405 1450 L490 1450 C500 1380 505 1325 515 1260 Z", "fill": "$suit", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
+      { "type": "path", "d": "M565 1260 C575 1325 585 1380 590 1450 L675 1450 C705 1410 695 1335 642 1260 Z", "fill": "$suit", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
+      { "type": "ellipse", "cx": 447, "cy": 1452, "rx": 75, "ry": 30, "fill": "$outline" },
+      { "type": "ellipse", "cx": 633, "cy": 1452, "rx": 75, "ry": 30, "fill": "$outline" },
+      { "type": "path", "d": "M350 950 C315 1050 320 1215 390 1320 C470 1365 610 1365 690 1320 C760 1215 765 1050 730 950 C645 900 435 900 350 950 Z", "fill": "$suit", "stroke": "$outline", "strokeWidth": 18, "lineJoin": "round" },
+      { "type": "polygon", "points": [{ "x": 470, "y": 935 }, { "x": 540, "y": 1065 }, { "x": 610, "y": 935 }], "fill": "$shirt", "stroke": "$outline", "strokeWidth": 12 },
+      { "type": "polygon", "points": [{ "x": 520, "y": 1055 }, { "x": 560, "y": 1055 }, { "x": 582, "y": 1195 }, { "x": 540, "y": 1240 }, { "x": 498, "y": 1195 }], "fill": "$accent", "stroke": "$outline", "strokeWidth": 11 },
+      { "type": "path", "d": "M365 980 C270 1025 238 1160 290 1250 C320 1298 373 1288 390 1240 C350 1170 365 1090 420 1045 Z", "fill": "$fur", "stroke": "$outline", "strokeWidth": 18, "lineJoin": "round" },
+      { "type": "ellipse", "cx": 305, "cy": 1270, "rx": 55, "ry": 62, "fill": "$lightFur", "stroke": "$outline", "strokeWidth": 15 },
+      { "type": "ellipse", "cx": 325, "cy": 650, "rx": 115, "ry": 142, "fill": "$fur", "stroke": "$outline", "strokeWidth": 18 },
+      { "type": "ellipse", "cx": 755, "cy": 650, "rx": 115, "ry": 142, "fill": "$fur", "stroke": "$outline", "strokeWidth": 18 },
+      { "type": "ellipse", "cx": 325, "cy": 650, "rx": 63, "ry": 82, "fill": "$lightFur", "stroke": "$outline", "strokeWidth": 12 },
+      { "type": "ellipse", "cx": 755, "cy": 650, "rx": 63, "ry": 82, "fill": "$lightFur", "stroke": "$outline", "strokeWidth": 12 },
+      { "type": "path", "d": "M365 500 C420 410 650 405 715 500 C780 595 752 815 650 900 C590 950 490 950 430 900 C328 815 300 595 365 500 Z", "fill": "$fur", "stroke": "$outline", "strokeWidth": 20, "lineJoin": "round" },
+      { "type": "path", "d": "M405 500 C455 430 625 430 675 500 C635 485 590 480 540 480 C490 480 445 485 405 500 Z", "fill": "$outline" },
+      { "type": "path", "d": "M390 690 C410 590 670 590 690 690 C715 810 635 895 540 895 C445 895 365 810 390 690 Z", "fill": "$lightFur", "stroke": "$outline", "strokeWidth": 14, "lineJoin": "round" },
+      { "type": "ellipse", "cx": 540, "cy": 740, "rx": 42, "ry": 32, "fill": "$outline" },
+      { "type": "path", "d": "M510 743 Q540 770 570 743", "fill": "none", "stroke": "$outline", "strokeWidth": 10, "lineCap": "round" }
+    ],
+    "eyes": {
+      "open": [
+        { "type": "ellipse", "cx": 475, "cy": 620, "rx": 48, "ry": 58, "fill": "$white", "stroke": "$outline", "strokeWidth": 12 },
+        { "type": "ellipse", "cx": 605, "cy": 620, "rx": 48, "ry": 58, "fill": "$white", "stroke": "$outline", "strokeWidth": 12 },
+        { "type": "ellipse", "cx": 486, "cy": 630, "rx": 20, "ry": 20, "fill": "$outline" },
+        { "type": "ellipse", "cx": 616, "cy": 630, "rx": 20, "ry": 20, "fill": "$outline" },
+        { "type": "ellipse", "cx": 492, "cy": 622, "rx": 6, "ry": 6, "fill": "$white" },
+        { "type": "ellipse", "cx": 622, "cy": 622, "rx": 6, "ry": 6, "fill": "$white" },
+        { "type": "path", "d": "M430 555 Q475 525 515 550 M565 550 Q610 525 650 555", "fill": "none", "stroke": "$outline", "strokeWidth": 14, "lineCap": "round" }
+      ],
+      "closed": [
+        { "type": "path", "d": "M430 625 Q475 655 520 625 M560 625 Q605 655 650 625", "fill": "none", "stroke": "$outline", "strokeWidth": 16, "lineCap": "round" },
+        { "type": "path", "d": "M430 555 Q475 525 515 550 M565 550 Q610 525 650 555", "fill": "none", "stroke": "$outline", "strokeWidth": 14, "lineCap": "round" }
+      ]
+    },
+    "mouth": {
+      "closed": [
+        { "type": "path", "d": "M478 815 Q540 840 602 815", "fill": "none", "stroke": "$outline", "strokeWidth": 15, "lineCap": "round" }
+      ],
+      "medium": [
+        { "type": "ellipse", "cx": 540, "cy": 820, "rx": 63, "ry": 30, "fill": "$mouthDark", "stroke": "$outline", "strokeWidth": 12 },
+        { "type": "path", "d": "M498 828 Q540 850 582 828", "fill": "none", "stroke": "$tongue", "strokeWidth": 10, "lineCap": "round" }
+      ],
+      "open": [
+        { "type": "ellipse", "cx": 540, "cy": 825, "rx": 68, "ry": 58, "fill": "$mouthDark", "stroke": "$outline", "strokeWidth": 13 },
+        { "type": "path", "d": "M495 846 Q540 878 585 846", "fill": "$tongue", "stroke": "$tongue", "strokeWidth": 10, "lineCap": "round" }
+      ]
+    },
+    "hands": {
+      "neutral": [
+        { "type": "path", "d": "M710 980 C810 1025 842 1160 790 1250 C760 1298 707 1288 690 1240 C730 1170 715 1090 660 1045 Z", "fill": "$fur", "stroke": "$outline", "strokeWidth": 18, "lineJoin": "round" },
+        { "type": "ellipse", "cx": 775, "cy": 1270, "rx": 55, "ry": 62, "fill": "$lightFur", "stroke": "$outline", "strokeWidth": 15 }
+      ],
+      "point": [
+        { "type": "path", "d": "M710 985 C785 965 840 900 875 805 C893 758 855 725 815 755 C775 805 735 855 665 920 Z", "fill": "$fur", "stroke": "$outline", "strokeWidth": 18, "lineJoin": "round" },
+        { "type": "ellipse", "cx": 866, "cy": 770, "rx": 53, "ry": 58, "fill": "$lightFur", "stroke": "$outline", "strokeWidth": 14, "rotationDegrees": -25 },
+        { "type": "path", "d": "M890 744 L994 690 C1025 675 1045 715 1012 737 L915 800 Z", "fill": "$lightFur", "stroke": "$outline", "strokeWidth": 14, "lineJoin": "round" },
+        { "type": "path", "d": "M850 765 Q875 820 915 800", "fill": "none", "stroke": "$outline", "strokeWidth": 11, "lineCap": "round" }
+      ]
+    }
+  },
+  "provenance": {
+    "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

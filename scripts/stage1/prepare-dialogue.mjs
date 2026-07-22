@@ -82,6 +82,7 @@ export function prepareDialogueJob(context, config, report) {
     id: character.id,
     assets: character.assets,
     characterRig: character.characterRig,
+    ...(character.catalogEntry ? { catalogEntry: character.catalogEntry } : {}),
     transform: character.transform,
     blinks: buildBlinkSchedule(durationSeconds, character.blink),
   }));

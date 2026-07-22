@@ -26,6 +26,11 @@ export function verifyDialogueJob(context, config) {
   check('Hablantes referencian personajes', dialogue.turns.every((turn) => runtime.characters.some((character) => character.id === turn.speakerId)), true);
   check('Audio maestro portable', !path.isAbsolute(runtime.audio.path) && !path.isAbsolute(runtime.dialoguePath), [runtime.audio.path, runtime.dialoguePath]);
   check('Assets y manifests portables', runtime.characters.every((character) => !path.isAbsolute(character.characterRig.manifestPath) && Object.values(character.assets).every((value) => !path.isAbsolute(value))), true);
+  if (runtime.characters.every((character) => character.characterRig.version === 2)) {
+    check('Rigs paramétricos versión 2', runtime.characters.every((character) => character.characterRig.sourceDefinition && !path.isAbsolute(character.characterRig.sourceDefinition)), runtime.characters.map((character) => character.characterRig.id));
+    check('Joints y poses compilados', runtime.characters.every((character) => character.characterRig.joints.length >= 4 && ['neutral', 'point'].every((pose) => character.characterRig.poses.some((item) => item.id === pose))), runtime.characters.map((character) => ({ id: character.id, joints: character.characterRig.joints.length, poses: character.characterRig.poses.map((pose) => pose.id) })));
+    check('IDs de catálogo conservados', runtime.characters.every((character) => character.catalogEntry?.id), runtime.characters.map((character) => character.catalogEntry?.id));
+  }
   if (new Set(config.characters.map((character) => character.characterManifest)).size === config.characters.length) {
     check('Rigs de personajes distinguibles', new Set(runtime.characters.map((character) => character.characterRig.id)).size === runtime.characters.length, runtime.characters.map((character) => character.characterRig.id));
   }

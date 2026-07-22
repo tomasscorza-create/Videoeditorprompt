@@ -26,6 +26,7 @@
         "background": { "$ref": "#/$defs/assetPath" }
       }
     },
+    "assetCatalog": { "$ref": "#/$defs/assetPath" },
     "backgroundAnimation": {
       "type": "object",
       "additionalProperties": false,
@@ -70,10 +71,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "characterManifest", "transform", "blink"],
+        "required": ["id", "transform", "blink"],
+        "oneOf": [
+          { "properties": { "characterManifest": { "$ref": "#/$defs/assetPath" } }, "required": ["characterManifest"] },
+          { "properties": { "characterAssetId": { "$ref": "#/$defs/id" } }, "required": ["characterAssetId"] }
+        ],
         "properties": {
           "id": { "$ref": "#/$defs/id" },
           "characterManifest": { "$ref": "#/$defs/assetPath" },
+          "characterAssetId": { "$ref": "#/$defs/id" },
           "transform": { "$ref": "#/$defs/characterTransform" },
           "blink": { "$ref": "#/$defs/blink" }
         }

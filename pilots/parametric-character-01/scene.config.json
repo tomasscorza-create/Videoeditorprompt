@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "assets": { "background": "assets/backgrounds/studio-parallax-v1/far.png" },
+  "assetCatalog": "assets/catalog/index.json",
+  "backgroundAnimation": {
+    "layers": [
+      { "id": "far", "asset": "assets/backgrounds/studio-parallax-v1/far.png", "baseScale": 1.08, "parallaxX": 0.15, "parallaxY": 0.12 },
+      { "id": "mid", "asset": "assets/backgrounds/studio-parallax-v1/mid.png", "baseScale": 1.12, "parallaxX": 0.5, "parallaxY": 0.4 },
+      { "id": "front", "asset": "assets/backgrounds/studio-parallax-v1/front.png", "baseScale": 1.18, "parallaxX": 1, "parallaxY": 0.85 }
+    ],
+    "camera": { "fromX": -20, "toX": 20, "fromY": 3, "toY": -5, "fromZoom": 1, "toZoom": 1.02 }
+  },
+  "characters": [
+    {
+      "id": "presentadora",
+      "characterAssetId": "mono-parametrico-azul-v1",
+      "transform": { "fromX": -510, "toX": -250, "baseY": 145, "entrySeconds": 0.7, "bobAmplitude": 5, "bobPeriodSeconds": 3.1, "baseScale": 0.7, "scalePulse": 0.004 },
+      "blink": { "seed": 72011, "firstSeconds": 1.1, "minIntervalSeconds": 2.4, "maxIntervalSeconds": 4.3, "durationSeconds": 0.12 }
+    },
+    {
+      "id": "analista",
+      "characterAssetId": "mono-parametrico-ciruela-v1",
+      "transform": { "fromX": 510, "toX": 250, "baseY": 145, "entrySeconds": 0.85, "bobAmplitude": 4, "bobPeriodSeconds": 3.6, "baseScale": 0.7, "scalePulse": 0.003 },
+      "blink": { "seed": 91027, "firstSeconds": 1.7, "minIntervalSeconds": 2.7, "maxIntervalSeconds": 4.7, "durationSeconds": 0.12 }
+    }
+  ],
+  "dialogue": [
+    {
+      "id": "turno-01",
+      "speakerId": "presentadora",
+      "text": "Probemos una conversación breve. Yo hablo con calma, hago una pausa y dejo que la otra persona responda.",
+      "voice": { "model": "es_AR-daniela-high", "lengthScale": 1.08, "volume": 1 },
+      "gesture": "point",
+      "gapAfterSeconds": 0.35
+    },
+    {
+      "id": "turno-02",
+      "speakerId": "analista",
+      "text": "Te escucho. Cuando llega mi turno, la voz cambia y el movimiento acompaña sin exagerar.",
+      "voice": { "model": "es_ES-davefx-medium", "lengthScale": 1.04, "volume": 1 },
+      "gesture": "neutral",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "mouth": { "windowMs": 30, "smoothing": 0.42, "silenceThresholdNormalized": 0.12, "openThresholdNormalized": 0.46, "minStateDurationMs": 90 },
+  "subtitleStyle": { "fontSize": 46, "bottomMargin": 135 }
+}

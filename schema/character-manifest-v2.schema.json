@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/character-manifest-v2.json",
+  "title": "Manifest de personaje paramétrico compilado",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "canvas", "pivot", "sourceDefinition", "variant", "layers", "joints", "poses", "provenance"],
+  "properties": {
+    "version": { "const": 2 },
+    "id": { "$ref": "#/$defs/id" },
+    "canvas": {
+      "type": "object", "additionalProperties": false, "required": ["width", "height"],
+      "properties": { "width": { "const": 1080 }, "height": { "const": 1920 } }
+    },
+    "pivot": { "$ref": "#/$defs/point" },
+    "sourceDefinition": { "$ref": "#/$defs/assetPath" },
+    "variant": {
+      "type": "object", "additionalProperties": false, "required": ["id", "label", "palette"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "palette": {
+          "type": "object", "minProperties": 1, "maxProperties": 24,
+          "propertyNames": { "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,31}$" },
+          "additionalProperties": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$" }
+        }
+      }
+    },
+    "layers": { "$ref": "#/$defs/layers" },
+    "joints": { "type": "array", "minItems": 4, "maxItems": 32, "items": { "$ref": "#/$defs/joint" } },
+    "poses": { "type": "array", "minItems": 2, "maxItems": 24, "items": { "$ref": "#/$defs/pose" } },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "assetPath": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "point": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y"],
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+    },
+    "layers": {
+      "type": "object", "additionalProperties": false, "required": ["body", "eyes", "mouth", "hands", "thumbnails"],
+      "properties": {
+        "body": { "$ref": "#/$defs/assetPath" },
+        "eyes": {
+          "type": "object", "additionalProperties": false, "required": ["open", "closed"],
+          "properties": { "open": { "$ref": "#/$defs/assetPath" }, "closed": { "$ref": "#/$defs/assetPath" } }
+        },
+        "mouth": {
+          "type": "object", "additionalProperties": false, "required": ["closed", "medium", "open"],
+          "properties": {
+            "closed": { "$ref": "#/$defs/assetPath" }, "medium": { "$ref": "#/$defs/assetPath" }, "open": { "$ref": "#/$defs/assetPath" }
+          }
+        },
+        "hands": {
+          "type": "object", "additionalProperties": false, "required": ["neutral", "point"],
+          "properties": { "neutral": { "$ref": "#/$defs/assetPath" }, "point": { "$ref": "#/$defs/assetPath" } }
+        },
+        "thumbnails": {
+          "type": "object", "additionalProperties": false, "required": ["neutral", "point"],
+          "properties": { "neutral": { "$ref": "#/$defs/assetPath" }, "point": { "$ref": "#/$defs/assetPath" } }
+        }
+      }
+    },
+    "joint": {
+      "type": "object", "additionalProperties": false, "required": ["id", "parentId", "x", "y", "pivotX", "pivotY"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "parentId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "x": { "type": "number" }, "y": { "type": "number" }, "pivotX": { "type": "number" }, "pivotY": { "type": "number" }
+      }
+    },
+    "pose": {
+      "type": "object", "additionalProperties": false, "required": ["id", "handState", "joints"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "handState": { "enum": ["neutral", "point"] },
+        "joints": {
+          "type": "array", "maxItems": 32,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["jointId", "rotationDegrees"],
+            "properties": { "jointId": { "$ref": "#/$defs/id" }, "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180 } }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false, "required": ["source", "license"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "license": { "type": "string", "minLength": 1, "maxLength": 120 }
+      }
+    }
+  }
+}

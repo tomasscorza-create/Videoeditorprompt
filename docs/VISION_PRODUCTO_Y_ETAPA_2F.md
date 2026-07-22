@@ -2,7 +2,7 @@
 
 Fecha: 22 de julio de 2026.
 
-Estado: visión aprobada por el usuario y plan de trabajo previo a la Etapa 3A. Este documento define dirección, límites y criterios de validación; todavía no implementa IA, editor ni un nuevo schema ejecutable.
+Estado: visión aprobada por el usuario. 2F.0–2F.2 están implementadas técnicamente; falta la aprobación humana del gate completo antes de autorizar 3A. Este trabajo no implementa IA ni editor.
 
 ## Decisión principal
 
@@ -262,7 +262,7 @@ Estabilizar el vocabulario creativo mínimo y alcanzar una calidad aceptable en 
 
 No modifica schemas ni el pipeline vigente.
 
-### 2F.1 — piloto de calidad de voz, boca y actuación
+### 2F.1 — piloto de calidad de voz, boca y actuación — implementado técnicamente
 
 Alcance propuesto:
 
@@ -289,7 +289,7 @@ Criterios de aceptación:
 - preview y MP4 conservan los mismos estados temporales;
 - la repetición mantiene hashes temporales y frames deterministas.
 
-### 2F.2 — vertical slice de asset paramétrico y catálogo
+### 2F.2 — vertical slice de asset paramétrico y catálogo — implementado técnicamente
 
 Alcance propuesto:
 
@@ -304,6 +304,22 @@ Alcance propuesto:
 - prueba de compilación determinista.
 
 Este vertical slice valida el contrato. No incluye editor de dibujo, generación de imágenes con modelos, esqueleto avanzado ni biblioteca masiva.
+
+Resultado comprobado:
+
+- definición declarativa `mono-parametrico-v1` validada por JSON Schema y reglas semánticas;
+- dos variantes de paleta compiladas desde la misma geometría;
+- primitivas cerradas (`ellipse`, `rect`, `polygon` y `path`) sin scripts ni SVG arbitrario;
+- joints para raíz, cabeza, hombros, codo y muñeca, y poses `neutral`/`point`;
+- capas runtime y miniaturas PNG transparentes de 1080 × 1920;
+- manifest versión 2 y catálogo versión 1 con IDs, capacidades, licencia y procedencia;
+- configuración de escena que selecciona personajes por `characterAssetId`, sin rutas de manifest;
+- compilación repetida con hashes idénticos y pipeline completo de 319 frames determinista;
+- preview PixiJS y MP4 verificados con el mismo runtime.
+
+Límite deliberado: los joints y rotaciones ya forman un contrato portable, pero el runtime todavía selecciona capas PNG precompiladas. La aplicación continua de transforms jerárquicos pertenece a un incremento posterior, no a 2F.2.
+
+La evidencia completa está en `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`.
 
 ### Gate para comenzar 3A
 

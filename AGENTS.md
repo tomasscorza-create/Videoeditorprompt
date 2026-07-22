@@ -9,7 +9,7 @@ Construimos una herramienta local, dirigida por datos, para producir videos anim
 Estado vigente:
 
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
-- La Etapa 2F.0 está documentada y 2F.1 está implementada, pendiente de aprobación humana de calidad. Antes de 3A falta el vertical slice paramétrico/catalogado 2F.2.
+- La Etapa 2F.0 está documentada y 2F.1–2F.2 están implementadas y verificadas técnicamente. La calidad humana de 2F.1 y el gate conjunto de 2F deben aprobarse antes de comenzar 3A.
 - Existe un prototipo de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
@@ -79,11 +79,18 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `schema/scene-config.schema.json`: JSON Schema 2020-12 del contrato versión 1.
 - `schema/scene-config-v2.schema.json`: contrato de una escena con exactamente dos personajes, diálogo secuencial medido y gesto opcional por turno.
 - `schema/character-manifest.schema.json`: contrato versión 1 de un rig alineado con ojos, bocas y poses de manos.
+- `schema/parametric-character.schema.json`: definición geométrica declarativa y segura de un personaje y sus variantes.
+- `schema/character-manifest-v2.schema.json`: rig compilado con capas, miniaturas, joints, poses, variante y procedencia.
+- `schema/asset-catalog.schema.json`: índice local portable de assets seleccionables por ID.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.
 - `pilots/personaje-mono-01/scene.config.json`: piloto vigente del personaje animable real.
 - `pilots/dialogo-monos-01/scene.config.json`: piloto del contrato v2 con dos hablantes y tres turnos.
 - `pilots/fondo-parallax-01/scene.config.json`: piloto v2 con tres planos, paneo, zoom y parallax.
+- `pilots/parametric-character-01/scene.config.json`: piloto v2 que resuelve dos variantes mediante `characterAssetId` y catálogo.
 - `scripts/stage2c/generate-monkey-character.mjs`: generador determinista de las fuentes SVG y capas PNG del mono; no forma parte del render normal.
+- `scripts/stage2f/parametric-character.mjs`: compilador determinista de definición geométrica a SVG, PNG, manifest v2 y catálogo.
+- `public/assets/character-definitions/mono-parametrico-v1.json`: definición fuente del vertical slice 2F.2.
+- `public/assets/catalog/index.json`: catálogo mínimo con las dos variantes paramétricas.
 - `scripts/*.mjs`, `assets/` y `tts-test/`: evidencia/flujo legacy de Etapa 0. No usarlos como base para funciones nuevas.
 - `.local-video/`: trabajos y evidencia local regenerable; no versionar.
 
@@ -93,6 +100,8 @@ Comandos canónicos:
 npm run stage1:pipeline    # trabajo preview + publicación opcional
 npm run stage1:test-jobs   # dos trabajos headless y determinismo
 npm run stage2b:test-preview # publicación aislada e índice de previews
+npm run stage2f:test-parametric # seguridad, portabilidad y determinismo del compilador paramétrico
+npm run stage2f:parametric-pipeline # piloto por IDs del catálogo
 npm run build              # TypeScript + Vite
 ```
 
@@ -101,7 +110,8 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 ### Brechas vigentes (no confundir con capacidades implementadas)
 
 - Los contratos v1 y v2 están deliberadamente limitados a una escena; todavía no existe el contrato futuro de proyectos con varias escenas.
-- El contrato de rig versión 1 solo demuestra una pose neutral y `point`; todavía no modela un catálogo general de gestos. Las múltiples instancias y los turnos pertenecen al contrato de escena v2.
+- El rig versión 2 y el catálogo demuestran `neutral` y `point`, pero todavía no modelan una biblioteca general de gestos o animaciones.
+- Los joints y rotaciones del manifest v2 son metadatos validados; el runtime actual sigue alternando capas PNG de poses y todavía no aplica articulación continua por jerarquía.
 - El piloto 2D reutiliza el mismo rig y modelo Piper; 2F.1 agrega dos rigs y dos voces, pero su casting visual/vocal sigue pendiente de aprobación humana.
 - El fondo del piloto 2C es estático; cámara, parallax y elementos ambientales pertenecen a una etapa posterior.
 - 2E implementa paneo/zoom global y parallax por capa; todavía no existen keyframes libres, loops ambientales configurables ni varias escenas.

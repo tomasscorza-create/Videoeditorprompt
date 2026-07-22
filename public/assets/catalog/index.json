@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "generatedFrom": "assets/character-definitions/mono-parametrico-v1.json",
+  "entries": [
+    {
+      "id": "mono-parametrico-azul-v1",
+      "type": "character",
+      "label": "Mono presentador azul",
+      "manifest": "assets/characters/mono-parametrico-azul-v1/character.manifest.json",
+      "thumbnail": "assets/characters/mono-parametrico-azul-v1/pose_neutral.png",
+      "tags": [
+        "geometrico",
+        "mono",
+        "parametrico"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open"
+        ],
+        "joints": [
+          "root",
+          "head",
+          "shoulder_left",
+          "shoulder_right",
+          "elbow_right",
+          "wrist_right"
+        ]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "mono-parametrico-ciruela-v1",
+      "type": "character",
+      "label": "Mono analista ciruela",
+      "manifest": "assets/characters/mono-parametrico-ciruela-v1/character.manifest.json",
+      "thumbnail": "assets/characters/mono-parametrico-ciruela-v1/pose_neutral.png",
+      "tags": [
+        "geometrico",
+        "mono",
+        "parametrico"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open"
+        ],
+        "joints": [
+          "root",
+          "head",
+          "shoulder_left",
+          "shoulder_right",
+          "elbow_right",
+          "wrist_right"
+        ]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    }
+  ]
+}

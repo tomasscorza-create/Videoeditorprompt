@@ -2,7 +2,7 @@
 
 Fecha: 22 de julio de 2026.
 
-Estado: **implementación técnica completada; pendiente de aprobación humana auditiva y visual**. La Etapa 2F.2, definición paramétrica completa con pivotes y catálogo, todavía no está implementada.
+Estado de esta evidencia: **implementación técnica 2F.1 completada; pendiente de aprobación humana auditiva y visual**. Actualización posterior: 2F.2 ya fue implementada y se documenta por separado en `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`.
 
 ## Resultado
 
@@ -251,6 +251,6 @@ Si la segunda voz no resulta aceptable, conviene descartarla o usarla solo como 
 
 1. Aprobación auditiva/visual del piloto 2F.1 por el usuario.
 2. Corregir únicamente defectos observables de esa revisión.
-3. Ejecutar 2F.2: definición geométrica portable, pivotes/uniones, variantes, poses compiladas y catálogo mínimo por ID.
+3. Revisar la evidencia ya ejecutada de 2F.2: definición geométrica portable, joints, variantes, poses compiladas y catálogo mínimo por ID.
 4. Confirmar con Claude que el recorrido manual puede editar esos conceptos sin inventar contratos.
-5. Recién entonces comenzar 3A, varias escenas y transiciones.
+5. Aprobar el gate conjunto y recién entonces comenzar 3A, varias escenas y transiciones.

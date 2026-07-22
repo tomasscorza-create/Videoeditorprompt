@@ -26,7 +26,10 @@
     "stage2e:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-fondo-parallax-01 --config=pilots/fondo-parallax-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
     "stage2f:assets": "node scripts/stage2c/generate-monkey-character.mjs --variant=analista",
     "stage2f:test-quality": "node scripts/stage1/test-mouth-quality.mjs",
-    "stage2f:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-calidad-dialogo-01 --config=pilots/calidad-dialogo-01/scene.config.json --assets-dir=public --publish-dir=public/generated"
+    "stage2f:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-calidad-dialogo-01 --config=pilots/calidad-dialogo-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
+    "stage2f:parametric-assets": "node scripts/stage2f/generate-parametric-character.mjs --assets-dir=public --definition=assets/character-definitions/mono-parametrico-v1.json --output-base=assets/characters --catalog=assets/catalog/index.json",
+    "stage2f:test-parametric": "node scripts/stage2f/test-parametric-character.mjs",
+    "stage2f:parametric-pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-parametrico-01 --config=pilots/parametric-character-01/scene.config.json --assets-dir=public --publish-dir=public/generated"
   },
   "dependencies": {
     "ajv": "^8.20.0",

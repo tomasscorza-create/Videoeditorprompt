@@ -1,0 +1,137 @@
+{
+  "version": 2,
+  "id": "mono-parametrico-ciruela-v1",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/character-definitions/mono-parametrico-v1.json",
+  "variant": {
+    "id": "ciruela",
+    "label": "Mono analista ciruela",
+    "palette": {
+      "outline": "#20151c",
+      "fur": "#68453d",
+      "lightFur": "#c78c72",
+      "suit": "#5a294f",
+      "shirt": "#fff1d6",
+      "accent": "#f2b84b",
+      "white": "#fffaf0",
+      "mouthDark": "#351923",
+      "tongue": "#ef8085",
+      "shadow": "#0a102059"
+    }
+  },
+  "layers": {
+    "body": "body.png",
+    "eyes": {
+      "open": "eyes_open.png",
+      "closed": "eyes_closed.png"
+    },
+    "mouth": {
+      "closed": "mouth_closed.png",
+      "medium": "mouth_medium.png",
+      "open": "mouth_open.png"
+    },
+    "hands": {
+      "neutral": "hand_neutral.png",
+      "point": "hand_point.png"
+    },
+    "thumbnails": {
+      "neutral": "pose_neutral.png",
+      "point": "pose_point.png"
+    }
+  },
+  "joints": [
+    {
+      "id": "root",
+      "parentId": null,
+      "x": 540,
+      "y": 960,
+      "pivotX": 540,
+      "pivotY": 960
+    },
+    {
+      "id": "head",
+      "parentId": "root",
+      "x": 540,
+      "y": 700,
+      "pivotX": 540,
+      "pivotY": 700
+    },
+    {
+      "id": "shoulder_left",
+      "parentId": "root",
+      "x": 390,
+      "y": 1010,
+      "pivotX": 390,
+      "pivotY": 1010
+    },
+    {
+      "id": "shoulder_right",
+      "parentId": "root",
+      "x": 690,
+      "y": 1010,
+      "pivotX": 690,
+      "pivotY": 1010
+    },
+    {
+      "id": "elbow_right",
+      "parentId": "shoulder_right",
+      "x": 770,
+      "y": 1130,
+      "pivotX": 770,
+      "pivotY": 1130
+    },
+    {
+      "id": "wrist_right",
+      "parentId": "elbow_right",
+      "x": 790,
+      "y": 1260,
+      "pivotX": 790,
+      "pivotY": 1260
+    }
+  ],
+  "poses": [
+    {
+      "id": "neutral",
+      "handState": "neutral",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": 0
+        },
+        {
+          "jointId": "elbow_right",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "handState": "point",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -42
+        },
+        {
+          "jointId": "elbow_right",
+          "rotationDegrees": -24
+        },
+        {
+          "jointId": "wrist_right",
+          "rotationDegrees": -8
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

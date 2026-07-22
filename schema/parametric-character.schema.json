@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/parametric-character-v1.json",
+  "title": "Definición geométrica paramétrica de personaje",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "canvas", "pivot", "variants", "joints", "poses", "layers", "provenance"],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "$ref": "#/$defs/id" },
+    "canvas": { "$ref": "#/$defs/canvas" },
+    "pivot": { "$ref": "#/$defs/point" },
+    "variants": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "outputId", "label", "palette"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "outputId": { "$ref": "#/$defs/id" },
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "palette": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 24,
+            "propertyNames": { "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,31}$" },
+            "additionalProperties": { "$ref": "#/$defs/hexColor" }
+          }
+        }
+      }
+    },
+    "joints": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/joint" }
+    },
+    "poses": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 24,
+      "items": { "$ref": "#/$defs/pose" }
+    },
+    "layers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body", "eyes", "mouth", "hands"],
+      "properties": {
+        "body": { "$ref": "#/$defs/shapeList" },
+        "eyes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["open", "closed"],
+          "properties": {
+            "open": { "$ref": "#/$defs/shapeList" },
+            "closed": { "$ref": "#/$defs/shapeList" }
+          }
+        },
+        "mouth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["closed", "medium", "open"],
+          "properties": {
+            "closed": { "$ref": "#/$defs/shapeList" },
+            "medium": { "$ref": "#/$defs/shapeList" },
+            "open": { "$ref": "#/$defs/shapeList" }
+          }
+        },
+        "hands": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["neutral", "point"],
+          "properties": {
+            "neutral": { "$ref": "#/$defs/shapeList" },
+            "point": { "$ref": "#/$defs/shapeList" }
+          }
+        }
+      }
+    },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "hexColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$" },
+    "color": {
+      "type": "string",
+      "pattern": "^(none|#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|\\$[a-zA-Z][a-zA-Z0-9_]{0,31})$"
+    },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": { "width": { "const": 1080 }, "height": { "const": 1920 } }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": -4320, "maximum": 4320 },
+        "y": { "type": "number", "minimum": -7680, "maximum": 7680 }
+      }
+    },
+    "joint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "parentId", "x", "y", "pivotX", "pivotY"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "parentId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "x": { "type": "number", "minimum": -4320, "maximum": 4320 },
+        "y": { "type": "number", "minimum": -7680, "maximum": 7680 },
+        "pivotX": { "type": "number", "minimum": -4320, "maximum": 4320 },
+        "pivotY": { "type": "number", "minimum": -7680, "maximum": 7680 }
+      }
+    },
+    "pose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "handState", "joints"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "handState": { "enum": ["neutral", "point"] },
+        "joints": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["jointId", "rotationDegrees"],
+            "properties": {
+              "jointId": { "$ref": "#/$defs/id" },
+              "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180 }
+            }
+          }
+        }
+      }
+    },
+    "shapeList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/shape" }
+    },
+    "shape": {
+      "oneOf": [
+        { "$ref": "#/$defs/ellipse" },
+        { "$ref": "#/$defs/rect" },
+        { "$ref": "#/$defs/path" },
+        { "$ref": "#/$defs/polygon" }
+      ]
+    },
+    "ellipse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "cx", "cy", "rx", "ry", "fill"],
+      "properties": {
+        "type": { "const": "ellipse" },
+        "cx": { "type": "number" }, "cy": { "type": "number" },
+        "rx": { "type": "number", "exclusiveMinimum": 0 }, "ry": { "type": "number", "exclusiveMinimum": 0 },
+        "fill": { "$ref": "#/$defs/color" }, "stroke": { "$ref": "#/$defs/color" },
+        "strokeWidth": { "type": "number", "minimum": 0, "maximum": 200 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180 }
+      }
+    },
+    "rect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "x", "y", "width", "height", "fill"],
+      "properties": {
+        "type": { "const": "rect" },
+        "x": { "type": "number" }, "y": { "type": "number" },
+        "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 },
+        "rx": { "type": "number", "minimum": 0 }, "fill": { "$ref": "#/$defs/color" },
+        "stroke": { "$ref": "#/$defs/color" }, "strokeWidth": { "type": "number", "minimum": 0, "maximum": 200 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "d", "fill"],
+      "properties": {
+        "type": { "const": "path" },
+        "d": { "type": "string", "minLength": 1, "maxLength": 4000, "pattern": "^[MmLlHhVvCcSsQqTtAaZz0-9eE+.,\\s-]+$" },
+        "fill": { "$ref": "#/$defs/color" }, "stroke": { "$ref": "#/$defs/color" },
+        "strokeWidth": { "type": "number", "minimum": 0, "maximum": 200 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lineCap": { "enum": ["butt", "round", "square"] },
+        "lineJoin": { "enum": ["miter", "round", "bevel"] }
+      }
+    },
+    "polygon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "points", "fill"],
+      "properties": {
+        "type": { "const": "polygon" },
+        "points": { "type": "array", "minItems": 3, "maxItems": 64, "items": { "$ref": "#/$defs/point" } },
+        "fill": { "$ref": "#/$defs/color" }, "stroke": { "$ref": "#/$defs/color" },
+        "strokeWidth": { "type": "number", "minimum": 0, "maximum": 200 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "license"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "license": { "type": "string", "minLength": 1, "maxLength": 120 }
+      }
+    }
+  }
+}

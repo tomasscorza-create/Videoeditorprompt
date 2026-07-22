@@ -248,9 +248,9 @@ Esta rama permite resolver y probar la combinación sin romper `main`. Después 
 - Se hace una demostración conjunta por hito, no por cada archivo.
 - Solo se integra a `main` cuando motor e interfaz coinciden en el flujo demostrado.
 
-El próximo hito conjunto recomendado, después de completar técnicamente 2E, es:
+El próximo hito conjunto recomendado, después de completar técnicamente 2F.2, es revisar y cerrar el gate 2F:
 
-- **Codex:** Etapa 2F, primero calidad de voz/boca/actuación y después el vertical slice paramétrico/catalogado.
-- **Claude:** diseñar el recorrido prompt → preguntas/variantes → proyecto editable y los controles manuales contra el brief 2F, usando datos simulados y registrando necesidades de contrato.
+- **Codex:** mantener estables `asset-catalog` v1, `character-manifest` v2 y la resolución por `characterAssetId`; atender únicamente correcciones observadas durante la revisión.
+- **Claude:** representar en UX el recorrido prompt → preguntas/variantes → proyecto editable usando los dos IDs reales del catálogo, las poses `neutral`/`point` y las capacidades declaradas; registrar cualquier dato faltante como necesidad de contrato.
 
-Al superar el gate 2F, Codex retomará 3A y Claude podrá adaptar sus componentes a los schemas ejecutables aprobados.
+Al superar el gate 2F, Codex retomará 3A y Claude podrá adaptar sus componentes a estos schemas ejecutables aprobados. Los joints del manifest v2 son por ahora metadatos: la UI no debe prometer manipulación articular continua hasta que el runtime la implemente.
