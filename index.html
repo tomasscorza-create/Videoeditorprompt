@@ -8,12 +8,6 @@
   <body>
     <main class="layout">
       <section class="panel">
-        <div class="scene-picker">
-          <span class="scene-picker-label">Escena</span>
-          <div class="scene-gallery" id="scene-gallery" role="listbox" aria-label="Escenas disponibles">
-            <p class="scene-gallery-empty">Cargando escenas…</p>
-          </div>
-        </div>
         <p id="job-meta" class="job-meta" aria-live="polite">Leyendo índice local…</p>
         <div class="controls">
           <button id="play" type="button" class="button-primary" disabled>Reproducir</button>
@@ -46,6 +40,14 @@
           </div>
         </div>
       </section>
+      <aside class="sidebar-right">
+        <div class="scene-picker">
+          <span class="scene-picker-label">Escenas</span>
+          <div class="scene-gallery" id="scene-gallery" role="listbox" aria-label="Escenas disponibles">
+            <p class="scene-gallery-empty">Cargando escenas…</p>
+          </div>
+        </div>
+      </aside>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

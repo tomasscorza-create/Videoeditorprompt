@@ -109,11 +109,11 @@ button:disabled {
    sin el hueco muerto que dejaba el 1fr expandido. */
 .layout {
   display: grid;
-  grid-template-columns: minmax(18rem, 23rem) auto;
+  grid-template-columns: minmax(16rem, 22rem) auto minmax(10rem, 14rem);
   gap: var(--space-6);
   align-items: center;
   justify-content: center;
-  max-width: 74rem;
+  max-width: 90rem;
   margin: 0 auto;
   min-height: 100vh;
   padding: var(--space-6);
@@ -139,9 +139,11 @@ button:disabled {
 
 .scene-gallery {
   display: flex;
+  flex-direction: column;
   gap: var(--space-2);
-  overflow-x: auto;
-  padding-bottom: var(--space-1);
+  overflow-y: auto;
+  max-height: 75vh;
+  padding-right: var(--space-1);
   scrollbar-width: thin;
 }
 
@@ -153,7 +155,7 @@ button:disabled {
 
 .scene-card {
   flex: 0 0 auto;
-  width: 96px;
+  width: 100%;
   display: grid;
   gap: var(--space-1);
   padding: var(--space-2);
@@ -392,9 +394,12 @@ dd { margin: 0; font-weight: 650; }
 /* ==========================================================================
    Responsive
    ========================================================================== */
-@media (max-width: 850px) {
+@media (max-width: 950px) {
   .layout { grid-template-columns: 1fr; }
   .panel { max-width: none; }
+  .sidebar-right { order: -1; } /* Poner galería arriba en móvil */
+  .scene-gallery { flex-direction: row; overflow-x: auto; overflow-y: hidden; max-height: auto; }
+  .scene-card { width: 120px; }
   .canvas-shell canvas { height: min(75vh, 800px); }
 }
 
