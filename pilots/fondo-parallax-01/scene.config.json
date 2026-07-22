@@ -1,0 +1,108 @@
+{
+  "version": 2,
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "assets": {
+    "background": "assets/backgrounds/studio-parallax-v1/far.png"
+  },
+  "backgroundAnimation": {
+    "layers": [
+      {
+        "id": "far",
+        "asset": "assets/backgrounds/studio-parallax-v1/far.png",
+        "baseScale": 1.08,
+        "parallaxX": 0.15,
+        "parallaxY": 0.12
+      },
+      {
+        "id": "mid",
+        "asset": "assets/backgrounds/studio-parallax-v1/mid.png",
+        "baseScale": 1.12,
+        "parallaxX": 0.5,
+        "parallaxY": 0.4
+      },
+      {
+        "id": "front",
+        "asset": "assets/backgrounds/studio-parallax-v1/front.png",
+        "baseScale": 1.18,
+        "parallaxX": 1,
+        "parallaxY": 0.85
+      }
+    ],
+    "camera": {
+      "fromX": -35,
+      "toX": 35,
+      "fromY": 6,
+      "toY": -10,
+      "fromZoom": 1,
+      "toZoom": 1.035
+    }
+  },
+  "characters": [
+    {
+      "id": "presentador",
+      "characterManifest": "assets/characters/mono-presentador-v1/character.manifest.json",
+      "transform": {
+        "fromX": -510,
+        "toX": -250,
+        "baseY": 145,
+        "entrySeconds": 0.65,
+        "bobAmplitude": 8,
+        "bobPeriodSeconds": 2.3,
+        "baseScale": 0.7,
+        "scalePulse": 0.008
+      },
+      "blink": {
+        "seed": 72011,
+        "firstSeconds": 0.9,
+        "minIntervalSeconds": 1.6,
+        "maxIntervalSeconds": 2.4,
+        "durationSeconds": 0.13
+      }
+    },
+    {
+      "id": "invitado",
+      "characterManifest": "assets/characters/mono-presentador-v1/character.manifest.json",
+      "transform": {
+        "fromX": 510,
+        "toX": 250,
+        "baseY": 145,
+        "entrySeconds": 0.75,
+        "bobAmplitude": 7,
+        "bobPeriodSeconds": 2.7,
+        "baseScale": 0.7,
+        "scalePulse": 0.007
+      },
+      "blink": {
+        "seed": 91027,
+        "firstSeconds": 1.25,
+        "minIntervalSeconds": 1.7,
+        "maxIntervalSeconds": 2.5,
+        "durationSeconds": 0.13
+      }
+    }
+  ],
+  "dialogue": [
+    {
+      "id": "turno-01",
+      "speakerId": "presentador",
+      "text": "El fondo también se mueve.",
+      "voice": { "model": "es_AR-daniela-high", "lengthScale": 1.3, "volume": 1 },
+      "gapAfterSeconds": 0.25
+    },
+    {
+      "id": "turno-02",
+      "speakerId": "invitado",
+      "text": "Bien. Ahora la escena parece menos estática.",
+      "voice": { "model": "es_AR-daniela-high", "lengthScale": 1.65, "volume": 0.96 },
+      "gapAfterSeconds": 0
+    }
+  ],
+  "mouth": {
+    "windowMs": 30,
+    "smoothing": 0.55,
+    "silenceThresholdNormalized": 0.11,
+    "openThresholdNormalized": 0.42,
+    "minStateDurationMs": 90
+  },
+  "subtitleStyle": { "fontSize": 48, "bottomMargin": 135 }
+}

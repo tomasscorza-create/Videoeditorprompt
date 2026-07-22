@@ -26,6 +26,10 @@ interface SceneRuntime {
     transform: Record<string, number>;
     blinks: Array<{ start: number; end: number }>;
   }>;
+  backgroundAnimation?: {
+    camera: Record<string, number>;
+    layers: Array<{ id: string; asset: string; baseScale: number; parallaxX: number; parallaxY: number }>;
+  } | null;
 }
 
 interface PreviewJob {
@@ -235,8 +239,20 @@ async function startDialoguePreview(
     preference: 'webgl',
   });
   ui.stage.appendChild(app.canvas);
-  const backgroundTexture = await Assets.load<Texture>(assetUrl(config.assets.background));
-  app.stage.addChild(fullSprite(backgroundTexture, config.video.width, config.video.height));
+  const backgroundLayers: Array<{ id: string; sprite: Sprite }> = [];
+  if (runtime.backgroundAnimation) {
+    for (const layer of runtime.backgroundAnimation.layers) {
+      const texture = await Assets.load<Texture>(assetUrl(layer.asset));
+      const sprite = fullSprite(texture, config.video.width, config.video.height);
+      sprite.anchor.set(0.5);
+      sprite.position.set(config.video.width / 2, config.video.height / 2);
+      app.stage.addChild(sprite);
+      backgroundLayers.push({ id: layer.id, sprite });
+    }
+  } else {
+    const backgroundTexture = await Assets.load<Texture>(assetUrl(config.assets.background));
+    app.stage.addChild(fullSprite(backgroundTexture, config.video.width, config.video.height));
+  }
   const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral'];
   const visualCharacters: Array<{ id: string; container: Container; layers: Record<string, Sprite> }> = [];
   for (const characterRuntime of runtime.characters) {
@@ -267,6 +283,12 @@ async function startDialoguePreview(
 
   function render(timeSeconds: number): void {
     const state = evaluateScene(config, runtime, dialogue, timeSeconds) as DialogueSceneState;
+    for (const visual of backgroundLayers) {
+      const layerState = state.background?.layers.find((item) => item.id === visual.id);
+      if (!layerState) continue;
+      visual.sprite.position.set(config.video.width / 2 + layerState.x, config.video.height / 2 + layerState.y);
+      visual.sprite.scale.set(layerState.scale);
+    }
     for (const visual of visualCharacters) {
       const characterState = state.characters.find((item) => item.id === visual.id);
       if (!characterState) continue;

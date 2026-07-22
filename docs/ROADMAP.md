@@ -4,7 +4,7 @@ Este roadmap define dirección y criterios de avance; no autoriza por sí solo i
 
 ## Estado base — julio de 2026
 
-Las Etapas técnicas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector local 2B están aprobadas. Las Etapas 2C y 2D están implementadas y verificadas técnicamente: el contrato v2 compila dos personajes y turnos de diálogo desde WAV medidos, activa boca/subtítulo solo para el hablante y compone un audio maestro determinista. El pipeline sigue siendo local/headless, de una escena, aislado por `jobId` y equivalente en preview PixiJS y MP4 H.264/AAC.
+Las Etapas técnicas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector local 2B están aprobadas. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente: el contrato v2 compila dos personajes, turnos medidos y un fondo opcional de 2–3 capas con paneo, zoom y parallax. El pipeline sigue siendo local/headless, de una escena, aislado por `jobId` y equivalente en preview PixiJS y MP4 H.264/AAC.
 
 La siguiente meta pertenece todavía a la Fase 1: transformar el prototipo de una escena en una herramienta local que produzca videos útiles repetidamente sin editar código.
 

@@ -20,7 +20,10 @@
     "stage2c:assets": "node scripts/stage2c/generate-monkey-character.mjs",
     "stage2c:test-rig": "node scripts/stage1/test-character-rig.mjs",
     "stage2d:test-contract": "node scripts/stage1/test-dialogue-contract.mjs",
-    "stage2d:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-dialogo-monos-01 --config=pilots/dialogo-monos-01/scene.config.json --assets-dir=public --publish-dir=public/generated"
+    "stage2d:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-dialogo-monos-01 --config=pilots/dialogo-monos-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
+    "stage2e:assets": "node scripts/stage2e/generate-background-layers.mjs",
+    "stage2e:test-background": "node scripts/stage1/test-background-animation.mjs",
+    "stage2e:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-fondo-parallax-01 --config=pilots/fondo-parallax-01/scene.config.json --assets-dir=public --publish-dir=public/generated"
   },
   "dependencies": {
     "ajv": "^8.20.0",

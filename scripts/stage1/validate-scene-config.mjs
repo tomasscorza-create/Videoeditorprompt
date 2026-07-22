@@ -152,12 +152,25 @@ function validateDialogueSemantics(config) {
     turnIds.add(turn.id);
     if (!characterIds.has(turn.speakerId)) semanticError(`/dialogue/${index}/speakerId`, 'debe referenciar un personaje existente');
   }
+  const backgroundIds = new Set();
+  for (const [index, layer] of (config.backgroundAnimation?.layers || []).entries()) {
+    if (backgroundIds.has(layer.id)) semanticError(`/backgroundAnimation/layers/${index}/id`, 'debe ser único');
+    backgroundIds.add(layer.id);
+  }
 }
 
 function resolveDialogueAssets(config, context) {
   assertPortableRelativePath(config.assets.background, '/assets/background');
   resolveAsset(context, config.assets.background, 'background');
   context.resolvedAssets = { background: config.assets.background };
+  context.resolvedBackgroundAnimation = config.backgroundAnimation ? {
+    camera: config.backgroundAnimation.camera,
+    layers: config.backgroundAnimation.layers.map((layer, index) => {
+      assertPortableRelativePath(layer.asset, `/backgroundAnimation/layers/${index}/asset`);
+      resolveAsset(context, layer.asset, `backgroundAnimation/${layer.id}`);
+      return { ...layer };
+    }),
+  } : null;
   context.characterRig = null;
   context.resolvedCharacters = config.characters.map((character, index) => {
     const resolved = resolveCharacterManifest(context, character.characterManifest, `/characters/${index}/characterManifest`);

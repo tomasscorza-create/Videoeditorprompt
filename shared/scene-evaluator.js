@@ -47,6 +47,7 @@ function evaluateLegacyScene(config, runtime, mouthCues, timeSeconds) {
 
   return {
     time,
+    background: evaluateBackground(runtime.backgroundAnimation, time, duration),
     character: {
       x: character.fromX + (character.toX - character.fromX) * entry,
       y: character.baseY + Math.sin(phase) * character.bobAmplitude,
@@ -57,6 +58,24 @@ function evaluateLegacyScene(config, runtime, mouthCues, timeSeconds) {
     mouth: cue?.state ?? 'closed',
     gesture: gestureCue?.pose ?? 'neutral',
     subtitleVisible: time >= config.subtitle.startSeconds && time < duration,
+  };
+}
+
+function evaluateBackground(backgroundAnimation, time, duration) {
+  if (!backgroundAnimation) return null;
+  const progress = smoothstep(duration > 0 ? time / duration : 0);
+  const camera = backgroundAnimation.camera;
+  const x = camera.fromX + (camera.toX - camera.fromX) * progress;
+  const y = camera.fromY + (camera.toY - camera.fromY) * progress;
+  const zoom = camera.fromZoom + (camera.toZoom - camera.fromZoom) * progress;
+  return {
+    camera: { x, y, zoom },
+    layers: backgroundAnimation.layers.map((layer) => ({
+      id: layer.id,
+      x: -x * layer.parallaxX,
+      y: -y * layer.parallaxY,
+      scale: layer.baseScale * zoom,
+    })),
   };
 }
 
@@ -88,6 +107,7 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
   });
   return {
     time,
+    background: evaluateBackground(runtime.backgroundAnimation, time, duration),
     activeSpeakerId: activeTurn?.speakerId ?? null,
     activeTurnId: activeTurn?.id ?? null,
     subtitlePath: activeTurn?.subtitlePath ?? null,
@@ -105,5 +125,22 @@ export function createFfmpegMotionExpressions(config, character = config.charact
     scaleHeight: `${config.video.height}*${scale}`,
     x: `${config.video.width / 2}+(${item.fromX}+(${item.toX}-${item.fromX})*${eased})-overlay_w/2`,
     y: `${config.video.height / 2}+${item.baseY}+sin(2*PI*t/${item.bobPeriodSeconds})*${item.bobAmplitude}-overlay_h/2`,
+  };
+}
+
+export function createFfmpegBackgroundExpressions(runtime, layer) {
+  const camera = runtime.backgroundAnimation.camera;
+  const duration = runtime.audio.durationSeconds;
+  const progress = `min(max(t/${duration},0),1)`;
+  const eased = `((${progress})*(${progress})*(3-2*(${progress})))`;
+  const x = `(${camera.fromX}+(${camera.toX}-${camera.fromX})*${eased})`;
+  const y = `(${camera.fromY}+(${camera.toY}-${camera.fromY})*${eased})`;
+  const zoom = `(${camera.fromZoom}+(${camera.toZoom}-${camera.fromZoom})*${eased})`;
+  const scale = `(${layer.baseScale}*${zoom})`;
+  return {
+    scaleWidth: `${runtime.videoWidth || 1080}*${scale}`,
+    scaleHeight: `${runtime.videoHeight || 1920}*${scale}`,
+    x: `(main_w-overlay_w)/2-${x}*${layer.parallaxX}`,
+    y: `(main_h-overlay_h)/2-${y}*${layer.parallaxY}`,
   };
 }

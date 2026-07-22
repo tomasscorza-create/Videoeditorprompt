@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { createFfmpegMotionExpressions, evaluateScene } from '../../shared/scene-evaluator.js';
+import { createFfmpegBackgroundExpressions, createFfmpegMotionExpressions, evaluateScene } from '../../shared/scene-evaluator.js';
 import { ensureDirectory, ffprobe, readJson, run, sha256, writeJson } from './common.mjs';
 import { resolveAsset } from './job-context.mjs';
 
@@ -42,7 +42,11 @@ export function exportDialogueJob(context, config, options) {
     inputs.push(resolveAsset(context, relativePath, name));
     return index;
   };
-  const backgroundIndex = addAsset(runtime.assets.background, 'background');
+  const backgroundIndex = runtime.backgroundAnimation ? null : addAsset(runtime.assets.background, 'background');
+  const backgroundInputs = runtime.backgroundAnimation?.layers.map((layer) => ({
+    layer,
+    index: addAsset(layer.asset, `background/${layer.id}`),
+  })) || [];
   const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral'];
   const characterInputs = runtime.characters.map((character) => ({
     id: character.id,
@@ -73,7 +77,19 @@ export function exportDialogueJob(context, config, options) {
     scaledLabels.push({ label: `${prefix}scaled`, motion });
   }
 
-  let sceneLabel = `${backgroundIndex}:v`;
+  let sceneLabel;
+  if (runtime.backgroundAnimation) {
+    filters.push(`color=c=#071022:s=${config.video.width}x${config.video.height}:r=${fps}:d=${renderDuration}[bgbase]`);
+    sceneLabel = 'bgbase';
+    for (const [index, background] of backgroundInputs.entries()) {
+      const motion = createFfmpegBackgroundExpressions({ ...runtime, videoWidth: config.video.width, videoHeight: config.video.height }, background.layer);
+      filters.push(`[${background.index}:v]scale=w='${motion.scaleWidth}':h='${motion.scaleHeight}':eval=frame[bglayer${index}]`);
+      filters.push(`[${sceneLabel}][bglayer${index}]overlay=x='${motion.x}':y='${motion.y}':eval=frame:format=auto[bgscene${index}]`);
+      sceneLabel = `bgscene${index}`;
+    }
+  } else {
+    sceneLabel = `${backgroundIndex}:v`;
+  }
   for (const [index, scaled] of scaledLabels.entries()) {
     const output = `scene${index}`;
     filters.push(`[${sceneLabel}][${scaled.label}]overlay=x='${scaled.motion.x}':y='${scaled.motion.y}':eval=frame:format=auto[${output}]`);

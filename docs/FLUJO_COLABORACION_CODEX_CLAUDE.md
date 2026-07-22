@@ -241,9 +241,9 @@ Esta rama permite resolver y probar la combinación sin romper `main`. Después 
 - Se hace una demostración conjunta por hito, no por cada archivo.
 - Solo se integra a `main` cuando motor e interfaz coinciden en el flujo demostrado.
 
-El próximo hito conjunto recomendado, después de completar técnicamente 2D, es:
+El próximo hito conjunto recomendado, después de completar técnicamente 2E, es:
 
-- **Codex:** Etapa 2E, fondo y cámara animables dentro de una sola escena.
-- **Claude:** conectar su prototipo al contrato 2D ya disponible y diseñar el flujo “crear diálogo → asignar hablantes → previsualizar → exportar”.
+- **Codex:** Etapa 3A, varias escenas lineales y transiciones simples.
+- **Claude:** conectar su prototipo a los contratos 2D/2E y diseñar controles por preset para diálogo, fondo y cámara.
 
 Así se puede avanzar en paralelo sin diseñar la interfaz a ciegas ni detener el desarrollo funcional.

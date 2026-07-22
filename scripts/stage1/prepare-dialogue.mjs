@@ -87,6 +87,7 @@ export function prepareDialogueJob(context, config, report) {
     configVersion: config.version,
     cacheKey: timelineKey,
     assets: context.resolvedAssets,
+    backgroundAnimation: context.resolvedBackgroundAnimation,
     characters,
     dialoguePath: dialogueRelative,
     audio: {

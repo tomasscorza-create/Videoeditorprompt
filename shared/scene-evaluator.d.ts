@@ -17,6 +17,10 @@ export interface DialogueCharacterState {
 }
 export interface DialogueSceneState {
   time: number;
+  background: null | {
+    camera: { x: number; y: number; zoom: number };
+    layers: Array<{ id: string; x: number; y: number; scale: number }>;
+  };
   activeSpeakerId: string | null;
   activeTurnId: string | null;
   subtitlePath: string | null;
@@ -25,3 +29,4 @@ export interface DialogueSceneState {
 export function buildBlinkSchedule(durationSeconds: number, options: any): Array<{ start: number; end: number }>;
 export function evaluateScene(config: any, runtime: any, temporalData: MouthCue[] | any, timeSeconds: number): SceneState | DialogueSceneState;
 export function createFfmpegMotionExpressions(config: any, character?: any): { scaleWidth: string; scaleHeight: string; x: string; y: string };
+export function createFfmpegBackgroundExpressions(runtime: any, layer: any): { scaleWidth: string; scaleHeight: string; x: string; y: string };

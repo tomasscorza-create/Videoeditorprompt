@@ -26,6 +26,43 @@
         "background": { "$ref": "#/$defs/assetPath" }
       }
     },
+    "backgroundAnimation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layers", "camera"],
+      "properties": {
+        "layers": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "asset", "baseScale", "parallaxX", "parallaxY"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "asset": { "$ref": "#/$defs/assetPath" },
+              "baseScale": { "type": "number", "minimum": 1, "maximum": 1.5 },
+              "parallaxX": { "type": "number", "minimum": 0, "maximum": 2 },
+              "parallaxY": { "type": "number", "minimum": 0, "maximum": 2 }
+            }
+          }
+        },
+        "camera": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fromX", "toX", "fromY", "toY", "fromZoom", "toZoom"],
+          "properties": {
+            "fromX": { "type": "number", "minimum": -200, "maximum": 200 },
+            "toX": { "type": "number", "minimum": -200, "maximum": 200 },
+            "fromY": { "type": "number", "minimum": -200, "maximum": 200 },
+            "toY": { "type": "number", "minimum": -200, "maximum": 200 },
+            "fromZoom": { "type": "number", "minimum": 1, "maximum": 1.3 },
+            "toZoom": { "type": "number", "minimum": 1, "maximum": 1.3 }
+          }
+        }
+      }
+    },
     "characters": {
       "type": "array",
       "minItems": 2,

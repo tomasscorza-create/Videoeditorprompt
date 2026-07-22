@@ -21,7 +21,7 @@ export function verifyDialogueJob(context, config) {
 
   check('Contrato y runtime versión 2', config.version === 2 && runtime.version === 2, { config: config.version, runtime: runtime.version });
   check('Dos personajes aislados', runtime.characters.length === 2 && new Set(runtime.characters.map((item) => item.id)).size === 2, runtime.characters.map((item) => item.id));
-  check('Tres turnos compilados', dialogue.turns.length === 3, dialogue.turns.map((turn) => turn.id));
+  check('Cantidad de turnos compilada', dialogue.turns.length === config.dialogue.length, dialogue.turns.map((turn) => turn.id));
   check('Turnos ordenados y sin solapamiento', dialogue.turns.every((turn, index) => turn.endSeconds > turn.startSeconds && (index === 0 || turn.startSeconds >= dialogue.turns[index - 1].endSeconds)), true);
   check('Hablantes referencian personajes', dialogue.turns.every((turn) => runtime.characters.some((character) => character.id === turn.speakerId)), true);
   check('Audio maestro portable', !path.isAbsolute(runtime.audio.path) && !path.isAbsolute(runtime.dialoguePath), [runtime.audio.path, runtime.dialoguePath]);
@@ -40,6 +40,13 @@ export function verifyDialogueJob(context, config) {
   }
   const background = ffprobe(resolveAsset(context, runtime.assets.background, 'background')).streams[0];
   check('Fondo 1080x1920', background.width === 1080 && background.height === 1920, { width: background.width, height: background.height });
+  if (runtime.backgroundAnimation) {
+    check('Fondo animado con 2-3 capas', runtime.backgroundAnimation.layers.length >= 2 && runtime.backgroundAnimation.layers.length <= 3, runtime.backgroundAnimation.layers.map((layer) => layer.id));
+    for (const layer of runtime.backgroundAnimation.layers) {
+      const stream = ffprobe(resolveAsset(context, layer.asset, `background/${layer.id}`)).streams[0];
+      check(`Capa ${layer.id} 1080x1920`, stream.width === 1080 && stream.height === 1920, { width: stream.width, height: stream.height, pixFmt: stream.pix_fmt });
+    }
+  }
 
   check('Planes temporales idénticos', plan1.temporalHash === plan2.temporalHash, plan1.temporalHash);
   check('Frames PNG idénticos', metrics1.frameContentHash === metrics2.frameContentHash, metrics1.frameContentHash);
@@ -50,6 +57,10 @@ export function verifyDialogueJob(context, config) {
   check('Hablante activo coincide', plan1.frames.every((frame) => frame.characters.find((character) => character.speaking)?.id === frame.activeSpeakerId || frame.activeSpeakerId === null), true);
   check('Pausas sin hablante ni subtítulo', plan1.frames.some((frame) => frame.activeSpeakerId === null && frame.subtitlePath === null), true);
   check('Dos posiciones visibles', plan1.frames.some((frame) => frame.characters[0].character.x < 0 && frame.characters[1].character.x > 0), true);
+  if (runtime.backgroundAnimation) {
+    check('Cámara cambia durante la escena', plan1.frames[0].background.camera.x !== plan1.frames.at(-1).background.camera.x || plan1.frames[0].background.camera.zoom !== plan1.frames.at(-1).background.camera.zoom, { first: plan1.frames[0].background.camera, last: plan1.frames.at(-1).background.camera });
+    check('Parallax diferencia planos', plan1.frames.at(-1).background.layers[0].x !== plan1.frames.at(-1).background.layers.at(-1).x, plan1.frames.at(-1).background.layers);
+  }
 
   const videos = [];
   for (const runNumber of [1, 2]) {

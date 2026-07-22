@@ -2,7 +2,7 @@
 
 Fecha: 22 de julio de 2026.
 
-Estado: Etapas 2B, 2C y 2D implementadas y verificadas técnicamente; la Etapa 2E es el siguiente paso propuesto.
+Estado: Etapas 2B, 2C, 2D y 2E implementadas y verificadas técnicamente; la Etapa 3A es el siguiente paso propuesto.
 
 ## Conclusión
 
@@ -149,7 +149,7 @@ Alcance:
 
 La voz actual puede conservarse como una de las voces. Antes de buscar otro motor TTS conviene probar otra voz Piper española y ajustes de prosodia dentro de un benchmark pequeño.
 
-### Etapa 2E — Fondo y cámara animables
+### Etapa 2E — Fondo y cámara animables — COMPLETADA TÉCNICAMENTE
 
 Objetivo: evitar escenas completamente estáticas sin introducir efectos complejos.
 
@@ -232,10 +232,10 @@ La decisión React/Electron debe posponerse. El visor 2B puede continuar con Vit
 1. **Etapa 2B — completada:** selector de jobs y publicación por `jobId`.
 2. **Etapa 2C — completada técnicamente:** personaje real por capas con boca, ojos, idle y manos.
 3. **Etapa 2D — completada técnicamente:** diálogo por turnos, voces parametrizadas y subtítulos temporizados.
-4. **Etapa 2E — siguiente:** fondo/cámara/parallax.
-5. **Etapa 3A:** varias escenas y transiciones.
+4. **Etapa 2E — completada técnicamente:** fondo/cámara/parallax.
+5. **Etapa 3A — siguiente:** varias escenas y transiciones.
 6. **Diseño UX durante 2C–2D; implementación del editor MVP después de 3A.**
 
 ## Decisión propuesta
 
-La Etapa 2D ya demuestra dos instancias, turnos medidos y boca exclusiva del hablante. El siguiente objetivo del motor es 2E: fondo y cámara animables, manteniendo todavía una sola escena y sin convertir el preview en un editor.
+La Etapa 2E ya demuestra tres planos y cámara determinista. El siguiente objetivo del motor es 3A: varias escenas lineales y transiciones simples, sin convertir el preview en un editor profesional.
