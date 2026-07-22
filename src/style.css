@@ -139,11 +139,11 @@ button:disabled {
 
 .scene-gallery {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--space-2);
-  overflow-y: auto;
-  max-height: 75vh;
-  padding-right: var(--space-1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--space-2);
   scrollbar-width: thin;
 }
 
@@ -155,7 +155,7 @@ button:disabled {
 
 .scene-card {
   flex: 0 0 auto;
-  width: 100%;
+  width: 104px;
   display: grid;
   gap: var(--space-1);
   padding: var(--space-2);
