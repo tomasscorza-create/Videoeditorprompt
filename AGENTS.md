@@ -74,7 +74,10 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `scripts/stage1/publish-preview.mjs`: adaptador opcional hacia `public/generated`.
 - `public/generated/index.json`: índice local de previews publicados; cada job vive bajo su propia subcarpeta.
 - `shared/scene-evaluator.js`: lógica temporal compartida.
-- `src/main.ts`: preview PixiJS y selector mediante `?job=<jobId>`; no debe absorber lógica del motor y no es todavía un editor.
+- `src/main.ts`: composición mínima del selector de previews y despacho por versión; no debe absorber lógica del motor ni del editor.
+- `src/preview/legacy.ts`: consumidor PixiJS aislado del runtime v1.
+- `src/preview/dialogue.ts`: consumidor PixiJS aislado del runtime v2 con diálogo, dos personajes y fondo por capas.
+- `src/preview/common.ts` y `types.ts`: utilidades, UI mínima y contratos TypeScript compartidos por ambos previews.
 - `public/scene.config.json`: ejemplo vigente del contrato mínimo de una escena.
 - `schema/scene-config.schema.json`: JSON Schema 2020-12 del contrato versión 1.
 - `schema/scene-config-v2.schema.json`: contrato de una escena con exactamente dos personajes, diálogo secuencial medido y gesto opcional por turno.

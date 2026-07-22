@@ -253,4 +253,6 @@ El gate 2F fue aprobado, 3A.0–3A.2 ofrecen el recorrido hasta MP4 multiescena 
 - **Codex:** mantener contratos, comandos y pipeline; diseñar después el puente local seguro de ejecución sin acoplarlo a la UI.
 - **Claude:** consumir `createProjectEditor` y `applyProjectEditorCommand` desde la UX, representar el estado real y distinguir funciones conectadas de prototipos visuales.
 
+Para la integración visual, el preview quedó separado en `src/preview/legacy.ts` y `src/preview/dialogue.ts`; `src/main.ts` solo selecciona el job, carga config/runtime y despacha por versión. La resolución manual debe conservar esos consumidores y conectar encima los controles de Claude, sin reintroducir lógica temporal en `main.ts`.
+
 Los joints del manifest v2 son por ahora metadatos: la UI no debe prometer manipulación articular continua hasta que el runtime la implemente. El preview PixiJS tampoco reproduce todavía la timeline multiescena final; esa limitación debe mostrarse con claridad.
