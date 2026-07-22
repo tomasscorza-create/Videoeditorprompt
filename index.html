@@ -8,13 +8,10 @@
   <body>
     <main class="layout">
       <section class="panel">
-        <p class="eyebrow">Etapa 2C · Personaje animable</p>
-        <h1>Previews por trabajo, personaje por capas</h1>
-        <p>La vista previa usa el audio de Piper como reloj y el mismo evaluador temporal que la exportación offline.</p>
         <label class="job-picker" for="job-select">
-          <span>Trabajo publicado</span>
+          <span>Escena</span>
           <select id="job-select" disabled>
-            <option>Cargando trabajos…</option>
+            <option>Cargando escenas…</option>
           </select>
         </label>
         <p id="job-meta" class="job-meta" aria-live="polite">Leyendo índice local…</p>
@@ -24,16 +21,19 @@
           <button id="restart" type="button" disabled>Reiniciar</button>
           <a id="download" class="button-link" href="#" download hidden>Descargar MP4</a>
         </div>
-        <dl class="technical-status">
-          <div><dt>Trabajo</dt><dd id="job-status">Pendiente</dd></div>
-          <div><dt>Estado</dt><dd id="status" aria-live="polite">Inicializando…</dd></div>
-          <div><dt>Renderer</dt><dd id="renderer">Pendiente</dd></div>
-          <div class="live"><dt>Tiempo</dt><dd id="time">0.00 s</dd></div>
-          <div class="live"><dt>Audio</dt><dd id="audio-status">Detenido</dd></div>
-          <div class="live"><dt>Boca</dt><dd id="mouth-status">closed</dd></div>
-          <div class="live"><dt>Ojos</dt><dd id="eyes-status">open</dd></div>
-          <div class="live"><dt>Gesto</dt><dd id="gesture-status">neutral</dd></div>
-        </dl>
+        <details class="diagnostics">
+          <summary>Detalles técnicos</summary>
+          <dl class="technical-status">
+            <div><dt>Trabajo</dt><dd id="job-status">Pendiente</dd></div>
+            <div><dt>Estado</dt><dd id="status" aria-live="polite">Inicializando…</dd></div>
+            <div><dt>Renderer</dt><dd id="renderer">Pendiente</dd></div>
+            <div class="live"><dt>Tiempo</dt><dd id="time">0.00 s</dd></div>
+            <div class="live"><dt>Audio</dt><dd id="audio-status">Detenido</dd></div>
+            <div class="live"><dt>Boca</dt><dd id="mouth-status">closed</dd></div>
+            <div class="live"><dt>Ojos</dt><dd id="eyes-status">open</dd></div>
+            <div class="live"><dt>Gesto</dt><dd id="gesture-status">neutral</dd></div>
+          </dl>
+        </details>
       </section>
       <section class="canvas-shell" aria-label="Vista previa vertical 1080 por 1920" aria-busy="true">
         <div class="viewer">
