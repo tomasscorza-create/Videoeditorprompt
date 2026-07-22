@@ -72,13 +72,33 @@ const ui = {
   eyes: required<HTMLElement>('#eyes-status'),
   gesture: required<HTMLElement>('#gesture-status'),
   stage: required<HTMLElement>('#stage'),
+  canvasShell: required<HTMLElement>('.canvas-shell'),
+  canvasLoading: required<HTMLElement>('#canvas-loading'),
+  play: required<HTMLButtonElement>('#play'),
+  pause: required<HTMLButtonElement>('#pause'),
+  restart: required<HTMLButtonElement>('#restart'),
 };
+
+// Refleja en los controles qué acciones son válidas según la reproducción.
+type PlaybackState = 'loading' | 'idle' | 'playing' | 'paused' | 'ended';
+function setPlaybackState(state: PlaybackState): void {
+  const loading = state === 'loading';
+  const playing = state === 'playing';
+  ui.play.disabled = loading || playing;
+  ui.pause.disabled = loading || !playing;
+  ui.restart.disabled = loading;
+}
+
+setPlaybackState('loading');
 
 void start().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   ui.status.textContent = `Error: ${message}`;
   ui.jobMeta.textContent = message;
   ui.jobMeta.classList.add('error');
+  ui.canvasLoading.textContent = 'No se pudo cargar la escena.';
+  ui.canvasLoading.classList.add('error');
+  ui.canvasShell.setAttribute('aria-busy', 'false');
   console.error(error);
 });
 
@@ -163,24 +183,35 @@ async function start(): Promise<void> {
 
   app.ticker.add(() => render(audio.currentTime));
   render(0);
-  required<HTMLButtonElement>('#play').addEventListener('click', () => {
-    void audio.play().then(() => { ui.audio.textContent = 'Reproduciendo'; });
+  ui.play.addEventListener('click', () => {
+    void audio.play().then(() => {
+      ui.audio.textContent = 'Reproduciendo';
+      setPlaybackState('playing');
+    });
   });
-  required<HTMLButtonElement>('#pause').addEventListener('click', () => {
+  ui.pause.addEventListener('click', () => {
     audio.pause();
     ui.audio.textContent = 'Pausado';
+    setPlaybackState('paused');
   });
-  required<HTMLButtonElement>('#restart').addEventListener('click', () => {
+  ui.restart.addEventListener('click', () => {
     audio.pause();
     audio.currentTime = 0;
     ui.audio.textContent = 'Detenido';
+    setPlaybackState('idle');
     render(0);
   });
-  audio.addEventListener('ended', () => { ui.audio.textContent = 'Finalizado'; });
+  audio.addEventListener('ended', () => {
+    ui.audio.textContent = 'Finalizado';
+    setPlaybackState('ended');
+  });
 
   const renderer = app.renderer.constructor.name;
   ui.status.textContent = 'Lista';
   ui.renderer.textContent = renderer;
+  ui.canvasLoading.hidden = true;
+  ui.canvasShell.setAttribute('aria-busy', 'false');
+  setPlaybackState('idle');
   window.__STAGE1__ = {
     ready: true,
     jobId: selection.job.jobId,

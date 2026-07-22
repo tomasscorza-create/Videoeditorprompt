@@ -17,26 +17,27 @@
             <option>Cargando trabajos…</option>
           </select>
         </label>
-        <p id="job-meta" class="job-meta">Leyendo índice local…</p>
+        <p id="job-meta" class="job-meta" aria-live="polite">Leyendo índice local…</p>
         <div class="controls">
-          <button id="play" type="button">Reproducir</button>
-          <button id="pause" type="button">Pausar</button>
-          <button id="restart" type="button">Reiniciar</button>
+          <button id="play" type="button" class="button-primary" disabled>Reproducir</button>
+          <button id="pause" type="button" disabled>Pausar</button>
+          <button id="restart" type="button" disabled>Reiniciar</button>
           <a id="download" class="button-link" href="#" download hidden>Descargar MP4</a>
         </div>
         <dl class="technical-status">
           <div><dt>Trabajo</dt><dd id="job-status">Pendiente</dd></div>
-          <div><dt>Estado</dt><dd id="status">Inicializando…</dd></div>
+          <div><dt>Estado</dt><dd id="status" aria-live="polite">Inicializando…</dd></div>
           <div><dt>Renderer</dt><dd id="renderer">Pendiente</dd></div>
-          <div><dt>Tiempo</dt><dd id="time">0.00 s</dd></div>
-          <div><dt>Audio</dt><dd id="audio-status">Detenido</dd></div>
-          <div><dt>Boca</dt><dd id="mouth-status">closed</dd></div>
-          <div><dt>Ojos</dt><dd id="eyes-status">open</dd></div>
-          <div><dt>Gesto</dt><dd id="gesture-status">neutral</dd></div>
+          <div class="live"><dt>Tiempo</dt><dd id="time">0.00 s</dd></div>
+          <div class="live"><dt>Audio</dt><dd id="audio-status">Detenido</dd></div>
+          <div class="live"><dt>Boca</dt><dd id="mouth-status">closed</dd></div>
+          <div class="live"><dt>Ojos</dt><dd id="eyes-status">open</dd></div>
+          <div class="live"><dt>Gesto</dt><dd id="gesture-status">neutral</dd></div>
         </dl>
       </section>
-      <section class="canvas-shell" aria-label="Vista previa vertical 1080 por 1920">
+      <section class="canvas-shell" aria-label="Vista previa vertical 1080 por 1920" aria-busy="true">
         <div id="stage"></div>
+        <div id="canvas-loading" class="canvas-loading" role="status">Cargando escena…</div>
       </section>
     </main>
     <script type="module" src="/src/main.ts"></script>
