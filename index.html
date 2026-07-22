@@ -6,7 +6,8 @@
     <title>Etapa 1 · Escena animada</title>
   </head>
   <body>
-    <main class="layout">
+    <div class="editor-container">
+      <main class="layout editor-workspace">
       <section class="panel">
         <p id="job-meta" class="job-meta" aria-live="polite">Leyendo índice local…</p>
         <div class="controls">
@@ -67,8 +68,75 @@
             </button>
           </div>
         </div>
+
       </aside>
     </main>
+
+    <section class="timeline-panel">
+      <div class="editor-tools-section">
+        <div class="editor-toolbar">
+          <div class="tool-group">
+            <button class="tool-btn" title="Deshacer (Ctrl+Z)" disabled>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+            </button>
+            <button class="tool-btn" title="Rehacer (Ctrl+Y)" disabled>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            </button>
+          </div>
+          
+          <div class="tool-divider"></div>
+          
+          <div class="tool-group">
+            <button class="tool-btn active" title="Seleccionar (V)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>
+            </button>
+            <button class="tool-btn" title="Cortar / Dividir (C)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>
+            </button>
+          </div>
+
+          <div class="tool-divider"></div>
+          
+          <div class="tool-group">
+            <button class="tool-btn" title="Añadir Texto (T)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+            </button>
+            <button class="tool-btn" title="Añadir Audio (A)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+            </button>
+          </div>
+
+          <div class="tool-divider"></div>
+          
+          <div class="tool-group">
+            <button class="tool-btn danger" title="Eliminar (Supr)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="timeline-ruler">
+        <div class="ruler-marks"></div>
+      </div>
+      
+      <div class="timeline-tracks">
+        <div class="playhead" id="playhead"></div>
+        <div class="timeline-track timeline-track-v">
+          <div class="track-label">V1</div>
+          <div class="track-content">
+            <div class="clip-dummy video-clip">Escena actual</div>
+          </div>
+        </div>
+        <div class="timeline-track timeline-track-a">
+          <div class="track-label">A1</div>
+          <div class="track-content">
+            <div class="clip-dummy audio-clip">Voz (Audio generado)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
 
     <button id="settings-open" class="button-icon settings-button" aria-label="Configuración" title="Configuración">⚙️</button>
     

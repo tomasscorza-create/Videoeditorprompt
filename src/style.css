@@ -83,9 +83,17 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: radial-gradient(circle at 10% 10%, var(--bg-glow) 0, transparent 32rem), var(--bg);
   transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
 }
 
 /* ==========================================================================
@@ -161,7 +169,8 @@ button:disabled {
   justify-content: center;
   max-width: 90rem;
   margin: 0 auto;
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
   padding: var(--space-6);
 }
 
@@ -241,6 +250,90 @@ button:disabled {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-sm);
+}
+
+/* ==========================================================================
+   Barra de Herramientas de Edición y Línea de Tiempo
+   ========================================================================== */
+.timeline-panel {
+  display: flex;
+  flex-direction: column;
+  height: 300px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+  position: relative;
+  z-index: 10;
+}
+
+.editor-tools-section {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  height: 3rem;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* removido padding y bg, ahora es plano en el panel */
+}
+
+.tool-group {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.tool-divider {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--border-strong);
+  opacity: 0.3;
+}
+
+.tool-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tool-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tool-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-raised);
+  border-color: var(--border);
+}
+
+.tool-btn.active {
+  color: var(--accent);
+  background: var(--surface-raised);
+  border-color: var(--accent);
+}
+
+.tool-btn.danger:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(255, 154, 154, 0.1);
+}
+
+.tool-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .scene-card {
@@ -611,4 +704,119 @@ dd { margin: 0; font-weight: 650; }
 }
 .select-input:focus-visible {
   outline: 2px solid var(--focus-ring);
+}
+
+/* ==========================================================================
+   Línea de Tiempo (Estructura interna)
+   ========================================================================== */
+.timeline-ruler {
+  height: 24px;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.ruler-marks {
+  width: 1000%;
+  height: 100%;
+  background-image: linear-gradient(90deg, var(--border-strong) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 100px 100%, 10px 100%;
+  background-position: 0 bottom, 0 bottom;
+  background-repeat: repeat-x, repeat-x;
+}
+
+.timeline-tracks {
+  flex: 1;
+  position: relative;
+  background: var(--bg);
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background-color: var(--danger);
+  z-index: 20;
+  pointer-events: none;
+  transform: translateX(0);
+}
+
+.playhead::before {
+  content: '';
+  position: absolute;
+  top: -24px; /* Sube hasta la regla */
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  background-color: var(--danger);
+  border-radius: 2px;
+  clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+}
+
+.timeline-track {
+  display: flex;
+  min-height: 80px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.track-label {
+  width: 80px;
+  min-width: 80px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  color: var(--text-dim);
+  z-index: 5;
+  position: sticky;
+  left: 0;
+}
+
+.track-content {
+  flex: 1;
+  position: relative;
+  background: repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(255,255,255,0.02) 99px, rgba(255,255,255,0.02) 100px);
+  display: flex;
+  align-items: center;
+  padding: var(--space-2);
+}
+
+.clip-dummy {
+  height: 100%;
+  background: var(--primary);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-sm);
+  color: var(--primary-text);
+  font-size: var(--text-xs);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.video-clip {
+  width: 300px; /* Ancho hardcodeado prototipo */
+  background: #2563eb;
+  border-color: #3b82f6;
+}
+
+.audio-clip {
+  width: 300px;
+  background: #059669;
+  border-color: #10b981;
 }

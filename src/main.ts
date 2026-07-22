@@ -90,6 +90,7 @@ const ui = {
   loopBtn: required<HTMLButtonElement>('#loop-btn'),
   speedBtn: required<HTMLButtonElement>('#speed-btn'),
   viewerPlayBtn: required<HTMLButtonElement>('#viewer-play-btn'),
+  playhead: required<HTMLElement>('#playhead'),
 };
 
 let globalLoop = false;
@@ -273,6 +274,8 @@ async function start(): Promise<void> {
     if (!scrubbing) ui.seek.value = String(Math.round(pct * 10));
     ui.seek.style.setProperty('--pct', `${pct}%`);
     ui.viewerCurrent.textContent = formatTime(state.time);
+    const playheadX = state.time * 100 + 80;
+    ui.playhead.style.transform = `translateX(${playheadX}px)`;
     if (window.__STAGE1__) {
       window.__STAGE1__.currentMouth = state.mouth;
       window.__STAGE1__.currentEyes = state.eyes;
@@ -345,6 +348,23 @@ async function start(): Promise<void> {
         audio.currentTime = Math.min(audio.duration, audio.currentTime + 0.5);
         render(audio.currentTime);
         break;
+    }
+  });
+
+  // 3. Comportamiento visual de la nueva barra de herramientas (UI prototipo)
+  const toolBtns = document.querySelectorAll('.tool-btn');
+  toolBtns.forEach(btn => {
+    if (!btn.hasAttribute('disabled') && !btn.classList.contains('danger')) {
+      btn.addEventListener('click', () => {
+        // Remover clase active de todos los botones similares (comportamiento de herramienta exclusiva)
+        // Por ahora, solo simula que se activa una herramienta.
+        toolBtns.forEach(b => {
+          if (!b.hasAttribute('disabled') && !b.classList.contains('danger')) {
+            b.classList.remove('active');
+          }
+        });
+        btn.classList.add('active');
+      });
     }
   });
 
