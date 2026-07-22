@@ -30,7 +30,12 @@ export function buildBlinkSchedule(durationSeconds, options) {
   return schedule;
 }
 
-export function evaluateScene(config, runtime, mouthCues, timeSeconds) {
+export function evaluateScene(config, runtime, temporalData, timeSeconds) {
+  if (config.version === 2) return evaluateDialogueScene(config, runtime, temporalData, timeSeconds);
+  return evaluateLegacyScene(config, runtime, temporalData, timeSeconds);
+}
+
+function evaluateLegacyScene(config, runtime, mouthCues, timeSeconds) {
   const duration = runtime.audio.durationSeconds;
   const time = clamp(timeSeconds, 0, duration);
   const character = config.character;
@@ -55,8 +60,43 @@ export function evaluateScene(config, runtime, mouthCues, timeSeconds) {
   };
 }
 
-export function createFfmpegMotionExpressions(config) {
-  const item = config.character;
+function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
+  const duration = runtime.audio.durationSeconds;
+  const time = clamp(timeSeconds, 0, duration);
+  const activeTurn = dialogueData.turns.find((turn) => time >= turn.startSeconds && time < turn.endSeconds);
+  const characters = runtime.characters.map((characterRuntime) => {
+    const transform = characterRuntime.transform;
+    const entry = smoothstep(time / transform.entrySeconds);
+    const phase = (time / transform.bobPeriodSeconds) * Math.PI * 2;
+    const blinking = characterRuntime.blinks.some((blink) => time >= blink.start && time < blink.end);
+    const speaking = activeTurn?.speakerId === characterRuntime.id;
+    const localTime = speaking ? time - activeTurn.startSeconds : -1;
+    const cue = speaking ? activeTurn.mouthCues.find((item) => localTime >= item.start && localTime < item.end) : null;
+    return {
+      id: characterRuntime.id,
+      character: {
+        x: transform.fromX + (transform.toX - transform.fromX) * entry,
+        y: transform.baseY + Math.sin(phase) * transform.bobAmplitude,
+        scale: transform.baseScale + Math.sin(phase * 0.5) * transform.scalePulse,
+        opacity: clamp(time / 0.3, 0, 1),
+      },
+      eyes: blinking ? 'closed' : 'open',
+      mouth: cue?.state ?? 'closed',
+      gesture: 'neutral',
+      speaking,
+    };
+  });
+  return {
+    time,
+    activeSpeakerId: activeTurn?.speakerId ?? null,
+    activeTurnId: activeTurn?.id ?? null,
+    subtitlePath: activeTurn?.subtitlePath ?? null,
+    characters,
+  };
+}
+
+export function createFfmpegMotionExpressions(config, character = config.character) {
+  const item = character;
   const entry = `min(max(t/${item.entrySeconds},0),1)`;
   const eased = `((${entry})*(${entry})*(3-2*(${entry})))`;
   const scale = `(${item.baseScale}+sin(PI*t/${item.bobPeriodSeconds})*${item.scalePulse})`;

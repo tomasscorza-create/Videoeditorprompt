@@ -7,9 +7,15 @@ import { ffprobe, isMain, readJson, writeJson } from './common.mjs';
 import { createJobContext, resolveAsset } from './job-context.mjs';
 import { createProgressReporter, serializeError } from './progress.mjs';
 import { loadAndValidateJobConfig } from './validate-scene-config.mjs';
+import { verifyDialogueJob } from './verify-dialogue.mjs';
 
 export function verifyJob(context, options = {}) {
   const config = loadAndValidateJobConfig(context);
+  if (config.version === 2) {
+    const result = verifyDialogueJob(context, config);
+    if (options.emitCompleted) (options.report || createProgressReporter(context))('completed', { stage: 'verify', passed: result.passed, result: 'verification.json' });
+    return result;
+  }
   const runtime = readJson(path.join(context.runtimeRoot, 'scene-runtime.json'));
   const mouth = readJson(path.join(context.generatedRoot, runtime.mouthCuesPath));
   const plan1 = readJson(path.join(context.resultRoot, 'frame-plan-1.json'));

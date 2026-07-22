@@ -8,8 +8,8 @@ Construimos una herramienta local, dirigida por datos, para producir videos anim
 
 Estado vigente:
 
-- Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. La Etapa 2C de personaje animable está implementada y verificada técnicamente.
-- Existe un prototipo de **una escena**: 1080 × 1920, 30 fps, personaje reutilizable por manifiesto y capas PNG, Piper, boca RMS de tres estados, parpadeo, idle, gesto `point`, un subtítulo, preview PixiJS y MP4 H.264/AAC.
+- Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C y 2D están implementadas y verificadas técnicamente.
+- Existe un prototipo de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables por manifiesto, diálogo secuencial medido, Piper por turno, boca RMS exclusiva del hablante, parpadeo, idle, subtítulo por turno, preview PixiJS y MP4 H.264/AAC.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
 - `public/generated` es solo una publicación opcional e indexada por `jobId` para el preview; no es almacenamiento del motor.
@@ -76,9 +76,11 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `src/main.ts`: preview PixiJS y selector mediante `?job=<jobId>`; no debe absorber lógica del motor y no es todavía un editor.
 - `public/scene.config.json`: ejemplo vigente del contrato mínimo de una escena.
 - `schema/scene-config.schema.json`: JSON Schema 2020-12 del contrato versión 1.
+- `schema/scene-config-v2.schema.json`: contrato de una escena con exactamente dos personajes y diálogo secuencial medido.
 - `schema/character-manifest.schema.json`: contrato versión 1 de un rig alineado con ojos, bocas y poses de manos.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.
 - `pilots/personaje-mono-01/scene.config.json`: piloto vigente del personaje animable real.
+- `pilots/dialogo-monos-01/scene.config.json`: piloto del contrato v2 con dos hablantes y tres turnos.
 - `scripts/stage2c/generate-monkey-character.mjs`: generador determinista de las fuentes SVG y capas PNG del mono; no forma parte del render normal.
 - `scripts/*.mjs`, `assets/` y `tts-test/`: evidencia/flujo legacy de Etapa 0. No usarlos como base para funciones nuevas.
 - `.local-video/`: trabajos y evidencia local regenerable; no versionar.
@@ -96,8 +98,9 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 
 ### Brechas vigentes (no confundir con capacidades implementadas)
 
-- El contrato versión 1 está deliberadamente limitado a una escena; no es todavía el contrato futuro de proyectos con varias escenas.
-- El contrato de rig versión 1 solo demuestra una pose neutral y `point`; todavía no modela un catálogo general de gestos, dos personajes ni turnos de diálogo.
+- Los contratos v1 y v2 están deliberadamente limitados a una escena; todavía no existe el contrato futuro de proyectos con varias escenas.
+- El contrato de rig versión 1 solo demuestra una pose neutral y `point`; todavía no modela un catálogo general de gestos. Las múltiples instancias y los turnos pertenecen al contrato de escena v2.
+- El piloto 2D reutiliza el mismo rig y modelo Piper con distinta velocidad para ambos personajes; demuestra independencia temporal, no casting visual/vocal definitivo.
 - El fondo del piloto 2C es estático; cámara, parallax y elementos ambientales pertenecen a una etapa posterior.
 - `prepare-scene.mjs` conoce directamente Piper, su modelo y `venv/Scripts/python.exe`; proveedor reemplazable y Linux aún son objetivos, no hechos.
 - La caché TTS y un mismo `jobId` no están protegidos ante procesos concurrentes.

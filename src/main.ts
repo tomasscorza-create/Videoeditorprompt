@@ -1,8 +1,9 @@
 import { Application, Assets, Container, Sprite, type Texture } from 'pixi.js';
-import { evaluateScene, type MouthCue } from '../shared/scene-evaluator.js';
+import { evaluateScene, type DialogueSceneState, type MouthCue, type SceneState } from '../shared/scene-evaluator.js';
 import './style.css';
 
 interface SceneConfig {
+  version: number;
   video: { width: number; height: number; fps: number };
   assets: Record<string, string>;
   character: Record<string, number>;
@@ -11,12 +12,20 @@ interface SceneConfig {
 }
 
 interface SceneRuntime {
+  version: number;
   audio: { path: string; durationSeconds: number };
   mouthCuesPath: string;
   subtitlePath: string;
   blinks: Array<{ start: number; end: number }>;
   assets?: Record<string, string>;
   characterRig?: { version: number; id: string; manifestPath: string };
+  dialoguePath?: string;
+  characters?: Array<{
+    id: string;
+    assets: Record<string, string>;
+    transform: Record<string, number>;
+    blinks: Array<{ start: number; end: number }>;
+  }>;
 }
 
 interface PreviewJob {
@@ -55,6 +64,7 @@ declare global {
       currentMouth: string;
       currentEyes: string;
       currentGesture: string;
+      activeSpeakerId?: string | null;
     };
   }
 }
@@ -92,6 +102,10 @@ async function start(): Promise<void> {
     fetchJson<SceneConfig>(`${selection.baseUrl}scene.config.json?v=${cacheKey}`),
     fetchJson<SceneRuntime>(`${selection.baseUrl}scene-runtime.json?v=${cacheKey}`),
   ]);
+  if (config.version === 2) {
+    await startDialoguePreview(selection, config, runtime, generatedUrl, assetUrl);
+    return;
+  }
   const mouthData = await fetchJson<{ cues: MouthCue[] }>(generatedUrl(runtime.mouthCuesPath));
   const app = new Application();
   await app.init({
@@ -136,7 +150,7 @@ async function start(): Promise<void> {
   audio.preload = 'auto';
 
   function render(timeSeconds: number): void {
-    const state = evaluateScene(config, runtime, mouthData.cues, timeSeconds);
+    const state = evaluateScene(config, runtime, mouthData.cues, timeSeconds) as SceneState;
     character.position.set(config.video.width / 2 + state.character.x, config.video.height / 2 + state.character.y);
     character.scale.set(state.character.scale);
     character.alpha = state.character.opacity;
@@ -192,6 +206,125 @@ async function start(): Promise<void> {
     currentMouth: 'closed',
     currentEyes: 'open',
     currentGesture: 'neutral',
+  };
+}
+
+async function startDialoguePreview(
+  selection: PreviewSelection,
+  config: SceneConfig,
+  runtime: SceneRuntime,
+  generatedUrl: (relativePath: string) => string,
+  assetUrl: (relativePath: string) => string,
+): Promise<void> {
+  if (!runtime.dialoguePath || !runtime.characters) throw new Error('El runtime v2 no contiene diálogo o personajes.');
+  const dialogue = await fetchJson<{ turns: Array<{
+    id: string;
+    speakerId: string;
+    startSeconds: number;
+    endSeconds: number;
+    subtitlePath: string;
+    mouthCues: MouthCue[];
+  }> }>(generatedUrl(runtime.dialoguePath));
+  const app = new Application();
+  await app.init({
+    width: config.video.width,
+    height: config.video.height,
+    background: '#13213b',
+    antialias: true,
+    resolution: 1,
+    preference: 'webgl',
+  });
+  ui.stage.appendChild(app.canvas);
+  const backgroundTexture = await Assets.load<Texture>(assetUrl(config.assets.background));
+  app.stage.addChild(fullSprite(backgroundTexture, config.video.width, config.video.height));
+  const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral'];
+  const visualCharacters: Array<{ id: string; container: Container; layers: Record<string, Sprite> }> = [];
+  for (const characterRuntime of runtime.characters) {
+    const textures = Object.fromEntries(await Promise.all(layerKeys.map(async (key) => [
+      key,
+      await Assets.load<Texture>(assetUrl(characterRuntime.assets[key])),
+    ]))) as Record<string, Texture>;
+    const container = new Container();
+    const layers = Object.fromEntries(layerKeys.map((key) => [
+      key,
+      fullSprite(textures[key], config.video.width, config.video.height),
+    ])) as Record<string, Sprite>;
+    for (const layer of Object.values(layers)) layer.anchor.set(0.5);
+    container.addChild(...Object.values(layers));
+    app.stage.addChild(container);
+    visualCharacters.push({ id: characterRuntime.id, container, layers });
+  }
+  const subtitles = new Map<string, Sprite>();
+  for (const turn of dialogue.turns) {
+    const texture = await Assets.load<Texture>(generatedUrl(turn.subtitlePath));
+    const sprite = fullSprite(texture, config.video.width, config.video.height);
+    sprite.visible = false;
+    subtitles.set(turn.id, sprite);
+    app.stage.addChild(sprite);
+  }
+  const audio = new Audio(generatedUrl(runtime.audio.path));
+  audio.preload = 'auto';
+
+  function render(timeSeconds: number): void {
+    const state = evaluateScene(config, runtime, dialogue, timeSeconds) as DialogueSceneState;
+    for (const visual of visualCharacters) {
+      const characterState = state.characters.find((item) => item.id === visual.id);
+      if (!characterState) continue;
+      visual.container.position.set(config.video.width / 2 + characterState.character.x, config.video.height / 2 + characterState.character.y);
+      visual.container.scale.set(characterState.character.scale);
+      visual.container.alpha = characterState.character.opacity;
+      visual.layers.eyesOpen.visible = characterState.eyes === 'open';
+      visual.layers.eyesClosed.visible = characterState.eyes === 'closed';
+      visual.layers.mouthClosed.visible = characterState.mouth === 'closed';
+      visual.layers.mouthMedium.visible = characterState.mouth === 'medium';
+      visual.layers.mouthOpen.visible = characterState.mouth === 'open';
+      visual.layers.handNeutral.visible = true;
+    }
+    for (const [turnId, subtitle] of subtitles) subtitle.visible = turnId === state.activeTurnId;
+    const speakerState = state.characters.find((item) => item.speaking);
+    ui.time.textContent = `${state.time.toFixed(2)} / ${runtime.audio.durationSeconds.toFixed(2)} s`;
+    ui.mouth.textContent = speakerState ? `${speakerState.id}: ${speakerState.mouth}` : 'silencio';
+    ui.eyes.textContent = state.characters.map((item) => `${item.id}: ${item.eyes}`).join(' · ');
+    ui.gesture.textContent = state.activeSpeakerId ? `habla ${state.activeSpeakerId}` : 'pausa';
+    if (window.__STAGE1__) {
+      window.__STAGE1__.currentMouth = speakerState?.mouth ?? 'closed';
+      window.__STAGE1__.currentEyes = state.characters.map((item) => item.eyes).join(',');
+      window.__STAGE1__.currentGesture = 'neutral';
+      window.__STAGE1__.activeSpeakerId = state.activeSpeakerId;
+    }
+  }
+
+  app.ticker.add(() => render(audio.currentTime));
+  render(0);
+  required<HTMLButtonElement>('#play').addEventListener('click', () => {
+    void audio.play().then(() => { ui.audio.textContent = 'Reproduciendo'; });
+  });
+  required<HTMLButtonElement>('#pause').addEventListener('click', () => {
+    audio.pause();
+    ui.audio.textContent = 'Pausado';
+  });
+  required<HTMLButtonElement>('#restart').addEventListener('click', () => {
+    audio.pause();
+    audio.currentTime = 0;
+    ui.audio.textContent = 'Detenido';
+    render(0);
+  });
+  audio.addEventListener('ended', () => { ui.audio.textContent = 'Finalizado'; });
+  const renderer = app.renderer.constructor.name;
+  ui.status.textContent = 'Lista';
+  ui.renderer.textContent = renderer;
+  window.__STAGE1__ = {
+    ready: true,
+    jobId: selection.job.jobId,
+    renderer,
+    width: app.screen.width,
+    height: app.screen.height,
+    durationSeconds: runtime.audio.durationSeconds,
+    mouthCueCount: dialogue.turns.reduce((total, turn) => total + turn.mouthCues.length, 0),
+    currentMouth: 'closed',
+    currentEyes: 'open,open',
+    currentGesture: 'neutral',
+    activeSpeakerId: dialogue.turns[0]?.speakerId ?? null,
   };
 }
 

@@ -9,15 +9,15 @@ export const SCENE_LIMITS = Object.freeze({
   maxAudioDurationSeconds: 120,
   maxFrameCount: 3600,
   maxGestures: 10,
+  maxDialogueTurns: 20,
 });
 
 const directCharacterKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen'];
 const handKeys = ['handNeutral', 'handPoint'];
-const schema = readSchema('scene-config.schema.json');
-const characterSchema = readSchema('character-manifest.schema.json');
 const ajv = new Ajv2020({ allErrors: true, strict: true });
-const validateSchema = ajv.compile(schema);
-const validateCharacterSchema = ajv.compile(characterSchema);
+const validateSchemaV1 = ajv.compile(readSchema('scene-config.schema.json'));
+const validateSchemaV2 = ajv.compile(readSchema('scene-config-v2.schema.json'));
+const validateCharacterSchema = ajv.compile(readSchema('character-manifest.schema.json'));
 
 export function loadAndValidateJobConfig(context) {
   if (context.config) return context.config;
@@ -39,20 +39,26 @@ export function loadAndValidateJobConfig(context) {
 }
 
 export function validateSceneConfig(config, context) {
+  const validateSchema = config?.version === 2 ? validateSchemaV2 : validateSchemaV1;
   assertSchema(validateSchema, config, {
     code: 'CONFIG_SCHEMA_INVALID',
-    message: 'La configuración de escena no cumple el contrato versión 1.',
+    message: `La configuración de escena no cumple el contrato versión ${config?.version ?? 'desconocida'}.`,
     suggestedAction: 'Revise los campos requeridos, tipos y límites indicados por el validador.',
   });
 
-  if (config.blink.minIntervalSeconds > config.blink.maxIntervalSeconds) {
-    semanticError('/blink/minIntervalSeconds', 'no puede ser mayor que /blink/maxIntervalSeconds');
+  if (config.version === 2) {
+    validateDialogueSemantics(config);
+    resolveDialogueAssets(config, context);
+  } else {
+    if (config.blink.minIntervalSeconds > config.blink.maxIntervalSeconds) {
+      semanticError('/blink/minIntervalSeconds', 'no puede ser mayor que /blink/maxIntervalSeconds');
+    }
+    validateGestureOrder(config.gestures || []);
+    resolveConfiguredAssets(config, context);
   }
   if (config.mouth.silenceThresholdNormalized >= config.mouth.openThresholdNormalized) {
     semanticError('/mouth/silenceThresholdNormalized', 'debe ser menor que /mouth/openThresholdNormalized');
   }
-  validateGestureOrder(config.gestures || []);
-  resolveConfiguredAssets(config, context);
   return config;
 }
 
@@ -62,9 +68,9 @@ export function validateMeasuredDuration(config, durationSeconds) {
     throw new PipelineError({
       code: 'AUDIO_DURATION_OUT_OF_RANGE',
       stage: 'analyzing_audio',
-      message: `La voz debe durar más de 0 y como máximo ${SCENE_LIMITS.maxAudioDurationSeconds} segundos.`,
+      message: `El audio debe durar más de 0 y como máximo ${SCENE_LIMITS.maxAudioDurationSeconds} segundos.`,
       technicalDetail: `durationSeconds=${durationSeconds}`,
-      suggestedAction: 'Reduzca el texto o ajuste la velocidad de la voz.',
+      suggestedAction: 'Reduzca el texto, las pausas o ajuste la velocidad de la voz.',
     });
   }
   if (frameCount > SCENE_LIMITS.maxFrameCount) {
@@ -76,7 +82,7 @@ export function validateMeasuredDuration(config, durationSeconds) {
       suggestedAction: 'Reduzca la duración del audio.',
     });
   }
-  if (config.subtitle.startSeconds > durationSeconds) {
+  if (config.version === 1 && config.subtitle.startSeconds > durationSeconds) {
     throw new PipelineError({
       code: 'SUBTITLE_START_AFTER_AUDIO',
       stage: 'analyzing_audio',
@@ -85,7 +91,7 @@ export function validateMeasuredDuration(config, durationSeconds) {
       suggestedAction: 'Ajuste subtitle.startSeconds dentro de la duración medida del WAV.',
     });
   }
-  for (const [index, gesture] of (config.gestures || []).entries()) {
+  for (const [index, gesture] of (config.version === 1 ? config.gestures || [] : []).entries()) {
     if (gesture.startSeconds + gesture.durationSeconds > durationSeconds) {
       throw new PipelineError({
         code: 'GESTURE_OUTSIDE_AUDIO',
@@ -109,47 +115,9 @@ function resolveConfiguredAssets(config, context) {
   let characterRig = null;
 
   if (hasManifest) {
-    assertPortableRelativePath(config.characterManifest, '/characterManifest');
-    const manifestFile = resolveAsset(context, config.characterManifest, 'characterManifest');
-    let manifest;
-    try {
-      manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
-    } catch (error) {
-      throw new PipelineError({
-        code: 'CHARACTER_MANIFEST_JSON_INVALID',
-        stage: 'validating_config',
-        message: 'El manifest del personaje no contiene JSON válido.',
-        technicalDetail: error instanceof SyntaxError ? error.message : undefined,
-        suggestedAction: 'Corrija la sintaxis del manifest del personaje.',
-      });
-    }
-    assertSchema(validateCharacterSchema, manifest, {
-      code: 'CHARACTER_MANIFEST_SCHEMA_INVALID',
-      message: 'El manifest del personaje no cumple el contrato versión 1.',
-      suggestedAction: 'Revise ID, canvas, pivot, capas y procedencia del personaje.',
-    });
-    const manifestDirectory = path.posix.dirname(config.characterManifest);
-    const layers = {
-      body: manifest.layers.body,
-      eyesOpen: manifest.layers.eyes.open,
-      eyesClosed: manifest.layers.eyes.closed,
-      mouthClosed: manifest.layers.mouth.closed,
-      mouthMedium: manifest.layers.mouth.medium,
-      mouthOpen: manifest.layers.mouth.open,
-      handNeutral: manifest.layers.hands.neutral,
-      handPoint: manifest.layers.hands.point,
-    };
-    for (const [name, relativePath] of Object.entries(layers)) {
-      assertPortableRelativePath(relativePath, `/characterManifest/layers/${name}`);
-      resolvedAssets[name] = path.posix.join(manifestDirectory, relativePath);
-    }
-    characterRig = {
-      id: manifest.id,
-      version: manifest.version,
-      manifestPath: config.characterManifest,
-      pivot: manifest.pivot,
-      provenance: manifest.provenance,
-    };
+    const resolved = resolveCharacterManifest(context, config.characterManifest, '/characterManifest');
+    Object.assign(resolvedAssets, resolved.assets);
+    characterRig = resolved.characterRig;
   } else {
     for (const key of directCharacterKeys) resolvedAssets[key] = config.assets[key];
     const presentHands = handKeys.filter((key) => config.assets[key]);
@@ -166,6 +134,90 @@ function resolveConfiguredAssets(config, context) {
   }
   context.resolvedAssets = resolvedAssets;
   context.characterRig = characterRig;
+  context.resolvedCharacters = null;
+}
+
+function validateDialogueSemantics(config) {
+  const characterIds = new Set();
+  for (const [index, character] of config.characters.entries()) {
+    if (characterIds.has(character.id)) semanticError(`/characters/${index}/id`, 'debe ser único');
+    characterIds.add(character.id);
+    if (character.blink.minIntervalSeconds > character.blink.maxIntervalSeconds) {
+      semanticError(`/characters/${index}/blink/minIntervalSeconds`, 'no puede ser mayor que maxIntervalSeconds');
+    }
+  }
+  const turnIds = new Set();
+  for (const [index, turn] of config.dialogue.entries()) {
+    if (turnIds.has(turn.id)) semanticError(`/dialogue/${index}/id`, 'debe ser único');
+    turnIds.add(turn.id);
+    if (!characterIds.has(turn.speakerId)) semanticError(`/dialogue/${index}/speakerId`, 'debe referenciar un personaje existente');
+  }
+}
+
+function resolveDialogueAssets(config, context) {
+  assertPortableRelativePath(config.assets.background, '/assets/background');
+  resolveAsset(context, config.assets.background, 'background');
+  context.resolvedAssets = { background: config.assets.background };
+  context.characterRig = null;
+  context.resolvedCharacters = config.characters.map((character, index) => {
+    const resolved = resolveCharacterManifest(context, character.characterManifest, `/characters/${index}/characterManifest`);
+    return {
+      id: character.id,
+      assets: resolved.assets,
+      characterRig: resolved.characterRig,
+      transform: character.transform,
+      blink: character.blink,
+    };
+  });
+}
+
+function resolveCharacterManifest(context, manifestPath, jsonPath) {
+  assertPortableRelativePath(manifestPath, jsonPath);
+  const manifestFile = resolveAsset(context, manifestPath, `${jsonPath}/manifest`);
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+  } catch (error) {
+    throw new PipelineError({
+      code: 'CHARACTER_MANIFEST_JSON_INVALID',
+      stage: 'validating_config',
+      message: 'El manifest del personaje no contiene JSON válido.',
+      technicalDetail: error instanceof SyntaxError ? error.message : undefined,
+      suggestedAction: 'Corrija la sintaxis del manifest del personaje.',
+    });
+  }
+  assertSchema(validateCharacterSchema, manifest, {
+    code: 'CHARACTER_MANIFEST_SCHEMA_INVALID',
+    message: 'El manifest del personaje no cumple el contrato versión 1.',
+    suggestedAction: 'Revise ID, canvas, pivot, capas y procedencia del personaje.',
+  });
+  const manifestDirectory = path.posix.dirname(manifestPath);
+  const sourceLayers = {
+    body: manifest.layers.body,
+    eyesOpen: manifest.layers.eyes.open,
+    eyesClosed: manifest.layers.eyes.closed,
+    mouthClosed: manifest.layers.mouth.closed,
+    mouthMedium: manifest.layers.mouth.medium,
+    mouthOpen: manifest.layers.mouth.open,
+    handNeutral: manifest.layers.hands.neutral,
+    handPoint: manifest.layers.hands.point,
+  };
+  const assets = {};
+  for (const [name, relativePath] of Object.entries(sourceLayers)) {
+    assertPortableRelativePath(relativePath, `${jsonPath}/layers/${name}`);
+    assets[name] = path.posix.join(manifestDirectory, relativePath);
+    resolveAsset(context, assets[name], `${jsonPath}/${name}`);
+  }
+  return {
+    assets,
+    characterRig: {
+      id: manifest.id,
+      version: manifest.version,
+      manifestPath,
+      pivot: manifest.pivot,
+      provenance: manifest.provenance,
+    },
+  };
 }
 
 function validateGestureOrder(gestures) {

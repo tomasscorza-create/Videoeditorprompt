@@ -2,7 +2,7 @@
 
 Fecha: 22 de julio de 2026.
 
-Estado: Etapas 2B y 2C implementadas y verificadas técnicamente; la Etapa 2D es el siguiente paso propuesto.
+Estado: Etapas 2B, 2C y 2D implementadas y verificadas técnicamente; la Etapa 2E es el siguiente paso propuesto.
 
 ## Conclusión
 
@@ -132,7 +132,7 @@ Criterio de salida:
 - repetir el render produce el mismo resultado;
 - los assets pueden sustituirse sin cambiar el motor.
 
-### Etapa 2D — Diálogo temporizado y dos hablantes
+### Etapa 2D — Diálogo temporizado y dos hablantes — COMPLETADA TÉCNICAMENTE
 
 Objetivo: representar una conversación real.
 
@@ -231,11 +231,11 @@ La decisión React/Electron debe posponerse. El visor 2B puede continuar con Vit
 
 1. **Etapa 2B — completada:** selector de jobs y publicación por `jobId`.
 2. **Etapa 2C — completada técnicamente:** personaje real por capas con boca, ojos, idle y manos.
-3. **Etapa 2D — siguiente:** diálogo por turnos, dos voces y subtítulos temporizados.
-4. **Etapa 2E:** fondo/cámara/parallax.
+3. **Etapa 2D — completada técnicamente:** diálogo por turnos, voces parametrizadas y subtítulos temporizados.
+4. **Etapa 2E — siguiente:** fondo/cámara/parallax.
 5. **Etapa 3A:** varias escenas y transiciones.
 6. **Diseño UX durante 2C–2D; implementación del editor MVP después de 3A.**
 
 ## Decisión propuesta
 
-La Etapa 2C ya demuestra actuación visual determinista con un rig sustituible sin cambiar el motor. El siguiente objetivo creativo es 2D: dos personajes y turnos de voz medidos, manteniendo todavía una sola escena y sin construir el editor.
+La Etapa 2D ya demuestra dos instancias, turnos medidos y boca exclusiva del hablante. El siguiente objetivo del motor es 2E: fondo y cámara animables, manteniendo todavía una sola escena y sin convertir el preview en un editor.

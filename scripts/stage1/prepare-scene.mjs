@@ -8,9 +8,11 @@ import { createJobContext } from './job-context.mjs';
 import { createProgressReporter, serializeError } from './progress.mjs';
 import { loadAndValidateJobConfig, validateMeasuredDuration } from './validate-scene-config.mjs';
 import { PipelineError } from './errors.mjs';
+import { prepareDialogueJob } from './prepare-dialogue.mjs';
 
 export function prepareJob(context, report = createProgressReporter(context)) {
   const config = loadAndValidateJobConfig(context);
+  if (config.version === 2) return prepareDialogueJob(context, config, report);
   report('preparing', { stage: 'prepare', config: 'input/scene.config.json' });
   if (!existsSync(context.ttsRoot)) {
     throw new PipelineError({

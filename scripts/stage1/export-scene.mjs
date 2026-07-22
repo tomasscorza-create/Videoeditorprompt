@@ -7,12 +7,14 @@ import { ensureDirectory, ffprobe, isMain, readJson, run, sha256, writeJson } fr
 import { createJobContext, resolveAsset } from './job-context.mjs';
 import { createProgressReporter, serializeError } from './progress.mjs';
 import { loadAndValidateJobConfig } from './validate-scene-config.mjs';
+import { exportDialogueJob } from './export-dialogue.mjs';
 
 export function exportJob(context, options = {}) {
   const report = options.report || createProgressReporter(context);
   const runNumber = Number(options.runNumber ?? 1);
   if (!Number.isInteger(runNumber) || runNumber < 1) throw new Error('runNumber debe ser un entero positivo.');
   const config = loadAndValidateJobConfig(context);
+  if (config.version === 2) return exportDialogueJob(context, config, { ...options, report, runNumber });
   const runtime = readJson(path.join(context.runtimeRoot, 'scene-runtime.json'));
   const generatedPath = (relativePath) => {
     if (path.isAbsolute(relativePath)) throw new Error(`Ruta generada absoluta no permitida: ${relativePath}`);
