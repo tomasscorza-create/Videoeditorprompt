@@ -77,7 +77,18 @@ const ui = {
   play: required<HTMLButtonElement>('#play'),
   pause: required<HTMLButtonElement>('#pause'),
   restart: required<HTMLButtonElement>('#restart'),
+  seek: required<HTMLInputElement>('#seek'),
+  viewerCurrent: required<HTMLElement>('#viewer-current'),
+  viewerDuration: required<HTMLElement>('#viewer-duration'),
 };
+
+// Segundos a m:ss para las etiquetas del visor.
+function formatTime(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
 
 // Refleja en los controles qué acciones son válidas según la reproducción.
 type PlaybackState = 'loading' | 'idle' | 'playing' | 'paused' | 'ended';
@@ -154,6 +165,7 @@ async function start(): Promise<void> {
   app.stage.addChild(subtitle);
   const audio = new Audio(generatedUrl(runtime.audio.path));
   audio.preload = 'auto';
+  let scrubbing = false;
 
   function render(timeSeconds: number): void {
     const state = evaluateScene(config, runtime, mouthData.cues, timeSeconds);
@@ -174,6 +186,11 @@ async function start(): Promise<void> {
     ui.mouth.textContent = state.mouth;
     ui.eyes.textContent = state.eyes;
     ui.gesture.textContent = state.gesture;
+    const duration = runtime.audio.durationSeconds;
+    const pct = duration > 0 ? Math.min(100, (state.time / duration) * 100) : 0;
+    if (!scrubbing) ui.seek.value = String(Math.round(pct * 10));
+    ui.seek.style.setProperty('--pct', `${pct}%`);
+    ui.viewerCurrent.textContent = formatTime(state.time);
     if (window.__STAGE1__) {
       window.__STAGE1__.currentMouth = state.mouth;
       window.__STAGE1__.currentEyes = state.eyes;
@@ -205,10 +222,21 @@ async function start(): Promise<void> {
     ui.audio.textContent = 'Finalizado';
     setPlaybackState('ended');
   });
+  ui.seek.addEventListener('pointerdown', () => { scrubbing = true; });
+  const stopScrub = (): void => { scrubbing = false; };
+  ui.seek.addEventListener('pointerup', stopScrub);
+  ui.seek.addEventListener('pointercancel', stopScrub);
+  ui.seek.addEventListener('input', () => {
+    const target = (Number(ui.seek.value) / 1000) * runtime.audio.durationSeconds;
+    audio.currentTime = target;
+    render(target);
+  });
 
   const renderer = app.renderer.constructor.name;
   ui.status.textContent = 'Lista';
   ui.renderer.textContent = renderer;
+  ui.viewerDuration.textContent = formatTime(runtime.audio.durationSeconds);
+  ui.seek.disabled = false;
   ui.canvasLoading.hidden = true;
   ui.canvasShell.setAttribute('aria-busy', 'false');
   setPlaybackState('idle');

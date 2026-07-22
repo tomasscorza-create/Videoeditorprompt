@@ -36,8 +36,15 @@
         </dl>
       </section>
       <section class="canvas-shell" aria-label="Vista previa vertical 1080 por 1920" aria-busy="true">
-        <div id="stage"></div>
-        <div id="canvas-loading" class="canvas-loading" role="status">Cargando escena…</div>
+        <div class="viewer">
+          <div id="stage"></div>
+          <div id="canvas-loading" class="canvas-loading" role="status">Cargando escena…</div>
+          <div class="viewer-bar">
+            <span class="viewer-time" id="viewer-current">0:00</span>
+            <input type="range" id="seek" class="seek" min="0" max="1000" value="0" step="1" aria-label="Progreso del video" disabled />
+            <span class="viewer-time" id="viewer-duration">0:00</span>
+          </div>
+        </div>
       </section>
     </main>
     <script type="module" src="/src/main.ts"></script>

@@ -105,11 +105,16 @@ button:disabled {
 /* ==========================================================================
    Layout
    ========================================================================== */
+/* Panel y visor se agrupan y centran juntos: el texto queda cerca del video,
+   sin el hueco muerto que dejaba el 1fr expandido. */
 .layout {
   display: grid;
-  grid-template-columns: minmax(18rem, 26rem) minmax(18rem, 1fr);
+  grid-template-columns: minmax(18rem, 23rem) auto;
   gap: var(--space-6);
   align-items: center;
+  justify-content: center;
+  max-width: 74rem;
+  margin: 0 auto;
   min-height: 100vh;
   padding: var(--space-6);
 }
@@ -217,20 +222,80 @@ dd { margin: 0; font-weight: 650; }
    Escenario / preview
    ========================================================================== */
 .canvas-shell {
-  position: relative;
   display: grid;
   place-items: center;
   min-height: calc(100vh - 4rem);
 }
 
+/* Marco del visor: bezel con gradiente, borde y sombra alrededor del canvas. */
+.viewer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: linear-gradient(160deg, var(--surface-raised), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-canvas);
+}
+
+#stage { display: flex; }
+
 .canvas-shell canvas {
   display: block;
   width: auto;
-  height: min(88vh, 960px);
+  height: min(74vh, 840px);
   max-width: 100%;
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-canvas);
+}
+
+/* Barra inferior del visor: tiempo · progreso · duración. */
+.viewer-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.viewer-time {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  min-width: 4ch;
+  text-align: center;
+}
+
+.seek {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent) var(--pct, 0%), var(--border) var(--pct, 0%));
+  cursor: pointer;
+}
+
+.seek:disabled { cursor: not-allowed; opacity: .5; }
+
+.seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong);
+  cursor: pointer;
+}
+
+.seek::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
 }
 
 /* Estado de carga mientras se preparan texturas y audio. */
@@ -242,6 +307,8 @@ dd { margin: 0; font-weight: 650; }
   color: var(--text-muted);
   font-size: var(--text-sm);
   letter-spacing: .04em;
+  background: linear-gradient(160deg, var(--surface-raised), var(--surface));
+  border-radius: 1rem;
 }
 
 .canvas-loading::before {
