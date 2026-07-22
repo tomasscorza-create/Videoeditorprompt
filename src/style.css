@@ -111,7 +111,8 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(16rem, 22rem) auto minmax(10rem, 14rem);
   gap: var(--space-6);
-  align-items: center;
+  align-items: start;
+  align-content: center;
   justify-content: center;
   max-width: 90rem;
   margin: 0 auto;
@@ -283,9 +284,8 @@ dd { margin: 0; font-weight: 650; }
    Escenario / preview
    ========================================================================== */
 .canvas-shell {
-  display: grid;
-  place-items: center;
-  min-height: calc(100vh - 4rem);
+  display: flex;
+  justify-content: center;
 }
 
 /* Marco del visor: bezel con gradiente, borde y sombra alrededor del canvas. */
