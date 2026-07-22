@@ -40,6 +40,11 @@
   --text-sm: .85rem;
   --text-base: .95rem;
   --shadow-canvas: 0 1.4rem 5rem #000c;
+  
+  /* Glass y textos sobre color */
+  --glass-start: rgba(255, 255, 255, 0.03);
+  --glass-end: rgba(0, 0, 0, 0.1);
+  --primary-text: #e8eefc;
 
   color: var(--text);
   background: var(--bg);
@@ -49,24 +54,28 @@
 
 /* Tema Claro */
 :root[data-theme="light"] {
-  --bg: #f4f6fa;
-  --bg-glow: #e0e7f1;
+  --bg: #e2e8f0;
+  --bg-glow: #cbd5e1;
   --surface: #ffffff;
-  --surface-raised: #f9fbfd;
-  --border: #d2dbe5;
-  --border-strong: #a4b5c7;
+  --surface-raised: #f8fafc;
+  --border: #cbd5e1;
+  --border-strong: #94a3b8;
   
-  --text: #1a202c;
-  --text-muted: #4a5568;
-  --text-dim: #718096;
+  --text: #0f172a;
+  --text-muted: #334155;
+  --text-dim: #475569;
   
-  --accent: #3182ce;
-  --primary: #2b6cb0;
-  --primary-hover: #2c5282;
-  --primary-border: #4299e1;
-  --focus-ring: #63b3ed;
+  --accent: #2563eb;
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --primary-border: #3b82f6;
+  --focus-ring: #60a5fa;
   
-  --shadow-canvas: 0 1.5rem 4rem rgba(30, 40, 60, 0.1);
+  --shadow-canvas: 0 1rem 3rem rgba(15, 23, 42, 0.12);
+  
+  --glass-start: rgba(255, 255, 255, 0.8);
+  --glass-end: rgba(248, 250, 252, 0.4);
+  --primary-text: #ffffff;
 }
 
 * { box-sizing: border-box; }
@@ -97,6 +106,7 @@ button,
 .button-primary {
   background: var(--primary);
   border-color: var(--primary-border);
+  color: var(--primary-text);
 }
 
 button:hover:not(:disabled),
@@ -115,6 +125,7 @@ button:disabled {
   text-decoration: none;
   background: var(--primary);
   border-color: var(--primary-border);
+  color: var(--primary-text);
 }
 
 .button-link[hidden] { display: none; }
@@ -202,11 +213,16 @@ button:disabled {
   transition: border-color .15s ease, background .15s ease;
 }
 
-.scene-card:hover { border-color: var(--border-strong); background: var(--surface-raised); }
+.scene-card:hover { 
+  border-color: var(--border-strong); 
+  background: var(--surface-raised); 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
 
 .scene-card.is-selected {
   border-color: var(--accent);
   background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .scene-thumb {
@@ -329,7 +345,7 @@ dd { margin: 0; font-weight: 650; }
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  background: linear-gradient(160deg, rgba(255,255,255,0.03), rgba(0,0,0,0.05)), var(--surface);
+  background: linear-gradient(160deg, var(--glass-start), var(--glass-end)), var(--surface);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
