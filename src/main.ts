@@ -63,6 +63,9 @@ const ui = {
   status: required<HTMLElement>('#status'),
   jobStatus: required<HTMLElement>('#job-status'),
   gallery: required<HTMLElement>('#scene-gallery'),
+  sceneGallery: required<HTMLElement>('#scene-gallery'),
+  scrollLeftBtn: required<HTMLButtonElement>('#scroll-left'),
+  scrollRightBtn: required<HTMLButtonElement>('#scroll-right'),
   jobMeta: required<HTMLElement>('#job-meta'),
   download: required<HTMLAnchorElement>('#download'),
   renderer: required<HTMLElement>('#renderer'),
@@ -144,6 +147,41 @@ ui.settingsOpen.addEventListener('click', () => ui.settingsModal.showModal());
 ui.settingsClose.addEventListener('click', () => ui.settingsModal.close());
 ui.settingsModal.addEventListener('click', (e) => {
   if (e.target === ui.settingsModal) ui.settingsModal.close();
+});
+
+// Navegación de la galería con loop infinito
+ui.scrollLeftBtn.addEventListener('click', () => {
+  const gallery = ui.sceneGallery;
+  if (gallery.children.length > 1 && gallery.lastElementChild) {
+    const cardWidth = (gallery.firstElementChild as HTMLElement).offsetWidth || 104;
+    const gap = 8;
+    
+    // Movemos el último elemento al principio
+    gallery.insertBefore(gallery.lastElementChild, gallery.firstElementChild);
+    
+    // Compensamos el salto visual instantáneamente
+    gallery.scrollLeft += (cardWidth + gap);
+    
+    // Animamos hacia la izquierda
+    gallery.scrollBy({ left: -(cardWidth + gap), behavior: 'smooth' });
+  }
+});
+
+ui.scrollRightBtn.addEventListener('click', () => {
+  const gallery = ui.sceneGallery;
+  if (gallery.children.length > 1 && gallery.firstElementChild) {
+    const cardWidth = (gallery.firstElementChild as HTMLElement).offsetWidth || 104;
+    const gap = 8;
+    
+    // Movemos el primer elemento al final
+    gallery.appendChild(gallery.firstElementChild);
+    
+    // Compensamos el salto visual instantáneamente
+    gallery.scrollLeft -= (cardWidth + gap);
+    
+    // Animamos hacia la derecha
+    gallery.scrollBy({ left: (cardWidth + gap), behavior: 'smooth' });
+  }
 });
 
 void start().catch((error: unknown) => {
@@ -265,10 +303,51 @@ async function start(): Promise<void> {
   ui.restart.addEventListener('click', () => {
     audio.pause();
     audio.currentTime = 0;
-    ui.audio.textContent = 'Detenido';
-    setPlaybackState('idle');
     render(0);
+    setPlaybackState('paused');
+    ui.audio.textContent = 'Pausado';
   });
+
+  // ==========================================================================
+  // Comandos Rápidos y Atajos de Teclado (ver comandos.md)
+  // ==========================================================================
+  
+  // 1. Clic en el video para Play/Pause
+  app.view.addEventListener('click', handlePlay);
+  app.view.style.cursor = 'pointer'; // Indicador visual de que es clickeable
+  app.view.title = "Clic para Reproducir / Pausar";
+
+  // 2. Atajos de teclado
+  window.addEventListener('keydown', (e) => {
+    // Evitar atajos si el usuario está escribiendo en un input
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+    switch(e.code) {
+      case 'Space':
+        e.preventDefault(); // Evitar scroll de la página
+        handlePlay();
+        break;
+      case 'KeyL':
+        e.preventDefault();
+        ui.loopBtn.click();
+        break;
+      case 'KeyM':
+        e.preventDefault();
+        audio.muted = !audio.muted;
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        audio.currentTime = Math.max(0, audio.currentTime - 0.5);
+        render(audio.currentTime);
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        audio.currentTime = Math.min(audio.duration, audio.currentTime + 0.5);
+        render(audio.currentTime);
+        break;
+    }
+  });
+
   audio.addEventListener('ended', () => {
     if (!globalLoop) {
       ui.audio.textContent = 'Finalizado';

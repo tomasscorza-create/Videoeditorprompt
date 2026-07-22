@@ -50,9 +50,21 @@
       </section>
       <aside class="sidebar-right">
         <div class="scene-picker">
-          <span class="scene-picker-label">Escenas</span>
-          <div class="scene-gallery" id="scene-gallery" role="listbox" aria-label="Escenas disponibles">
-            <p class="scene-gallery-empty">Cargando escenas…</p>
+          <div class="scene-picker-label">Escenas generadas</div>
+          
+          <div class="scene-picker-container">
+            <button id="scroll-left" class="scroll-arrow" aria-label="Desplazar a la izquierda" title="Ver anteriores">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+
+            <div class="scene-gallery" id="scene-gallery">
+              <!-- Se inyectan las tarjetas aquí dinámicamente -->
+              <p class="scene-gallery-empty">Cargando trabajos locales...</p>
+            </div>
+
+            <button id="scroll-right" class="scroll-arrow" aria-label="Desplazar a la derecha" title="Ver siguientes">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
           </div>
         </div>
       </aside>
