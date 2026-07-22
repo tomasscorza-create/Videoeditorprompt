@@ -80,6 +80,7 @@ const ui = {
   seek: required<HTMLInputElement>('#seek'),
   viewerCurrent: required<HTMLElement>('#viewer-current'),
   viewerDuration: required<HTMLElement>('#viewer-duration'),
+  themeToggle: required<HTMLButtonElement>('#theme-toggle'),
 };
 
 // Segundos a m:ss para las etiquetas del visor.
@@ -101,6 +102,22 @@ function setPlaybackState(state: PlaybackState): void {
 }
 
 setPlaybackState('loading');
+
+// Configuración inicial del tema
+function initTheme(): void {
+  const savedTheme = localStorage.getItem('app-theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  document.documentElement.dataset.theme = savedTheme;
+  ui.themeToggle.textContent = savedTheme === 'light' ? '🌙' : '☀️';
+  
+  ui.themeToggle.addEventListener('click', () => {
+    const isLight = document.documentElement.dataset.theme === 'light';
+    const newTheme = isLight ? 'dark' : 'light';
+    document.documentElement.dataset.theme = newTheme;
+    localStorage.setItem('app-theme', newTheme);
+    ui.themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
+  });
+}
+initTheme();
 
 void start().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
