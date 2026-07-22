@@ -6,7 +6,7 @@ Este roadmap define dirección y criterios de avance; no autoriza por sí solo i
 
 Las Etapas técnicas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector local 2B están aprobadas. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente: el contrato v2 compila dos personajes, turnos medidos y un fondo opcional de 2–3 capas con paneo, zoom y parallax. El pipeline sigue siendo local/headless, de una escena, aislado por `jobId` y equivalente en preview PixiJS y MP4 H.264/AAC.
 
-La siguiente meta pertenece todavía a la Fase 1: transformar el prototipo de una escena en una herramienta local que produzca videos útiles repetidamente sin editar código.
+La siguiente meta pertenece todavía a la Fase 1. Antes de multiplicar el sistema a varias escenas, la Etapa 2F estabilizará calidad de voz/boca/actuación y validará el contrato mínimo de assets paramétricos y catálogo. La visión completa y el gate están en `docs/VISION_PRODUCTO_Y_ETAPA_2F.md`.
 
 ## Principios de avance
 
@@ -33,6 +33,7 @@ Producir videos 2D verticales útiles de forma local, repetible y sin modificar 
 - Varias escenas lineales y transiciones simples.
 - Assets reutilizables mediante IDs/manifiestos.
 - Personajes por capas, poses y animaciones básicas.
+- Recursos geométricos/paramétricos compilables a capas compatibles con el motor.
 - Piper local, duración por FFprobe y caché.
 - Boca, ojos, subtítulos y transformaciones.
 - Exportación robusta y trabajos recuperables.
@@ -42,6 +43,7 @@ Producir videos 2D verticales útiles de forma local, repetible y sin modificar 
 
 - Contrato versionado de proyecto/escenas y validación clara.
 - Biblioteca mínima de personajes, fondos y presets con licencias.
+- IDs y manifests estables para variantes, pivotes, poses y animaciones.
 - Compilación de varias escenas a una timeline determinista.
 - Preview/exportación equivalentes.
 - CLI headless por `jobId` con límites y errores mejorados.
@@ -55,6 +57,7 @@ Producir videos 2D verticales útiles de forma local, repetible y sin modificar 
 - Diferencias entre preview y exportación al introducir escenas.
 - Crecimiento de temporales/caché y errores difíciles de recuperar.
 - Calidad editorial insuficiente pese a éxito técnico.
+- Multiplicar voz o actuación inestable al introducir varias escenas demasiado pronto.
 
 ### Criterio de entrada
 
@@ -81,16 +84,19 @@ Convertir una idea en un guion y un plan de escenas válido, editable y restring
 ### Alcance
 
 - Prompt a guion breve.
+- Preguntas guiadas y variantes seleccionables cuando falten decisiones relevantes.
 - Guion a escenas semánticas.
 - Selección de assets de un catálogo cerrado.
 - Plan JSON validado y normalizado.
 - Corrección manual antes de renderizar.
+- Proyecto de autoría único compartido por generación guiada y edición manual.
 - Codex durante desarrollo/operación experimental.
 - Modelo local para tareas repetitivas; proveedor intercambiable.
 
 ### Entregables
 
 - Contrato separado entre plan de autoría y timeline compilada.
+- Registro explícito de elecciones de estilo, paleta, tipografía y variantes como datos editables.
 - JSON Schema/versionado y validador semántico.
 - Catálogo resumido de assets para el modelo.
 - Adaptador inicial de planificación local.
@@ -185,6 +191,8 @@ Ofrecer una interfaz local práctica para crear, revisar y corregir proyectos si
 ### Alcance
 
 - Gestión local de proyectos.
+- Entrada por prompt y continuación en el mismo proyecto editable.
+- Preguntas y variantes visuales como asistencia opcional, no como estado oculto.
 - Lista y edición de escenas.
 - Preview y desplazamiento temporal sencillo.
 - Selección de personajes, fondos, imágenes y elementos.

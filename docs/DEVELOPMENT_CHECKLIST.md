@@ -41,6 +41,15 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [ ] Actualicé solo la documentación afectada.
 - [ ] Informé cambios, pruebas realizadas, suficiencia y pendientes.
 
+## Para contratos creativos, catálogo o IA
+
+- [ ] Separé el proyecto de autoría, el runtime compilado y los artefactos del job.
+- [ ] La generación por prompt produce datos editables y validados, no frames ni keyframes exhaustivos.
+- [ ] Personajes, variantes, poses, animaciones y assets se referencian por IDs estables y rutas relativas resueltas bajo raíces controladas.
+- [ ] Las definiciones geométricas contienen datos permitidos, nunca código o expresiones arbitrarias.
+- [ ] Preview y exportación consumen el mismo estado temporal después de compilar presets y decisiones de autoría.
+- [ ] Assets, voces, fuentes y modelos incorporan procedencia, licencia y versión.
+
 ## Para cambios web futuros
 
 - [ ] Cada trabajo está aislado por `jobId`, usuario y raíces permitidas.
@@ -53,4 +62,3 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [ ] Operaciones largas tienen timeout, cancelación e idempotencia.
 - [ ] Caché y reserva de jobs son seguras ante concurrencia.
 - [ ] No existe acceso cruzado entre usuarios ni secretos en logs/artefactos.
-

@@ -2,7 +2,7 @@
 
 Fecha: 22 de julio de 2026.
 
-Estado: Etapas 2B, 2C, 2D y 2E implementadas y verificadas técnicamente; la Etapa 3A es el siguiente paso propuesto.
+Estado: Etapas 2B, 2C, 2D y 2E implementadas y verificadas técnicamente. La Etapa 2F es el siguiente paso aprobado antes de 3A.
 
 ## Conclusión
 
@@ -162,9 +162,21 @@ Alcance:
 - entrada/salida o reacción sencilla;
 - límites para que la cámara no muestre zonas vacías.
 
+### Etapa 2F — Contrato creativo y gate de calidad — SIGUIENTE
+
+Antes de multiplicar la composición a varias escenas se validará una escena de calidad más representativa y un vertical slice de assets paramétricos.
+
+Se divide en:
+
+- **2F.0 — definición documental:** flujo prompt → proyecto editable, separación entre autoría/runtime/artefactos, rig paramétrico y catálogo. Completada en `docs/VISION_PRODUCTO_Y_ETAPA_2F.md`.
+- **2F.1 — calidad:** piloto de 20–30 segundos para ajustar texto TTS, dos voces/configuraciones, boca no fonética, parpadeo, idle, gesto y actuación de hablante/oyente.
+- **2F.2 — asset paramétrico:** un personaje geométrico con variantes, pivotes, estados, poses, manifest y PNG compilados de forma determinista.
+
+Esta etapa no implementa todavía IA real, editor, varias escenas, generación de imágenes por modelo ni rig avanzado.
+
 ### Etapa 3A — Varias escenas y transiciones
 
-Solo después de validar personaje, diálogo y fondo dentro de una escena:
+Solo después de superar el gate de 2F dentro de una escena:
 
 - lista lineal de escenas;
 - duración medida/compilada;
@@ -233,9 +245,10 @@ La decisión React/Electron debe posponerse. El visor 2B puede continuar con Vit
 2. **Etapa 2C — completada técnicamente:** personaje real por capas con boca, ojos, idle y manos.
 3. **Etapa 2D — completada técnicamente:** diálogo por turnos, voces parametrizadas y subtítulos temporizados.
 4. **Etapa 2E — completada técnicamente:** fondo/cámara/parallax.
-5. **Etapa 3A — siguiente:** varias escenas y transiciones.
-6. **Diseño UX durante 2C–2D; implementación del editor MVP después de 3A.**
+5. **Etapa 2F — siguiente:** calidad de voz/boca/actuación y vertical slice paramétrico.
+6. **Etapa 3A — posterior al gate 2F:** varias escenas y transiciones.
+7. **Diseño UX en paralelo; implementación del editor MVP después de estabilizar 2F/3A.**
 
 ## Decisión propuesta
 
-La Etapa 2E ya demuestra tres planos y cámara determinista. El siguiente objetivo del motor es 3A: varias escenas lineales y transiciones simples, sin convertir el preview en un editor profesional.
+La Etapa 2E ya demuestra tres planos y cámara determinista. Las revisiones humanas detectaron boca poco alineada, voz irregular y actuación inconsistente. El siguiente objetivo es 2F: corregir esas brechas y validar recursos paramétricos reutilizables. Después se retomará 3A sin convertir el preview en un editor profesional.

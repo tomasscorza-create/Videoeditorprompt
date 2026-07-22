@@ -54,7 +54,14 @@ Codex puede seguir avanzando en el roadmap técnico aprobado, una capacidad veri
    - uno o dos loops ambientales;
    - mismo evaluador para preview y exportación.
 
-3. **Etapa 3A — varias escenas lineales**
+3. **Etapa 2F — contrato creativo y gate de calidad**
+   - piloto de 20–30 segundos con voz, boca y actuación ajustadas;
+   - vocabulario mínimo de poses, animaciones y variantes;
+   - vertical slice de personaje geométrico/paramétrico;
+   - catálogo local mínimo por IDs y manifests;
+   - contrato de autoría separado del runtime.
+
+4. **Etapa 3A — varias escenas lineales**
    - contrato acotado de proyecto;
    - cortes y fundidos simples;
    - audio y subtítulos continuos;
@@ -163,7 +170,7 @@ Codex decide la implementación técnica del contrato junto con el usuario. Clau
 | `public/generated/`, `.local-video/` | Outputs regenerables; no usarlos para resolver conflictos |
 | `docs/` | Dividir por tema; evitar editar simultáneamente el mismo documento |
 
-El prototipo de Claude debe vivir separado del preview vigente mientras cambien los contratos. La implementación real del editor se integrará cuando 2D, 2E y 3A hayan estabilizado los datos que la interfaz editará.
+El prototipo de Claude debe vivir separado del preview vigente mientras cambien los contratos. La implementación real del editor se integrará cuando 2F y 3A hayan estabilizado los datos que la interfaz editará. Claude puede usar desde ahora `docs/VISION_PRODUCTO_Y_ETAPA_2F.md` como brief de experiencia, manteniendo los datos ejecutables como mocks hasta que el motor apruebe sus schemas.
 
 ## Política de commits
 
@@ -243,7 +250,7 @@ Esta rama permite resolver y probar la combinación sin romper `main`. Después 
 
 El próximo hito conjunto recomendado, después de completar técnicamente 2E, es:
 
-- **Codex:** Etapa 3A, varias escenas lineales y transiciones simples.
-- **Claude:** conectar su prototipo a los contratos 2D/2E y diseñar controles por preset para diálogo, fondo y cámara.
+- **Codex:** Etapa 2F, primero calidad de voz/boca/actuación y después el vertical slice paramétrico/catalogado.
+- **Claude:** diseñar el recorrido prompt → preguntas/variantes → proyecto editable y los controles manuales contra el brief 2F, usando datos simulados y registrando necesidades de contrato.
 
-Así se puede avanzar en paralelo sin diseñar la interfaz a ciegas ni detener el desarrollo funcional.
+Al superar el gate 2F, Codex retomará 3A y Claude podrá adaptar sus componentes a los schemas ejecutables aprobados.
