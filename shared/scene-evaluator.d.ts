@@ -12,7 +12,7 @@ export interface DialogueCharacterState {
   character: { x: number; y: number; scale: number; opacity: number };
   eyes: 'open' | 'closed';
   mouth: 'closed' | 'medium' | 'open';
-  gesture: 'neutral';
+  gesture: 'neutral' | 'point';
   speaking: boolean;
 }
 export interface DialogueSceneState {

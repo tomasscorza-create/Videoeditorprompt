@@ -9,7 +9,8 @@ Construimos una herramienta local, dirigida por datos, para producir videos anim
 Estado vigente:
 
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
-- Existe un prototipo de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables, diálogo medido, Piper por turno, boca RMS exclusiva, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC.
+- La Etapa 2F.0 está documentada y 2F.1 está implementada, pendiente de aprobación humana de calidad. Antes de 3A falta el vertical slice paramétrico/catalogado 2F.2.
+- Existe un prototipo de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
 - `public/generated` es solo una publicación opcional e indexada por `jobId` para el preview; no es almacenamiento del motor.
@@ -76,7 +77,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `src/main.ts`: preview PixiJS y selector mediante `?job=<jobId>`; no debe absorber lógica del motor y no es todavía un editor.
 - `public/scene.config.json`: ejemplo vigente del contrato mínimo de una escena.
 - `schema/scene-config.schema.json`: JSON Schema 2020-12 del contrato versión 1.
-- `schema/scene-config-v2.schema.json`: contrato de una escena con exactamente dos personajes y diálogo secuencial medido.
+- `schema/scene-config-v2.schema.json`: contrato de una escena con exactamente dos personajes, diálogo secuencial medido y gesto opcional por turno.
 - `schema/character-manifest.schema.json`: contrato versión 1 de un rig alineado con ojos, bocas y poses de manos.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.
 - `pilots/personaje-mono-01/scene.config.json`: piloto vigente del personaje animable real.
@@ -101,9 +102,11 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 
 - Los contratos v1 y v2 están deliberadamente limitados a una escena; todavía no existe el contrato futuro de proyectos con varias escenas.
 - El contrato de rig versión 1 solo demuestra una pose neutral y `point`; todavía no modela un catálogo general de gestos. Las múltiples instancias y los turnos pertenecen al contrato de escena v2.
-- El piloto 2D reutiliza el mismo rig y modelo Piper con distinta velocidad para ambos personajes; demuestra independencia temporal, no casting visual/vocal definitivo.
+- El piloto 2D reutiliza el mismo rig y modelo Piper; 2F.1 agrega dos rigs y dos voces, pero su casting visual/vocal sigue pendiente de aprobación humana.
 - El fondo del piloto 2C es estático; cámara, parallax y elementos ambientales pertenecen a una etapa posterior.
 - 2E implementa paneo/zoom global y parallax por capa; todavía no existen keyframes libres, loops ambientales configurables ni varias escenas.
+- La boca sigue una envolvente RMS estabilizada, no fonemas; su mejora técnica no equivale a aprobación visual.
+- La voz `es_ES-davefx-medium` está instalada solo en el runtime local y requiere evaluación auditiva antes de aceptarse como voz de producto.
 - `prepare-scene.mjs` conoce directamente Piper, su modelo y `venv/Scripts/python.exe`; proveedor reemplazable y Linux aún son objetivos, no hechos.
 - La caché TTS y un mismo `jobId` no están protegidos ante procesos concurrentes.
 - Los procesos usan `spawnSync` sin timeout ni cancelación.

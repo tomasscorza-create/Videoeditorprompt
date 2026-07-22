@@ -5,6 +5,7 @@ import { buildBlinkSchedule } from '../../shared/scene-evaluator.js';
 import { ensureDirectory, ffprobe, run, sha256, writeJson } from './common.mjs';
 import { generatePiperVoice } from './piper-voice.mjs';
 import { renderSubtitle, wrapSubtitleText } from './subtitle-renderer.mjs';
+import { normalizeSpanishTtsText } from './tts-text.mjs';
 import { validateMeasuredDuration } from './validate-scene-config.mjs';
 
 export function prepareDialogueJob(context, config, report) {
@@ -17,7 +18,8 @@ export function prepareDialogueJob(context, config, report) {
   let fontPath = null;
 
   for (const turn of config.dialogue) {
-    const generated = generatePiperVoice(context, { text: turn.text, ...turn.voice }, report, {
+    const ttsText = normalizeSpanishTtsText(turn.text);
+    const generated = generatePiperVoice(context, { text: ttsText, ...turn.voice }, report, {
       turnId: turn.id,
       speakerId: turn.speakerId,
     });
@@ -45,7 +47,9 @@ export function prepareDialogueJob(context, config, report) {
       audioPath: generated.audioRelative,
       subtitlePath: subtitle.subtitleRelative,
       subtitleText,
+      ttsText,
       mouthCues: analysis.cues,
+      gesture: turn.gesture ?? 'neutral',
       voice: { model: turn.voice.model, lengthScale: turn.voice.lengthScale, volume: turn.voice.volume },
       cacheKey: generated.voiceKey,
       cacheHit: generated.cacheHit,
@@ -57,7 +61,7 @@ export function prepareDialogueJob(context, config, report) {
 
   const timelineKey = sha256(JSON.stringify({
     configVersion: config.version,
-    turns: timelineTurns.map(({ id, speakerId, durationSeconds, gapAfterSeconds, cacheKey }) => ({ id, speakerId, durationSeconds, gapAfterSeconds, cacheKey })),
+    turns: timelineTurns.map(({ id, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture }) => ({ id, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture })),
   }));
   const masterRelative = path.posix.join('audio', `dialogue-${timelineKey}.wav`);
   const masterPath = path.join(context.generatedRoot, ...masterRelative.split('/'));

@@ -6,7 +6,21 @@ import { parseArguments, run, writeJson } from '../stage1/common.mjs';
 
 const args = parseArguments(process.argv.slice(2));
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const assetRoot = path.resolve(repositoryRoot, String(args['asset-dir'] || 'public/assets/characters/mono-presentador-v1'));
+const variantName = String(args.variant || 'presentador');
+const variants = {
+  presentador: {
+    id: 'mono-presentador-v1', outline: '#24150f', fur: '#9a5636', lightFur: '#d89a69',
+    suit: '#24385f', shirt: '#f4e9d9', accent: '#e35b55', label: 'presentador azul',
+  },
+  analista: {
+    id: 'mono-analista-v1', outline: '#20151c', fur: '#68453d', lightFur: '#c78c72',
+    suit: '#5a294f', shirt: '#fff1d6', accent: '#f2b84b', label: 'analista ciruela',
+  },
+};
+const variant = variants[variantName];
+if (!variant) throw new Error(`Variante desconocida: ${variantName}. Disponibles: ${Object.keys(variants).join(', ')}.`);
+const characterId = String(args.id || variant.id);
+const assetRoot = path.resolve(repositoryRoot, String(args['asset-dir'] || `public/assets/characters/${characterId}`));
 const sourceRoot = path.join(assetRoot, 'source');
 mkdirSync(sourceRoot, { recursive: true });
 const browserExecutable = [
@@ -19,12 +33,7 @@ const browserExecutable = [
 if (!browserExecutable) throw new Error('No se encontró Chrome/Edge. Configure LOCAL_VIDEO_CHROMIUM para generar los PNG.');
 const browserProfile = mkdtempSync(path.join(tmpdir(), 'local-video-stage2c-'));
 
-const outline = '#24150f';
-const fur = '#9a5636';
-const lightFur = '#d89a69';
-const suit = '#24385f';
-const shirt = '#f4e9d9';
-const accent = '#e35b55';
+const { outline, fur, lightFur, suit, shirt, accent } = variant;
 
 const svg = (content, background = false) => `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
@@ -119,7 +128,7 @@ try {
 
 writeJson(path.join(assetRoot, 'character.manifest.json'), {
   version: 1,
-  id: 'mono-presentador-v1',
+  id: characterId,
   canvas: { width: 1080, height: 1920 },
   pivot: { x: 540, y: 960 },
   layers: {
@@ -129,9 +138,9 @@ writeJson(path.join(assetRoot, 'character.manifest.json'), {
     hands: { neutral: 'hand_neutral.png', point: 'hand_point.png' },
   },
   provenance: {
-    source: 'Creación vectorial determinista del proyecto; fuente SVG incluida en source/.',
+    source: `Creación vectorial determinista del proyecto; variante ${variant.label}; fuente SVG incluida en source/.`,
     license: 'Asset original para uso interno del proyecto.',
   },
 });
 
-process.stdout.write(`${JSON.stringify({ generated: Object.keys(layers).length, assetRoot })}\n`);
+process.stdout.write(`${JSON.stringify({ generated: Object.keys(layers).length, variant: variantName, characterId, assetRoot })}\n`);

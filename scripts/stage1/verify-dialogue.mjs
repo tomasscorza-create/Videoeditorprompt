@@ -26,6 +26,9 @@ export function verifyDialogueJob(context, config) {
   check('Hablantes referencian personajes', dialogue.turns.every((turn) => runtime.characters.some((character) => character.id === turn.speakerId)), true);
   check('Audio maestro portable', !path.isAbsolute(runtime.audio.path) && !path.isAbsolute(runtime.dialoguePath), [runtime.audio.path, runtime.dialoguePath]);
   check('Assets y manifests portables', runtime.characters.every((character) => !path.isAbsolute(character.characterRig.manifestPath) && Object.values(character.assets).every((value) => !path.isAbsolute(value))), true);
+  if (new Set(config.characters.map((character) => character.characterManifest)).size === config.characters.length) {
+    check('Rigs de personajes distinguibles', new Set(runtime.characters.map((character) => character.characterRig.id)).size === runtime.characters.length, runtime.characters.map((character) => character.characterRig.id));
+  }
   check('Duración compilada coincide', Math.abs(runtime.audio.durationSeconds - dialogue.turns.at(-1).endSeconds) < 0.03, { audio: runtime.audio.durationSeconds, timeline: dialogue.turns.at(-1).endSeconds });
   check('Pausas medidas presentes', dialogue.turns.slice(0, -1).every((turn, index) => Math.abs(dialogue.turns[index + 1].startSeconds - turn.endSeconds - turn.gapAfterSeconds) < 1e-6), true);
   check('Cues RMS por turno', dialogue.turns.every((turn) => turn.mouthCues.length > 0 && ['closed', 'medium', 'open'].every((state) => turn.mouthCues.some((cue) => cue.state === state))), dialogue.turns.map((turn) => turn.mouthCues.length));
@@ -55,6 +58,10 @@ export function verifyDialogueJob(context, config) {
   check('Solo habla un personaje', plan1.frames.every((frame) => frame.characters.filter((character) => character.speaking).length <= 1), true);
   check('Boca inactiva siempre cerrada', plan1.frames.every((frame) => frame.characters.filter((character) => !character.speaking).every((character) => character.mouth === 'closed')), true);
   check('Hablante activo coincide', plan1.frames.every((frame) => frame.characters.find((character) => character.speaking)?.id === frame.activeSpeakerId || frame.activeSpeakerId === null), true);
+  check('Gestos solo en el hablante', plan1.frames.every((frame) => frame.characters.filter((character) => character.gesture !== 'neutral').every((character) => character.speaking)), true);
+  if (dialogue.turns.some((turn) => turn.gesture === 'point')) {
+    check('Gesto point compilado', plan1.frames.some((frame) => frame.characters.some((character) => character.gesture === 'point')), true);
+  }
   check('Pausas sin hablante ni subtítulo', plan1.frames.some((frame) => frame.activeSpeakerId === null && frame.subtitlePath === null), true);
   check('Dos posiciones visibles', plan1.frames.some((frame) => frame.characters[0].character.x < 0 && frame.characters[1].character.x > 0), true);
   if (runtime.backgroundAnimation) {

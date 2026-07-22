@@ -91,6 +91,10 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
     const speaking = activeTurn?.speakerId === characterRuntime.id;
     const localTime = speaking ? time - activeTurn.startSeconds : -1;
     const cue = speaking ? activeTurn.mouthCues.find((item) => localTime >= item.start && localTime < item.end) : null;
+    const turnProgress = speaking && activeTurn.durationSeconds > 0 ? localTime / activeTurn.durationSeconds : 0;
+    const gesture = speaking && activeTurn.gesture === 'point' && turnProgress >= 0.22 && turnProgress < 0.72
+      ? 'point'
+      : 'neutral';
     return {
       id: characterRuntime.id,
       character: {
@@ -101,7 +105,7 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
       },
       eyes: blinking ? 'closed' : 'open',
       mouth: cue?.state ?? 'closed',
-      gesture: 'neutral',
+      gesture,
       speaking,
     };
   });

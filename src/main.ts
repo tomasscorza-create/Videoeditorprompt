@@ -253,7 +253,7 @@ async function startDialoguePreview(
     const backgroundTexture = await Assets.load<Texture>(assetUrl(config.assets.background));
     app.stage.addChild(fullSprite(backgroundTexture, config.video.width, config.video.height));
   }
-  const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral'];
+  const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral', 'handPoint'];
   const visualCharacters: Array<{ id: string; container: Container; layers: Record<string, Sprite> }> = [];
   for (const characterRuntime of runtime.characters) {
     const textures = Object.fromEntries(await Promise.all(layerKeys.map(async (key) => [
@@ -300,18 +300,20 @@ async function startDialoguePreview(
       visual.layers.mouthClosed.visible = characterState.mouth === 'closed';
       visual.layers.mouthMedium.visible = characterState.mouth === 'medium';
       visual.layers.mouthOpen.visible = characterState.mouth === 'open';
-      visual.layers.handNeutral.visible = true;
+      visual.layers.handNeutral.visible = characterState.gesture === 'neutral';
+      visual.layers.handPoint.visible = characterState.gesture === 'point';
     }
     for (const [turnId, subtitle] of subtitles) subtitle.visible = turnId === state.activeTurnId;
     const speakerState = state.characters.find((item) => item.speaking);
     ui.time.textContent = `${state.time.toFixed(2)} / ${runtime.audio.durationSeconds.toFixed(2)} s`;
     ui.mouth.textContent = speakerState ? `${speakerState.id}: ${speakerState.mouth}` : 'silencio';
     ui.eyes.textContent = state.characters.map((item) => `${item.id}: ${item.eyes}`).join(' · ');
-    ui.gesture.textContent = state.activeSpeakerId ? `habla ${state.activeSpeakerId}` : 'pausa';
+    const gestureState = state.characters.find((item) => item.gesture === 'point');
+    ui.gesture.textContent = gestureState ? `${gestureState.id}: señala` : state.activeSpeakerId ? `habla ${state.activeSpeakerId}` : 'pausa';
     if (window.__STAGE1__) {
       window.__STAGE1__.currentMouth = speakerState?.mouth ?? 'closed';
       window.__STAGE1__.currentEyes = state.characters.map((item) => item.eyes).join(',');
-      window.__STAGE1__.currentGesture = 'neutral';
+      window.__STAGE1__.currentGesture = gestureState?.gesture ?? 'neutral';
       window.__STAGE1__.activeSpeakerId = state.activeSpeakerId;
     }
   }

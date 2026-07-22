@@ -47,7 +47,7 @@ export function exportDialogueJob(context, config, options) {
     layer,
     index: addAsset(layer.asset, `background/${layer.id}`),
   })) || [];
-  const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral'];
+  const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral', 'handPoint'];
   const characterInputs = runtime.characters.map((character) => ({
     id: character.id,
     indices: Object.fromEntries(layerKeys.map((key) => [key, addAsset(character.assets[key], `${character.id}/${key}`)])),
@@ -70,7 +70,8 @@ export function exportDialogueJob(context, config, options) {
     filters.push(`[${prefix}e2][${item.indices.mouthClosed}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'closed')}'[${prefix}m1]`);
     filters.push(`[${prefix}m1][${item.indices.mouthMedium}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'medium')}'[${prefix}m2]`);
     filters.push(`[${prefix}m2][${item.indices.mouthOpen}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'open')}'[${prefix}m3]`);
-    filters.push(`[${prefix}m3][${item.indices.handNeutral}:v]overlay=0:0:format=auto[${prefix}hands]`);
+    filters.push(`[${prefix}m3][${item.indices.handNeutral}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'neutral')}'[${prefix}h1]`);
+    filters.push(`[${prefix}h1][${item.indices.handPoint}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'point')}'[${prefix}hands]`);
     filters.push(`[${prefix}hands]fade=t=in:st=0:d=0.3:alpha=1[${prefix}character]`);
     const motion = createFfmpegMotionExpressions(config, item.transform);
     filters.push(`[${prefix}character]scale=w='${motion.scaleWidth}':h='${motion.scaleHeight}':eval=frame[${prefix}scaled]`);

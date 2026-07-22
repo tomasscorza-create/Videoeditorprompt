@@ -92,6 +92,7 @@
           "speakerId": { "$ref": "#/$defs/id" },
           "text": { "type": "string", "minLength": 1, "maxLength": 500 },
           "voice": { "$ref": "#/$defs/voice" },
+          "gesture": { "enum": ["neutral", "point"] },
           "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
         }
       }

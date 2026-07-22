@@ -63,24 +63,7 @@ export function analyzeWav(file, options) {
     return { ...item, normalized, state };
   });
 
-  const requiredWindows = Math.max(1, Math.ceil(options.minStateDurationMs / options.windowMs));
-  let current = 'closed';
-  let candidate = current;
-  let candidateCount = 0;
-  const stable = [];
-  for (const item of classified) {
-    if (item.state === current) {
-      candidate = current;
-      candidateCount = 0;
-    } else if (item.state === candidate) {
-      candidateCount += 1;
-      if (candidateCount >= requiredWindows) current = candidate;
-    } else {
-      candidate = item.state;
-      candidateCount = 1;
-    }
-    stable.push({ ...item, state: current });
-  }
+  const stable = stabilizeMouthStates(classified, options.minStateDurationMs);
 
   const cues = [];
   for (const item of stable) {
@@ -106,4 +89,42 @@ export function analyzeWav(file, options) {
     levels: classified,
     cues,
   };
+}
+
+export function stabilizeMouthStates(classified, minStateDurationMs) {
+  let current = 'closed';
+  let candidate = current;
+  let candidateStartIndex = -1;
+  const stable = [];
+
+  for (const [index, item] of classified.entries()) {
+    if (item.state === current) {
+      candidate = current;
+      candidateStartIndex = -1;
+    } else if (item.state === candidate) {
+      const candidateDurationMs = (item.end - classified[candidateStartIndex].start) * 1000;
+      if (candidateDurationMs + 1e-6 >= minStateDurationMs) {
+        current = candidate;
+        for (let previous = candidateStartIndex; previous < stable.length; previous += 1) {
+          stable[previous] = { ...stable[previous], state: current };
+        }
+        candidateStartIndex = -1;
+      }
+    } else {
+      candidate = item.state;
+      candidateStartIndex = index;
+      if ((item.end - item.start) * 1000 + 1e-6 >= minStateDurationMs) {
+        current = candidate;
+        candidateStartIndex = -1;
+      }
+    }
+    stable.push({ ...item, state: current });
+  }
+
+  if (candidate === 'closed' && candidateStartIndex >= 0) {
+    for (let index = candidateStartIndex; index < stable.length; index += 1) {
+      stable[index] = { ...stable[index], state: 'closed' };
+    }
+  }
+  return stable;
 }

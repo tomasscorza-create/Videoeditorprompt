@@ -62,8 +62,8 @@ const runtime = {
 };
 const dialogue = {
   turns: [
-    { id: 'a', speakerId: 'presentador', startSeconds: 0, endSeconds: 1, subtitlePath: 'a.png', mouthCues: [{ start: 0, end: 1, state: 'medium' }] },
-    { id: 'b', speakerId: 'invitado', startSeconds: 1.2, endSeconds: 2.2, subtitlePath: 'b.png', mouthCues: [{ start: 0, end: 1, state: 'open' }] },
+    { id: 'a', speakerId: 'presentador', startSeconds: 0, endSeconds: 1, durationSeconds: 1, subtitlePath: 'a.png', gesture: 'point', mouthCues: [{ start: 0, end: 1, state: 'medium' }] },
+    { id: 'b', speakerId: 'invitado', startSeconds: 1.2, endSeconds: 2.2, durationSeconds: 1, subtitlePath: 'b.png', gesture: 'neutral', mouthCues: [{ start: 0, end: 1, state: 'open' }] },
   ],
 };
 const firstTurn = evaluateScene(config, runtime, dialogue, 0.5);
@@ -71,9 +71,11 @@ const pause = evaluateScene(config, runtime, dialogue, 1.1);
 const secondTurn = evaluateScene(config, runtime, dialogue, 1.5);
 assert.equal(firstTurn.activeSpeakerId, 'presentador');
 assert.equal(firstTurn.characters.find((item) => item.id === 'presentador').mouth, 'medium');
+assert.equal(firstTurn.characters.find((item) => item.id === 'presentador').gesture, 'point');
 assert.equal(firstTurn.characters.find((item) => item.id === 'invitado').mouth, 'closed');
 assert.equal(pause.activeSpeakerId, null);
 assert.ok(pause.characters.every((item) => item.mouth === 'closed'));
+assert.ok(pause.characters.every((item) => item.gesture === 'neutral'));
 assert.equal(secondTurn.activeSpeakerId, 'invitado');
 assert.equal(secondTurn.characters.find((item) => item.id === 'invitado').mouth, 'open');
 results.push({ name: 'only-active-speaker-moves-mouth', passed: true });
