@@ -34,9 +34,17 @@
           <div id="stage"></div>
           <div id="canvas-loading" class="canvas-loading" role="status">Cargando escena…</div>
           <div class="viewer-bar">
+            <button id="viewer-play-btn" class="viewer-control-btn" title="Reproducir/Pausar" disabled>
+              <svg id="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <svg id="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            </button>
             <span class="viewer-time" id="viewer-current">0:00</span>
             <input type="range" id="seek" class="seek" min="0" max="1000" value="0" step="1" aria-label="Progreso del video" disabled />
             <span class="viewer-time" id="viewer-duration">0:00</span>
+            <button id="speed-btn" class="viewer-control-btn" title="Velocidad: 1x">1x</button>
+            <button id="loop-btn" class="viewer-control-btn" title="Bucle automático">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+            </button>
           </div>
         </div>
       </section>
@@ -65,19 +73,6 @@
               <option value="system">Sistema</option>
               <option value="light">Claro</option>
               <option value="dark">Oscuro</option>
-            </select>
-          </div>
-          <div class="setting-item">
-            <label for="loop-toggle">Bucle automático (Loop)</label>
-            <input type="checkbox" id="loop-toggle" />
-          </div>
-          <div class="setting-item">
-            <label for="speed-select">Velocidad de reproducción</label>
-            <select id="speed-select" class="select-input">
-              <option value="0.5">0.5x</option>
-              <option value="1">1x (Normal)</option>
-              <option value="1.5">1.5x</option>
-              <option value="2">2x</option>
             </select>
           </div>
         </div>

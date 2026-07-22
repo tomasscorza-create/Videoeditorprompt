@@ -84,9 +84,13 @@ const ui = {
   settingsModal: required<HTMLDialogElement>('#settings-modal'),
   settingsClose: required<HTMLButtonElement>('#settings-close'),
   themeSelect: required<HTMLSelectElement>('#theme-select'),
-  loopToggle: required<HTMLInputElement>('#loop-toggle'),
-  speedSelect: required<HTMLSelectElement>('#speed-select'),
+  loopBtn: required<HTMLButtonElement>('#loop-btn'),
+  speedBtn: required<HTMLButtonElement>('#speed-btn'),
+  viewerPlayBtn: required<HTMLButtonElement>('#viewer-play-btn'),
 };
+
+let globalLoop = false;
+let globalSpeed = 1;
 
 // Segundos a m:ss para las etiquetas del visor.
 function formatTime(seconds: number): string {
@@ -104,6 +108,14 @@ function setPlaybackState(state: PlaybackState): void {
   ui.play.disabled = loading || playing;
   ui.pause.disabled = loading || !playing;
   ui.restart.disabled = loading;
+  ui.viewerPlayBtn.disabled = loading;
+  
+  const iconPlay = ui.viewerPlayBtn.querySelector<SVGElement>('#icon-play');
+  const iconPause = ui.viewerPlayBtn.querySelector<SVGElement>('#icon-pause');
+  if (iconPlay && iconPause) {
+    iconPlay.style.display = playing ? 'none' : 'block';
+    iconPause.style.display = playing ? 'block' : 'none';
+  }
 }
 
 setPlaybackState('loading');
@@ -232,17 +244,24 @@ async function start(): Promise<void> {
 
   app.ticker.add(() => render(audio.currentTime));
   render(0);
-  ui.play.addEventListener('click', () => {
-    void audio.play().then(() => {
-      ui.audio.textContent = 'Reproduciendo';
-      setPlaybackState('playing');
-    });
-  });
-  ui.pause.addEventListener('click', () => {
-    audio.pause();
-    ui.audio.textContent = 'Pausado';
-    setPlaybackState('paused');
-  });
+  
+  const handlePlay = () => {
+    if (audio.paused) {
+      void audio.play().then(() => {
+        ui.audio.textContent = 'Reproduciendo';
+        setPlaybackState('playing');
+      });
+    } else {
+      audio.pause();
+      ui.audio.textContent = 'Pausado';
+      setPlaybackState('paused');
+    }
+  };
+
+  ui.play.addEventListener('click', handlePlay);
+  ui.viewerPlayBtn.addEventListener('click', handlePlay);
+  
+  ui.pause.addEventListener('click', handlePlay);
   ui.restart.addEventListener('click', () => {
     audio.pause();
     audio.currentTime = 0;
@@ -251,22 +270,30 @@ async function start(): Promise<void> {
     render(0);
   });
   audio.addEventListener('ended', () => {
-    if (!ui.loopToggle.checked) {
+    if (!globalLoop) {
       ui.audio.textContent = 'Finalizado';
       setPlaybackState('ended');
     }
   });
 
-  // Configurar loop y velocidad según inputs
-  audio.loop = ui.loopToggle.checked;
-  audio.playbackRate = Number(ui.speedSelect.value) || 1;
+  // Configurar loop y velocidad
+  audio.loop = globalLoop;
+  audio.playbackRate = globalSpeed;
+  ui.loopBtn.classList.toggle('is-active', globalLoop);
+  ui.speedBtn.textContent = `${globalSpeed}x`;
 
-  ui.loopToggle.addEventListener('change', () => {
-    audio.loop = ui.loopToggle.checked;
+  ui.loopBtn.addEventListener('click', () => {
+    globalLoop = !globalLoop;
+    audio.loop = globalLoop;
+    ui.loopBtn.classList.toggle('is-active', globalLoop);
   });
 
-  ui.speedSelect.addEventListener('change', () => {
-    audio.playbackRate = Number(ui.speedSelect.value) || 1;
+  ui.speedBtn.addEventListener('click', () => {
+    const speeds = [0.5, 1, 1.5, 2];
+    const nextIdx = (speeds.indexOf(globalSpeed) + 1) % speeds.length;
+    globalSpeed = speeds[nextIdx] || 1;
+    audio.playbackRate = globalSpeed;
+    ui.speedBtn.textContent = `${globalSpeed}x`;
   });
 
   ui.seek.addEventListener('pointerdown', () => { scrubbing = true; });
