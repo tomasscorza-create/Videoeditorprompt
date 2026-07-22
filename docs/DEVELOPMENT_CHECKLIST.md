@@ -2,6 +2,24 @@
 
 Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos; las reglas completas están en `AGENTS.md`.
 
+## Estado actual y próximo gate
+
+- [x] Etapas 0, 1, 1.1, endurecimiento 2A y selector de previews 2B aprobados.
+- [x] Etapas 2C, 2D y 2E implementadas y verificadas técnicamente.
+- [x] 2F.0 documenta el flujo prompt → proyecto editable, el contrato creativo y el gate de calidad.
+- [x] 2F.1 implementa el piloto de calidad con dos personajes y voces, boca RMS estabilizada y actuación por turnos.
+- [x] 2F.2 implementa definición geométrica segura, dos variantes, joints, poses, manifest v2 y catálogo por IDs.
+- [x] Pipeline paramétrico verificado: 54/54 controles, preview PixiJS y dos MP4 deterministas.
+- [ ] Revisar auditiva y visualmente `piloto-calidad-dialogo-01` y registrar defectos concretos.
+- [ ] Revisar visualmente `piloto-parametrico-01`: variantes, capas, pose neutral/point y consistencia preview/MP4.
+- [ ] Confirmar con el trabajo UX de Claude que catálogo, variante y pose pueden representarse sin inventar contratos.
+- [ ] Aprobar explícitamente el gate conjunto de 2F o solicitar ajustes acotados.
+- [ ] Comenzar 3A —varias escenas y transiciones— únicamente después de aprobar ese gate.
+
+Evidencia vigente: `ETAPA_2F_CALIDAD_RESULTADOS.md` y `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.
+
+No comenzar todavía el editor, IA directora, React, Electron, lip sync fonético, backend ni funciones multiusuario.
+
 ## Antes de comenzar
 
 - [ ] Entendí el pedido y el resultado esperado.
