@@ -1,0 +1,20 @@
+node_modules/
+dist/
+
+# Temporales de trabajo (regenerables)
+temp/
+output/*.mp4
+output/*.json
+*.log
+
+# Publicación de preview: regenerable, no es almacenamiento del motor (ver AGENTS.md)
+public/generated/
+
+# TTS: modelos pesados, entorno virtual y salidas de benchmark
+tts-test/.venv/
+tts-test/models/*.onnx
+tts-test/models/*.onnx.json
+tts-test/output/
+
+# Trabajos y evidencia local regenerable
+.local-video/

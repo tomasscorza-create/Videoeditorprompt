@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Etapa 1 · Escena animada</title>
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <p class="eyebrow">Etapa 2C · Personaje animable</p>
+        <h1>Previews por trabajo, personaje por capas</h1>
+        <p>La vista previa usa el audio de Piper como reloj y el mismo evaluador temporal que la exportación offline.</p>
+        <label class="job-picker" for="job-select">
+          <span>Trabajo publicado</span>
+          <select id="job-select" disabled>
+            <option>Cargando trabajos…</option>
+          </select>
+        </label>
+        <p id="job-meta" class="job-meta">Leyendo índice local…</p>
+        <div class="controls">
+          <button id="play" type="button">Reproducir</button>
+          <button id="pause" type="button">Pausar</button>
+          <button id="restart" type="button">Reiniciar</button>
+          <a id="download" class="button-link" href="#" download hidden>Descargar MP4</a>
+        </div>
+        <dl class="technical-status">
+          <div><dt>Trabajo</dt><dd id="job-status">Pendiente</dd></div>
+          <div><dt>Estado</dt><dd id="status">Inicializando…</dd></div>
+          <div><dt>Renderer</dt><dd id="renderer">Pendiente</dd></div>
+          <div><dt>Tiempo</dt><dd id="time">0.00 s</dd></div>
+          <div><dt>Audio</dt><dd id="audio-status">Detenido</dd></div>
+          <div><dt>Boca</dt><dd id="mouth-status">closed</dd></div>
+          <div><dt>Ojos</dt><dd id="eyes-status">open</dd></div>
+          <div><dt>Gesto</dt><dd id="gesture-status">neutral</dd></div>
+        </dl>
+      </section>
+      <section class="canvas-shell" aria-label="Vista previa vertical 1080 por 1920">
+        <div id="stage"></div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

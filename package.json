@@ -1,0 +1,31 @@
+{
+  "name": "disenador-videos-local",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "assets": "node scripts/generate-assets.mjs",
+    "export": "node scripts/export-video.mjs",
+    "verify": "node scripts/verify-output.mjs",
+    "stage1:assets": "node scripts/stage1/generate-assets.mjs",
+    "stage1:prepare": "node scripts/stage1/prepare-scene.mjs --job-id=preview",
+    "stage1:export": "node scripts/stage1/export-scene.mjs --job-id=preview",
+    "stage1:verify": "node scripts/stage1/verify-stage1.mjs --job-id=preview",
+    "stage1:pipeline": "node scripts/stage1/pipeline.mjs --job-id=preview --publish-dir=public/generated",
+    "stage1:test-jobs": "node scripts/stage1/test-two-jobs.mjs",
+    "stage1:test-config": "node scripts/stage1/test-config-validation.mjs",
+    "stage2b:test-preview": "node scripts/stage1/test-preview-publishing.mjs",
+    "stage2c:assets": "node scripts/stage2c/generate-monkey-character.mjs",
+    "stage2c:test-rig": "node scripts/stage1/test-character-rig.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "pixi.js": "^8.19.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
+  }
+}

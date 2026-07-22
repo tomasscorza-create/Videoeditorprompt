@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "mono-presentador-v1",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "layers": {
+    "body": "body.png",
+    "eyes": {
+      "open": "eyes_open.png",
+      "closed": "eyes_closed.png"
+    },
+    "mouth": {
+      "closed": "mouth_closed.png",
+      "medium": "mouth_medium.png",
+      "open": "mouth_open.png"
+    },
+    "hands": {
+      "neutral": "hand_neutral.png",
+      "point": "hand_point.png"
+    }
+  },
+  "provenance": {
+    "source": "Creación vectorial determinista del proyecto; fuente SVG incluida en source/.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

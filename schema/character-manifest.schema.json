@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/character-manifest-v1.json",
+  "title": "Manifest de personaje por capas",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "canvas", "pivot", "layers", "provenance"],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "const": 1080 },
+        "height": { "const": 1920 }
+      }
+    },
+    "pivot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "const": 540 },
+        "y": { "const": 960 }
+      }
+    },
+    "layers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body", "eyes", "mouth", "hands"],
+      "properties": {
+        "body": { "$ref": "#/$defs/layerPath" },
+        "eyes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["open", "closed"],
+          "properties": {
+            "open": { "$ref": "#/$defs/layerPath" },
+            "closed": { "$ref": "#/$defs/layerPath" }
+          }
+        },
+        "mouth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["closed", "medium", "open"],
+          "properties": {
+            "closed": { "$ref": "#/$defs/layerPath" },
+            "medium": { "$ref": "#/$defs/layerPath" },
+            "open": { "$ref": "#/$defs/layerPath" }
+          }
+        },
+        "hands": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["neutral", "point"],
+          "properties": {
+            "neutral": { "$ref": "#/$defs/layerPath" },
+            "point": { "$ref": "#/$defs/layerPath" }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "license"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "license": { "type": "string", "minLength": 1, "maxLength": 120 }
+      }
+    }
+  },
+  "$defs": {
+    "layerPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}

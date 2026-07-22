@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "assets": {
+    "background": "assets/pilots/monos-mundial-01/background.png",
+    "body": "assets/pilots/monos-mundial-01/body.png",
+    "eyesOpen": "assets/pilots/monos-mundial-01/overlay-transparent.png",
+    "eyesClosed": "assets/pilots/monos-mundial-01/overlay-transparent.png",
+    "mouthClosed": "assets/pilots/monos-mundial-01/overlay-transparent.png",
+    "mouthMedium": "assets/pilots/monos-mundial-01/overlay-transparent.png",
+    "mouthOpen": "assets/pilots/monos-mundial-01/overlay-transparent.png"
+  },
+  "voice": {
+    "model": "es_AR-daniela-high",
+    "text": "Este Mundial lo gana mi selección caminando. Sí, claro: como los últimos cuatro que ganaste en Twitter. El fútbol no entiende de estadísticas. Exacto. Por eso todos somos técnicos cuando empieza el Mundial.",
+    "lengthScale": 1.25,
+    "volume": 1
+  },
+  "character": {
+    "fromX": -8,
+    "toX": 0,
+    "baseY": 0,
+    "entrySeconds": 0.8,
+    "bobAmplitude": 2,
+    "bobPeriodSeconds": 3,
+    "baseScale": 1,
+    "scalePulse": 0.004
+  },
+  "blink": {
+    "seed": 20260722,
+    "firstSeconds": 0.9,
+    "minIntervalSeconds": 1.6,
+    "maxIntervalSeconds": 2.5,
+    "durationSeconds": 0.12
+  },
+  "mouth": {
+    "windowMs": 30,
+    "smoothing": 0.55,
+    "silenceThresholdNormalized": 0.11,
+    "openThresholdNormalized": 0.42,
+    "minStateDurationMs": 90
+  },
+  "subtitle": {
+    "text": "UNO: Este Mundial lo ganamos caminando.\nDOS: Sí, como los cuatro que ganaste en Twitter.\nTodos somos técnicos cuando empieza el Mundial.",
+    "startSeconds": 0,
+    "fontSize": 40,
+    "bottomMargin": 120
+  }
+}

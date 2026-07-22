@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "assets": {
+    "background": "assets/characters/mono-presentador-v1/background.png"
+  },
+  "characterManifest": "assets/characters/mono-presentador-v1/character.manifest.json",
+  "voice": {
+    "model": "es_AR-daniela-high",
+    "text": "Ahora sí, este mono puede hablar, parpadear y señalar una idea sin que cada fotograma dependa de inteligencia artificial.",
+    "lengthScale": 1.5,
+    "volume": 1
+  },
+  "character": {
+    "fromX": -180,
+    "toX": 0,
+    "baseY": 25,
+    "entrySeconds": 0.7,
+    "bobAmplitude": 10,
+    "bobPeriodSeconds": 2.4,
+    "baseScale": 1,
+    "scalePulse": 0.012
+  },
+  "gestures": [
+    { "pose": "point", "startSeconds": 2, "durationSeconds": 1.5 }
+  ],
+  "blink": {
+    "seed": 58217,
+    "firstSeconds": 0.85,
+    "minIntervalSeconds": 1.5,
+    "maxIntervalSeconds": 2.25,
+    "durationSeconds": 0.13
+  },
+  "mouth": {
+    "windowMs": 30,
+    "smoothing": 0.55,
+    "silenceThresholdNormalized": 0.11,
+    "openThresholdNormalized": 0.42,
+    "minStateDurationMs": 90
+  },
+  "subtitle": {
+    "text": "Ahora sí, este mono puede hablar, parpadear\ny señalar una idea con animación determinista.",
+    "startSeconds": 0,
+    "fontSize": 47,
+    "bottomMargin": 135
+  }
+}

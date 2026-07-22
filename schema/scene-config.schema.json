@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/scene-config-v1.json",
+  "title": "Configuración de escena única",
+  "description": "Contrato mínimo y deliberadamente cerrado del prototipo local de una escena.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "video", "assets", "voice", "character", "blink", "mouth", "subtitle"],
+  "anyOf": [
+    {
+      "properties": {
+        "characterManifest": { "$ref": "#/$defs/assetPath" }
+      },
+      "required": ["characterManifest"]
+    },
+    {
+      "properties": {
+        "assets": {
+          "type": "object",
+          "properties": {
+            "body": true,
+            "eyesOpen": true,
+            "eyesClosed": true,
+            "mouthClosed": true,
+            "mouthMedium": true,
+            "mouthOpen": true
+          },
+          "required": ["body", "eyesOpen", "eyesClosed", "mouthClosed", "mouthMedium", "mouthOpen"]
+        }
+      }
+    }
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "video": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "fps"],
+      "properties": {
+        "width": { "const": 1080 },
+        "height": { "const": 1920 },
+        "fps": { "const": 30 }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["background"],
+      "properties": {
+        "background": { "$ref": "#/$defs/assetPath" },
+        "body": { "$ref": "#/$defs/assetPath" },
+        "eyesOpen": { "$ref": "#/$defs/assetPath" },
+        "eyesClosed": { "$ref": "#/$defs/assetPath" },
+        "mouthClosed": { "$ref": "#/$defs/assetPath" },
+        "mouthMedium": { "$ref": "#/$defs/assetPath" },
+        "mouthOpen": { "$ref": "#/$defs/assetPath" },
+        "handNeutral": { "$ref": "#/$defs/assetPath" },
+        "handPoint": { "$ref": "#/$defs/assetPath" }
+      }
+    },
+    "characterManifest": { "$ref": "#/$defs/assetPath" },
+    "gestures": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pose", "startSeconds", "durationSeconds"],
+        "properties": {
+          "pose": { "const": "point" },
+          "startSeconds": { "type": "number", "minimum": 0, "maximum": 3600 },
+          "durationSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 30 }
+        }
+      }
+    },
+    "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "text", "lengthScale", "volume"],
+      "properties": {
+        "model": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "lengthScale": { "type": "number", "minimum": 0.5, "maximum": 3 },
+        "volume": { "type": "number", "minimum": 0, "maximum": 2 }
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fromX", "toX", "baseY", "entrySeconds", "bobAmplitude", "bobPeriodSeconds", "baseScale", "scalePulse"],
+      "properties": {
+        "fromX": { "type": "number", "minimum": -4320, "maximum": 4320 },
+        "toX": { "type": "number", "minimum": -4320, "maximum": 4320 },
+        "baseY": { "type": "number", "minimum": -3840, "maximum": 3840 },
+        "entrySeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 60 },
+        "bobAmplitude": { "type": "number", "minimum": 0, "maximum": 1920 },
+        "bobPeriodSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 60 },
+        "baseScale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "scalePulse": { "type": "number", "minimum": 0, "maximum": 2 }
+      }
+    },
+    "blink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "firstSeconds", "minIntervalSeconds", "maxIntervalSeconds", "durationSeconds"],
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "firstSeconds": { "type": "number", "minimum": 0, "maximum": 3600 },
+        "minIntervalSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 60 },
+        "maxIntervalSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 60 },
+        "durationSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 2 }
+      }
+    },
+    "mouth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["windowMs", "smoothing", "silenceThresholdNormalized", "openThresholdNormalized", "minStateDurationMs"],
+      "properties": {
+        "windowMs": { "type": "integer", "minimum": 10, "maximum": 100 },
+        "smoothing": { "type": "number", "minimum": 0, "maximum": 0.99 },
+        "silenceThresholdNormalized": { "type": "number", "minimum": 0, "maximum": 1 },
+        "openThresholdNormalized": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minStateDurationMs": { "type": "integer", "minimum": 0, "maximum": 1000 }
+      }
+    },
+    "subtitle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "startSeconds", "fontSize", "bottomMargin"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "startSeconds": { "type": "number", "minimum": 0, "maximum": 3600 },
+        "fontSize": { "type": "integer", "minimum": 8, "maximum": 200 },
+        "bottomMargin": { "type": "integer", "minimum": 0, "maximum": 1920 }
+      }
+    }
+  },
+  "$defs": {
+    "assetPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}

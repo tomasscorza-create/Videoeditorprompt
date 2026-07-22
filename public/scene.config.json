@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "assets": {
+    "background": "assets/stage1/background.png",
+    "body": "assets/stage1/body.png",
+    "eyesOpen": "assets/stage1/eyes_open.png",
+    "eyesClosed": "assets/stage1/eyes_closed.png",
+    "mouthClosed": "assets/stage1/mouth_closed.png",
+    "mouthMedium": "assets/stage1/mouth_medium.png",
+    "mouthOpen": "assets/stage1/mouth_open.png"
+  },
+  "voice": {
+    "model": "es_AR-daniela-high",
+    "text": "Esta es una prueba de voz generada localmente para nuestro sistema de animación.",
+    "lengthScale": 1.55,
+    "volume": 1
+  },
+  "character": {
+    "fromX": -210,
+    "toX": 0,
+    "baseY": 70,
+    "entrySeconds": 0.65,
+    "bobAmplitude": 14,
+    "bobPeriodSeconds": 2.2,
+    "baseScale": 1,
+    "scalePulse": 0.018
+  },
+  "blink": {
+    "seed": 41731,
+    "firstSeconds": 0.8,
+    "minIntervalSeconds": 1.45,
+    "maxIntervalSeconds": 2.35,
+    "durationSeconds": 0.12
+  },
+  "mouth": {
+    "windowMs": 30,
+    "smoothing": 0.55,
+    "silenceThresholdNormalized": 0.11,
+    "openThresholdNormalized": 0.42,
+    "minStateDurationMs": 90
+  },
+  "subtitle": {
+    "text": "Esta es una prueba de voz generada\nlocalmente para nuestro sistema\nde animación.",
+    "startSeconds": 0,
+    "fontSize": 48,
+    "bottomMargin": 180
+  }
+}
