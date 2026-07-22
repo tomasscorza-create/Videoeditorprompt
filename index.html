@@ -8,12 +8,12 @@
   <body>
     <main class="layout">
       <section class="panel">
-        <label class="job-picker" for="job-select">
-          <span>Escena</span>
-          <select id="job-select" disabled>
-            <option>Cargando escenas…</option>
-          </select>
-        </label>
+        <div class="scene-picker">
+          <span class="scene-picker-label">Escena</span>
+          <div class="scene-gallery" id="scene-gallery" role="listbox" aria-label="Escenas disponibles">
+            <p class="scene-gallery-empty">Cargando escenas…</p>
+          </div>
+        </div>
         <p id="job-meta" class="job-meta" aria-live="polite">Leyendo índice local…</p>
         <div class="controls">
           <button id="play" type="button" class="button-primary" disabled>Reproducir</button>

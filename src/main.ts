@@ -62,7 +62,7 @@ declare global {
 const ui = {
   status: required<HTMLElement>('#status'),
   jobStatus: required<HTMLElement>('#job-status'),
-  jobSelect: required<HTMLSelectElement>('#job-select'),
+  gallery: required<HTMLElement>('#scene-gallery'),
   jobMeta: required<HTMLElement>('#job-meta'),
   download: required<HTMLAnchorElement>('#download'),
   renderer: required<HTMLElement>('#renderer'),
@@ -277,19 +277,7 @@ async function selectPreview(): Promise<PreviewSelection> {
   if (!job) {
     throw new Error(`No existe el trabajo "${selectedJobId}". Disponibles: ${jobs.map((item) => item.jobId).join(', ')}.`);
   }
-  ui.jobSelect.replaceChildren(...jobs.map((item) => {
-    const option = document.createElement('option');
-    option.value = item.jobId;
-    option.textContent = item.jobId;
-    option.selected = item.jobId === job.jobId;
-    return option;
-  }));
-  ui.jobSelect.disabled = false;
-  ui.jobSelect.addEventListener('change', () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('job', ui.jobSelect.value);
-    window.location.assign(url);
-  });
+  renderGallery(jobs, job.jobId);
   if (!requestedJobId) {
     const url = new URL(window.location.href);
     url.searchParams.set('job', job.jobId);
@@ -302,8 +290,8 @@ function configureJobUi(selection: PreviewSelection): void {
   const { job } = selection;
   ui.jobStatus.textContent = job.jobId;
   if (selection.legacy) {
-    ui.jobSelect.innerHTML = '<option value="preview">preview (formato anterior)</option>';
-    ui.jobMeta.textContent = 'Publicación legacy: vuelva a publicar los jobs para habilitar el selector.';
+    ui.gallery.replaceChildren(galleryMessage('Publicación en formato anterior.'));
+    ui.jobMeta.textContent = 'Publicación legacy: vuelva a publicar las escenas para ver la galería.';
     return;
   }
   const duration = Number.isFinite(job.durationSeconds) ? `${job.durationSeconds.toFixed(2)} s` : 'duración desconocida';
@@ -314,6 +302,63 @@ function configureJobUi(selection: PreviewSelection): void {
     ui.download.href = `/generated/${job.videoPath}`;
     ui.download.hidden = false;
   }
+}
+
+function galleryMessage(text: string): HTMLParagraphElement {
+  const message = document.createElement('p');
+  message.className = 'scene-gallery-empty';
+  message.textContent = text;
+  return message;
+}
+
+// Filmstrip de escenas: cada tarjeta usa el primer frame de su MP4 como miniatura.
+function renderGallery(jobs: PreviewJob[], selectedJobId: string): void {
+  const cards = jobs.map((item) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'scene-card';
+    card.dataset.job = item.jobId;
+    card.setAttribute('role', 'option');
+    const selected = item.jobId === selectedJobId;
+    card.setAttribute('aria-selected', String(selected));
+    if (selected) card.classList.add('is-selected');
+
+    const thumb = document.createElement('span');
+    thumb.className = 'scene-thumb';
+    if (item.videoPath) {
+      const video = document.createElement('video');
+      video.src = `/generated/${item.videoPath}#t=0.1`;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      thumb.appendChild(video);
+    } else {
+      thumb.classList.add('scene-thumb-empty');
+      thumb.textContent = 'Sin video';
+    }
+
+    const name = document.createElement('span');
+    name.className = 'scene-name';
+    name.textContent = item.jobId;
+    name.title = item.jobId;
+
+    const badges = document.createElement('span');
+    badges.className = 'scene-badges';
+    const parts: string[] = [];
+    if (Number.isFinite(item.durationSeconds) && item.durationSeconds > 0) parts.push(`${item.durationSeconds.toFixed(1)}s`);
+    if (item.deterministic === true) parts.push('✓');
+    badges.textContent = parts.join(' · ');
+
+    card.append(thumb, name, badges);
+    card.addEventListener('click', () => {
+      if (item.jobId === selectedJobId) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('job', item.jobId);
+      window.location.assign(url);
+    });
+    return card;
+  });
+  ui.gallery.replaceChildren(...cards);
 }
 
 function fullSprite(texture: Texture, width: number, height: number): Sprite {
