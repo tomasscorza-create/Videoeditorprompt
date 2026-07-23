@@ -83,17 +83,19 @@
 body {
   margin: 0;
   min-width: 320px;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: radial-gradient(circle at 10% 10%, var(--bg-glow) 0, transparent 32rem), var(--bg);
   transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 .editor-container {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) clamp(13rem, 28vh, 18.75rem);
   height: 100%;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* ==========================================================================
@@ -158,23 +160,76 @@ button:disabled {
 /* ==========================================================================
    Layout
    ========================================================================== */
-/* Panel y visor se agrupan y centran juntos: el texto queda cerca del video,
-   sin el hueco muerto que dejaba el 1fr expandido. */
-.layout {
-  display: grid;
-  grid-template-columns: minmax(16rem, 22rem) auto minmax(24rem, 32rem);
-  gap: var(--space-6);
-  align-items: start;
-  align-content: center;
-  justify-content: center;
-  max-width: 90rem;
-  margin: 0 auto;
-  flex: 1;
-  min-height: 0;
-  padding: var(--space-6);
+.editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .12);
+  z-index: 2;
 }
 
-.panel { max-width: 28rem; }
+.editor-brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.editor-brand-title {
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.editor-brand-stage {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(15rem, 1fr) minmax(20rem, 28rem);
+  gap: clamp(var(--space-3), 2vw, var(--space-6));
+  align-items: stretch;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  min-width: 0;
+  padding: var(--space-4);
+  overflow: hidden;
+}
+
+.panel,
+.sidebar-right {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.panel {
+  width: 100%;
+  max-width: none;
+  padding-right: var(--space-2);
+}
+
+.sidebar-right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-right: var(--space-2);
+}
 
 /* ==========================================================================
    Galería de escenas (filmstrip horizontal con miniaturas de video)
@@ -182,6 +237,7 @@ button:disabled {
 .scene-picker {
   display: grid;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .scene-picker-label {
@@ -196,6 +252,7 @@ button:disabled {
 .scene-picker-container {
   position: relative;
   width: 100%;
+  min-width: 0;
 }
 
 .scroll-arrow {
@@ -235,6 +292,7 @@ button:disabled {
   gap: var(--space-2);
   overflow-x: auto;
   overflow-y: hidden;
+  min-width: 0;
   padding-bottom: var(--space-2);
   scrollbar-width: none; /* Ocultar scrollbar para un look más limpio */
   
@@ -258,12 +316,15 @@ button:disabled {
 .timeline-panel {
   display: flex;
   flex-direction: column;
-  height: 300px;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
   background: var(--bg);
   border-top: 1px solid var(--border);
   box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
   position: relative;
-  z-index: 10;
+  z-index: 1;
 }
 
 .editor-tools-section {
@@ -273,12 +334,16 @@ button:disabled {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   height: 3rem;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .editor-toolbar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: max-content;
   /* removido padding y bg, ahora es plano en el panel */
 }
 
@@ -410,6 +475,26 @@ button:disabled {
 
 .job-meta.error { color: var(--danger); }
 
+.job-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.job-picker select {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
 .controls {
   display: flex;
   flex-wrap: wrap;
@@ -472,7 +557,14 @@ dd { margin: 0; font-weight: 650; }
    ========================================================================== */
 .canvas-shell {
   display: flex;
+  align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 var(--space-2);
 }
 
 /* Marco del visor: bezel con gradiente, borde y sombra alrededor del canvas. */
@@ -489,15 +581,31 @@ dd { margin: 0; font-weight: 650; }
   border-radius: 1.25rem;
   box-shadow: var(--shadow-canvas);
   transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+  width: min(100%, 34rem);
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
 }
 
-#stage { display: flex; }
+#stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
 
 .canvas-shell canvas {
   display: block;
   width: auto;
-  height: min(74vh, 840px);
+  height: 100%;
   max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: contain;
   border-radius: var(--radius-sm);
 }
 
@@ -506,6 +614,7 @@ dd { margin: 0; font-weight: 650; }
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .viewer-time {
@@ -520,6 +629,7 @@ dd { margin: 0; font-weight: 650; }
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
+  min-width: 0;
   height: 6px;
   border-radius: 999px;
   background: linear-gradient(to right, var(--accent) var(--pct, 0%), var(--border) var(--pct, 0%));
@@ -607,13 +717,67 @@ dd { margin: 0; font-weight: 650; }
 /* ==========================================================================
    Responsive
    ========================================================================== */
-@media (max-width: 950px) {
-  .layout { grid-template-columns: 1fr; }
-  .panel { max-width: none; }
-  .sidebar-right { order: -1; } /* Poner galería arriba en móvil */
-  .scene-gallery { flex-direction: row; overflow-x: auto; overflow-y: hidden; max-height: auto; }
+@media (max-width: 900px) {
+  body {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .editor-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+    padding: var(--space-3);
+  }
+
+  .canvas-shell {
+    order: 1;
+    height: min(70dvh, 44rem);
+    min-height: 24rem;
+    padding: 0;
+  }
+
+  .panel {
+    order: 2;
+    max-height: min(65dvh, 36rem);
+    padding-right: var(--space-2);
+  }
+
+  .sidebar-right {
+    order: 3;
+    max-height: min(75dvh, 48rem);
+  }
+
+  .scene-gallery {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
   .scene-card { width: 120px; }
-  .canvas-shell canvas { height: min(75vh, 800px); }
+
+  .timeline-panel {
+    flex: none;
+    height: clamp(13rem, 38vh, 18.75rem);
+  }
+}
+
+@media (max-width: 520px) {
+  .editor-brand-stage { display: none; }
+  .layout { gap: var(--space-4); }
+  .canvas-shell { min-height: 20rem; }
+  .viewer { padding: var(--space-2); gap: var(--space-2); }
+  .viewer-bar { gap: var(--space-2); }
+  .viewer-time { min-width: 3ch; }
 }
 
 /* Respeta la preferencia de movimiento reducido. */
@@ -625,10 +789,8 @@ dd { margin: 0; font-weight: 650; }
    Configuraciones y Modal
    ========================================================================== */
 .settings-button {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-  z-index: 50;
+  position: static;
+  flex: none;
   background: var(--surface-raised);
   border: 1px solid var(--border);
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -829,8 +991,10 @@ dd { margin: 0; font-weight: 650; }
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  min-width: 0;
   padding: var(--space-4);
-  border-top: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
 }
@@ -843,6 +1007,7 @@ dd { margin: 0; font-weight: 650; }
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .project-title-field {
@@ -852,12 +1017,14 @@ dd { margin: 0; font-weight: 650; }
   flex: 1 1 16rem;
   font-size: var(--text-xs);
   color: var(--text-muted);
+  min-width: 0;
 }
 
 .project-editor-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .project-status {
@@ -877,6 +1044,7 @@ dd { margin: 0; font-weight: 650; }
   gap: var(--space-2);
   overflow-x: auto;
   padding-bottom: var(--space-2);
+  min-width: 0;
 }
 
 .scene-chip {
@@ -939,6 +1107,7 @@ dd { margin: 0; font-weight: 650; }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .inspector-group {
@@ -949,6 +1118,7 @@ dd { margin: 0; font-weight: 650; }
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
+  min-width: 0;
 }
 
 .inspector-group h3 {
@@ -977,12 +1147,15 @@ dd { margin: 0; font-weight: 650; }
   gap: var(--space-1);
   font-size: var(--text-xs);
   color: var(--text-muted);
+  min-width: 0;
 }
 
 .inspector-field input,
 .inspector-field select,
 .inspector-field textarea,
 .project-title-field input {
+  width: 100%;
+  min-width: 0;
   padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

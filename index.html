@@ -7,6 +7,14 @@
   </head>
   <body>
     <div class="editor-container">
+      <header class="editor-topbar">
+        <div class="editor-brand">
+          <span class="editor-brand-title">Editor de video local</span>
+          <span class="editor-brand-stage">Preview y edición determinista</span>
+        </div>
+        <button id="settings-open" class="button-icon settings-button" aria-label="Configuración" title="Configuración">⚙️</button>
+      </header>
+
       <main class="layout editor-workspace">
       <section class="panel">
         <label class="job-picker" for="job-select">
@@ -75,32 +83,32 @@
           </div>
         </div>
 
+        <section class="project-editor" id="project-editor" aria-label="Editor del proyecto" hidden>
+          <header class="project-editor-header">
+            <label class="project-title-field" for="project-title">
+              <span>Proyecto</span>
+              <input id="project-title" type="text" maxlength="120" />
+            </label>
+            <div class="project-editor-actions">
+              <button id="project-undo" type="button" disabled>Deshacer</button>
+              <button id="project-redo" type="button" disabled>Rehacer</button>
+              <button id="project-validate" type="button">Validar</button>
+              <button id="project-export" type="button">Exportar JSON</button>
+            </div>
+          </header>
+          <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
+
+          <div class="scene-strip" id="scene-strip" aria-label="Escenas del proyecto"></div>
+
+          <div class="scene-inspector" id="scene-inspector"></div>
+
+          <p class="inspector-note">
+            El render se ejecuta desde el pipeline por CLI; esta interfaz no lanza procesos.
+          </p>
+        </section>
+
       </aside>
     </main>
-
-    <section class="project-editor" id="project-editor" aria-label="Editor del proyecto" hidden>
-      <header class="project-editor-header">
-        <label class="project-title-field" for="project-title">
-          <span>Proyecto</span>
-          <input id="project-title" type="text" maxlength="120" />
-        </label>
-        <div class="project-editor-actions">
-          <button id="project-undo" type="button" disabled>Deshacer</button>
-          <button id="project-redo" type="button" disabled>Rehacer</button>
-          <button id="project-validate" type="button">Validar</button>
-          <button id="project-export" type="button">Exportar JSON</button>
-        </div>
-      </header>
-      <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
-
-      <div class="scene-strip" id="scene-strip" aria-label="Escenas del proyecto"></div>
-
-      <div class="scene-inspector" id="scene-inspector"></div>
-
-      <p class="inspector-note">
-        El render se ejecuta desde el pipeline por CLI; esta interfaz no lanza procesos.
-      </p>
-    </section>
 
     <section class="timeline-panel">
       <div class="editor-tools-section">
@@ -168,8 +176,6 @@
     </section>
   </div>
 
-    <button id="settings-open" class="button-icon settings-button" aria-label="Configuración" title="Configuración">⚙️</button>
-    
     <dialog id="settings-modal" class="modal">
       <div class="modal-content">
         <header class="modal-header">
