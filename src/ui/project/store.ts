@@ -10,12 +10,28 @@ import {
 } from '../../../shared/project-editor.js';
 import type { ProjectView, ResourceEntry, ResourceType } from './types.js';
 
-// El proyecto de autoría vive en pilots/ y el catálogo en public/assets/.
-// Rutas relativas: nunca absolutas a datos de proyecto.
-// 3B.0 solo admite elementos de tipo character, por eso se abre el piloto
-// compilable y no `proyecto-editable-01`, que además contiene texto.
-export const DEFAULT_PROJECT_URL = '/pilots/proyecto-compilable-01/project.json';
-export const DEFAULT_CATALOG_URL = '/assets/catalog/authoring-resources.json';
+// La UI solo consume proyectos PUBLICADOS por scripts/stage3b/publish-project.mjs.
+// Nunca lee pilots/: esa es la fuente del motor, no una ubicación servible.
+// El índice sigue schema/published-project-index.schema.json.
+export const PROJECT_INDEX_URL = '/projects/index.json';
+
+export interface PublishedProjectEntry {
+  projectId: string;
+  title: string;
+  projectPath: string;
+  resourceCatalog: string;
+  sceneCount: number;
+  editorContractVersion: number;
+  projectSha256: string;
+  catalogSha256: string;
+  revision: string;
+}
+
+export interface PublishedProjectIndex {
+  version: number;
+  defaultProjectId: string;
+  projects: PublishedProjectEntry[];
+}
 
 export interface ProjectStore {
   getState(): EditorState;
@@ -87,16 +103,42 @@ export function createStore(initial: EditorState): ProjectStore {
   };
 }
 
-async function fetchJson(url: string): Promise<unknown> {
+async function fetchJson<T = unknown>(url: string): Promise<T> {
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-  return response.json();
+  return await response.json() as T;
 }
 
-export async function loadProjectStore(
-  projectUrl: string = DEFAULT_PROJECT_URL,
-  catalogUrl: string = DEFAULT_CATALOG_URL,
-): Promise<ProjectStore> {
-  const [project, catalog] = await Promise.all([fetchJson(projectUrl), fetchJson(catalogUrl)]);
+// Defensa en profundidad: el schema ya exige rutas portables, pero la UI no
+// debe construir URLs con rutas absolutas ni con salto de directorio.
+function isPortablePath(path: string): boolean {
+  return path.length > 0 && !path.startsWith('/') && !path.split('/').includes('..');
+}
+
+export async function loadProjectStore(requestedProjectId?: string | null): Promise<ProjectStore> {
+  const index = await fetchJson<PublishedProjectIndex>(PROJECT_INDEX_URL);
+  if (index?.version !== 1 || !Array.isArray(index.projects)) {
+    throw new Error('El índice de proyectos publicados no tiene un formato compatible.');
+  }
+  if (index.projects.length === 0) {
+    throw new Error('No hay proyectos publicados. Ejecutá «npm run stage3b:publish-project».');
+  }
+
+  const wantedId = requestedProjectId || index.defaultProjectId;
+  const entry = index.projects.find((item) => item.projectId === wantedId);
+  if (!entry) {
+    const available = index.projects.map((item) => item.projectId).join(', ');
+    throw new Error(`No existe el proyecto publicado «${wantedId}». Disponibles: ${available}.`);
+  }
+  if (!isPortablePath(entry.projectPath) || !isPortablePath(entry.resourceCatalog)) {
+    throw new Error(`El proyecto «${entry.projectId}» declara una ruta no portable.`);
+  }
+
+  // `revision` es la clave de caché publicada; el índice no expone updatedAt.
+  const cacheKey = encodeURIComponent(entry.revision);
+  const [project, catalog] = await Promise.all([
+    fetchJson(`/projects/${entry.projectPath}?v=${cacheKey}`),
+    fetchJson(`/${entry.resourceCatalog}?v=${cacheKey}`),
+  ]);
   return createStore(createProjectEditor(project, catalog));
 }

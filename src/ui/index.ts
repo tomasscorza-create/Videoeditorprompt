@@ -28,7 +28,8 @@ export function initEditorUi(handle: PreviewHandle): void {
 // está disponible, el resto de la aplicación sigue funcionando.
 export async function initProjectUi(): Promise<void> {
   try {
-    initProjectEditor(await loadProjectStore());
+    const requestedProjectId = new URLSearchParams(window.location.search).get('project');
+    initProjectEditor(await loadProjectStore(requestedProjectId));
   } catch (error) {
     const root = optional<HTMLElement>('#project-editor');
     const status = optional<HTMLElement>('#project-status');
