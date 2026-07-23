@@ -219,8 +219,10 @@ export function initProjectEditor(store: ProjectStore): void {
 
     for (const element of scene.elements) {
       if (element.type !== 'character') {
-        // No existe comando para editar elementos de texto todavía.
-        fields.push(note(`«${element.id}» (${element.type}): sin comando de edición en el contrato.`));
+        // Decisión de contrato: texto e imagen quedan fuera de alcance hasta que
+        // el compilador pueda renderizarlos. No se agregan comandos que
+        // produzcan proyectos imposibles de renderizar.
+        fields.push(note(`«${element.id}» (${element.type}): fuera de alcance — el compilador todavía no representa texto ni imágenes.`));
         continue;
       }
       const resource = select(
@@ -241,7 +243,9 @@ export function initProjectEditor(store: ProjectStore): void {
       fields.push(transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01));
       fields.push(transformField(scene, element, 'zIndex', 'zIndex', -1000, 1000, 1));
       if (element.poseId) {
-        fields.push(note(`Pose actual «${element.poseId}»: sin comando de edición en el contrato.`));
+        // La pose inicial queda fuera de alcance mientras el compilador solo admita «neutral».
+        // Los gestos por turno (neutral/point) sí son editables desde el diálogo.
+        fields.push(note(`Pose «${element.poseId}»: fuera de alcance mientras el compilador solo admita «neutral». El gesto por turno sí es editable.`));
       }
     }
     return group('Elementos', fields);
