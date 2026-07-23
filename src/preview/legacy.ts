@@ -1,9 +1,9 @@
 import { Application, Assets, Container, type Sprite, type Texture } from 'pixi.js';
 import { evaluateScene, type MouthCue, type SceneState } from '../../shared/scene-evaluator.js';
 import { fetchJson, fullSprite, wirePlayback } from './common.js';
-import type { PreviewStartOptions } from './types.js';
+import type { PreviewHandle, PreviewStartOptions } from './types.js';
 
-export async function startLegacyPreview(options: PreviewStartOptions): Promise<void> {
+export async function startLegacyPreview(options: PreviewStartOptions): Promise<PreviewHandle> {
   const { selection, config, runtime, generatedUrl, assetUrl, ui } = options;
   if (!runtime.mouthCuesPath || !runtime.subtitlePath) throw new Error('El runtime v1 no contiene boca o subtítulo.');
   const mouthData = await fetchJson<{ cues: MouthCue[] }>(generatedUrl(runtime.mouthCuesPath));
@@ -91,4 +91,5 @@ export async function startLegacyPreview(options: PreviewStartOptions): Promise<
     currentEyes: 'open',
     currentGesture: 'neutral',
   };
+  return { audio, render, durationSeconds: runtime.audio.durationSeconds };
 }

@@ -76,6 +76,15 @@ export interface PreviewUi {
   stage: HTMLElement;
 }
 
+// Seam de UI: el preview expone lo mínimo para que los controles e indicadores
+// consuman la reproducción sin duplicar lógica temporal del motor.
+export interface PreviewHandle {
+  audio: HTMLAudioElement;
+  render: (timeSeconds: number) => void;
+  durationSeconds: number;
+  turns?: DialogueData['turns'];
+}
+
 export interface PreviewStartOptions {
   selection: PreviewSelection;
   config: SceneConfig;

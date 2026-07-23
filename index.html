@@ -6,39 +6,189 @@
     <title>Etapa 1 · Escena animada</title>
   </head>
   <body>
-    <main class="layout">
+    <div class="editor-container">
+      <main class="layout editor-workspace">
       <section class="panel">
-        <p class="eyebrow">Etapa 2C · Personaje animable</p>
-        <h1>Previews por trabajo, personaje por capas</h1>
-        <p>La vista previa usa el audio de Piper como reloj y el mismo evaluador temporal que la exportación offline.</p>
         <label class="job-picker" for="job-select">
           <span>Trabajo publicado</span>
           <select id="job-select" disabled>
             <option>Cargando trabajos…</option>
           </select>
         </label>
-        <p id="job-meta" class="job-meta">Leyendo índice local…</p>
+        <p id="job-meta" class="job-meta" aria-live="polite">Leyendo índice local…</p>
         <div class="controls">
-          <button id="play" type="button">Reproducir</button>
-          <button id="pause" type="button">Pausar</button>
-          <button id="restart" type="button">Reiniciar</button>
+          <button id="play" type="button" class="button-primary" disabled>Reproducir</button>
+          <button id="pause" type="button" disabled>Pausar</button>
+          <button id="restart" type="button" disabled>Reiniciar</button>
           <a id="download" class="button-link" href="#" download hidden>Descargar MP4</a>
         </div>
-        <dl class="technical-status">
-          <div><dt>Trabajo</dt><dd id="job-status">Pendiente</dd></div>
-          <div><dt>Estado</dt><dd id="status">Inicializando…</dd></div>
-          <div><dt>Renderer</dt><dd id="renderer">Pendiente</dd></div>
-          <div><dt>Tiempo</dt><dd id="time">0.00 s</dd></div>
-          <div><dt>Audio</dt><dd id="audio-status">Detenido</dd></div>
-          <div><dt>Boca</dt><dd id="mouth-status">closed</dd></div>
-          <div><dt>Ojos</dt><dd id="eyes-status">open</dd></div>
-          <div><dt>Gesto</dt><dd id="gesture-status">neutral</dd></div>
-        </dl>
+        <details class="diagnostics">
+          <summary>Detalles técnicos</summary>
+          <dl class="technical-status">
+            <div><dt>Trabajo</dt><dd id="job-status">Pendiente</dd></div>
+            <div><dt>Estado</dt><dd id="status" aria-live="polite">Inicializando…</dd></div>
+            <div><dt>Renderer</dt><dd id="renderer">Pendiente</dd></div>
+            <div class="live"><dt>Tiempo</dt><dd id="time">0.00 s</dd></div>
+            <div class="live"><dt>Audio</dt><dd id="audio-status">Detenido</dd></div>
+            <div class="live"><dt>Boca</dt><dd id="mouth-status">closed</dd></div>
+            <div class="live"><dt>Ojos</dt><dd id="eyes-status">open</dd></div>
+            <div class="live"><dt>Gesto</dt><dd id="gesture-status">neutral</dd></div>
+          </dl>
+        </details>
       </section>
-      <section class="canvas-shell" aria-label="Vista previa vertical 1080 por 1920">
-        <div id="stage"></div>
+      <section class="canvas-shell" aria-label="Vista previa vertical 1080 por 1920" aria-busy="true">
+        <div class="viewer">
+          <div id="stage"></div>
+          <div id="canvas-loading" class="canvas-loading" role="status">Cargando escena…</div>
+          <div class="viewer-bar">
+            <button id="viewer-play-btn" class="viewer-control-btn" title="Reproducir/Pausar" disabled>
+              <svg id="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <svg id="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            </button>
+            <span class="viewer-time" id="viewer-current">0:00</span>
+            <input type="range" id="seek" class="seek" min="0" max="1000" value="0" step="1" aria-label="Progreso del video" disabled />
+            <span class="viewer-time" id="viewer-duration">0:00</span>
+            <button id="speed-btn" class="viewer-control-btn" title="Velocidad: 1x">1x</button>
+            <button id="loop-btn" class="viewer-control-btn" title="Bucle automático">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+            </button>
+          </div>
+        </div>
       </section>
+      <aside class="sidebar-right">
+        <div class="scene-picker">
+          <div class="scene-picker-label">Trabajos renderizados</div>
+          
+          <div class="scene-picker-container">
+            <button id="scroll-left" class="scroll-arrow" aria-label="Desplazar a la izquierda" title="Ver anteriores">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+
+            <div class="scene-gallery" id="scene-gallery">
+              <!-- Las tarjetas de trabajos publicados se inyectan desde src/ui/gallery.ts -->
+              <p class="scene-gallery-empty">Cargando trabajos locales…</p>
+            </div>
+
+            <button id="scroll-right" class="scroll-arrow" aria-label="Desplazar a la derecha" title="Ver siguientes">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+        </div>
+
+      </aside>
     </main>
+
+    <section class="project-editor" id="project-editor" aria-label="Editor del proyecto" hidden>
+      <header class="project-editor-header">
+        <label class="project-title-field" for="project-title">
+          <span>Proyecto</span>
+          <input id="project-title" type="text" maxlength="120" />
+        </label>
+        <div class="project-editor-actions">
+          <button id="project-undo" type="button" disabled>Deshacer</button>
+          <button id="project-redo" type="button" disabled>Rehacer</button>
+          <button id="project-validate" type="button">Validar</button>
+          <button id="project-export" type="button">Exportar JSON</button>
+        </div>
+      </header>
+      <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
+
+      <div class="scene-strip" id="scene-strip" aria-label="Escenas del proyecto"></div>
+
+      <div class="scene-inspector" id="scene-inspector"></div>
+
+      <p class="inspector-note">
+        El render se ejecuta desde el pipeline por CLI; esta interfaz no lanza procesos.
+      </p>
+    </section>
+
+    <section class="timeline-panel">
+      <div class="editor-tools-section">
+        <div class="editor-toolbar">
+          <div class="tool-group">
+            <button id="tool-undo" class="tool-btn" title="Deshacer (Ctrl+Z)" disabled>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+            </button>
+            <button id="tool-redo" class="tool-btn" title="Rehacer (Ctrl+Y)" disabled>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            </button>
+          </div>
+          
+          <div class="tool-divider"></div>
+          
+          <div class="tool-group">
+            <button class="tool-btn active" title="Seleccionar (V)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>
+            </button>
+            <button class="tool-btn" title="Cortar / Dividir (C)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>
+            </button>
+          </div>
+
+          <div class="tool-divider"></div>
+          
+          <div class="tool-group">
+            <button class="tool-btn" title="Añadir Texto (T)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+            </button>
+            <button class="tool-btn" title="Añadir Audio (A)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+            </button>
+          </div>
+
+          <div class="tool-divider"></div>
+          
+          <div class="tool-group">
+            <button class="tool-btn danger" title="Eliminar (Supr)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="timeline-ruler">
+        <div class="ruler-marks"></div>
+      </div>
+      
+      <div class="timeline-tracks">
+        <div class="playhead" id="playhead"></div>
+        <div class="timeline-track timeline-track-v">
+          <div class="track-label">V1</div>
+          <div class="track-content">
+            <div class="clip-dummy video-clip">Escena actual</div>
+          </div>
+        </div>
+        <div class="timeline-track timeline-track-a">
+          <div class="track-label">A1</div>
+          <div class="track-content">
+            <div class="clip-dummy audio-clip">Voz (Audio generado)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+    <button id="settings-open" class="button-icon settings-button" aria-label="Configuración" title="Configuración">⚙️</button>
+    
+    <dialog id="settings-modal" class="modal">
+      <div class="modal-content">
+        <header class="modal-header">
+          <h2>Configuración</h2>
+          <button id="settings-close" class="button-icon" aria-label="Cerrar modal">✖</button>
+        </header>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label for="theme-select">Tema visual</label>
+            <select id="theme-select" class="select-input">
+              <option value="system">Sistema</option>
+              <option value="light">Claro</option>
+              <option value="dark">Oscuro</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

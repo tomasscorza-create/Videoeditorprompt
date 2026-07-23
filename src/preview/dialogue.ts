@@ -1,9 +1,9 @@
 import { Application, Assets, Container, type Sprite, type Texture } from 'pixi.js';
 import { evaluateScene, type DialogueSceneState } from '../../shared/scene-evaluator.js';
 import { fetchJson, fullSprite, wirePlayback } from './common.js';
-import type { DialogueData, PreviewStartOptions } from './types.js';
+import type { DialogueData, PreviewHandle, PreviewStartOptions } from './types.js';
 
-export async function startDialoguePreview(options: PreviewStartOptions): Promise<void> {
+export async function startDialoguePreview(options: PreviewStartOptions): Promise<PreviewHandle> {
   const { selection, config, runtime, generatedUrl, assetUrl, ui } = options;
   if (!runtime.dialoguePath || !runtime.characters) throw new Error('El runtime v2 no contiene diálogo o personajes.');
   const dialogue = await fetchJson<DialogueData>(generatedUrl(runtime.dialoguePath));
@@ -118,4 +118,5 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
     currentGesture: 'neutral',
     activeSpeakerId: dialogue.turns[0]?.speakerId ?? null,
   };
+  return { audio, render, durationSeconds: runtime.audio.durationSeconds, turns: dialogue.turns };
 }

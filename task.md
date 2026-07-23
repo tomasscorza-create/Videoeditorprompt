@@ -1,0 +1,6 @@
+- `[x]` Arreglar visibilidad de los íconos SVG añadiendo `xmlns`.
+- `[x]` Reestructurar HTML: crear `.editor-workspace` y `.timeline-panel`.
+- `[x]` Mover `.editor-toolbar` a la parte superior del `.timeline-panel`.
+- `[x]` Añadir estructura de la regla de tiempo, pistas de video/audio y el cabezal de reproducción.
+- `[x]` Actualizar CSS: adaptar layout a pantalla dividida, estilos de la línea de tiempo y pistas.
+- `[x]` Actualizar `main.ts`: vincular el cabezal de reproducción al progreso del video.

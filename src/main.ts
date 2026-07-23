@@ -2,6 +2,7 @@ import { fetchJson, required } from './preview/common.js';
 import { startDialoguePreview } from './preview/dialogue.js';
 import { startLegacyPreview } from './preview/legacy.js';
 import type { PreviewIndex, PreviewSelection, PreviewUi, SceneConfig, SceneRuntime } from './preview/types.js';
+import { initEditorUi, initProjectUi, initShellUi, renderJobGallery } from './ui/index.js';
 import './style.css';
 
 const previewUi: PreviewUi = {
@@ -22,6 +23,9 @@ const shellUi = {
   download: required<HTMLAnchorElement>('#download'),
 };
 
+initShellUi();
+void initProjectUi();
+
 void start().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   previewUi.status.textContent = `Error: ${message}`;
@@ -41,8 +45,8 @@ async function start(): Promise<void> {
     fetchJson<SceneRuntime>(`${selection.baseUrl}scene-runtime.json?v=${cacheKey}`),
   ]);
   const options = { selection, config, runtime, generatedUrl, assetUrl, ui: previewUi };
-  if (config.version === 2) await startDialoguePreview(options);
-  else await startLegacyPreview(options);
+  const handle = config.version === 2 ? await startDialoguePreview(options) : await startLegacyPreview(options);
+  initEditorUi(handle);
 }
 
 async function selectPreview(): Promise<PreviewSelection> {
@@ -74,6 +78,7 @@ async function selectPreview(): Promise<PreviewSelection> {
     return option;
   }));
   shellUi.jobSelect.disabled = false;
+  renderJobGallery(jobs, job.jobId);
   shellUi.jobSelect.addEventListener('change', () => {
     const url = new URL(window.location.href);
     url.searchParams.set('job', shellUi.jobSelect.value);
