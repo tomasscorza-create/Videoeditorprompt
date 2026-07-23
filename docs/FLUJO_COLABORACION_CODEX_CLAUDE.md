@@ -255,4 +255,6 @@ El gate 2F fue aprobado, 3A.0–3A.2 ofrecen el recorrido hasta MP4 multiescena 
 
 Para la integración visual, el preview quedó separado en `src/preview/legacy.ts` y `src/preview/dialogue.ts`; `src/main.ts` solo selecciona el job, carga config/runtime y despacha por versión. La resolución manual debe conservar esos consumidores y conectar encima los controles de Claude, sin reintroducir lógica temporal en `main.ts`.
 
+Los proyectos que consume el build se obtienen desde `/projects/index.json`, generado con `npm run stage3b:publish-project`. El loader usa `defaultProjectId`, resuelve `projectPath` bajo `/projects/` y emplea `revision` como clave de caché. El índice solo contiene proyectos compatibles con el núcleo 3B.0.
+
 Los joints del manifest v2 son por ahora metadatos: la UI no debe prometer manipulación articular continua hasta que el runtime la implemente. El preview PixiJS tampoco reproduce todavía la timeline multiescena final; esa limitación debe mostrarse con claridad.

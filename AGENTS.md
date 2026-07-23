@@ -91,11 +91,13 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `schema/compiled-project.schema.json`: manifiesto versionado que vincula proyecto, hashes, escenas v2 compiladas y transiciones.
 - `schema/rendered-project.schema.json`: contrato del manifiesto final con timeline medida, subtrabajos, outputs y verificación.
 - `schema/editor-command.schema.json`: vocabulario cerrado de operaciones semánticas soportadas por el editor local.
+- `schema/published-project-index.schema.json`: índice versionado de proyectos compatibles publicados para la UI.
 - `shared/project-editor.js`: estado inmutable, validación, comandos, undo/redo, catálogo y exportación del proyecto de autoría.
 - `scripts/stage3a/validate-video-project.mjs`: validación estructural, semántica y de recursos del proyecto editable.
 - `scripts/stage3a/project-compilation-context.mjs`: congelado del proyecto y aislamiento de la compilación por `jobId`.
 - `scripts/stage3a/compile-video-project.mjs`: mapeo determinista de autoría a configuraciones v2 compatibles con el motor actual.
 - `scripts/stage3a/project-pipeline.mjs`: orquestador padre que ejecuta un job aislado por escena y ensambla cortes/fundidos con FFmpeg.
+- `scripts/stage3b/publish-project.mjs`: valida un proyecto compilable y lo publica bajo `public/projects` con hashes deterministas.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.
 - `pilots/personaje-mono-01/scene.config.json`: piloto vigente del personaje animable real.
 - `pilots/dialogo-monos-01/scene.config.json`: piloto del contrato v2 con dos hablantes y tres turnos.
@@ -126,6 +128,8 @@ npm run stage3a:test-compiler # compatibilidad, límites y determinismo de 3A.1
 npm run stage3a:test-assembly # cálculo temporal de cortes/fundidos y límites de 3A.2
 npm run stage3a:project-pipeline # render real de dos escenas y MP4 final determinista
 npm run stage3b:test-editor # comandos, undo/redo, seguridad y exportación compatible
+npm run stage3b:publish-project # publica el piloto compatible para la UI y el build
+npm run stage3b:test-publishing # índice, portabilidad, hashes y rechazo de proyectos incompatibles
 npm run build              # TypeScript + Vite
 ```
 
@@ -135,6 +139,7 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 
 - Los contratos de runtime v1 y v2 siguen limitados a una escena. 3A.2 los ejecuta como subtrabajos aislados y ensambla el resultado; no existe todavía un runtime ni preview PixiJS multiescena continuo.
 - 3B.0 edita proyectos existentes del subconjunto compilable, pero todavía no crea/elimina elementos o turnos ni está conectado a la interfaz visual. El navegador tampoco lanza aún el pipeline local.
+- `public/projects` es una publicación regenerable para la UI, no almacenamiento del motor. Solo lista proyectos aceptados por 3A y 3B.0; debe regenerarse antes del build que se quiera distribuir.
 - 3A.1 solo compila escenas con exactamente dos personajes, al menos dos turnos, pose inicial neutral, ancla central, rotación 0 y opacidad 1. Texto, imágenes y otros transforms se rechazan explícitamente hasta que el runtime pueda representarlos.
 - El rig versión 2 y el catálogo demuestran `neutral` y `point`, pero todavía no modelan una biblioteca general de gestos o animaciones.
 - Los joints y rotaciones del manifest v2 son metadatos validados; el runtime actual sigue alternando capas PNG de poses y todavía no aplica articulación continua por jerarquía.

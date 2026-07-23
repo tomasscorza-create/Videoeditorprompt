@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/published-project-index-v1.json",
+  "title": "Índice de proyectos publicados para el editor local",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "defaultProjectId", "projects"],
+  "properties": {
+    "version": { "const": 1 },
+    "defaultProjectId": { "$ref": "#/$defs/id" },
+    "projects": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/projectEntry" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[a-zA-Z0-9._/-]+$"
+    },
+    "projectEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId", "title", "projectPath", "resourceCatalog", "sceneCount",
+        "editorContractVersion", "projectSha256", "catalogSha256", "revision"
+      ],
+      "properties": {
+        "projectId": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "projectPath": { "$ref": "#/$defs/portablePath" },
+        "resourceCatalog": { "$ref": "#/$defs/portablePath" },
+        "sceneCount": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "editorContractVersion": { "const": 1 },
+        "projectSha256": { "$ref": "#/$defs/hash" },
+        "catalogSha256": { "$ref": "#/$defs/hash" },
+        "revision": { "$ref": "#/$defs/hash" }
+      }
+    }
+  }
+}

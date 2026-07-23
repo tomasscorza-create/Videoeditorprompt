@@ -18,6 +18,7 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] 3A.2 prepara cada escena con TTS/FFprobe en jobs aislados y ensambla cortes/fundidos en un MP4 determinista.
 - [x] Piloto multiescena: 2 escenas, 13,683 s calculados, 11/11 controles finales y dos MP4 binariamente idénticos.
 - [x] 3B.0 implementa estado inmutable, comandos cerrados, selección por ID, coordenadas, diálogo, transiciones, undo/redo y exportación portable.
+- [x] El adaptador de publicación expone proyectos compatibles mediante `public/projects/index.json` y revisión por hash, sin depender de `pilots/` en producción.
 - [ ] Próximo gate 3B.1: conectar la UX/UI al núcleo, abrir un proyecto real, editarlo y descargar el JSON sin escribirlo manualmente.
 - [ ] Después: puente local seguro para congelar el proyecto exportado y lanzar el pipeline headless.
 

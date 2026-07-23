@@ -10,6 +10,9 @@ output/*.json
 # Publicación de preview: regenerable, no es almacenamiento del motor (ver AGENTS.md)
 public/generated/
 
+# Publicación de proyectos para el editor: regenerable, no es almacenamiento del motor
+public/projects/
+
 # TTS: modelos pesados, entorno virtual y salidas de benchmark
 tts-test/.venv/
 tts-test/models/*.onnx

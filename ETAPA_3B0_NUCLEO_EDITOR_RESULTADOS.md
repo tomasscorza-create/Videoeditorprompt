@@ -66,3 +66,13 @@ Se aplicó nivel 2–3: pruebas específicas del módulo, límites de seguridad,
 ## Siguiente incremento
 
 3B.1 debe conectar la interfaz de Claude a este módulo: cargar proyecto/catálogo, renderizar escenas y formularios desde el estado, emitir comandos, mostrar errores y descargar el JSON editado. Después, un puente local separado y seguro podrá congelar ese JSON y lanzar el pipeline headless; no debe ejecutarse una shell desde datos del navegador.
+
+## Publicación portable para la interfaz
+
+El adaptador `scripts/stage3b/publish-project.mjs` elimina la dependencia de `/pilots/` en el build. Valida primero con 3A y 3B.0, publica únicamente proyectos realmente abribles y genera `public/projects/index.json` versión 1.
+
+Cada entrada contiene `projectId`, `title`, `projectPath`, `resourceCatalog`, `sceneCount`, `editorContractVersion`, hashes del proyecto/catálogo y una `revision` combinada. La UI debe usar `revision` para cache-busting; no se publica `updatedAt`, de modo que repetir la misma entrada produzca la misma revisión.
+
+El `project.json` publicado conserva exactamente los mismos datos que el fuente validado, con serialización JSON uniforme. `proyecto-editable-01` no se lista porque demuestra elementos futuros; `proyecto-compilable-01` es el piloto operativo del editor actual.
+
+Verificación adicional: `npm run stage3b:test-publishing`, 10/10 controles.
