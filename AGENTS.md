@@ -9,13 +9,13 @@ Construimos una herramienta local, dirigida por datos, para producir videos anim
 Estado vigente:
 
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
-- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, todavía sin integración visual.
+- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`.
 - Existe un runtime probado de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC. Un pipeline padre ya compone varias de esas escenas en un MP4 mediante cortes o fundidos.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
 - `public/generated` es solo una publicación opcional e indexada por `jobId` para el preview; no es almacenamiento del motor.
 
-Fuera del alcance actual salvo pedido explícito: editor, preview multiescena interactivo, React, Electron, director IA, llama.cpp, lip sync fonético, usuarios, backend, base de datos, API HTTP, storage remoto, colas, Docker, suscripciones y monetización.
+Fuera del alcance actual salvo pedido explícito: editor profesional, preview multiescena interactivo, React, Electron, director IA, llama.cpp, lip sync fonético, usuarios, backend, base de datos, API HTTP, storage remoto, colas, Docker, suscripciones y monetización.
 
 Dirección de largo plazo: núcleo local confiable → creación dirigida por prompt → herramientas creativas open source → editor local → separación web/worker → plataforma multiusuario → optimización económica → monetización. El roadmap no autoriza implementar una fase por anticipado.
 
@@ -138,7 +138,7 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 ### Brechas vigentes (no confundir con capacidades implementadas)
 
 - Los contratos de runtime v1 y v2 siguen limitados a una escena. 3A.2 los ejecuta como subtrabajos aislados y ensambla el resultado; no existe todavía un runtime ni preview PixiJS multiescena continuo.
-- 3B.0 edita proyectos existentes del subconjunto compilable, pero todavía no crea/elimina elementos o turnos ni está conectado a la interfaz visual. El navegador tampoco lanza aún el pipeline local.
+- 3B.0 edita desde la interfaz proyectos existentes del subconjunto compilable, pero todavía no crea/elimina escenas, elementos o turnos. El navegador tampoco lanza aún el pipeline local.
 - `public/projects` es una publicación regenerable para la UI, no almacenamiento del motor. Solo lista proyectos aceptados por 3A y 3B.0; debe regenerarse antes del build que se quiera distribuir.
 - 3A.1 solo compila escenas con exactamente dos personajes, al menos dos turnos, pose inicial neutral, ancla central, rotación 0 y opacidad 1. Texto, imágenes y otros transforms se rechazan explícitamente hasta que el runtime pueda representarlos.
 - El rig versión 2 y el catálogo demuestran `neutral` y `point`, pero todavía no modelan una biblioteca general de gestos o animaciones.
@@ -282,6 +282,7 @@ Estados actuales mínimos: `preparing`, `generating_voice`, `analyzing_audio`, `
 Actualizar documentación cuando cambien arquitectura, configuración, comandos, dependencias, variables de entorno, assets, pipeline, invariantes o restricciones. No crear un informe largo por una corrección menor.
 
 - `AGENTS.md`: normas permanentes y estado resumido.
+- `README.md`: entrada general, instalación, uso local y mapa de documentación.
 - `docs/ROADMAP.md`: dirección y gates; no describe trabajo ya autorizado.
 - `docs/DEVELOPMENT_CHECKLIST.md`: control operativo breve.
 - Informes `ETAPA_*`: evidencia histórica; no reescribirlos para ocultar evolución.

@@ -19,12 +19,13 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] Piloto multiescena: 2 escenas, 13,683 s calculados, 11/11 controles finales y dos MP4 binariamente idénticos.
 - [x] 3B.0 implementa estado inmutable, comandos cerrados, selección por ID, coordenadas, diálogo, transiciones, undo/redo y exportación portable.
 - [x] El adaptador de publicación expone proyectos compatibles mediante `public/projects/index.json` y revisión por hash, sin depender de `pilots/` en producción.
-- [ ] Próximo gate 3B.1: conectar la UX/UI al núcleo, abrir un proyecto real, editarlo y descargar el JSON sin escribirlo manualmente.
+- [x] 3B.1 conecta la UX/UI al núcleo, abre un proyecto publicado, permite editarlo y descargar el JSON sin escribirlo manualmente.
+- [ ] Próximo gate: profundizar la edición manual soportada y definir el puente local seguro hacia el pipeline.
 - [ ] Después: puente local seguro para congelar el proyecto exportado y lanzar el pipeline headless.
 
 Evidencia vigente: `ETAPA_2F_CALIDAD_RESULTADOS.md`, `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.
 
-El próximo incremento debe conectar 3B.0 con la interfaz visual. No incorporar todavía IA directora, Electron, timeline profesional, lip sync fonético, backend ni funciones multiusuario.
+El próximo incremento debe profundizar la edición manual sobre el contrato vigente y preparar el puente local seguro hacia el pipeline. No incorporar todavía IA directora, Electron, timeline profesional, lip sync fonético, backend ni funciones multiusuario.
 
 ## Antes de comenzar
 
