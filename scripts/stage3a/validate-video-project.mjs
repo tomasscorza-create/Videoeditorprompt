@@ -27,12 +27,11 @@ export function loadAndValidateVideoProject({ projectPath, assetsRoot }) {
     code: 'AUTHORING_RESOURCE_CATALOG_JSON_INVALID',
     message: 'El catálogo de autoría no contiene JSON válido.',
   });
-  assertSchema(validateResourceCatalogSchema, catalog, {
-    code: 'AUTHORING_RESOURCE_CATALOG_SCHEMA_INVALID',
-    message: 'El catálogo de autoría no cumple el contrato versión 1.',
+  const { resources } = validateVideoProjectDocument({
+    project,
+    catalog,
+    assetsRoot: resolvedAssetsRoot,
   });
-  const resources = validateResourceCatalogSemantics(catalog, resolvedAssetsRoot);
-  validateProjectSemantics(project, resources);
   return {
     project,
     catalog,
@@ -41,6 +40,22 @@ export function loadAndValidateVideoProject({ projectPath, assetsRoot }) {
     assetsRoot: resolvedAssetsRoot,
     resources,
   };
+}
+
+export function validateVideoProjectDocument({ project, catalog, assetsRoot }) {
+  const resolvedAssetsRoot = path.resolve(assetsRoot);
+  assertSchema(validateProjectSchema, project, {
+    code: 'AUTHORING_PROJECT_SCHEMA_INVALID',
+    message: 'El proyecto editable no cumple el contrato versión 1.',
+  });
+  assertPortableRelativePath(project.resourceCatalog, '/resourceCatalog');
+  assertSchema(validateResourceCatalogSchema, catalog, {
+    code: 'AUTHORING_RESOURCE_CATALOG_SCHEMA_INVALID',
+    message: 'El catálogo de autoría no cumple el contrato versión 1.',
+  });
+  const resources = validateResourceCatalogSemantics(catalog, resolvedAssetsRoot);
+  validateProjectSemantics(project, resources);
+  return { project, catalog, assetsRoot: resolvedAssetsRoot, resources };
 }
 
 export function validateResourceCatalogSemantics(catalog, assetsRoot) {

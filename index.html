@@ -64,6 +64,35 @@
         </div>
       </section>
       <aside class="sidebar-right">
+        <section class="director-panel" id="director-panel" aria-label="Director IA local" hidden>
+          <header class="director-header">
+            <div>
+              <h2>Director IA local</h2>
+              <p>qwen3:8b · Ollama</p>
+            </div>
+          </header>
+          <label class="director-prompt-field" for="director-prompt">
+            <span>Describí el video</span>
+            <textarea
+              id="director-prompt"
+              rows="4"
+              maxlength="2000"
+              placeholder="Ejemplo: Dos personajes debaten con humor si la inteligencia artificial reemplazará a los programadores y terminan con una conclusión optimista."
+            ></textarea>
+          </label>
+          <div class="director-actions">
+            <button id="director-generate" class="button-primary" type="button">Crear propuesta</button>
+            <button id="director-render" type="button" disabled>Renderizar video</button>
+            <button id="director-cancel" type="button" disabled>Cancelar</button>
+          </div>
+          <p id="director-status" class="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
+          <p id="director-proposal" class="director-proposal"></p>
+          <div class="director-result">
+            <video id="director-result-video" controls preload="metadata" hidden></video>
+            <a id="director-result-download" class="button-link" href="#" download hidden>Descargar video final</a>
+          </div>
+        </section>
+
         <div class="scene-picker">
           <div class="scene-picker-label">Trabajos renderizados</div>
           
@@ -102,9 +131,7 @@
 
           <div class="scene-inspector" id="scene-inspector"></div>
 
-          <p class="inspector-note">
-            El render se ejecuta desde el pipeline por CLI; esta interfaz no lanza procesos.
-          </p>
+          <p class="inspector-note">El Director IA y la edición manual comparten este mismo proyecto validado.</p>
         </section>
 
       </aside>

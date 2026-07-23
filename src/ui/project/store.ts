@@ -45,6 +45,7 @@ export interface ProjectStore {
   redo(): void;
   resources(type: ResourceType): ResourceEntry[];
   exportJson(): string;
+  replaceProject(project: unknown): string | null;
   /** Devuelve null si el proyecto es válido, o el mensaje de error del motor. */
   validate(): string | null;
   subscribe(listener: () => void): void;
@@ -89,6 +90,15 @@ export function createStore(initial: EditorState): ProjectStore {
     },
     resources: (type) => listEditorResources(current, type) as unknown as ResourceEntry[],
     exportJson: () => exportEditorProject(current),
+    replaceProject(project) {
+      try {
+        current = createProjectEditor(project, current.catalog);
+        notify();
+        return null;
+      } catch (error) {
+        return describeError(error);
+      }
+    },
     validate() {
       try {
         validateEditableProject(current.project, current.catalog);

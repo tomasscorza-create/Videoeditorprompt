@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/local-app/dev.mjs",
+    "dev:web": "vite",
+    "local:server": "node scripts/local-app/server.mjs",
     "build": "tsc && vite build",
     "assets": "node scripts/generate-assets.mjs",
     "export": "node scripts/export-video.mjs",
@@ -38,7 +40,11 @@
     "stage3a:project-pipeline": "node scripts/stage3a/project-pipeline.mjs --job-id=piloto-multiescena-02 --project=pilots/proyecto-compilable-01/project.json --assets-dir=public",
     "stage3b:test-editor": "node scripts/stage3b/test-project-editor.mjs",
     "stage3b:publish-project": "node scripts/stage3b/publish-project.mjs --project=pilots/proyecto-compilable-01/project.json --assets-dir=public --publish-dir=public/projects",
-    "stage3b:test-publishing": "node scripts/stage3b/test-project-publishing.mjs"
+    "stage3b:test-publishing": "node scripts/stage3b/test-project-publishing.mjs",
+    "director:test-plan": "node scripts/director/test-director-plan.mjs",
+    "director:test-ollama": "node scripts/director/test-ollama-director.mjs",
+    "local:test-server": "node scripts/local-app/test-server.mjs",
+    "local:test-render-manager": "node scripts/local-app/test-render-job-manager.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",

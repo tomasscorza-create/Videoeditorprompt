@@ -1,6 +1,7 @@
 import type { PreviewHandle } from '../preview/types.js';
 import { optional } from './dom.js';
 import { initPlaybackUi } from './playback.js';
+import { initDirectorUi } from './director/panel.js';
 import { initProjectEditor } from './project/panel.js';
 import { loadProjectStore } from './project/store.js';
 import { initShortcuts } from './shortcuts.js';
@@ -29,7 +30,9 @@ export function initEditorUi(handle: PreviewHandle): void {
 export async function initProjectUi(): Promise<void> {
   try {
     const requestedProjectId = new URLSearchParams(window.location.search).get('project');
-    initProjectEditor(await loadProjectStore(requestedProjectId));
+    const store = await loadProjectStore(requestedProjectId);
+    initProjectEditor(store);
+    initDirectorUi(store);
   } catch (error) {
     const root = optional<HTMLElement>('#project-editor');
     const status = optional<HTMLElement>('#project-status');

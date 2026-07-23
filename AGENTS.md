@@ -9,13 +9,13 @@ Construimos una herramienta local, dirigida por datos, para producir videos anim
 Estado vigente:
 
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
-- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`.
+- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`. El primer vertical slice dirigido por prompt usa Ollama con `qwen3:8b`, normaliza un plan semántico cerrado al mismo proyecto editable y permite renderizarlo desde la interfaz mediante un servicio limitado a loopback.
 - Existe un runtime probado de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC. Un pipeline padre ya compone varias de esas escenas en un MP4 mediante cortes o fundidos.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
 - `public/generated` es solo una publicación opcional e indexada por `jobId` para el preview; no es almacenamiento del motor.
 
-Fuera del alcance actual salvo pedido explícito: editor profesional, preview multiescena interactivo, React, Electron, director IA, llama.cpp, lip sync fonético, usuarios, backend, base de datos, API HTTP, storage remoto, colas, Docker, suscripciones y monetización.
+Fuera del alcance actual salvo pedido explícito: editor profesional, preview multiescena interactivo, React, Electron, llama.cpp, lip sync fonético, usuarios, backend remoto, base de datos, storage remoto, colas distribuidas, Docker, suscripciones y monetización.
 
 Dirección de largo plazo: núcleo local confiable → creación dirigida por prompt → herramientas creativas open source → editor local → separación web/worker → plataforma multiusuario → optimización económica → monetización. El roadmap no autoriza implementar una fase por anticipado.
 
@@ -98,6 +98,10 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `scripts/stage3a/compile-video-project.mjs`: mapeo determinista de autoría a configuraciones v2 compatibles con el motor actual.
 - `scripts/stage3a/project-pipeline.mjs`: orquestador padre que ejecuta un job aislado por escena y ensambla cortes/fundidos con FFmpeg.
 - `scripts/stage3b/publish-project.mjs`: valida un proyecto compilable y lo publica bajo `public/projects` con hashes deterministas.
+- `scripts/director/ollama-director.mjs`: adaptador local `qwen3:8b`, salida estructurada, timeout y caché por hash.
+- `scripts/director/director-plan.mjs`: validación semántica y normalización determinista del plan IA al proyecto editable.
+- `scripts/local-app/server.mjs`: API HTTP local limitada a loopback para salud, propuestas, validación y trabajos.
+- `scripts/local-app/render-job-manager.mjs`: congelado, aislamiento, progreso, cancelación y entrega del MP4.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.
 - `pilots/personaje-mono-01/scene.config.json`: piloto vigente del personaje animable real.
 - `pilots/dialogo-monos-01/scene.config.json`: piloto del contrato v2 con dos hablantes y tres turnos.
@@ -130,6 +134,10 @@ npm run stage3a:project-pipeline # render real de dos escenas y MP4 final determ
 npm run stage3b:test-editor # comandos, undo/redo, seguridad y exportación compatible
 npm run stage3b:publish-project # publica el piloto compatible para la UI y el build
 npm run stage3b:test-publishing # índice, portabilidad, hashes y rechazo de proyectos incompatibles
+npm run director:test-plan # contrato, catálogo, límites y normalización determinista
+npm run director:test-ollama # adaptador, salida estructurada, caché y fallos
+npm run local:test-server # API loopback, límites y respuestas
+npm run local:test-render-manager # aislamiento, proceso, cancelación y errores
 npm run build              # TypeScript + Vite
 ```
 
@@ -138,7 +146,9 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 ### Brechas vigentes (no confundir con capacidades implementadas)
 
 - Los contratos de runtime v1 y v2 siguen limitados a una escena. 3A.2 los ejecuta como subtrabajos aislados y ensambla el resultado; no existe todavía un runtime ni preview PixiJS multiescena continuo.
-- 3B.0 edita desde la interfaz proyectos existentes del subconjunto compilable, pero todavía no crea/elimina escenas, elementos o turnos. El navegador tampoco lanza aún el pipeline local.
+- 3B.0 edita desde la interfaz proyectos existentes o creados por prompt del subconjunto compilable, pero todavía no crea/elimina escenas, elementos o turnos.
+- El Director inicial usa un único modelo y un catálogo cerrado; todavía no formula preguntas aclaratorias, compara variantes ni repara automáticamente un plan rechazado.
+- El servicio local acepta un solo render activo y no es un backend multiusuario ni una cola durable.
 - `public/projects` es una publicación regenerable para la UI, no almacenamiento del motor. Solo lista proyectos aceptados por 3A y 3B.0; debe regenerarse antes del build que se quiera distribuir.
 - 3A.1 solo compila escenas con exactamente dos personajes, al menos dos turnos, pose inicial neutral, ancla central, rotación 0 y opacidad 1. Texto, imágenes y otros transforms se rechazan explícitamente hasta que el runtime pueda representarlos.
 - El rig versión 2 y el catálogo demuestran `neutral` y `point`, pero todavía no modelan una biblioteca general de gestos o animaciones.

@@ -6,7 +6,7 @@ Este roadmap define dirección y criterios de avance; no autoriza por sí solo i
 
 Las Etapas técnicas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector local 2B están aprobadas. Las Etapas 2C–2F están implementadas y verificadas técnicamente: el contrato v2 compila dos personajes, turnos medidos, fondo opcional con parallax y personajes paramétricos seleccionables por IDs de un catálogo portable. El usuario aprobó el gate humano de 2F con ajustes finos no bloqueantes.
 
-3A.0 incorpora un proyecto editable versionado con escenas, instancias sobre canvas, voces y recursos por ID y transiciones cerradas. 3A.1 lo compila a configuraciones v2 portables por escena. 3A.2 ejecuta cada escena como subtrabajo aislado y ensambla un MP4 final determinista. 3B.0 aporta estado inmutable, comandos cerrados, undo/redo y exportación del proyecto, y ya está conectado a la UX/UI local. El próximo incremento debe profundizar la edición manual soportada sin convertirla todavía en una timeline profesional.
+3A.0 incorpora un proyecto editable versionado con escenas, instancias sobre canvas, voces y recursos por ID y transiciones cerradas. 3A.1 lo compila a configuraciones v2 portables por escena. 3A.2 ejecuta cada escena como subtrabajo aislado y ensambla un MP4 final determinista. 3B.0 aporta estado inmutable, comandos cerrados, undo/redo y exportación del proyecto. El primer vertical slice de Fase 2 ya conecta un Director local `qwen3:8b`, plan semántico validado, edición humana y render desde la UX/UI. El próximo incremento debe medir uso real, mejorar reparación/variantes y profundizar la edición soportada sin convertirla todavía en una timeline profesional.
 
 ## Principios de avance
 
@@ -21,7 +21,7 @@ Las Etapas técnicas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector l
 
 ## Fase 1 — Núcleo local confiable
 
-**Estado:** en progreso; la base técnica y el render lineal multiescena están validados.
+**Estado:** en progreso; existe un primer flujo local completo y validado.
 
 ### Objetivo
 
@@ -80,6 +80,14 @@ Director IA, editor profesional, cuentas, backend, storage remoto, colas, suscri
 ### Objetivo
 
 Convertir una idea en un guion y un plan de escenas válido, editable y restringido a capacidades/assets existentes.
+
+### Implementado en el primer vertical slice
+
+- Adaptador local Ollama con `qwen3:8b`, salida JSON estructurada y timeout.
+- Plan semántico separado del proyecto de autoría y normalización determinista.
+- Catálogo cerrado, validación estructural/semántica y caché por hash.
+- Corrección humana en el editor antes de renderizar.
+- Puente HTTP limitado a loopback con trabajos aislados, progreso, cancelación y MP4 final.
 
 ### Alcance
 

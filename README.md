@@ -19,9 +19,12 @@ El repositorio incluye actualmente:
 - compilación de cada escena al contrato runtime v2;
 - render headless por escena y ensamblado multiescena con cortes o fundidos;
 - editor local con preview, timeline medida, inspector, undo/redo y exportación JSON;
+- Director IA local con Ollama y `qwen3:8b`, plan JSON cerrado, validación y caché;
+- creación por prompt, corrección en el mismo editor y lanzamiento del render desde la interfaz;
+- servicio HTTP local limitado a loopback, progreso, cancelación y reproducción/descarga del MP4 final;
 - publicación local versionada de previews y proyectos compatibles.
 
-Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo de edición 3B.0 ya está conectado a la interfaz local. Todavía no es un editor profesional ni una aplicación web.
+Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo de edición 3B.0 y el primer flujo completo prompt → proyecto → MP4 ya están conectados a la interfaz local. Todavía no es un editor profesional ni una aplicación web.
 
 ## Inicio rápido
 
@@ -31,6 +34,7 @@ Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo d
 - npm.
 - FFmpeg y FFprobe disponibles en `PATH`.
 - Para generar voces y renderizar: un runtime local de Piper configurado como se explica en [Voz y render](#voz-y-render).
+- Para crear proyectos desde un prompt: [Ollama](https://ollama.com/) y el modelo local `qwen3:8b`.
 
 Instalación:
 
@@ -38,6 +42,7 @@ Instalación:
 git clone https://github.com/tomasscorza-create/Videoeditorprompt.git
 cd Videoeditorprompt
 npm install
+ollama pull qwen3:8b
 ```
 
 Publicar el proyecto piloto compatible e iniciar la interfaz:
@@ -49,7 +54,9 @@ npm run dev
 
 Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localhost:5173).
 
-`stage3b:publish-project` genera `public/projects/`, necesario para que la interfaz encuentre proyectos editables. Los previews de video aparecen después de publicar al menos un trabajo del pipeline.
+`npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. Desde el panel **Director IA local**, escribir la idea, crear la propuesta, corregirla en el editor si hace falta y pulsar **Renderizar video**.
+
+`stage3b:publish-project` genera `public/projects/`, necesario para que la interfaz encuentre proyectos editables existentes. Los previews de video aparecen después de publicar al menos un trabajo del pipeline.
 
 ## Voz y render
 
@@ -93,6 +100,7 @@ El pipeline también admite `--tts-root` y argumentos de rutas configurables cua
 
 ```powershell
 npm run dev
+npm run local:server
 npm run build
 npm run stage1:pipeline
 npm run stage3b:publish-project
@@ -108,6 +116,10 @@ npm run stage3a:test-compiler
 npm run stage3a:test-assembly
 npm run stage3b:test-editor
 npm run stage3b:test-publishing
+npm run director:test-plan
+npm run director:test-ollama
+npm run local:test-server
+npm run local:test-render-manager
 ```
 
 ### Integración y determinismo
@@ -123,10 +135,13 @@ Los comandos legacy `npm run assets`, `npm run export` y `npm run verify` perten
 ## Arquitectura resumida
 
 ```text
-Proyecto editable + catálogo
-            │
-            ▼
-Compilador determinista 3A
+Prompt ──► Ollama/qwen3:8b ──► plan semántico validado
+                                      │
+                                      ▼
+                         Proyecto editable + catálogo
+                                      │
+                                      ▼
+                         Compilador determinista 3A
             │
             ▼
 Configuración runtime v2 por escena
@@ -149,6 +164,8 @@ Componentes principales:
 - `scripts/stage1/`: preparación, render, publicación y verificación por escena.
 - `scripts/stage3a/`: validación, compilación y ensamblado de proyectos.
 - `scripts/stage3b/`: pruebas y publicación de proyectos para la UI.
+- `scripts/director/`: contrato semántico, normalizador, caché y adaptador Ollama.
+- `scripts/local-app/`: API loopback y gestor aislado de trabajos de render.
 - `public/assets/`: catálogos y recursos portables.
 - `pilots/`: configuraciones y proyectos de prueba.
 
@@ -165,14 +182,15 @@ No deben versionarse.
 
 ## Limitaciones vigentes
 
-- El navegador no inicia todavía el pipeline local; renderizar sigue siendo una operación CLI.
 - El preview interactivo reproduce una escena seleccionada; el MP4 multiescena se ensambla en el pipeline padre.
 - El compilador vigente exige exactamente dos personajes y al menos dos turnos por escena.
 - Crear o eliminar escenas, elementos y turnos todavía no forma parte del contrato del editor.
 - Texto, imágenes, transforms libres y articulación continua aún no están representados por el runtime.
 - La boca usa una envolvente RMS, no alineación fonética.
 - La integración de Piper actual contiene rutas específicas de Windows; Linux/contenedores todavía requieren adaptación y verificación.
-- Faltan timeouts, cancelación y protección completa ante trabajos concurrentes antes de ofrecer el motor como servicio web.
+- El Director inicial usa un único modelo y catálogo cerrado; todavía no hace preguntas aclaratorias ni repara automáticamente planes rechazados.
+- El gestor local admite un solo render activo, conserva cancelación y timeout, pero no es un backend multiusuario ni una cola durable.
+- Sigue faltando protección completa ante cachés/publicaciones concurrentes antes de ofrecer el motor como servicio web.
 
 El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -203,4 +221,3 @@ Cuando un documento histórico contradiga el código vigente, prevalecen `AGENTS
 El repositorio todavía no contiene una licencia general. No debe asumirse permiso de redistribución o uso comercial del código.
 
 Los modelos, voces, fuentes y otros recursos de terceros conservan sus propias licencias y procedencia. El catálogo registra la información disponible, pero es obligatorio completar la revisión de licencias antes de distribuir o monetizar el producto.
-

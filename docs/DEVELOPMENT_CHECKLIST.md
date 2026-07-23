@@ -20,12 +20,14 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] 3B.0 implementa estado inmutable, comandos cerrados, selección por ID, coordenadas, diálogo, transiciones, undo/redo y exportación portable.
 - [x] El adaptador de publicación expone proyectos compatibles mediante `public/projects/index.json` y revisión por hash, sin depender de `pilots/` en producción.
 - [x] 3B.1 conecta la UX/UI al núcleo, abre un proyecto publicado, permite editarlo y descargar el JSON sin escribirlo manualmente.
-- [ ] Próximo gate: profundizar la edición manual soportada y definir el puente local seguro hacia el pipeline.
-- [ ] Después: puente local seguro para congelar el proyecto exportado y lanzar el pipeline headless.
+- [x] El Director IA local transforma prompts en planes cerrados con `qwen3:8b`, los valida y normaliza al proyecto editable vigente.
+- [x] El puente local seguro congela el proyecto, admite un render activo, lanza el pipeline con `shell: false` y expone progreso, cancelación y MP4.
+- [x] Flujo real verificado: prompt desde la UI, 3 escenas, 33,03 s y dos MP4 finales binariamente idénticos.
+- [ ] Próximo gate: producción personal real, métricas de planes válidos y mejoras de variantes/reparación y edición manual.
 
 Evidencia vigente: `ETAPA_2F_CALIDAD_RESULTADOS.md`, `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.
 
-El próximo incremento debe profundizar la edición manual sobre el contrato vigente y preparar el puente local seguro hacia el pipeline. No incorporar todavía IA directora, Electron, timeline profesional, lip sync fonético, backend ni funciones multiusuario.
+El próximo incremento debe medir el flujo en producción personal y profundizar variantes, reparación y edición manual sobre el contrato vigente. No incorporar todavía Electron, timeline profesional, lip sync fonético, backend remoto ni funciones multiusuario.
 
 ## Antes de comenzar
 

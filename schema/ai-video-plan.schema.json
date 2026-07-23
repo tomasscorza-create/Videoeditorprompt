@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/ai-video-plan-v1.json",
+  "title": "Plan semántico del Director IA",
+  "description": "Decisiones creativas cerradas que se normalizan de forma determinista a video-project v1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "title", "tone", "targetDurationSeconds", "cast", "scenes"],
+  "properties": {
+    "version": { "const": 1 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "tone": {
+      "enum": ["educational", "ironic", "serious", "energetic", "inspirational"]
+    },
+    "targetDurationSeconds": {
+      "type": "integer",
+      "minimum": 8,
+      "maximum": 90
+    },
+    "cast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["a", "b"],
+      "properties": {
+        "a": { "$ref": "#/$defs/castMember" },
+        "b": { "$ref": "#/$defs/castMember" }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/scene" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$"
+    },
+    "castMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "characterResourceId", "voiceId"],
+      "properties": {
+        "role": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "characterResourceId": { "$ref": "#/$defs/id" },
+        "voiceId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "dialogueTurn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["speaker", "text", "gestureId", "gapAfterSeconds"],
+      "properties": {
+        "speaker": { "enum": ["a", "b"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "gestureId": { "enum": ["neutral", "point"] },
+        "gapAfterSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "purpose",
+        "backgroundResourceId",
+        "cameraPreset",
+        "layoutPreset",
+        "transitionPreset",
+        "dialogue"
+      ],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "purpose": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "backgroundResourceId": { "$ref": "#/$defs/id" },
+        "cameraPreset": { "enum": ["static", "slow-pan", "slow-zoom"] },
+        "layoutPreset": { "enum": ["balanced", "focus-a", "focus-b"] },
+        "transitionPreset": { "enum": ["cut", "fade"] },
+        "dialogue": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 6,
+          "items": { "$ref": "#/$defs/dialogueTurn" }
+        }
+      }
+    }
+  }
+}

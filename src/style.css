@@ -987,6 +987,92 @@ dd { margin: 0; font-weight: 650; }
    Editor del proyecto de autoría (consume shared/project-editor.js)
    ========================================================================== */
 
+.director-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.director-panel[hidden] {
+  display: none;
+}
+
+.director-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.director-header p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+
+.director-prompt-field {
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.director-prompt-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface-raised);
+  font: inherit;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.director-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.director-actions button {
+  min-height: 34px;
+}
+
+.director-status,
+.director-proposal {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
+.director-status.error {
+  color: var(--danger);
+}
+
+.director-status.ok {
+  color: var(--accent);
+}
+
+.director-result {
+  display: grid;
+  gap: 8px;
+}
+
+.director-result video {
+  width: min(100%, 240px);
+  max-height: 360px;
+  justify-self: center;
+  border-radius: 10px;
+  background: #000;
+}
+
 .project-editor {
   display: flex;
   flex-direction: column;
