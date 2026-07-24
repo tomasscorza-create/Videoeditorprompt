@@ -45,8 +45,14 @@ export function validateDirectorPlan(plan, catalog) {
   const characterIds = new Set();
   const voiceIds = new Set();
   for (const [slot, member] of castEntries) {
-    requireResource(resources, member.characterResourceId, 'character', `/cast/${slot}/characterResourceId`);
+    const character = requireResource(resources, member.characterResourceId, 'character', `/cast/${slot}/characterResourceId`);
     requireResource(resources, member.voiceId, 'voice', `/cast/${slot}/voiceId`);
+    if (!character.capabilities.poses.includes(member.poseId)) {
+      directorError('DIRECTOR_RESOURCE_UNSUPPORTED', 'El personaje no soporta la pose inicial seleccionada.', `/cast/${slot}/poseId`);
+    }
+    if (!character.capabilities.animationPresets.includes(member.animationPreset)) {
+      directorError('DIRECTOR_RESOURCE_UNSUPPORTED', 'El personaje no soporta la animación seleccionada.', `/cast/${slot}/animationPreset`);
+    }
     characterIds.add(member.characterResourceId);
     voiceIds.add(member.voiceId);
   }
@@ -58,6 +64,12 @@ export function validateDirectorPlan(plan, catalog) {
     const background = requireResource(resources, scene.backgroundResourceId, 'background', `/scenes/${sceneIndex}/backgroundResourceId`);
     if (!background.capabilities.cameraPresets.includes(scene.cameraPreset)) {
       directorError('DIRECTOR_RESOURCE_UNSUPPORTED', 'El fondo no soporta la cámara seleccionada.', `/scenes/${sceneIndex}/cameraPreset`);
+    }
+    const isLastScene = sceneIndex === plan.scenes.length - 1;
+    if (!isLastScene && scene.transitionPreset === 'fade') {
+      if (scene.transitionDurationSeconds < 0.15 || scene.transitionDurationSeconds > 1) {
+        directorError('DIRECTOR_TRANSITION_INVALID', 'La duración del fundido debe estar entre 0.15 y 1.0 segundos.', `/scenes/${sceneIndex}/transitionDurationSeconds`);
+      }
     }
     const speakers = new Set();
     for (const [turnIndex, turn] of scene.dialogue.entries()) {
@@ -129,8 +141,8 @@ function normalizeScene(plan, scene, sceneIndex) {
         opacity: 1,
         zIndex: transform.zIndex,
       },
-      poseId: 'neutral',
-      animationPreset: 'talk-calm',
+      poseId: plan.cast[slot].poseId,
+      animationPreset: plan.cast[slot].animationPreset,
     };
   });
   const normalized = {
@@ -153,7 +165,7 @@ function normalizeScene(plan, scene, sceneIndex) {
   if (sceneIndex < plan.scenes.length - 1) {
     normalized.transitionToNext = {
       preset: scene.transitionPreset,
-      durationSeconds: scene.transitionPreset === 'fade' ? 0.35 : 0,
+      durationSeconds: scene.transitionPreset === 'fade' ? scene.transitionDurationSeconds : 0,
     };
   }
   return normalized;

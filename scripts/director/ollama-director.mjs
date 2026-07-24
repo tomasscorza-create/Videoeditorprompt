@@ -146,6 +146,15 @@ export function buildOllamaPlanSchema(catalog, constraints = {}) {
   schema.$defs.castMember.properties.characterResourceId = { type: 'string', enum: characters };
   schema.$defs.castMember.properties.voiceId = { type: 'string', enum: voices };
   schema.$defs.scene.properties.backgroundResourceId = { type: 'string', enum: backgrounds };
+  const poses = [...new Set(catalog.entries
+    .filter((entry) => entry.type === 'character')
+    .flatMap((entry) => entry.capabilities.poses))];
+  const animationPresets = [...new Set(catalog.entries
+    .filter((entry) => entry.type === 'character')
+    .flatMap((entry) => entry.capabilities.animationPresets))];
+  schema.$defs.castMember.properties.poseId = { type: 'string', enum: poses };
+  schema.$defs.castMember.properties.animationPreset = { type: 'string', enum: animationPresets };
+  schema.$defs.scene.properties.transitionDurationSeconds = { type: 'number', minimum: 0, maximum: 1 };
   const cameraPresets = [...new Set(catalog.entries
     .filter((entry) => entry.type === 'background')
     .flatMap((entry) => entry.capabilities.cameraPresets))]
@@ -234,6 +243,8 @@ function buildSystemPrompt(catalog) {
     'Transformá la idea del usuario en un plan breve, claro, entretenido y renderizable.',
     'Cumplí exactamente el JSON Schema solicitado.',
     'Usá solamente IDs presentes en el catálogo.',
+    'Elegí para cada personaje una pose y una animación entre las que declara su catálogo (capabilities).',
+    'transitionDurationSeconds solo importa cuando transitionPreset es «fade»: usá entre 0.15 y 1.0 segundos; con «cut» dejá 0.',
     'Cada escena debe tener de 2 a 6 turnos e incluir a ambos personajes.',
     'Escribí español natural para voz, sin markdown, acotaciones, emojis ni instrucciones técnicas.',
     'La duración es un objetivo editorial: mantené el guion conciso.',

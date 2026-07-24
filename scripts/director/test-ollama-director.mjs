@@ -10,8 +10,8 @@ const plan = {
   tone: 'educational',
   targetDurationSeconds: 20,
   cast: {
-    a: { role: 'optimista', characterResourceId: 'mono-azul-v1', voiceId: 'voz-daniela-ar-v1' },
-    b: { role: 'escéptico', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-davefx-es-v1' },
+    a: { role: 'optimista', characterResourceId: 'mono-azul-v1', voiceId: 'voz-daniela-ar-v1', poseId: 'point', animationPreset: 'talk-calm' },
+    b: { role: 'escéptico', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-davefx-es-v1', poseId: 'neutral', animationPreset: 'idle-calm' },
   },
   scenes: [{
     title: 'Debate',
@@ -20,6 +20,7 @@ const plan = {
     cameraPreset: 'slow-pan',
     layoutPreset: 'balanced',
     transitionPreset: 'cut',
+    transitionDurationSeconds: 0,
     dialogue: [
       { speaker: 'a', text: 'La inteligencia artificial puede ayudarnos a trabajar con más rapidez.', gestureId: 'point', gapAfterSeconds: 0.2 },
       { speaker: 'b', text: 'Siempre que revisemos sus respuestas y mantengamos el criterio humano.', gestureId: 'neutral', gapAfterSeconds: 0 },
@@ -37,6 +38,9 @@ const fakeFetch = async (url, options = {}) => {
     assert.equal(request.model, 'qwen3:8b');
     assert.equal(request.stream, false);
     assert.equal(request.format.$defs.castMember.properties.characterResourceId.enum.length, 2);
+    assert.ok(request.format.$defs.castMember.properties.poseId.enum.includes('point'));
+    assert.ok(request.format.$defs.castMember.properties.animationPreset.enum.includes('talk-calm'));
+    assert.equal(request.format.$defs.scene.properties.transitionDurationSeconds.maximum, 1);
     return response({
       message: { role: 'assistant', content: JSON.stringify(plan) },
       prompt_eval_count: 100,
@@ -99,7 +103,7 @@ await assert.rejects(
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 17,
+  passed: 20,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

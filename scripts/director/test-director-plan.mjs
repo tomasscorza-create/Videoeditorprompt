@@ -14,11 +14,15 @@ const validPlan = {
       role: 'presentadora optimista',
       characterResourceId: 'mono-azul-v1',
       voiceId: 'voz-daniela-ar-v1',
+      poseId: 'point',
+      animationPreset: 'talk-calm',
     },
     b: {
       role: 'analista escéptico',
       characterResourceId: 'mono-ciruela-v1',
       voiceId: 'voz-davefx-es-v1',
+      poseId: 'neutral',
+      animationPreset: 'idle-calm',
     },
   },
   scenes: [
@@ -29,6 +33,7 @@ const validPlan = {
       cameraPreset: 'slow-pan',
       layoutPreset: 'focus-a',
       transitionPreset: 'fade',
+      transitionDurationSeconds: 0.6,
       dialogue: [
         {
           speaker: 'a',
@@ -51,6 +56,7 @@ const validPlan = {
       cameraPreset: 'slow-zoom',
       layoutPreset: 'focus-b',
       transitionPreset: 'cut',
+      transitionDurationSeconds: 0,
       dialogue: [
         {
           speaker: 'b',
@@ -84,6 +90,43 @@ const staticPlan = structuredClone(validPlan);
 staticPlan.scenes[0].cameraPreset = 'static';
 assert.equal(normalizeDirectorPlan(staticPlan, catalog).project.scenes[0].background.cameraPreset, 'slow-pan');
 
+// A1/A2: pose y animación elegidas por el plan llegan al proyecto normalizado.
+assert.equal(normalizedA.project.scenes[0].elements[0].poseId, 'point');
+assert.equal(normalizedA.project.scenes[0].elements[0].animationPreset, 'talk-calm');
+assert.equal(normalizedA.project.scenes[0].elements[1].poseId, 'neutral');
+assert.equal(normalizedA.project.scenes[0].elements[1].animationPreset, 'idle-calm');
+
+// A3: la duración de fundido pedida por la IA sobrevive hasta el proyecto validado.
+assert.equal(normalizedA.project.scenes[0].transitionToNext.durationSeconds, 0.6);
+
+// A1/A2: una pose no soportada por ese personaje se rechaza con recurso no soportado.
+assert.throws(
+  () => validateDirectorPlan({
+    ...validPlan,
+    cast: { ...validPlan.cast, a: { ...validPlan.cast.a, poseId: 'inexistente' } },
+  }, catalog),
+  (error) => error.code === 'DIRECTOR_RESOURCE_UNSUPPORTED',
+);
+assert.throws(
+  () => validateDirectorPlan({
+    ...validPlan,
+    cast: { ...validPlan.cast, b: { ...validPlan.cast.b, animationPreset: 'hyper-jump' } },
+  }, catalog),
+  (error) => error.code === 'DIRECTOR_RESOURCE_UNSUPPORTED',
+);
+
+// A3: un fundido fuera de rango [0.15, 1.0] se rechaza.
+assert.throws(
+  () => validateDirectorPlan({
+    ...validPlan,
+    scenes: [
+      { ...validPlan.scenes[0], transitionPreset: 'fade', transitionDurationSeconds: 0.05 },
+      validPlan.scenes[1],
+    ],
+  }, catalog),
+  (error) => error.code === 'DIRECTOR_TRANSITION_INVALID',
+);
+
 assert.throws(
   () => validateDirectorPlan({
     ...validPlan,
@@ -116,7 +159,7 @@ assert.throws(
 
 const summary = {
   version: 1,
-  passed: 13,
+  passed: 19,
   failed: 0,
   semanticHash: normalizedA.semanticHash,
   projectId: normalizedA.project.id,
