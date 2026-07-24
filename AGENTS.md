@@ -127,7 +127,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `public/assets/character-definitions/mono-parametrico-v1.json`: definición fuente del vertical slice 2F.2.
 - `public/assets/catalog/index.json`: catálogo mínimo con las dos variantes paramétricas.
 - `public/assets/catalog/authoring-resources.json`: capa de autoría que ofrece personajes, voces y fondo mediante IDs estables.
-- `scripts/*.mjs`, `assets/` y `tts-test/`: evidencia/flujo legacy de Etapa 0. No usarlos como base para funciones nuevas.
+- `assets/`: assets legacy de Etapa 0. No usarlos como base para funciones nuevas. Los scripts sueltos de Etapa 0 (`scripts/process.mjs`, `export-video.mjs`, `generate-assets.mjs`, `verify-output.mjs`) y `tts-test/` fueron eliminados del repositorio; su historia se conserva en git.
 - `.local-video/`: trabajos y evidencia local regenerable; no versionar.
 
 Comandos canónicos:
@@ -183,7 +183,7 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 - La caché TTS y un mismo `jobId` no están protegidos ante procesos concurrentes.
 - Los procesos usan `spawnSync` sin timeout ni cancelación.
 - Los fallos del pipeline tienen estructura plana, etapa y código estable para validación/procesos conocidos; errores internos no clasificados usan `UNEXPECTED_ERROR`.
-- Los comandos npm legacy `assets`, `export` y `verify` pertenecen a Etapa 0 y usan temporales/resultados globales; no extenderlos y planificar su archivo/deprecación en una tarea específica.
+- Los comandos npm legacy `assets`, `export` y `verify` de Etapa 0 fueron eliminados junto con sus scripts; su historia se conserva en git.
 - Cada subcarpeta publicada se reconstruye al republicar su job; el índice global aún no tiene locking para publicaciones concurrentes y pueden quedar archivos legacy planos de etapas anteriores.
 - Compatibilidad Linux, límites de recursos, limpieza/retención y licencias completas de assets requieren trabajo antes de un servicio web.
 

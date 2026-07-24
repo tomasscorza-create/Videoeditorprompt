@@ -149,7 +149,7 @@ npm run stage2b:test-preview
 npm run stage3a:project-pipeline
 ```
 
-Los comandos legacy `npm run assets`, `npm run export` y `npm run verify` pertenecen a la Etapa 0 y no deben usarse como base para funciones nuevas.
+Los comandos legacy de la Etapa 0 (`npm run assets`, `npm run export`, `npm run verify`) y sus scripts fueron eliminados; su historia se conserva en git.
 
 ## Arquitectura resumida
 
