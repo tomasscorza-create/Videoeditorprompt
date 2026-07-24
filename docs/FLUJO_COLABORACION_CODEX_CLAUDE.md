@@ -1,26 +1,28 @@
 # Flujo de colaboración entre Codex y Claude
 
-Fecha: 22 de julio de 2026.
+Fecha: 22 de julio de 2026. Actualizado: 24 de julio de 2026.
 
-Estado: propuesta operativa vigente para trabajar en paralelo sin mezclar responsabilidades ni desestabilizar `main`.
+Estado: guía operativa vigente para trabajar en paralelo sin mezclar responsabilidades ni desestabilizar `main`. El esquema anterior de dos ramas largas fue reemplazado (ver «Modelo de ramas vigente»).
 
 ## Objetivo
 
-Usar dos ramas y dos worktrees separados para avanzar en paralelo:
+Avanzar en paralelo sin desarrollar dos aplicaciones: ambos carriles terminan consumiendo los mismos contratos y el mismo evaluador temporal.
 
 - **Codex:** núcleo, contratos, pipeline y funciones creativas incorporadas de forma incremental.
-- **Claude:** investigación y diseño UX/UI, flujo del editor y prototipos de interfaz.
-- **`main`:** versión estable e integrable; no es un espacio de experimentación.
+- **Claude:** diseño UX/UI, flujo del editor e interfaz.
+- **`main`:** versión estable e integrable; es el tronco compartido de trabajo, no un espacio de experimentación.
 
-Esta separación no significa desarrollar dos aplicaciones. Ambos carriles deben terminar consumiendo los mismos contratos y el mismo evaluador temporal.
+## Modelo de ramas vigente (24-jul-2026)
 
-## Distribución actual
+Reemplaza el esquema anterior de dos ramas largas y dos worktrees. Las ramas `codex/desarrollo-local`, `claude/trabajo` e `integration/2f-ui` fueron retiradas por estar contenidas en `main` y generar conflictos falsos.
 
-| Responsable | Rama | Worktree | Propósito |
-|---|---|---|---|
-| Codex | `codex/desarrollo-local` | `C:\Users\usuario\Desktop\Diseñador de videos LOCAL` | Motor y capacidades funcionales |
-| Claude | `claude/trabajo` | `C:\Users\usuario\Desktop\Diseñador de videos LOCAL - claude` | UX/UI e interfaz |
-| Integración | `main` | administrado por el usuario o una integración dedicada | Versión estable |
+| Responsable | Rama | Propósito |
+|---|---|---|
+| Codex | `main` (trabajo directo) | Motor y capacidades funcionales |
+| Claude | rama corta cortada de `main` del día, integrada el mismo día y borrada | UX/UI e interfaz |
+| Integración | `main` | Tronco estable e integrable |
+
+Ritual de Claude al empezar y cerrar: `git fetch && git rebase origin/main` para abrir; `git rebase main` + `git merge --ff-only` para cerrar; luego borrar la rama. Nunca revivir una rama larga ni integrar recopiando archivos a mano: reaplicar commits en vez de mergear hace divergir el historial de forma permanente.
 
 Cada agente debe comprobar su rama y worktree al comenzar:
 
@@ -31,7 +33,7 @@ git status --short --branch
 git worktree list
 ```
 
-Ningún agente debe cambiar de rama dentro del worktree del otro, escribir en la otra carpeta ni usar `git reset --hard`, `push --force` o limpiezas destructivas.
+Ningún agente debe reescribir el historial publicado del otro ni usar `git reset --hard`, `push --force` o limpiezas destructivas sin permiso explícito.
 
 ## Carril de Codex: núcleo y checklist funcional
 
@@ -158,6 +160,8 @@ Etapa en la que debería resolverse:
 Codex decide la implementación técnica del contrato junto con el usuario. Claude puede proponer la forma de consumo y validar que resulte comprensible para la interfaz.
 
 ## Archivos sensibles y reglas para evitar choques
+
+El reparto siguiente es una **guía por defecto para evitar choques, no un muro**. En la práctica, algunos cambios cruzan motor y UI (por ejemplo, los commits del 24-jul-2026 tocan `shared/`, `scripts/` y `src/ui/` a la vez, y Codex ya edita módulos bajo `src/ui/`). Cuando un cambio cruza carriles se coordina en el resumen del PR o de la rama y se respetan los invariantes de `AGENTS.md`; la tabla indica el propietario habitual de cada zona, no una prohibición absoluta.
 
 | Zona | Regla |
 |---|---|
