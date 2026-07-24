@@ -18,6 +18,7 @@ const commands = [
   'local:test-server',
   'local:test-render-manager',
   'local:test-retention',
+  'ui:test-modules',
 ];
 
 for (const command of commands) {
