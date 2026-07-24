@@ -8,6 +8,7 @@ import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
 import { createRenderJobManager, streamVideoResponse } from './render-job-manager.mjs';
+import { createResourceLibrary } from './resource-library.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const BODY_TIMEOUT_MS = 15_000;
@@ -23,8 +24,19 @@ export function createLocalAppServer(options = {}) {
   const port = Number(options.port ?? 4174);
   const sessionToken = String(options.sessionToken || randomBytes(32).toString('hex'));
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
-  const catalog = options.catalog || loadAuthoringCatalog(assetsRoot);
-  const manager = options.manager || createRenderJobManager({ ...options, assetsRoot, catalog });
+  const builtinCatalog = options.catalog || loadAuthoringCatalog(assetsRoot);
+  const library = options.library || createResourceLibrary({
+    assetsRoot,
+    builtinCatalog,
+    storageRoot: options.libraryStorageRoot,
+    publishRoot: options.libraryPublishRoot,
+  });
+  const currentCatalog = () => library.catalog();
+  const manager = options.manager || createRenderJobManager({
+    ...options,
+    assetsRoot,
+    catalogProvider: currentCatalog,
+  });
   const director = options.director || createDirectorProposal;
   const ollamaInspector = options.ollamaInspector || inspectOllama;
   let directorController = null;
@@ -61,6 +73,29 @@ export function createLocalAppServer(options = {}) {
         });
         return;
       }
+      if (request.method === 'GET' && url.pathname === '/api/library/resources') {
+        sendJson(response, 200, {
+          version: 1,
+          catalogPath: library.catalogRelative,
+          resources: library.list(),
+        });
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/library/catalog') {
+        sendJson(response, 200, {
+          version: 1,
+          catalogPath: library.catalogRelative,
+          catalog: currentCatalog(),
+        });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/library/resources') {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        const result = library.register(body.entry);
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
       if (request.method === 'POST' && url.pathname === '/api/director/proposals') {
         assertJsonContentType(request);
         if (directorController) {
@@ -77,6 +112,8 @@ export function createLocalAppServer(options = {}) {
             variant: body.variant,
             constraints: body.constraints,
             assetsRoot,
+            catalog: currentCatalog(),
+            resourceCatalog: library.catalogRelative,
             signal: directorController.signal,
           });
         } finally {
@@ -100,7 +137,7 @@ export function createLocalAppServer(options = {}) {
       if (request.method === 'POST' && url.pathname === '/api/projects/validate') {
         assertJsonContentType(request);
         const body = await readJsonBody(request);
-        const result = validateVideoProjectDocument({ project: body.project, catalog, assetsRoot });
+        const result = validateVideoProjectDocument({ project: body.project, catalog: currentCatalog(), assetsRoot });
         sendJson(response, 200, {
           version: 1,
           valid: true,
@@ -143,7 +180,7 @@ export function createLocalAppServer(options = {}) {
       sendNotFound(response);
     } catch (error) {
       const serialized = serializeError(error, 'local_app');
-      const status = ['RENDER_BUSY', 'DIRECTOR_BUSY'].includes(error?.code) ? 409
+      const status = ['RENDER_BUSY', 'DIRECTOR_BUSY', 'LIBRARY_RESOURCE_ID_CONFLICT'].includes(error?.code) ? 409
         : String(error?.code || '').includes('INVALID') ? 400
           : error?.code === 'REQUEST_BODY_TOO_LARGE' ? 413
             : 500;
@@ -154,6 +191,7 @@ export function createLocalAppServer(options = {}) {
   return {
     server,
     manager,
+    library,
     sessionToken,
     listen() {
       return new Promise((resolve, reject) => {

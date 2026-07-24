@@ -12,6 +12,7 @@ const commands = [
   'stage3b:test-contracts',
   'director:test-plan',
   'director:test-ollama',
+  'local:test-library',
   'local:test-server',
   'local:test-render-manager',
   'local:test-retention',

@@ -18,7 +18,8 @@ export function createRenderJobManager(options = {}) {
   const appInputRoot = ensureDirectory(path.resolve(options.appInputRoot || path.join(root, '.local-video', 'app-input')));
   const workRoot = path.resolve(options.workRoot || path.join(root, '.local-video', 'work'));
   const outputRoot = path.resolve(options.outputRoot || path.join(root, '.local-video', 'output'));
-  const catalog = options.catalog || loadAuthoringCatalog(assetsRoot);
+  const catalogProvider = options.catalogProvider
+    || (() => options.catalog || loadAuthoringCatalog(assetsRoot));
   const pipelineScript = path.join(root, 'scripts', 'stage3a', 'project-pipeline.mjs');
   const spawnImpl = options.spawnImpl || spawn;
   const terminateTree = options.terminateProcessTreeImpl || terminateProcessTree;
@@ -36,7 +37,7 @@ export function createRenderJobManager(options = {}) {
         suggestedAction: 'Esperá a que termine el trabajo actual antes de iniciar otro.',
       });
     }
-    validateVideoProjectDocument({ project, catalog, assetsRoot });
+    validateVideoProjectDocument({ project, catalog: catalogProvider(), assetsRoot });
     const jobId = createJobId();
     const inputDirectory = ensureDirectory(path.join(appInputRoot, jobId));
     const projectFile = path.join(inputDirectory, 'project.json');

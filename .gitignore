@@ -22,5 +22,9 @@ tts-test/output/
 # Trabajos y evidencia local regenerable
 .local-video/
 
+# Biblioteca durable local y su publicación regenerable
+.local-video-library/
+public/assets/library/
+
 # Editor específico de Claude / Antigravity
 .claude/

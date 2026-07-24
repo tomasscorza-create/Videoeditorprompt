@@ -99,7 +99,7 @@ export function normalizeDirectorPlan(plan, catalog, options = {}) {
     title: plan.title,
     video: { width: 1080, height: 1920, fps: 30 },
     seed,
-    resourceCatalog: 'assets/catalog/authoring-resources.json',
+    resourceCatalog: options.resourceCatalog || 'assets/catalog/authoring-resources.json',
     scenes: plan.scenes.map((scene, sceneIndex) => normalizeScene(plan, scene, sceneIndex)),
   };
   validateVideoProjectDocument({

@@ -9,7 +9,7 @@ Construimos una herramienta local, dirigida por datos, para producir videos anim
 Estado vigente:
 
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
-- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`. El primer vertical slice dirigido por prompt usa Ollama con `qwen3:8b`, normaliza un plan semántico cerrado al mismo proyecto editable y permite renderizarlo desde la interfaz mediante un servicio limitado a loopback. La interfaz vigente organiza Director, viewer y edición en tres columnas, persiste la sesión compatible, enumera jobs de la API y separa composición estática, preview medido y MP4 final. La timeline V1/A1 comparte esa selección: estructura sin medir durante autoría y escala real para preview/MP4.
+- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`. El primer vertical slice dirigido por prompt usa Ollama con `qwen3:8b`, normaliza un plan semántico cerrado al mismo proyecto editable y permite renderizarlo desde la interfaz mediante un servicio limitado a loopback. La interfaz vigente organiza Director, viewer y edición en tres columnas, persiste la sesión compatible, enumera jobs de la API y separa composición estática, preview medido y MP4 final. La timeline V1/A1 comparte esa selección: estructura sin medir durante autoría y escala real para preview/MP4. La biblioteca local V1 registra fichas validadas en almacenamiento durable, deduplica por hash y publica un catálogo combinado consumido por Director, editor y render.
 - Existe un runtime probado de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC. Un pipeline padre ya compone varias de esas escenas en un MP4 mediante cortes o fundidos.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
@@ -88,6 +88,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `schema/asset-catalog.schema.json`: índice local portable de assets seleccionables por ID.
 - `schema/video-project.schema.json`: contrato versión 1 del proyecto editable con hasta ocho escenas, instancias sobre canvas, diálogo por IDs y transiciones cerradas.
 - `schema/authoring-resource-catalog.schema.json`: catálogo de autoría para personajes compilados, voces, fondos e imágenes.
+- `schema/local-resource-library.schema.json`: registro durable de fichas locales, hashes y fecha de alta.
 - `schema/background-manifest.schema.json`: contrato portable del fondo por tres capas.
 - `schema/compiled-project.schema.json`: manifiesto versionado que vincula proyecto, hashes, escenas v2 compiladas y transiciones.
 - `schema/rendered-project.schema.json`: contrato del manifiesto final con timeline medida, subtrabajos, outputs y verificación.
@@ -104,6 +105,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `scripts/local-app/server.mjs`: API HTTP local limitada a loopback para salud, propuestas, validación y trabajos.
 - `scripts/local-app/render-job-manager.mjs`: congelado, aislamiento, progreso, cancelación y entrega del MP4.
 - `scripts/local-app/retention.mjs`: limpieza validada de temporales y retención local; el modo predeterminado no borra.
+- `scripts/local-app/resource-library.mjs`: registro local atómico, validación, deduplicación y publicación del catálogo combinado.
 - `src/ui/viewer.ts`: selector explícito entre composición editable, preview medido y MP4 final.
 - `src/ui/timeline.ts`: timeline audiovisual, transporte, zoom, snap, atajos y despacho al medio activo; nunca estima duración como si fuera medida.
 - `src/ui/project/composition.ts`: proyección visual estática del proyecto y catálogo; no evalúa audio, boca ni tiempos.
@@ -144,6 +146,7 @@ npm run stage3b:publish-project # publica el piloto compatible para la UI y el b
 npm run stage3b:test-publishing # índice, portabilidad, hashes y rechazo de proyectos incompatibles
 npm run director:test-plan # contrato, catálogo, límites y normalización determinista
 npm run director:test-ollama # adaptador, salida estructurada, caché y fallos
+npm run local:test-library # registro durable, validación, deduplicación y publicación
 npm run local:test-server # API loopback, límites y respuestas
 npm run local:test-render-manager # aislamiento, proceso, cancelación y errores
 npm run local:test-retention # limpieza, rutas protegidas y trabajos activos
@@ -158,7 +161,8 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 
 - Los contratos de runtime v1 y v2 siguen limitados a una escena. 3A.2 los ejecuta como subtrabajos aislados y ensambla el resultado; no existe todavía un runtime ni preview PixiJS multiescena continuo.
 - 3B.0 edita desde la interfaz proyectos existentes o creados por prompt del subconjunto compilable, pero todavía no crea/elimina escenas, elementos o turnos.
-- El Director inicial usa un único modelo y un catálogo cerrado; todavía no formula preguntas aclaratorias, compara variantes ni repara automáticamente un plan rechazado.
+- El Director inicial usa un único modelo y un catálogo de tipos/capacidades cerrados, ahora ampliable mediante fichas locales validadas; todavía no formula preguntas aclaratorias, compara variantes ni repara automáticamente un plan rechazado.
+- La biblioteca V1 registra descriptores y exige que sus assets ya existan bajo raíces controladas; todavía no importa paquetes binarios, elimina recursos ni genera assets con IA.
 - El Director acepta tono, duración objetivo y cantidad de escenas como restricciones del JSON Schema; siguen siendo objetivos editoriales y la duración real solo existe después de Piper/FFprobe.
 - El servicio local acepta un solo render activo, recupera estados interrumpidos y no es un backend multiusuario ni una cola durable.
 - La UI usa verificación interactiva de una pasada; la CLI conserva la verificación completa de dos pasadas por defecto.

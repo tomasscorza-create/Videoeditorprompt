@@ -33,6 +33,12 @@ export interface PublishedProjectIndex {
   projects: PublishedProjectEntry[];
 }
 
+interface LibraryCatalogResponse {
+  version: number;
+  catalogPath: string;
+  catalog: unknown;
+}
+
 export interface ProjectStore {
   getState(): EditorState;
   project(): ProjectView;
@@ -127,6 +133,24 @@ function isPortablePath(path: string): boolean {
   return path.length > 0 && !path.startsWith('/') && !path.split('/').includes('..');
 }
 
+async function loadActiveCatalog(fallbackPath: string, cacheKey?: string): Promise<{ catalog: unknown; path: string }> {
+  try {
+    const response = await fetchJson<LibraryCatalogResponse>('/api/library/catalog');
+    if (response.version !== 1 || !isPortablePath(response.catalogPath) || !response.catalog) {
+      throw new Error('La biblioteca local devolvió un catálogo incompatible.');
+    }
+    return { catalog: response.catalog, path: response.catalogPath };
+  } catch {
+    const suffix = cacheKey ? `?v=${cacheKey}` : '';
+    return { catalog: await fetchJson(`/${fallbackPath}${suffix}`), path: fallbackPath };
+  }
+}
+
+function selectResourceCatalog(project: unknown, catalogPath: string): unknown {
+  if (!project || typeof project !== 'object' || Array.isArray(project)) return project;
+  return { ...project, resourceCatalog: catalogPath };
+}
+
 export async function loadProjectStore(requestedProjectId?: string | null): Promise<ProjectStore> {
   const index = await fetchJson<PublishedProjectIndex>(PROJECT_INDEX_URL);
   if (index?.version !== 1 || !Array.isArray(index.projects)) {
@@ -148,25 +172,28 @@ export async function loadProjectStore(requestedProjectId?: string | null): Prom
 
   // `revision` es la clave de caché publicada; el índice no expone updatedAt.
   const cacheKey = encodeURIComponent(entry.revision);
-  const [project, catalog] = await Promise.all([
+  const [project, activeCatalog] = await Promise.all([
     fetchJson(`/projects/${entry.projectPath}?v=${cacheKey}`),
-    fetchJson(`/${entry.resourceCatalog}?v=${cacheKey}`),
+    loadActiveCatalog(entry.resourceCatalog, cacheKey),
   ]);
-  return createStore(createProjectEditor(project, catalog), await hashJson(catalog));
+  const selectedProject = selectResourceCatalog(project, activeCatalog.path);
+  return createStore(createProjectEditor(selectedProject, activeCatalog.catalog), await hashJson(activeCatalog.catalog));
 }
 
 export async function createProjectStore(project: unknown): Promise<ProjectStore> {
-  const catalog = await fetchJson('/assets/catalog/authoring-resources.json');
-  return createStore(createProjectEditor(project, catalog), await hashJson(catalog));
+  const activeCatalog = await loadActiveCatalog('assets/catalog/authoring-resources.json');
+  const selectedProject = selectResourceCatalog(project, activeCatalog.path);
+  return createStore(createProjectEditor(selectedProject, activeCatalog.catalog), await hashJson(activeCatalog.catalog));
 }
 
 export async function restoreProjectStore(project: unknown, expectedCatalogRevision: string): Promise<ProjectStore> {
-  const catalog = await fetchJson('/assets/catalog/authoring-resources.json');
-  const actualRevision = await hashJson(catalog);
-  if (actualRevision !== expectedCatalogRevision) {
-    throw new Error('El catálogo cambió desde la última sesión.');
-  }
-  return createStore(createProjectEditor(project, catalog), actualRevision);
+  const activeCatalog = await loadActiveCatalog('assets/catalog/authoring-resources.json');
+  const actualRevision = await hashJson(activeCatalog.catalog);
+  // La biblioteca solo agrega recursos. Si cambió su revisión, la restauración
+  // vuelve a validar el proyecto contra el catálogo actual sin descartar la sesión.
+  void expectedCatalogRevision;
+  const selectedProject = selectResourceCatalog(project, activeCatalog.path);
+  return createStore(createProjectEditor(selectedProject, activeCatalog.catalog), actualRevision);
 }
 
 async function hashJson(value: unknown): Promise<string> {

@@ -6,6 +6,7 @@ import { createLocalAppServer } from './server.mjs';
 import { projectRoot } from '../stage1/common.mjs';
 
 const project = JSON.parse(readFileSync(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'), 'utf8'));
+const catalog = JSON.parse(readFileSync(path.join(projectRoot, 'public', 'assets', 'catalog', 'authoring-resources.json'), 'utf8'));
 const completedJob = {
   version: 1,
   jobId: 'render-test-01',
@@ -35,6 +36,21 @@ const manager = {
   cancel: (id) => id === completedJob.jobId ? { ...completedJob, state: 'cancelled' } : null,
   video: () => null,
 };
+const library = {
+  catalogRelative: project.resourceCatalog,
+  catalog: () => catalog,
+  list: () => catalog.entries.map((entry) => ({
+    id: entry.id,
+    type: entry.type,
+    label: entry.label,
+    origin: 'builtin',
+    entry,
+  })),
+  register: (entry) => ({
+    created: true,
+    resource: { id: entry.id, type: entry.type, label: entry.label, origin: 'local', entry },
+  }),
+};
 let receivedConstraints = null;
 const director = async ({ prompt, signal, constraints }) => {
   receivedConstraints = constraints;
@@ -54,6 +70,7 @@ const director = async ({ prompt, signal, constraints }) => {
 const app = createLocalAppServer({
   port: 0,
   manager,
+  library,
   director,
   ollamaInspector: async () => ({ available: true, modelInstalled: true, model: 'qwen3:8b', version: 'test' }),
 });
@@ -71,6 +88,27 @@ const healthResponse = await request('/api/health');
 assert.equal(healthResponse.status, 200);
 const health = await healthResponse.json();
 assert.equal(health.ollama.modelInstalled, true);
+
+const libraryResponse = await request('/api/library/resources');
+assert.equal(libraryResponse.status, 200);
+assert.equal((await libraryResponse.json()).resources.length, catalog.entries.length);
+
+const catalogResponse = await request('/api/library/catalog');
+assert.equal(catalogResponse.status, 200);
+assert.equal((await catalogResponse.json()).catalog.entries.length, catalog.entries.length);
+
+const libraryEntry = {
+  id: 'voz-servidor-prueba',
+  type: 'voice',
+  label: 'Voz servidor prueba',
+};
+const registerResponse = await request('/api/library/resources', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ entry: libraryEntry }),
+});
+assert.equal(registerResponse.status, 201);
+assert.equal((await registerResponse.json()).resource.id, libraryEntry.id);
 
 const proposalResponse = await request('/api/director/proposals', {
   method: 'POST',
@@ -179,4 +217,4 @@ const missing = await request('/api/render-jobs/render-missing');
 assert.equal(missing.status, 404);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 26, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 32, failed: 0, url: listening.url })}\n`);

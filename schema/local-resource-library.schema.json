@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/local-resource-library-v1.json",
+  "title": "Registro durable de la biblioteca local",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "entries"],
+  "properties": {
+    "version": { "const": 1 },
+    "entries": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "contentHash", "registeredAt", "entry"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+          "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "registeredAt": { "type": "string", "format": "date-time" },
+          "entry": { "type": "object" }
+        }
+      }
+    }
+  }
+}

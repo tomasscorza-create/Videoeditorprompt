@@ -31,6 +31,7 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] Workspace de tres columnas con viewer de composición/preview/MP4, biblioteca licenciada, inspector plegable y timeline de escenas/turnos.
 - [x] Proyecto y último job persistidos con versión y revisión de catálogo; galería alimentada por `/api/render-jobs`.
 - [x] Tono, duración objetivo y cantidad de escenas restringen el JSON Schema del Director, no solo su texto de prompt.
+- [x] Biblioteca local durable con registro validado, deduplicación, catálogo unificado y API limitada a loopback.
 - [x] Timeline audiovisual V1/A1 restaurada con regla, playhead, zoom, snap, transporte, mute, navegación y atajos.
 - [x] Preview usa turnos medidos; MP4 usa escenas, audio y fundidos del manifiesto final; autoría queda marcada sin medir.
 - [ ] Próximo gate: producción personal real, métricas de planes válidos y mejoras de variantes/reparación y edición manual.

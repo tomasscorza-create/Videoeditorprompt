@@ -19,7 +19,7 @@ El repositorio incluye actualmente:
 - compilación de cada escena al contrato runtime v2;
 - render headless por escena y ensamblado multiescena con cortes o fundidos;
 - estudio local de tres columnas con composición estática, preview medido y MP4 final;
-- biblioteca con miniaturas, tags y licencias, inspector plegable y timeline audiovisual profesional;
+- biblioteca durable con miniaturas, tags, licencias, registro validado y catálogo unificado para Director/editor/render;
 - pistas V1/A1, regla, playhead, timecode, zoom, snap, transporte, navegación y atajos conectados al preview y MP4;
 - sesión editable y último render guardados localmente con revisión del catálogo;
 - Director IA local con Ollama y `qwen3:8b`, plan JSON cerrado, validación y caché;
@@ -60,7 +60,9 @@ Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localh
 
 `npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, y crear la propuesta. La propuesta editable se abre debajo del comando para revisar sus escenas y ajustes antes de pulsar **Renderizar video**. La galería **Videos creados** se abre desde **Archivos** en el encabezado y usa los jobs persistidos de la API local; no depende de copiar renders a `public/generated`.
 
-El viewer central distingue tres fuentes: **Composición** proyecta el proyecto editable sin inventar tiempos; **Preview medido** reproduce una escena publicada; **MP4 final** muestra un render terminado. El proyecto actual se restaura desde `localStorage` solo si la revisión del catálogo sigue siendo compatible.
+El viewer central distingue tres fuentes: **Composición** proyecta el proyecto editable sin inventar tiempos; **Preview medido** reproduce una escena publicada; **MP4 final** muestra un render terminado. El proyecto actual se restaura desde `localStorage` y vuelve a validarse cuando la biblioteca agrega recursos.
+
+El panel **Recursos** permite registrar una ficha JSON compatible mediante **Agregar recurso**. El registro durable se guarda en `.local-video-library/` (o en `LOCAL_VIDEO_LIBRARY_ROOT`) y publica un catálogo combinado para que Director, editor y render usen exactamente los mismos IDs. Véase [Biblioteca local](docs/BIBLIOTECA_LOCAL.md).
 
 En escritorio, los separadores entre Director, visor, panel derecho y timeline permiten ajustar el espacio de trabajo. Las proporciones se conservan localmente; doble clic sobre un separador restaura el tamaño inicial.
 
@@ -128,6 +130,7 @@ npm run stage3b:test-editor
 npm run stage3b:test-publishing
 npm run director:test-plan
 npm run director:test-ollama
+npm run local:test-library
 npm run local:test-server
 npm run local:test-render-manager
 npm run local:test-retention
@@ -216,6 +219,7 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [Roadmap](docs/ROADMAP.md) | Dirección de producto, fases y criterios de avance. |
 | [Checklist de desarrollo](docs/DEVELOPMENT_CHECKLIST.md) | Control operativo antes y después de cada cambio. |
 | [Estructura visual canónica](docs/ESTRUCTURA_VISUAL_CANONICA.md) | Distribución aprobada: encabezado, Director, visor, edición/recursos y timeline. |
+| [Biblioteca local](docs/BIBLIOTECA_LOCAL.md) | Registro durable, publicación del catálogo, API, seguridad y límites. |
 | [Operación local](docs/OPERACION_LOCAL.md) | Seguridad de sesión, recuperación, render interactivo y retención. |
 | [Dependencias de IA](docs/DEPENDENCIAS_IA_LOCAL.md) | Procedencia y licencias declaradas de Ollama y Qwen. |
 | [Visión de producto y Etapa 2F](docs/VISION_PRODUCTO_Y_ETAPA_2F.md) | Flujo creativo y dirección del producto. |

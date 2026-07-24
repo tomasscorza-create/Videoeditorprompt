@@ -1,4 +1,5 @@
 import { optional } from '../dom.js';
+import { registerLibraryResource } from '../director/api.js';
 import type { ProjectStore } from './store.js';
 import type { ResourceEntry, ResourceType } from './types.js';
 
@@ -7,6 +8,9 @@ type LibraryType = Extract<ResourceType, 'character' | 'background' | 'voice'>;
 export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   const root = optional<HTMLElement>('#resource-list');
   if (!root) return;
+  const registerButton = optional<HTMLButtonElement>('#resource-register');
+  const registerFile = optional<HTMLInputElement>('#resource-register-file');
+  const libraryStatus = optional<HTMLElement>('#resource-library-status');
   let activeType: LibraryType = 'character';
   let thumbnails = new Map<string, string>();
   try {
@@ -24,6 +28,42 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       for (const item of document.querySelectorAll('.resource-tab')) item.classList.toggle('is-active', item === tab);
       render();
     });
+  }
+
+  registerButton?.addEventListener('click', () => registerFile?.click());
+  registerFile?.addEventListener('change', async () => {
+    const file = registerFile.files?.[0];
+    registerFile.value = '';
+    if (!file) return;
+    if (file.size > 256 * 1024) {
+      setLibraryStatus('La ficha supera el límite de 256 KB.', true);
+      return;
+    }
+    registerButton!.disabled = true;
+    setLibraryStatus('Validando y registrando el recurso…', false);
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const entry = parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'entry' in parsed
+        ? (parsed as { entry: unknown }).entry
+        : parsed;
+      const result = await registerLibraryResource(entry);
+      setLibraryStatus(
+        result.created
+          ? `${result.resource.label} quedó registrado. Actualizando la biblioteca…`
+          : `${result.resource.label} ya estaba en la biblioteca. Actualizando…`,
+        false,
+      );
+      window.location.reload();
+    } catch (error) {
+      setLibraryStatus(error instanceof Error ? error.message : 'No se pudo registrar el recurso.', true);
+      registerButton!.disabled = false;
+    }
+  });
+
+  function setLibraryStatus(message: string, isError: boolean): void {
+    if (!libraryStatus) return;
+    libraryStatus.textContent = message;
+    libraryStatus.classList.toggle('error', isError);
   }
 
   function render(): void {

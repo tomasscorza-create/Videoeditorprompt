@@ -73,6 +73,13 @@ export interface DirectorConstraints {
   sceneCount: number;
 }
 
+export interface RegisteredResource {
+  id: string;
+  type: string;
+  label: string;
+  origin: 'builtin' | 'local';
+}
+
 export async function getHealth(): Promise<LocalHealth> {
   return apiRequest<LocalHealth>('/api/health');
 }
@@ -116,6 +123,14 @@ export async function cancelRenderJob(jobId: string): Promise<RenderJob> {
 
 export async function cancelDirectorProposal(): Promise<void> {
   await apiRequest('/api/director/cancel', { method: 'POST' });
+}
+
+export async function registerLibraryResource(entry: unknown): Promise<{ version: number; created: boolean; resource: RegisteredResource }> {
+  return apiRequest('/api/library/resources', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ entry }),
+  });
 }
 
 async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {

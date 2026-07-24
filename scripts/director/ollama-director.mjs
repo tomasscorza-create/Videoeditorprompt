@@ -39,7 +39,11 @@ export async function createDirectorProposal(options) {
   const cachePath = path.join(cacheRoot, `${cacheKey}.json`);
   if (options.useCache !== false && existsSync(cachePath)) {
     const cached = readJson(cachePath);
-    const normalized = normalizeDirectorPlan(cached.plan, catalog, { assetsRoot, promptHash: cacheKey });
+    const normalized = normalizeDirectorPlan(cached.plan, catalog, {
+      assetsRoot,
+      promptHash: cacheKey,
+      resourceCatalog: options.resourceCatalog,
+    });
     return {
       ...cached,
       project: normalized.project,
@@ -91,7 +95,11 @@ export async function createDirectorProposal(options) {
       suggestedAction: 'Reintentá la propuesta o verificá el soporte de salidas estructuradas del modelo.',
     });
   }
-  const normalized = normalizeDirectorPlan(plan, catalog, { assetsRoot, promptHash: cacheKey });
+  const normalized = normalizeDirectorPlan(plan, catalog, {
+    assetsRoot,
+    promptHash: cacheKey,
+    resourceCatalog: options.resourceCatalog,
+  });
   const cached = {
     version: 1,
     directorVersion: DIRECTOR_PIPELINE_VERSION,
