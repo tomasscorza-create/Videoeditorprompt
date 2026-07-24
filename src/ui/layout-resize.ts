@@ -10,6 +10,7 @@ const TIMELINE_MAX_RATIO = 0.42;
 const SIDE_MIN_PX = 280;
 const SIDE_MAX_PX = 560;
 const VIEWER_MIN_PX = 360;
+const WORKSPACE_OVERHEAD_PX = 62;
 const TIMELINE_MIN_PX = 150;
 const TIMELINE_MAX_PX = 460;
 type LayoutRatios = {
@@ -153,7 +154,8 @@ function bindKeyboard(
 function normalizeRatios(input: LayoutRatios, workspaceWidth: number, shellHeight: number): LayoutRatios {
   const sideMin = Math.max(SIDE_MIN_RATIO, SIDE_MIN_PX / workspaceWidth);
   const sideMax = Math.min(SIDE_MAX_RATIO, SIDE_MAX_PX / workspaceWidth);
-  const viewerMin = Math.max(VIEWER_MIN_RATIO, VIEWER_MIN_PX / workspaceWidth);
+  const viewerMin = Math.max(VIEWER_MIN_RATIO, VIEWER_MIN_PX / workspaceWidth)
+    + WORKSPACE_OVERHEAD_PX / workspaceWidth;
   let director = clamp(input.director, sideMin, sideMax);
   let inspector = clamp(input.inspector, sideMin, sideMax);
   const excess = director + inspector + viewerMin - 1;
