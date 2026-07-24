@@ -38,6 +38,15 @@ Estas áreas pueden ganar funciones, pestañas, acordeones o controles internos.
 
 En escritorio, dos franjas laterales de 60 px reservan aire visual desde debajo del encabezado hasta el final de la interfaz. Pueden alojar publicidad vertical claramente identificada, sin invadir las áreas de edición. No desplazan ni atraviesan el encabezado y desaparecen en el layout responsive de 1100 px o menos. Mientras no exista un proveedor real, toda creatividad publicitaria debe marcarse como demostración, carecer de seguimiento y no implicar asociaciones comerciales.
 
+### Franjas laterales de demostración (estado vigente y relación con el roadmap)
+
+Las creatividades actuales de estas franjas (`index.html`, `aside.side-banner`, con marcas ficticias como «FrameFlow» y «Voz Clara») son un **experimento de layout**, no monetización activa. Su único propósito es validar que reservar dos columnas verticales de 60 px no comprime las áreas de edición y se integra con el tema claro/oscuro.
+
+- No hay proveedor real, ni tracking, ni red publicitaria, ni ingresos: son placeholders estáticos marcados como «Demo».
+- Reservar este espacio **no** contradice el gate del roadmap «no monetizar antes de validar»: se reserva la posibilidad espacial futura, sin activar ninguna monetización.
+- Antes de conectar publicidad real haría falta una decisión de producto explícita, además de la revisión de privacidad, licencias y desempeño correspondiente.
+- Alternativa siempre disponible: retirar las franjas es un cambio local en `index.html` y su CSS, sin impacto en el motor.
+
 ## 1. Encabezado
 
 ### Propósito
