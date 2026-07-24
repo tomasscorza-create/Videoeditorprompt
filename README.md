@@ -213,6 +213,7 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [AGENTS.md](AGENTS.md) | Constitución técnica, invariantes, seguridad y normas de cambio. |
 | [Roadmap](docs/ROADMAP.md) | Dirección de producto, fases y criterios de avance. |
 | [Checklist de desarrollo](docs/DEVELOPMENT_CHECKLIST.md) | Control operativo antes y después de cada cambio. |
+| [Estructura visual canónica](docs/ESTRUCTURA_VISUAL_CANONICA.md) | Distribución aprobada: encabezado, Director, visor, edición/recursos y timeline. |
 | [Operación local](docs/OPERACION_LOCAL.md) | Seguridad de sesión, recuperación, render interactivo y retención. |
 | [Dependencias de IA](docs/DEPENDENCIAS_IA_LOCAL.md) | Procedencia y licencias declaradas de Ollama y Qwen. |
 | [Visión de producto y Etapa 2F](docs/VISION_PRODUCTO_Y_ETAPA_2F.md) | Flujo creativo y dirección del producto. |

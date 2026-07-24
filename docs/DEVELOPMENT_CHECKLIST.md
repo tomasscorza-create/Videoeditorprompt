@@ -99,3 +99,12 @@ El próximo incremento debe medir el flujo en producción personal y profundizar
 - [ ] Operaciones largas tienen timeout, cancelación e idempotencia.
 - [ ] Caché y reserva de jobs son seguras ante concurrencia.
 - [ ] No existe acceso cruzado entre usuarios ni secretos en logs/artefactos.
+
+## Para cambios de interfaz
+
+- [ ] Preservo `docs/ESTRUCTURA_VISUAL_CANONICA.md`.
+- [ ] Director IA y selección de trabajo permanecen en el panel izquierdo.
+- [ ] El visor central continúa siendo el foco visual dominante.
+- [ ] Edición, ajustes y recursos permanecen en el panel derecho.
+- [ ] La timeline audiovisual continúa visible y ocupa el ancho inferior.
+- [ ] No mezclo responsabilidades entre áreas ni agrego controles sin capacidad real.

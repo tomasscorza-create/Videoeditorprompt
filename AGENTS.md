@@ -62,6 +62,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - Progreso y errores son estructurados, vinculados a `jobId` y comprensibles por humanos y procesos.
 - El código nuevo del motor no debe depender obligatoriamente de Windows. Diseñar para un worker Linux/contenedor, aunque la compatibilidad aún deba probarse.
 - JSON de proyecto es datos, no código. No admitir scripts, comandos ni expresiones arbitrarias aportadas por el usuario.
+- La organización visual canónica está definida en `docs/ESTRUCTURA_VISUAL_CANONICA.md`: encabezado limpio, Director/selección a la izquierda, visor dominante al centro, edición/recursos a la derecha y timeline audiovisual de ancho completo abajo. No intercambiar ni eliminar estas áreas sin autorización explícita del usuario.
 
 ## 4. Mapa del repositorio vigente
 
@@ -108,6 +109,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `src/ui/project/composition.ts`: proyección visual estática del proyecto y catálogo; no evalúa audio, boca ni tiempos.
 - `src/ui/project/persistence.ts`: sesión local versionada y ligada a la revisión del catálogo.
 - `src/ui/project/library.ts` y `project-timeline.ts`: recursos aplicables e inventario estructural de escenas/turnos.
+- `docs/ESTRUCTURA_VISUAL_CANONICA.md`: contrato de layout y responsabilidades visuales que deben preservar las ampliaciones de la UI.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.
 - `pilots/personaje-mono-01/scene.config.json`: piloto vigente del personaje animable real.
 - `pilots/dialogo-monos-01/scene.config.json`: piloto del contrato v2 con dos hablantes y tres turnos.
