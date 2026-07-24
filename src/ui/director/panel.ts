@@ -7,6 +7,7 @@ import {
   cancelDirectorProposal,
   cancelRenderJob,
   createProposal,
+  editProjectWithAi,
   getHealth,
   getRenderJob,
   listRenderJobs,
@@ -37,6 +38,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const gallery = required<HTMLElement>('#render-job-gallery');
   const refreshJobs = required<HTMLButtonElement>('#jobs-refresh');
   const filesMenu = required<HTMLDetailsElement>('#files-menu');
+  const promptLabel = required<HTMLElement>('#director-prompt-label');
+  const constraintsRoot = required<HTMLElement>('#director-constraints');
+  const proposalKind = required<HTMLElement>('#proposal-kind');
+  const proposalTitle = required<HTMLElement>('#proposal-title');
 
   let variant = 0;
   let store = initialStore;
@@ -47,6 +52,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   let readyForRender = false;
 
   root.hidden = false;
+  syncDirectorMode();
   syncButtons();
   void refreshHealth();
   void refreshGallery(true);
@@ -72,15 +78,24 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       report('Escribí una idea de al menos tres caracteres.');
       return;
     }
-    if (store?.canUndo() && !window.confirm('Crear otra propuesta reemplazará tus cambios manuales y el historial de deshacer. ¿Continuar?')) {
+    const editing = hasAuthoredContent(store);
+    if (!editing && store?.canUndo() && !window.confirm('Crear otra propuesta reemplazará tus cambios manuales y el historial de deshacer. ¿Continuar?')) {
       return;
     }
     proposalController = new AbortController();
     setBusy(true, 'El Director IA está preparando la propuesta. Puede tardar entre uno y cuatro minutos en CPU.');
     cancel.disabled = false;
     try {
-      const result = await createProposal(value, variant, readConstraints(), proposalController.signal);
-      if (store) {
+      const result = editing && store
+        ? await editProjectWithAi(value, store.project())
+        : await createProposal(value, variant, readConstraints(), proposalController.signal);
+      const appliedCommands = 'commands' in result ? result.commands.length : 0;
+      if (editing && store && 'commands' in result) {
+        for (const command of result.commands) {
+          const commandError = store.dispatch(command);
+          if (commandError) throw new Error(commandError);
+        }
+      } else if (store) {
         const replacementError = store.replaceProject(result.project);
         if (replacementError) throw new Error(replacementError);
       } else {
@@ -90,7 +105,11 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       variant += 1;
       proposalDetails.hidden = false;
       proposalDetails.open = true;
-      report('Propuesta creada. Podés corregirla antes de renderizar.', true);
+      prompt.value = '';
+      syncDirectorMode();
+      report(editing
+        ? `${appliedCommands} cambio(s) aplicados por el Director. Podés deshacerlos desde la timeline.`
+        : 'Propuesta creada. Podés corregirla antes de renderizar.', true);
     } catch (error) {
       reportError(error);
     } finally {
@@ -271,6 +290,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   function reportJob(job: RenderJob): void {
     if (job.state === 'completed' && job.result) {
       showCompleted(job, true);
+      proposalKind.textContent = 'Proyecto';
+      proposalTitle.textContent = 'Edición disponible';
+      proposalDetails.open = false;
       report(`Video completado · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(2)} s.`, true);
       return;
     }
@@ -333,6 +355,19 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     render.disabled = busy || store === null || !readyForRender;
   }
 
+  function syncDirectorMode(): void {
+    const editing = hasAuthoredContent(store);
+    constraintsRoot.hidden = editing;
+    promptLabel.textContent = editing ? 'Pedir un cambio al Director' : 'Idea del video';
+    prompt.placeholder = editing
+      ? 'Ejemplo: En la escena 2, cambiá el segundo diálogo y mové el personaje de la derecha.'
+      : 'Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA.';
+    generate.textContent = editing ? 'Aplicar cambio con IA' : 'Crear propuesta';
+    proposalKind.textContent = editing ? 'Proyecto' : 'Propuesta';
+    proposalTitle.textContent = editing ? 'Escenas y ajustes' : 'Revisar y ajustar';
+    root.classList.toggle('is-editing-project', editing);
+  }
+
   function report(message: string, ok = false): void {
     status.textContent = message;
     status.classList.toggle('error', !ok);
@@ -345,6 +380,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       : null;
     report(detail ? formatApiError(detail) : error instanceof Error ? error.message : String(error));
   }
+}
+
+function hasAuthoredContent(store: ProjectStore | null): boolean {
+  return Boolean(store?.project().scenes.some((scene) => scene.elements.length > 0 || scene.dialogue.length > 0));
 }
 
 function formatApiError(error: ApiError): string {

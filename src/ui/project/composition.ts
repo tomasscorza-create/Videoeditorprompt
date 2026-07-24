@@ -8,6 +8,7 @@ import {
   type CharacterPlacement,
 } from './character-placement.js';
 import type { ProjectStore } from './store.js';
+import { PROJECT_SELECTION_EVENT, projectSelection, selectProjectItem } from './selection.js';
 
 interface AssetCatalogEntry {
   id: string;
@@ -70,12 +71,16 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       image.src = `/${entry.thumbnail}`;
       image.alt = resource?.label || 'Personaje';
       image.dataset.elementId = element.id;
+      const selection = projectSelection();
+      image.classList.toggle('is-selected', selection?.kind === 'element' && selection.elementId === element.id);
       image.draggable = false;
+      image.tabIndex = 0;
       image.style.left = `${element.transform.x / 10.8}%`;
       image.style.top = `${element.transform.y / 19.2}%`;
       image.style.zIndex = String(element.transform.zIndex);
       image.style.opacity = String((element.transform as unknown as { opacity?: number }).opacity ?? 1);
       image.style.transform = `translate(-50%, -50%) scale(${element.transform.scale})`;
+      bindElementInteraction(image, canvas, store, scene.id, element.id);
       nodes.push(image);
     }
     const placement = currentCharacterPlacement();
@@ -89,7 +94,56 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
     if (activeStore === store) render();
   });
   bindPlacementEvents(canvas);
+  window.addEventListener(PROJECT_SELECTION_EVENT, render);
   render();
+}
+
+function bindElementInteraction(
+  image: HTMLElement,
+  canvas: HTMLElement,
+  store: ProjectStore,
+  sceneId: string,
+  elementId: string,
+): void {
+  image.addEventListener('click', (event) => {
+    if (currentCharacterPlacement()) return;
+    event.stopPropagation();
+    selectProjectItem({ kind: 'element', sceneId, elementId });
+  });
+  image.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      selectProjectItem({ kind: 'element', sceneId, elementId });
+    }
+  });
+  image.addEventListener('pointerdown', (event) => {
+    if (currentCharacterPlacement() || event.button !== 0) return;
+    event.preventDefault();
+    image.setPointerCapture(event.pointerId);
+    selectProjectItem({ kind: 'element', sceneId, elementId });
+    const bounds = canvas.getBoundingClientRect();
+    const move = (moveEvent: PointerEvent): void => {
+      const x = Math.round(Math.max(-1080, Math.min(2160, (moveEvent.clientX - bounds.left) / bounds.width * 1080)));
+      const y = Math.round(Math.max(-1920, Math.min(3840, (moveEvent.clientY - bounds.top) / bounds.height * 1920)));
+      image.style.left = `${x / 10.8}%`;
+      image.style.top = `${y / 19.2}%`;
+      image.dataset.pendingX = String(x);
+      image.dataset.pendingY = String(y);
+    };
+    const finish = (): void => {
+      image.removeEventListener('pointermove', move);
+      image.removeEventListener('pointerup', finish);
+      const x = Number(image.dataset.pendingX);
+      const y = Number(image.dataset.pendingY);
+      delete image.dataset.pendingX;
+      delete image.dataset.pendingY;
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        store.dispatch({ type: 'set-character-transform', sceneId, elementId, x, y });
+      }
+    };
+    image.addEventListener('pointermove', move);
+    image.addEventListener('pointerup', finish);
+  });
 }
 
 function bindPlacementEvents(canvas: HTMLElement): void {
@@ -132,10 +186,25 @@ function placeCharacter(
   const scene = store.project().scenes.find((item) => item.id === store.selectedSceneId());
   if (!scene) return;
   const characters = scene.elements.filter((element) => element.type === 'character');
-  if (characters.length === 0) return;
   const bounds = canvas.getBoundingClientRect();
   const x = Math.round(Math.max(0, Math.min(1080, (event.clientX - bounds.left) / bounds.width * 1080)));
   const y = Math.round(Math.max(0, Math.min(1920, (event.clientY - bounds.top) / bounds.height * 1920)));
+  if (characters.length < 2) {
+    const elementId = nextElementId(scene.id, scene.elements.map((element) => element.id));
+    const error = store.dispatch({
+      type: 'add-character',
+      sceneId: scene.id,
+      elementId,
+      resourceId: placement.resourceId,
+      x,
+      y,
+      scale: 0.75,
+      zIndex: 20 + characters.length,
+    });
+    reportPlacement(error || `«${placement.label}» se agregó a la escena.`, Boolean(error));
+    if (!error) finishCharacterPlacement();
+    return;
+  }
   const target = characters.reduce((closest, element) => {
     const distance = Math.hypot(element.transform.x - x, element.transform.y - y);
     const closestDistance = Math.hypot(closest.transform.x - x, closest.transform.y - y);
@@ -155,6 +224,15 @@ function placeCharacter(
     Boolean(error),
   );
   if (!error) finishCharacterPlacement();
+}
+
+function nextElementId(sceneId: string, existing: string[]): string {
+  const used = new Set(existing);
+  for (let index = 1; index <= 99; index += 1) {
+    const id = `${sceneId}-personaje-${String(index).padStart(2, '0')}`;
+    if (!used.has(id)) return id;
+  }
+  return `${sceneId}-personaje-${Date.now().toString(36)}`;
 }
 
 function reportPlacement(message: string, isError: boolean): void {

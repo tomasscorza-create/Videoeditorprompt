@@ -92,11 +92,32 @@ const director = async ({ prompt, signal, constraints }) => {
     budget: { totalWords: 20, maximumWords: 60 },
   };
 };
+let savedProject = project;
+const projects = {
+  list: () => [{ id: savedProject.id, title: savedProject.title, scenes: savedProject.scenes.length, updatedAt: new Date(0).toISOString() }],
+  get: (id) => {
+    if (id !== savedProject.id) throw Object.assign(new Error('No existe.'), { code: 'PROJECT_NOT_FOUND' });
+    return savedProject;
+  },
+  save: (value) => {
+    savedProject = value;
+    return { created: false, project: value, summary: { id: value.id, title: value.title, scenes: value.scenes.length, updatedAt: new Date(0).toISOString() } };
+  },
+  remove: (id) => id === savedProject.id,
+};
 const app = createLocalAppServer({
   port: 0,
   manager,
   library,
   director,
+  projectDirector: async ({ instruction, project: value }) => ({
+    version: 1,
+    model: 'qwen3:8b',
+    cacheHit: false,
+    commands: [{ type: 'set-project-title', title: instruction }],
+    project: { ...value, title: instruction },
+  }),
+  projects,
   ollamaInspector: async () => ({ available: true, modelInstalled: true, model: 'qwen3:8b', version: 'test' }),
 });
 const listening = await app.listen();
@@ -183,6 +204,30 @@ const constrainedProposalResponse = await request('/api/director/proposals', {
 });
 assert.equal(constrainedProposalResponse.status, 200);
 assert.deepEqual(receivedConstraints, { tone: 'serious', targetDurationSeconds: 30, sceneCount: 2 });
+
+const editResponse = await request('/api/director/edits', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ instruction: 'Título editado', project }),
+});
+assert.equal(editResponse.status, 200);
+assert.equal((await editResponse.json()).commands[0].type, 'set-project-title');
+
+const projectsResponse = await request('/api/projects');
+assert.equal(projectsResponse.status, 200);
+assert.equal((await projectsResponse.json()).projects[0].id, project.id);
+
+const projectResponse = await request(`/api/projects/${project.id}`);
+assert.equal(projectResponse.status, 200);
+assert.equal((await projectResponse.json()).project.id, project.id);
+
+const saveProjectResponse = await request(`/api/projects/${project.id}`, {
+  method: 'PUT',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ project: { ...project, title: 'Guardado durable' } }),
+});
+assert.equal(saveProjectResponse.status, 200);
+assert.equal((await saveProjectResponse.json()).summary.title, 'Guardado durable');
 
 const validationResponse = await request('/api/projects/validate', {
   method: 'POST',
@@ -272,4 +317,4 @@ const missing = await request('/api/render-jobs/render-missing');
 assert.equal(missing.status, 404);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 36, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 44, failed: 0, url: listening.url })}\n`);

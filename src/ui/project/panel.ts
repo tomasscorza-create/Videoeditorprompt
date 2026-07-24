@@ -126,16 +126,47 @@ export function initProjectEditor(store: ProjectStore): void {
       const title = sceneTitle.value.trim();
       if (title) send({ type: 'set-scene-title', sceneId: scene.id, title });
     });
+    const sceneActions = document.createElement('div');
+    sceneActions.className = 'inspector-actions';
+    const addScene = actionButton('Nueva escena', () => {
+      const id = nextId('escena', project.scenes.map((item) => item.id));
+      send({
+        type: 'add-scene',
+        scene: {
+          id,
+          title: `Escena ${project.scenes.length + 1}`,
+          background: { ...scene.background },
+          elements: [],
+          dialogue: [],
+        },
+      });
+      send({ type: 'select-scene', sceneId: id });
+    });
+    const duplicate = actionButton('Duplicar', () => {
+      const id = nextId('escena', project.scenes.map((item) => item.id));
+      send({ type: 'duplicate-scene', sceneId: scene.id, newSceneId: id, title: `${scene.title} copia` });
+      send({ type: 'select-scene', sceneId: id });
+    });
+    const remove = actionButton('Eliminar', () => {
+      if (project.scenes.length > 1 && window.confirm(`¿Eliminar «${scene.title}»?`)) {
+        send({ type: 'delete-scene', sceneId: scene.id });
+      }
+    }, true);
+    remove.disabled = project.scenes.length === 1;
+    sceneActions.append(addScene, duplicate, remove);
     return group('Escena', [
       field('Título del proyecto', projectTitle),
       field('Escena a editar', sceneSelector),
       field('Título de la escena', sceneTitle),
+      sceneActions,
       ...dialogueScriptFields(scene),
     ]);
   }
 
   function dialogueScriptFields(scene: SceneView): HTMLElement[] {
     const characters = store.resources('character');
+    const voices = store.resources('voice');
+    const sceneCharacters = scene.elements.filter((element) => element.type === 'character');
     const fields: HTMLElement[] = [subheading('Guion y diálogos')];
 
     for (const [index, turn] of scene.dialogue.entries()) {
@@ -145,8 +176,44 @@ export function initProjectEditor(store: ProjectStore): void {
       const fallbackName = speakerIndex >= 0 ? `Personaje ${speakerIndex + 1}` : `Personaje ${index + 1}`;
       fields.push(subheading(character?.label ?? fallbackName));
       fields.push(field('Diálogo', dialogueText(scene, turn)));
+      const speakerSelect = select(sceneCharacters.map((element, characterIndex) => {
+        const resource = characters.find((candidate) => candidate.id === element.resourceId);
+        return { value: element.id, label: resource?.label ?? `Personaje ${characterIndex + 1}` };
+      }), turn.speakerElementId);
+      speakerSelect.addEventListener('change', () => send({
+        type: 'set-dialogue-speaker', sceneId: scene.id, turnId: turn.id, speakerElementId: speakerSelect.value,
+      }));
+      const voiceSelect = select(voices.map((voice) => ({ value: voice.id, label: voice.label })), turn.voiceId);
+      voiceSelect.addEventListener('change', () => send({
+        type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, voiceId: voiceSelect.value,
+      }));
+      const row = document.createElement('div');
+      row.className = 'inspector-inline-fields';
+      row.append(field('Personaje', speakerSelect), field('Voz', voiceSelect));
+      fields.push(row);
+      fields.push(actionButton('Eliminar diálogo', () => send({
+        type: 'delete-dialogue-turn', sceneId: scene.id, turnId: turn.id,
+      }), true));
     }
 
+    fields.push(actionButton('Agregar diálogo', () => {
+      const speaker = sceneCharacters[scene.dialogue.length % Math.max(1, sceneCharacters.length)];
+      const voice = voices[scene.dialogue.length % Math.max(1, voices.length)];
+      if (!speaker || !voice) {
+        report('Agregá al menos un personaje y una voz antes de crear diálogo.');
+        return;
+      }
+      send({
+        type: 'add-dialogue-turn',
+        sceneId: scene.id,
+        turnId: nextId(`${scene.id}-turno`, scene.dialogue.map((turn) => turn.id)),
+        speakerElementId: speaker.id,
+        text: 'Nuevo diálogo',
+        voiceId: voice.id,
+        gestureId: 'neutral',
+        gapAfterSeconds: 0.25,
+      });
+    }));
     return fields;
   }
 
@@ -242,7 +309,30 @@ export function initProjectEditor(store: ProjectStore): void {
       fields.push(transformField(scene, element, 'y', 'Y', -1920, 3840, 1));
       fields.push(transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01));
       fields.push(transformField(scene, element, 'zIndex', 'Orden de capa', -1000, 1000, 1));
+      const remove = actionButton('Quitar personaje', () => send({
+        type: 'delete-element', sceneId: scene.id, elementId: element.id,
+      }), true);
+      remove.disabled = scene.dialogue.some((turn) => turn.speakerElementId === element.id);
+      if (remove.disabled) remove.title = 'Este personaje todavía tiene diálogos asignados.';
+      fields.push(remove);
     }
+    const characterPicker = select(characters.map((entry) => ({ value: entry.id, label: entry.label })), characters[0]?.id ?? '');
+    const add = actionButton('Agregar personaje', () => {
+      if (!characterPicker.value) return;
+      const id = nextId(`${scene.id}-personaje`, scene.elements.map((element) => element.id));
+      const index = scene.elements.filter((element) => element.type === 'character').length;
+      send({
+        type: 'add-character',
+        sceneId: scene.id,
+        elementId: id,
+        resourceId: characterPicker.value,
+        x: index % 2 === 0 ? 360 : 720,
+        y: 1180,
+        scale: 0.75,
+        zIndex: 20 + index,
+      });
+    });
+    fields.push(subheading('Agregar desde la biblioteca'), field('Personaje', characterPicker), add);
     return group('Personajes y elementos', fields);
   }
 
@@ -367,4 +457,22 @@ function readPresets(capabilities: Record<string, unknown> | undefined): string[
   const presets = capabilities?.cameraPresets;
   if (!Array.isArray(presets)) return null;
   return presets.filter((item): item is string => typeof item === 'string');
+}
+
+function actionButton(label: string, action: () => void, danger = false): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  if (danger) button.className = 'danger-button';
+  button.addEventListener('click', action);
+  return button;
+}
+
+function nextId(prefix: string, existing: string[]): string {
+  const used = new Set(existing);
+  for (let index = 1; index <= 999; index += 1) {
+    const candidate = `${prefix}-${String(index).padStart(2, '0')}`;
+    if (!used.has(candidate)) return candidate;
+  }
+  return `${prefix}-${Date.now().toString(36)}`;
 }

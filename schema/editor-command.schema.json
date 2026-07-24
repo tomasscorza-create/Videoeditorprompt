@@ -42,7 +42,24 @@
     "addScene": {
       "type": "object", "additionalProperties": false,
       "required": ["type", "scene"],
-      "properties": { "type": { "const": "add-scene" }, "scene": { "type": "object" } }
+      "properties": {
+        "type": { "const": "add-scene" },
+        "scene": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "title", "background", "elements", "dialogue"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "background": {
+              "type": "object", "additionalProperties": false,
+              "required": ["resourceId", "cameraPreset"],
+              "properties": { "resourceId": { "$ref": "#/$defs/id" }, "cameraPreset": { "$ref": "#/$defs/id" } }
+            },
+            "elements": { "type": "array", "maxItems": 0 },
+            "dialogue": { "type": "array", "maxItems": 0 }
+          }
+        }
+      }
     },
     "duplicateScene": {
       "type": "object", "additionalProperties": false,

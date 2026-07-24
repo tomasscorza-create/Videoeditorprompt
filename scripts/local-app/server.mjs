@@ -3,6 +3,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import path from 'node:path';
 import { createDirectorProposal, inspectOllama } from '../director/ollama-director.mjs';
+import { editProjectWithDirector } from '../director/project-editor-director.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
@@ -41,6 +42,7 @@ export function createLocalAppServer(options = {}) {
     catalogProvider: currentCatalog,
   });
   const director = options.director || createDirectorProposal;
+  const projectDirector = options.projectDirector || editProjectWithDirector;
   const ollamaInspector = options.ollamaInspector || inspectOllama;
   let directorController = null;
 
@@ -189,6 +191,28 @@ export function createLocalAppServer(options = {}) {
       if (request.method === 'POST' && url.pathname === '/api/director/cancel') {
         directorController?.abort();
         sendJson(response, 200, { version: 1, cancelled: Boolean(directorController) });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/director/edits') {
+        assertJsonContentType(request);
+        if (directorController) {
+          const error = new Error('El Director ya está procesando otra petición.');
+          error.code = 'DIRECTOR_BUSY';
+          throw error;
+        }
+        const body = await readJsonBody(request);
+        directorController = new AbortController();
+        try {
+          const result = await projectDirector({
+            instruction: body.instruction,
+            project: body.project,
+            catalog: currentCatalog(),
+            signal: directorController.signal,
+          });
+          sendJson(response, 200, result);
+        } finally {
+          directorController = null;
+        }
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/projects/validate') {

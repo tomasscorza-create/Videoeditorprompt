@@ -1,4 +1,5 @@
 const HISTORY_LIMIT_DEFAULT = 50;
+const PORTABLE_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/u;
 
 export class ProjectEditorError extends Error {
   constructor(code, message, path = '/') {
@@ -181,6 +182,12 @@ function applyMutation(project, catalog, command) {
     }
     case 'add-scene': {
       if (project.scenes.length >= 8) fail('EDITOR_PROJECT_INVALID', 'El proyecto admite hasta ocho escenas.', '/command');
+      assertObjectKeys(command.scene, ['id', 'title', 'background', 'elements', 'dialogue'], '/command/scene');
+      assertObjectKeys(command.scene.background, ['resourceId', 'cameraPreset'], '/command/scene/background');
+      portableId(command.scene.id, '/command/scene/id');
+      if (!Array.isArray(command.scene.elements) || command.scene.elements.length !== 0 || !Array.isArray(command.scene.dialogue) || command.scene.dialogue.length !== 0) {
+        fail('EDITOR_COMMAND_INVALID', 'Una escena nueva debe comenzar sin elementos ni diálogos.', '/command/scene');
+      }
       if (project.scenes.some((scene) => scene.id === command.scene.id)) fail('EDITOR_PROJECT_INVALID', 'El ID de la escena ya existe.', '/command/scene/id');
       const scene = cloneJson(command.scene);
       const previousLast = project.scenes.at(-1);
@@ -191,6 +198,7 @@ function applyMutation(project, catalog, command) {
     }
     case 'duplicate-scene': {
       if (project.scenes.length >= 8) fail('EDITOR_PROJECT_INVALID', 'El proyecto admite hasta ocho escenas.', '/command');
+      portableId(command.newSceneId, '/command/newSceneId');
       const sourceIndex = project.scenes.findIndex((scene) => scene.id === command.sceneId);
       if (sourceIndex < 0) fail('EDITOR_SCENE_NOT_FOUND', `No existe la escena ${command.sceneId}.`, '/command/sceneId');
       if (project.scenes.some((scene) => scene.id === command.newSceneId)) fail('EDITOR_PROJECT_INVALID', 'El ID de la escena ya existe.', '/command/newSceneId');
@@ -234,6 +242,7 @@ function applyMutation(project, catalog, command) {
     }
     case 'add-character': {
       const scene = requireScene(project, command.sceneId);
+      portableId(command.elementId, '/command/elementId');
       if (scene.elements.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 elementos.', '/command');
       if (scene.elements.some((element) => element.id === command.elementId)) fail('EDITOR_PROJECT_INVALID', 'El ID del elemento ya existe.', '/command/elementId');
       const resource = requireResource(resources, command.resourceId, 'character', '/command/resourceId');
@@ -292,6 +301,7 @@ function applyMutation(project, catalog, command) {
     }
     case 'add-dialogue-turn': {
       const scene = requireScene(project, command.sceneId);
+      portableId(command.turnId, '/command/turnId');
       if (scene.dialogue.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 turnos.', '/command');
       if (scene.dialogue.some((turn) => turn.id === command.turnId)) fail('EDITOR_PROJECT_INVALID', 'El ID del turno ya existe.', '/command/turnId');
       requireElement(scene, command.speakerElementId, 'character');
@@ -445,6 +455,17 @@ function numberInRange(value, min, max, path) {
 
 function integerInRange(value, min, max, path) {
   if (!Number.isInteger(value) || value < min || value > max) fail('EDITOR_VALUE_INVALID', `Debe ser un entero entre ${min} y ${max}.`, path);
+}
+
+function portableId(value, path) {
+  if (typeof value !== 'string' || !PORTABLE_ID.test(value)) fail('EDITOR_VALUE_INVALID', 'Debe ser un ID portable válido.', path);
+}
+
+function assertObjectKeys(value, allowedKeys, path) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) fail('EDITOR_COMMAND_INVALID', 'Debe ser un objeto.', path);
+  const allowed = new Set(allowedKeys);
+  const unknown = Object.keys(value).find((key) => !allowed.has(key));
+  if (unknown) fail('EDITOR_COMMAND_INVALID', `El objeto contiene el campo no permitido ${unknown}.`, `${path}/${unknown}`);
 }
 
 function fail(code, message, path) {

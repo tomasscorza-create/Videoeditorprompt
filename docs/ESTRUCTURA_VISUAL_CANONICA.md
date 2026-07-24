@@ -47,7 +47,7 @@ Identidad de la aplicación, estado global breve y acceso a configuración gener
 ### Contenido apropiado
 
 - Nombre e identidad del producto.
-- Botón global `Archivos`, con acceso a `Videos creados` y futuras colecciones persistentes.
+- Botón global `Archivos`, con `Nuevo +`, `Mis proyectos` editables y `Videos creados`.
 - Indicador discreto de guardado o estado global.
 - Configuración general.
 - Acciones globales futuras que sean realmente universales.
@@ -84,6 +84,8 @@ Es el punto de entrada y comando del flujo creativo.
 - Cambiar de proyecto actualiza el visor, el inspector y la timeline.
 - El contenido puede organizarse mediante pestañas o secciones como `Crear` y `Proyectos`.
 - La propuesta se abre automáticamente después de generarse y puede plegarse sin perder sus cambios.
+- En un proyecto vacío el Director crea una propuesta; con contenido existente se compacta y acepta peticiones contextuales convertidas en comandos semánticos deshacibles.
+- Tras el render, la propuesta deja de presentarse como un paso pendiente, pero el proyecto sigue disponible para edición.
 - La edición interna de la propuesta se separa en pestañas de nombres directos —escena, personajes, fondo y transición— para evitar un formulario vertical único.
 - Las pestañas forman una única fila compacta inmediatamente debajo de `Revisar y ajustar`; todo el contenido inferior pertenece a la pestaña activa.
 - El título del proyecto, la selección de escena y el guion editable viven dentro de `Escena`. El guion identifica al personaje y solo expone su texto; voz, gesto y pausa no forman parte de este editor simple.
@@ -108,6 +110,7 @@ Es el foco visual dominante. Responde a la pregunta: “¿Qué video o composici
 ### Responsabilidades
 
 - Mostrar la composición editable.
+- Seleccionar y mover elementos compatibles directamente sobre la composición.
 - Mostrar el preview medido.
 - Reproducir el MP4 final.
 - Conservar claramente la relación vertical 9:16.
@@ -174,6 +177,7 @@ Representar y controlar la estructura audiovisual del trabajo.
 - Reproducción, pausa, mute, zoom, ajuste al ancho y snap.
 - Undo/redo y atajos relacionados con edición temporal.
 - Herramientas futuras de corte, borrado o movimiento únicamente cuando existan comandos seguros en el núcleo.
+- Capas estructurales vigentes para fondo, personajes y voces. Las pistas reservadas sin soporte de motor deben mostrarse deshabilitadas y explicitar su estado.
 
 ### Regla visual
 

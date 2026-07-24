@@ -82,17 +82,17 @@
             <header class="section-header">
               <div>
                 <span class="eyebrow">Crear</span>
-                <h1>Director IA</h1>
+                <h1 id="director-title">Director IA</h1>
               </div>
               <span id="director-health-badge" class="health-badge is-checking">Comprobando</span>
             </header>
 
             <label class="field" for="director-prompt">
-              <span>Idea del video</span>
+              <span id="director-prompt-label">Idea del video</span>
               <textarea id="director-prompt" rows="6" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
             </label>
 
-            <div class="director-constraints" aria-label="Parámetros editoriales">
+            <div id="director-constraints" class="director-constraints" aria-label="Parámetros editoriales">
               <label class="field" for="director-tone">
                 <span>Tono</span>
                 <select id="director-tone">
@@ -134,8 +134,8 @@
             <details id="director-proposal-details" class="director-proposal-details" hidden>
               <summary>
                 <span class="proposal-summary-copy">
-                  <span class="eyebrow">Propuesta</span>
-                  <strong>Revisar y ajustar</strong>
+                  <span id="proposal-kind" class="eyebrow">Propuesta</span>
+                  <strong id="proposal-title">Revisar y ajustar</strong>
                 </span>
               </summary>
               <section class="project-editor" id="project-editor" aria-label="Propuesta editable del Director" hidden>
@@ -184,10 +184,10 @@
               <h2 id="viewer-title">Composición editable</h2>
             </div>
             <div class="source-tabs" role="tablist" aria-label="Fuente del visor">
-              <button id="source-composition" class="source-tab is-active" type="button" role="tab" aria-selected="true">Composición</button>
+              <button id="source-composition" class="source-tab is-active" type="button" role="tab" aria-selected="true">Editar video</button>
               <button id="source-preview" class="source-tab" type="button" role="tab" aria-selected="false" disabled>Preview medido</button>
               <button id="source-final" class="source-tab" type="button" role="tab" aria-selected="false" disabled>MP4 final</button>
-              <button id="source-character" class="source-tab" type="button" role="tab" aria-selected="false" hidden>Personaje</button>
+              <button id="source-character" class="source-tab" type="button" role="tab" aria-selected="false" hidden>Crear recurso</button>
             </div>
           </header>
 
@@ -424,6 +424,7 @@
             </div>
           </div>
         </div>
+        <div id="timeline-layer-stack" class="timeline-layer-stack" aria-label="Capas de la escena seleccionada"></div>
         <p id="timeline-summary" class="timeline-summary">Abrí un proyecto para ver sus escenas y diálogos.</p>
       </section>
     </div>

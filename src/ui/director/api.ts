@@ -137,6 +137,20 @@ export async function createProposal(
   });
 }
 
+export async function editProjectWithAi(instruction: string, project: unknown): Promise<{
+  version: number;
+  model: string;
+  cacheHit: boolean;
+  commands: Array<Record<string, unknown>>;
+  project: unknown;
+}> {
+  return apiRequest('/api/director/edits', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ instruction, project }),
+  });
+}
+
 export async function startRender(project: unknown): Promise<RenderJob> {
   return apiRequest<RenderJob>('/api/render-jobs', {
     method: 'POST',

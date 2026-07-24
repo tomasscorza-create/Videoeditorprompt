@@ -59,17 +59,17 @@ npm run dev
 
 Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localhost:5173).
 
-`npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, y crear la propuesta. La propuesta editable se abre debajo del comando para revisar sus escenas y ajustes antes de pulsar **Renderizar video**. La galería **Videos creados** se abre desde **Archivos** en el encabezado y usa los jobs persistidos de la API local; no depende de copiar renders a `public/generated`.
+`npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. **Archivos → Nuevo +** crea un borrador con lienzo vacío; **Mis proyectos** abre proyectos editables durables y **Videos creados** conserva los MP4 terminados. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, y crear la propuesta. Una vez que el proyecto tiene contenido, el mismo campo acepta cambios contextuales como “cambiá el texto de la escena 2”; la IA devuelve comandos semánticos cerrados que pasan por el mismo núcleo y pueden deshacerse.
 
-El viewer central distingue **Composición**, **Preview medido** y **MP4 final**. **CREAR → Personajes** abre temporalmente una cuarta vista de autoría con dos caminos: editar una plantilla o construir desde cero mediante piezas geométricas etiquetadas. Ambos guardan un rig animable en la biblioteca. El proyecto actual se restaura desde `localStorage` y vuelve a validarse cuando la biblioteca agrega recursos.
+El viewer central distingue **Editar video**, **Preview medido** y **MP4 final**. **CREAR → Personajes** abre temporalmente **Crear recurso**, con dos caminos: editar una plantilla o construir desde cero mediante piezas geométricas etiquetadas. Ambos guardan un rig animable en la biblioteca. La sesión rápida se conserva en `localStorage`; cada proyecto también se guarda como JSON durable fuera del repositorio.
 
-En **Recursos → Personajes**, una tarjeta puede seleccionarse y colocarse con un clic en el visor, o arrastrarse directamente. Como el contrato actual mantiene dos personajes por escena, la colocación reemplaza al más cercano y actualiza su posición sin invalidar el proyecto.
+En **Recursos → Personajes**, una tarjeta puede seleccionarse y colocarse con un clic en el visor, o arrastrarse directamente. En una escena incompleta agrega personajes hasta alcanzar los dos que admite el render actual; después reemplaza al más cercano. Los personajes colocados se seleccionan y arrastran directamente en el visor.
 
 El panel **Recursos** permite importar fondos JPG o PNG mediante **Agregar fondo**. La imagen queda normalizada al lienzo vertical y guardada fuera del repositorio: en Windows, bajo `%LOCALAPPDATA%\DisenadorVideosLocal\library`, o en `LOCAL_VIDEO_LIBRARY_ROOT` si se configura. `public/assets/library/` es únicamente una publicación reconstruible para que Director, editor y render usen exactamente los mismos IDs. Véase [Biblioteca local](docs/BIBLIOTECA_LOCAL.md).
 
 En escritorio, los separadores entre Director, visor, panel derecho y timeline permiten ajustar el espacio de trabajo. Las proporciones se conservan localmente; doble clic sobre un separador restaura el tamaño inicial.
 
-La timeline inferior también distingue esos estados. Antes de renderizar muestra escenas y turnos como estructura editorial **sin medir**. En Preview y MP4 usa segundos reales: el preview aporta turnos medidos y el manifiesto final aporta inicio/fin de escenas, audio y fundidos. Clic, reproducción, navegación, zoom, mute y playhead actúan sobre el medio visible.
+La timeline inferior también distingue esos estados. Antes de renderizar muestra escenas y turnos como estructura editorial **sin medir**, más capas separadas para fondo, personajes y voces de la escena activa. Música y SFX aparecen únicamente como pistas reservadas y deshabilitadas: todavía no se presentan como capacidades de render. En Preview y MP4 usa segundos reales: el preview aporta turnos medidos y el manifiesto final aporta inicio/fin de escenas, audio y fundidos.
 
 `stage3b:publish-project` genera `public/projects/`, necesario para que la interfaz encuentre proyectos editables existentes. Los previews de video aparecen después de publicar al menos un trabajo del pipeline.
 

@@ -3,6 +3,7 @@ import { optional } from './dom.js';
 import type { ProjectStore } from './project/store.js';
 import type { SceneView } from './project/types.js';
 import type { ViewerSource } from './viewer.js';
+import { selectProjectItem } from './project/selection.js';
 
 const MIN_PIXELS_PER_SECOND = 20;
 const MAX_PIXELS_PER_SECOND = 220;
@@ -136,6 +137,7 @@ function renderProject(): void {
     ruler.replaceChildren();
     setSurfaceWidth(600);
     setSummary('Abrí un proyecto para ver sus escenas y diálogos.');
+    renderLayerStack(null);
     return;
   }
 
@@ -197,10 +199,76 @@ function renderProject(): void {
   ruler.replaceChildren(...rulerNodes);
   videoTrack.replaceChildren(...sceneNodes);
   audioTrack.replaceChildren(...turnNodes);
+  renderLayerStack(project.scenes.find((scene) => scene.id === store?.selectedSceneId()) ?? project.scenes[0]);
   setSummary(`${project.scenes.length} escena(s) · estructura editable sin tiempos. Renderizá para obtener escala real de FFprobe.`);
 }
 
+function renderLayerStack(scene: SceneView | null): void {
+  const root = optional<HTMLElement>('#timeline-layer-stack');
+  if (!root) return;
+  root.hidden = !scene;
+  if (!scene) {
+    root.replaceChildren();
+    return;
+  }
+  const rows: HTMLElement[] = [];
+  rows.push(layerRow('BG', 'Fondo', scene.background.resourceId, () => {
+    selectProjectItem({ kind: 'scene', sceneId: scene.id });
+  }));
+  const characters = scene.elements.filter((element) => element.type === 'character');
+  characters.forEach((element, index) => {
+    rows.push(layerRow(`V${index + 1}`, `Personaje ${index + 1}`, element.resourceId ?? element.id, () => {
+      selectedClipId = `project-element:${scene.id}:${element.id}`;
+      selectProjectItem({ kind: 'element', sceneId: scene.id, elementId: element.id });
+    }));
+  });
+  const bySpeaker = new Map<string, typeof scene.dialogue>();
+  for (const turn of scene.dialogue) {
+    const turns = bySpeaker.get(turn.speakerElementId) ?? [];
+    turns.push(turn);
+    bySpeaker.set(turn.speakerElementId, turns);
+  }
+  let audioIndex = 0;
+  for (const [speakerId, turns] of bySpeaker) {
+    audioIndex += 1;
+    rows.push(layerRow(
+      `A${audioIndex}`,
+      `Voz · ${speakerId}`,
+      turns.map((turn) => turn.text).join('  |  '),
+      () => selectProjectItem({ kind: 'dialogue', sceneId: scene.id, turnId: turns[0].id }),
+    ));
+  }
+  if (characters.length === 0) rows.push(layerPlaceholder('V1', 'Personajes', 'Arrastrá un personaje desde Recursos al visor.'));
+  if (scene.dialogue.length === 0) rows.push(layerPlaceholder('A1', 'Diálogo', 'Agregá diálogos desde la pestaña Escena.'));
+  rows.push(layerPlaceholder('M1', 'Música', 'Pista reservada; el motor todavía no mezcla música.'));
+  rows.push(layerPlaceholder('S1', 'SFX', 'Pista reservada; el motor todavía no mezcla efectos de sonido.'));
+  root.replaceChildren(...rows);
+}
+
+function layerRow(code: string, label: string, detail: string, onSelect: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'timeline-layer-row';
+  const badge = document.createElement('strong');
+  badge.textContent = code;
+  const name = document.createElement('span');
+  name.textContent = label;
+  const content = document.createElement('small');
+  content.textContent = detail;
+  button.append(badge, name, content);
+  button.addEventListener('click', onSelect);
+  return button;
+}
+
+function layerPlaceholder(code: string, label: string, detail: string): HTMLButtonElement {
+  const row = layerRow(code, label, detail, () => {});
+  row.classList.add('is-placeholder');
+  row.disabled = true;
+  return row;
+}
+
 function renderPreview(): void {
+  renderLayerStack(null);
   if (!preview) return;
   const duration = preview.durationSeconds;
   const width = measuredWidth(duration);
@@ -247,6 +315,7 @@ function renderPreview(): void {
 }
 
 function renderFinal(): void {
+  renderLayerStack(null);
   if (!finalState) return;
   const duration = finalState.timeline?.durationSeconds || finalState.video.duration || 0;
   if (!duration) {

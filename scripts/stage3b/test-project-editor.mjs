@@ -11,6 +11,7 @@ import {
   listEditorResources,
   redoProjectEditor,
   undoProjectEditor,
+  validateRenderableProject,
 } from '../../shared/project-editor.js';
 
 const project = readJson(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'));
@@ -167,6 +168,49 @@ test('command-schema-rejects-arbitrary-fields', () => {
   rejects('EDITOR_COMMAND_INVALID', () => applyProjectEditorCommand(createProjectEditor(project, catalog), {
     type: 'set-project-title', title: 'Válido', script: 'alert(1)',
   }));
+});
+
+test('supports-incomplete-drafts-and-structural-authoring-commands', () => {
+  const draft = structuredClone(project);
+  draft.scenes = [{
+    id: 'escena-vacia',
+    title: 'Escena vacía',
+    background: structuredClone(project.scenes[0].background),
+    elements: [],
+    dialogue: [],
+  }];
+  let state = createProjectEditor(draft, catalog);
+  rejects('EDITOR_SCENE_NOT_RENDERABLE', () => validateRenderableProject(state.project, catalog));
+  state = command(state, {
+    type: 'add-character', sceneId: 'escena-vacia', elementId: 'personaje-01',
+    resourceId: 'mono-azul-v1', x: 360, y: 1180, scale: 0.75, zIndex: 20,
+  });
+  state = command(state, {
+    type: 'add-character', sceneId: 'escena-vacia', elementId: 'personaje-02',
+    resourceId: 'mono-ciruela-v1', x: 720, y: 1180, scale: 0.75, zIndex: 21,
+  });
+  state = command(state, {
+    type: 'add-dialogue-turn', sceneId: 'escena-vacia', turnId: 'turno-01',
+    speakerElementId: 'personaje-01', text: 'Primer turno.', voiceId: 'voz-daniela-ar-v1',
+    gestureId: 'neutral', gapAfterSeconds: 0.2,
+  });
+  state = command(state, {
+    type: 'add-dialogue-turn', sceneId: 'escena-vacia', turnId: 'turno-02',
+    speakerElementId: 'personaje-02', text: 'Segundo turno.', voiceId: 'voz-davefx-es-v1',
+    gestureId: 'neutral', gapAfterSeconds: 0,
+  });
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+  state = command(state, {
+    type: 'add-scene',
+    scene: {
+      id: 'escena-nueva', title: 'Escena nueva',
+      background: structuredClone(project.scenes[0].background), elements: [], dialogue: [],
+    },
+  });
+  assert.equal(state.project.scenes.length, 2);
+  assert.deepEqual(state.project.scenes[0].transitionToNext, { preset: 'cut', durationSeconds: 0 });
+  state = command(state, { type: 'delete-scene', sceneId: 'escena-nueva' });
+  assert.equal(state.project.scenes.length, 1);
 });
 
 test('export-is-portable-and-passes-authoritative-validator', () => {

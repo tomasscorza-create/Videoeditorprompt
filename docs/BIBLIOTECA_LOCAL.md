@@ -19,6 +19,14 @@ Ubicación predeterminada en Windows:
 
 En macOS se usa `~/Library/Application Support/DisenadorVideosLocal/library`; en Linux, `$XDG_DATA_HOME/disenador-videos-local/library` o `~/.local/share/disenador-videos-local/library`.
 
+Los proyectos editables se guardan aparte para no mezclar documentos de autoría con recursos:
+
+```text
+%LOCALAPPDATA%\DisenadorVideosLocal\projects\<projectId>.json
+```
+
+Puede cambiarse con `LOCAL_VIDEO_PROJECTS_ROOT`. La escritura es atómica y la API limita IDs, cantidad de escenas y tamaño del documento.
+
 La raíz durable puede cambiarse antes de iniciar la aplicación:
 
 ```powershell
@@ -56,6 +64,10 @@ Después del alta, la interfaz se recarga y vuelve a validar la sesión contra e
 - `GET /api/library/catalog`: devuelve la ruta publicada y el catálogo activo.
 - `POST /api/library/resources`: registra `{ "entry": recurso }`; requiere origen permitido y token de sesión local.
 - `POST /api/library/backgrounds`: recibe bytes `image/png` o `image/jpeg` y crea un fondo administrado.
+- `GET /api/projects`: enumera proyectos editables durables.
+- `GET /api/projects/:id`: abre un proyecto.
+- `PUT /api/projects/:id`: crea o actualiza un borrador.
+- `DELETE /api/projects/:id`: elimina un proyecto confirmado por el usuario.
 
 La API conserva los límites y defensas del servicio local. No es un backend remoto ni multiusuario.
 
