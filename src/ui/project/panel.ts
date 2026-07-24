@@ -305,6 +305,21 @@ export function initProjectEditor(store: ProjectStore): void {
 
       fields.push(subheading(`Personaje ${characterNumber}`));
       fields.push(field('Personaje', resource));
+      const selectedResource = characters.find((entry) => entry.id === element.resourceId);
+      const animationPresets = readStringCapability(selectedResource?.capabilities, 'animationPresets');
+      if (animationPresets.length > 0) {
+        const animation = select(animationPresets.map((value) => ({
+          value,
+          label: value === 'idle-calm' ? 'Reposo suave' : value === 'talk-calm' ? 'Habla suave' : value,
+        })), element.animationPreset ?? animationPresets[0]);
+        animation.addEventListener('change', () => send({
+          type: 'set-character-animation',
+          sceneId: scene.id,
+          elementId: element.id,
+          animationPreset: animation.value,
+        }));
+        fields.push(field('Movimiento', animation));
+      }
       fields.push(transformField(scene, element, 'x', 'X', -1080, 2160, 1));
       fields.push(transformField(scene, element, 'y', 'Y', -1920, 3840, 1));
       fields.push(transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01));
@@ -457,6 +472,11 @@ function readPresets(capabilities: Record<string, unknown> | undefined): string[
   const presets = capabilities?.cameraPresets;
   if (!Array.isArray(presets)) return null;
   return presets.filter((item): item is string => typeof item === 'string');
+}
+
+function readStringCapability(capabilities: Record<string, unknown> | undefined, key: string): string[] {
+  const values = capabilities?.[key];
+  return Array.isArray(values) ? values.filter((value): value is string => typeof value === 'string') : [];
 }
 
 function actionButton(label: string, action: () => void, danger = false): HTMLButtonElement {

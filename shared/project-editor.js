@@ -240,6 +240,15 @@ function applyMutation(project, catalog, command) {
       element.resourceId = command.resourceId;
       return;
     }
+    case 'set-character-animation': {
+      const element = requireElement(requireScene(project, command.sceneId), command.elementId, 'character');
+      const resource = requireResource(resources, element.resourceId, 'character', '/command/elementId');
+      if (!resource.capabilities.animationPresets.includes(command.animationPreset)) {
+        fail('EDITOR_ANIMATION_INVALID', 'El personaje no soporta la animación seleccionada.', '/command/animationPreset');
+      }
+      element.animationPreset = command.animationPreset;
+      return;
+    }
     case 'add-character': {
       const scene = requireScene(project, command.sceneId);
       portableId(command.elementId, '/command/elementId');
@@ -418,6 +427,7 @@ function assertCommandShape(command) {
     'delete-scene': { required: ['type', 'sceneId'], optional: [] },
     'set-scene-background': { required: ['type', 'sceneId', 'resourceId', 'cameraPreset'], optional: [] },
     'set-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId'], optional: [] },
+    'set-character-animation': { required: ['type', 'sceneId', 'elementId', 'animationPreset'], optional: [] },
     'add-character': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], optional: [] },
     'delete-element': { required: ['type', 'sceneId', 'elementId'], optional: [] },
     'place-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y'], optional: [] },

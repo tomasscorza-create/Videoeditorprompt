@@ -11,6 +11,7 @@
     { "$ref": "#/$defs/deleteScene" },
     { "$ref": "#/$defs/setSceneBackground" },
     { "$ref": "#/$defs/setCharacterResource" },
+    { "$ref": "#/$defs/setCharacterAnimation" },
     { "$ref": "#/$defs/addCharacter" },
     { "$ref": "#/$defs/deleteElement" },
     { "$ref": "#/$defs/placeCharacterResource" },
@@ -80,6 +81,11 @@
       "type": "object", "additionalProperties": false,
       "required": ["type", "sceneId", "elementId", "resourceId"],
       "properties": { "type": { "const": "set-character-resource" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" }, "resourceId": { "$ref": "#/$defs/id" } }
+    },
+    "setCharacterAnimation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId", "animationPreset"],
+      "properties": { "type": { "const": "set-character-animation" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" }, "animationPreset": { "$ref": "#/$defs/id" } }
     },
     "addCharacter": {
       "type": "object", "additionalProperties": false,

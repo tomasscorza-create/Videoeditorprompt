@@ -80,6 +80,10 @@ test('edits-background-character-and-canvas-transform', () => {
     type: 'set-character-transform', sceneId: 'escena-presentacion', elementId: 'presentadora',
     x: 360, y: 1120, scale: 0.76, zIndex: 25,
   });
+  state = command(state, {
+    type: 'set-character-animation', sceneId: 'escena-presentacion', elementId: 'presentadora',
+    animationPreset: 'talk-calm',
+  });
   const scene = state.project.scenes[0];
   assert.equal(scene.background.cameraPreset, 'slow-zoom');
   assert.equal(scene.elements[0].resourceId, 'mono-ciruela-v1');
@@ -87,6 +91,7 @@ test('edits-background-character-and-canvas-transform', () => {
     { x: scene.elements[0].transform.x, y: scene.elements[0].transform.y, scale: scene.elements[0].transform.scale, zIndex: scene.elements[0].transform.zIndex },
     { x: 360, y: 1120, scale: 0.76, zIndex: 25 },
   );
+  assert.equal(scene.elements[0].animationPreset, 'talk-calm');
 });
 
 test('places-character-resource-and-position-atomically', () => {

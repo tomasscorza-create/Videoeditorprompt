@@ -28,6 +28,7 @@ export interface ElementView {
   resourceId?: string;
   text?: string;
   poseId?: string;
+  animationPreset?: string;
   transform: TransformView;
 }
 

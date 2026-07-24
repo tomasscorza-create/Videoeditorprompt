@@ -72,6 +72,10 @@ function commandBatchSchema(project, catalog) {
       object(['type', 'sceneId', 'turnId', 'text'], { type: { const: 'set-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds), text: text(500) }),
       object(['type', 'sceneId', 'turnId', 'voiceId'], { type: { const: 'set-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds), voiceId: id(voices) }),
       object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-character-resource' }, sceneId: id(sceneIds), elementId: id(elementIds), resourceId: id(characters) }),
+      object(['type', 'sceneId', 'elementId', 'animationPreset'], {
+        type: { const: 'set-character-animation' }, sceneId: id(sceneIds), elementId: id(elementIds),
+        animationPreset: { type: 'string', enum: ['idle-calm', 'talk-calm'] },
+      }),
       object(['type', 'sceneId', 'resourceId', 'cameraPreset'], {
         type: { const: 'set-scene-background' }, sceneId: id(sceneIds), resourceId: id(backgrounds),
         cameraPreset: { type: 'string', enum: ['static', 'slow-pan-left', 'slow-pan-right', 'slow-zoom'] },
