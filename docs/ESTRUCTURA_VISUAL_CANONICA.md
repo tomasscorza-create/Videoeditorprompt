@@ -211,7 +211,7 @@ Director / selección izquierda
 Las proporciones exactas pueden ajustarse por legibilidad, pero la jerarquía debe conservarse:
 
 - Encabezado: altura mínima necesaria.
-- Panel izquierdo: ancho suficiente para comandos e historial.
+- Panel izquierdo: ancho suficiente para el prompt, la propuesta por pestañas y sus formularios; puede ganar espacio moderado del visor para evitar controles excesivamente compactos.
 - Centro: columna flexible y dominante.
 - Panel derecho: ancho suficiente para formularios sin invadir el visor.
 - Timeline: altura suficiente para herramientas, regla y al menos las pistas audiovisuales principales.

@@ -151,7 +151,7 @@ h1, h2 { font-size: .98rem; }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(17rem, 21rem) minmax(24rem, 1fr) minmax(20rem, 25rem);
+  grid-template-columns: minmax(20rem, 24rem) minmax(22rem, 1fr) minmax(20rem, 25rem);
   min-width: 0;
   min-height: 0;
   gap: .75rem;
