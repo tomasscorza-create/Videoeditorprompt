@@ -11,6 +11,7 @@ import { validateVideoProjectDocument } from '../stage3a/validate-video-project.
 import { createRenderJobManager, streamVideoResponse } from './render-job-manager.mjs';
 import { createResourceLibrary } from './resource-library.mjs';
 import { createProjectRepository } from './project-repository.mjs';
+import { runStartupRetention } from './retention.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
@@ -26,7 +27,8 @@ export function createLocalAppServer(options = {}) {
   const host = options.host || '127.0.0.1';
   const port = Number(options.port ?? 4174);
   const sessionToken = String(options.sessionToken || randomBytes(32).toString('hex'));
-  const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
+  const root = path.resolve(options.root || projectRoot);
+  const assetsRoot = path.resolve(options.assetsRoot || path.join(root, 'public'));
   const builtinCatalog = options.catalog || loadAuthoringCatalog(assetsRoot);
   const library = options.library || createResourceLibrary({
     assetsRoot,
@@ -36,11 +38,19 @@ export function createLocalAppServer(options = {}) {
   });
   const currentCatalog = () => library.catalog();
   const projects = options.projects || createProjectRepository({ storageRoot: options.projectStorageRoot });
+  const ownsManager = !options.manager;
   const manager = options.manager || createRenderJobManager({
     ...options,
+    root,
     assetsRoot,
     catalogProvider: currentCatalog,
   });
+  // Retención automática al arrancar: solo cuando este servicio administra su propio
+  // ciclo de vida de jobs (producción). Si el manager viene inyectado (tests), no se
+  // toca el `.local-video` real. La política existente respeta trabajos activos y MP4.
+  if (ownsManager && options.retentionOnStartup !== false) {
+    runStartupRetention({ localRoot: options.localRoot || path.join(root, '.local-video') });
+  }
   const director = options.director || createDirectorProposal;
   const projectDirector = options.projectDirector || editProjectWithDirector;
   const ollamaInspector = options.ollamaInspector || inspectOllama;

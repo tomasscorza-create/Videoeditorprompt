@@ -1,7 +1,7 @@
 import { existsSync, lstatSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { isMain, projectRoot, readJson } from '../stage1/common.mjs';
-import { PipelineError } from '../stage1/errors.mjs';
+import { PipelineError, serializeError } from '../stage1/errors.mjs';
 
 const JOB_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/;
 const DISPOSABLE_NAMES = new Set(['frames', 'temp']);
@@ -94,6 +94,18 @@ export function cleanLocalVideo(options = {}) {
     expired,
     reclaimedBytes: cleaned.reduce((sum, item) => sum + item.removedBytes, 0) + expired.reduce((sum, item) => sum + item.bytes, 0),
   };
+}
+
+// Barrido de retención pensado para el arranque del servicio local: aplica la política
+// existente (edad + tamaño) sobre `.local-video/work`, respeta los trabajos activos y
+// nunca toca los MP4 finales (viven fuera de `work/`). Jamás lanza: una limpieza fallida
+// no puede impedir que el servidor levante.
+export function runStartupRetention(options = {}) {
+  try {
+    return cleanLocalVideo({ ...options, apply: true });
+  } catch (error) {
+    return { version: 1, applied: false, skipped: true, error: serializeError(error, 'cleanup') };
+  }
 }
 
 function findDisposableDirectories(root) {

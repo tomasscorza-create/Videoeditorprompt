@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, utimesSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { cleanupCompletedJob, cleanLocalVideo } from './retention.mjs';
+import { cleanupCompletedJob, cleanLocalVideo, runStartupRetention } from './retention.mjs';
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'local-video-retention-'));
 const localRoot = path.join(root, '.local-video');
@@ -38,4 +38,28 @@ assert.equal(globalPreview.expired.length, 0);
 const sizePreview = cleanLocalVideo({ localRoot, apply: false, maximumAgeDays: 30, maximumBytes: 1 });
 assert.equal(sizePreview.expired.some((entry) => entry.jobId === 'render-completed' && entry.reason === 'size'), true);
 
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 10, failed: 0 })}\n`);
+// Barrido automático de arranque: aplica la política de edad, elimina los intermedios de
+// los trabajos vencidos, preserva los activos y jamás lanza.
+const startupRoot = mkdtempSync(path.join(os.tmpdir(), 'local-video-startup-'));
+const startupLocal = path.join(startupRoot, '.local-video');
+const startupWork = path.join(startupLocal, 'work');
+const startupJobs = path.join(startupLocal, 'app-jobs');
+mkdirSync(path.join(startupWork, 'render-old', 'temp'), { recursive: true });
+mkdirSync(path.join(startupWork, 'render-live', 'temp'), { recursive: true });
+mkdirSync(startupJobs, { recursive: true });
+writeFileSync(path.join(startupWork, 'render-old', 'temp', 'old.bin'), Buffer.alloc(100));
+writeFileSync(path.join(startupWork, 'render-live', 'temp', 'live.bin'), Buffer.alloc(50));
+writeFileSync(path.join(startupJobs, 'render-old.json'), JSON.stringify({ jobId: 'render-old', state: 'failed' }));
+writeFileSync(path.join(startupJobs, 'render-live.json'), JSON.stringify({ jobId: 'render-live', state: 'rendering' }));
+const staleStamp = new Date('2020-01-01T00:00:00Z');
+utimesSync(path.join(startupWork, 'render-old'), staleStamp, staleStamp);
+const startup = runStartupRetention({ localRoot: startupLocal, maximumAgeDays: 30 });
+assert.equal(startup.applied, true);
+assert.equal(existsSync(path.join(startupWork, 'render-old')), false);
+assert.equal(existsSync(path.join(startupWork, 'render-live', 'temp', 'live.bin')), true);
+assert.equal(startup.expired.some((entry) => entry.jobId === 'render-old' && entry.reason === 'age'), true);
+const missingStartup = runStartupRetention({ localRoot: path.join(startupRoot, 'inexistente') });
+assert.equal(missingStartup.applied, true);
+assert.equal(missingStartup.expired.length, 0);
+
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 16, failed: 0 })}\n`);

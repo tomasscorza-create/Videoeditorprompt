@@ -246,6 +246,7 @@ export function createRenderJobManager(options = {}) {
       state: 'failed',
       error: serializeError(error, job.stage || 'rendering'),
     });
+    cleanupJob(job);
   }
 
   function persist(job) {

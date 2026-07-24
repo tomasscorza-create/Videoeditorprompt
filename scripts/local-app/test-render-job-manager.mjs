@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -73,11 +73,15 @@ spawned.child.stdout.write(`${JSON.stringify({
 })}\n`);
 await new Promise((resolve) => setImmediate(resolve));
 assert.equal(manager.get(failedJob.jobId).state, 'rendering');
+const failedWorkTemp = path.join(root, 'work', failedJob.jobId, 'temp');
+mkdirSync(failedWorkTemp, { recursive: true });
+writeFileSync(path.join(failedWorkTemp, 'scratch.bin'), 'x');
 spawned.child.emit('close', 1);
 const failedStatus = manager.get(failedJob.jobId);
 assert.equal(failedStatus.state, 'failed');
 assert.equal(failedStatus.error.code, 'ERR_ASSERTION');
 assert.equal(failedStatus.error.message, 'Duración compilada coincide');
+assert.equal(existsSync(failedWorkTemp), false);
 
 const completedJob = manager.create(project);
 const completedOutput = path.join(root, 'output', completedJob.jobId);
@@ -152,4 +156,4 @@ assert.throws(
   (error) => error.code === 'JOB_ID_INVALID',
 );
 
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 29, failed: 0, jobId: job.jobId })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 30, failed: 0, jobId: job.jobId })}\n`);
