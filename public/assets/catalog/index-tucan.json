@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "generatedFrom": "assets/character-definitions/tucan-parametrico-v1.json",
+  "entries": [
+    {
+      "id": "tucan-gala-v1",
+      "type": "character",
+      "label": "Tucán de gala",
+      "manifest": "assets/characters/tucan-gala-v1/character.manifest.json",
+      "thumbnail": "assets/characters/tucan-gala-v1/pose_neutral.png",
+      "tags": [
+        "geometrico",
+        "mono",
+        "parametrico"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open"
+        ],
+        "joints": [
+          "root",
+          "head",
+          "shoulder_left",
+          "shoulder_right",
+          "wing_right",
+          "tip_right"
+        ]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto: tucán con traje, compuesta por primitivas y paths declarativos.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    }
+  ]
+}

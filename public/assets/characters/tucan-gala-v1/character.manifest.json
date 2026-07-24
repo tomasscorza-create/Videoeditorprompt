@@ -1,0 +1,142 @@
+{
+  "version": 2,
+  "id": "tucan-gala-v1",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/character-definitions/tucan-parametrico-v1.json",
+  "variant": {
+    "id": "gala",
+    "label": "Tucán de gala",
+    "palette": {
+      "outline": "#1b1712",
+      "body": "#1a1e26",
+      "bodyLight": "#2f3540",
+      "belly": "#fbf1dc",
+      "beak": "#f5a524",
+      "beakDark": "#e0801c",
+      "beakTip": "#d84a34",
+      "beakBase": "#1f8f86",
+      "eyeRing": "#37c4bd",
+      "eye": "#141414",
+      "white": "#fffdf6",
+      "suit": "#23252f",
+      "shirt": "#f6f2e8",
+      "tie": "#b23a2c",
+      "button": "#0d0e12",
+      "mouthDark": "#3a1c20",
+      "tongue": "#e8746f",
+      "foot": "#f0a326",
+      "shadow": "#0a10203f"
+    }
+  },
+  "layers": {
+    "body": "body.png",
+    "eyes": {
+      "open": "eyes_open.png",
+      "closed": "eyes_closed.png"
+    },
+    "mouth": {
+      "closed": "mouth_closed.png",
+      "medium": "mouth_medium.png",
+      "open": "mouth_open.png"
+    },
+    "hands": {
+      "neutral": "hand_neutral.png",
+      "point": "hand_point.png"
+    },
+    "thumbnails": {
+      "neutral": "pose_neutral.png",
+      "point": "pose_point.png"
+    }
+  },
+  "joints": [
+    {
+      "id": "root",
+      "parentId": null,
+      "x": 540,
+      "y": 960,
+      "pivotX": 540,
+      "pivotY": 960
+    },
+    {
+      "id": "head",
+      "parentId": "root",
+      "x": 520,
+      "y": 662,
+      "pivotX": 520,
+      "pivotY": 662
+    },
+    {
+      "id": "shoulder_left",
+      "parentId": "root",
+      "x": 410,
+      "y": 1050,
+      "pivotX": 410,
+      "pivotY": 1050
+    },
+    {
+      "id": "shoulder_right",
+      "parentId": "root",
+      "x": 660,
+      "y": 1050,
+      "pivotX": 660,
+      "pivotY": 1050
+    },
+    {
+      "id": "wing_right",
+      "parentId": "shoulder_right",
+      "x": 720,
+      "y": 1180,
+      "pivotX": 720,
+      "pivotY": 1180
+    },
+    {
+      "id": "tip_right",
+      "parentId": "wing_right",
+      "x": 780,
+      "y": 1300,
+      "pivotX": 780,
+      "pivotY": 1300
+    }
+  ],
+  "poses": [
+    {
+      "id": "neutral",
+      "handState": "neutral",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": 0
+        },
+        {
+          "jointId": "wing_right",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "handState": "point",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -38
+        },
+        {
+          "jointId": "wing_right",
+          "rotationDegrees": -22
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "Definición geométrica original del proyecto: tucán con traje, compuesta por primitivas y paths declarativos.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

@@ -37,7 +37,7 @@ const fakeFetch = async (url, options = {}) => {
     const request = JSON.parse(options.body);
     assert.equal(request.model, 'qwen3:8b');
     assert.equal(request.stream, false);
-    assert.equal(request.format.$defs.castMember.properties.characterResourceId.enum.length, 6);
+    assert.equal(request.format.$defs.castMember.properties.characterResourceId.enum.length, 7);
     assert.ok(request.format.$defs.castMember.properties.poseId.enum.includes('point'));
     assert.ok(request.format.$defs.castMember.properties.animationPreset.enum.includes('talk-calm'));
     assert.equal(request.format.$defs.scene.properties.transitionDurationSeconds.maximum, 1);

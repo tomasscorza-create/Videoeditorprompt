@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <path d="M672 1044 C760 1010 850 940 902 852 C922 812 892 786 852 812 C800 858 740 918 668 986 C650 1004 654 1030 672 1044 Z" fill="#1a1e26" stroke="#1b1712" stroke-width="16" stroke-linejoin="round"/>
+  <ellipse cx="884" cy="838" rx="30" ry="38" fill="#2f3540" transform="rotate(-30 884 838)"/>
+</svg>

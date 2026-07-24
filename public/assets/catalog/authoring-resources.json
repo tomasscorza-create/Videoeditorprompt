@@ -110,6 +110,24 @@
       }
     },
     {
+      "id": "tucan-gala-v1",
+      "type": "character",
+      "label": "Tucán de gala",
+      "tags": ["ave", "formal", "traje", "tucan"],
+      "characterRef": {
+        "catalog": "assets/catalog/index-tucan.json",
+        "entryId": "tucan-gala-v1"
+      },
+      "capabilities": {
+        "poses": ["neutral", "point"],
+        "animationPresets": ["idle-calm", "talk-calm"]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto: tucán con traje.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
       "id": "voz-daniela-ar-v1",
       "type": "voice",
       "label": "Daniela — español de Argentina",

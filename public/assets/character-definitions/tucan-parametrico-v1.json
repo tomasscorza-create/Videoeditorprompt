@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "id": "tucan-parametrico-v1",
+  "canvas": { "width": 1080, "height": 1920 },
+  "pivot": { "x": 540, "y": 960 },
+  "variants": [
+    {
+      "id": "gala",
+      "outputId": "tucan-gala-v1",
+      "label": "Tucán de gala",
+      "palette": {
+        "outline": "#1b1712",
+        "body": "#1a1e26",
+        "bodyLight": "#2f3540",
+        "belly": "#fbf1dc",
+        "beak": "#f5a524",
+        "beakDark": "#e0801c",
+        "beakTip": "#d84a34",
+        "beakBase": "#1f8f86",
+        "eyeRing": "#37c4bd",
+        "eye": "#141414",
+        "white": "#fffdf6",
+        "suit": "#23252f",
+        "shirt": "#f6f2e8",
+        "tie": "#b23a2c",
+        "button": "#0d0e12",
+        "mouthDark": "#3a1c20",
+        "tongue": "#e8746f",
+        "foot": "#f0a326",
+        "shadow": "#0a10203f"
+      }
+    }
+  ],
+  "joints": [
+    { "id": "root", "parentId": null, "x": 540, "y": 960, "pivotX": 540, "pivotY": 960 },
+    { "id": "head", "parentId": "root", "x": 520, "y": 662, "pivotX": 520, "pivotY": 662 },
+    { "id": "shoulder_left", "parentId": "root", "x": 410, "y": 1050, "pivotX": 410, "pivotY": 1050 },
+    { "id": "shoulder_right", "parentId": "root", "x": 660, "y": 1050, "pivotX": 660, "pivotY": 1050 },
+    { "id": "wing_right", "parentId": "shoulder_right", "x": 720, "y": 1180, "pivotX": 720, "pivotY": 1180 },
+    { "id": "tip_right", "parentId": "wing_right", "x": 780, "y": 1300, "pivotX": 780, "pivotY": 1300 }
+  ],
+  "poses": [
+    {
+      "id": "neutral",
+      "handState": "neutral",
+      "joints": [
+        { "jointId": "shoulder_right", "rotationDegrees": 0 },
+        { "jointId": "wing_right", "rotationDegrees": 0 }
+      ]
+    },
+    {
+      "id": "point",
+      "handState": "point",
+      "joints": [
+        { "jointId": "shoulder_right", "rotationDegrees": -38 },
+        { "jointId": "wing_right", "rotationDegrees": -22 }
+      ]
+    }
+  ],
+  "layers": {
+    "body": [
+      { "type": "ellipse", "cx": 540, "cy": 1500, "rx": 250, "ry": 46, "fill": "$shadow" },
+      { "type": "rect", "x": 476, "y": 1400, "width": 18, "height": 60, "fill": "$foot", "stroke": "$outline", "strokeWidth": 5 },
+      { "type": "rect", "x": 586, "y": 1400, "width": 18, "height": 60, "fill": "$foot", "stroke": "$outline", "strokeWidth": 5 },
+      { "type": "path", "d": "M486 1456 L456 1494 M486 1456 L486 1502 M486 1456 L516 1494", "fill": "none", "stroke": "$foot", "strokeWidth": 15, "lineCap": "round" },
+      { "type": "path", "d": "M596 1456 L566 1494 M596 1456 L596 1502 M596 1456 L626 1494", "fill": "none", "stroke": "$foot", "strokeWidth": 15, "lineCap": "round" },
+      { "type": "ellipse", "cx": 540, "cy": 1180, "rx": 205, "ry": 258, "fill": "$body", "stroke": "$outline", "strokeWidth": 18 },
+      { "type": "ellipse", "cx": 526, "cy": 890, "rx": 92, "ry": 140, "fill": "$body", "stroke": "$outline", "strokeWidth": 14 },
+      { "type": "path", "d": "M406 1052 C324 1108 300 1268 346 1382 C392 1360 408 1250 404 1150 C402 1108 398 1078 406 1052 Z", "fill": "$body", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
+      { "type": "ellipse", "cx": 372, "cy": 1330, "rx": 30, "ry": 48, "fill": "$bodyLight" },
+      { "type": "ellipse", "cx": 540, "cy": 1212, "rx": 152, "ry": 188, "fill": "$belly", "stroke": "$outline", "strokeWidth": 12 },
+      { "type": "polygon", "points": [{ "x": 398, "y": 1012 }, { "x": 540, "y": 1058 }, { "x": 540, "y": 1352 }, { "x": 430, "y": 1338 }, { "x": 360, "y": 1160 }, { "x": 380, "y": 1034 }], "fill": "$suit", "stroke": "$outline", "strokeWidth": 10 },
+      { "type": "polygon", "points": [{ "x": 682, "y": 1012 }, { "x": 540, "y": 1058 }, { "x": 540, "y": 1352 }, { "x": 650, "y": 1338 }, { "x": 720, "y": 1160 }, { "x": 700, "y": 1034 }], "fill": "$suit", "stroke": "$outline", "strokeWidth": 10 },
+      { "type": "polygon", "points": [{ "x": 540, "y": 1054 }, { "x": 506, "y": 1124 }, { "x": 520, "y": 1352 }, { "x": 560, "y": 1352 }, { "x": 574, "y": 1124 }], "fill": "$shirt", "stroke": "$outline", "strokeWidth": 8 },
+      { "type": "ellipse", "cx": 540, "cy": 1180, "rx": 9, "ry": 9, "fill": "$button" },
+      { "type": "ellipse", "cx": 540, "cy": 1236, "rx": 9, "ry": 9, "fill": "$button" },
+      { "type": "ellipse", "cx": 540, "cy": 1292, "rx": 9, "ry": 9, "fill": "$button" },
+      { "type": "polygon", "points": [{ "x": 492, "y": 1010 }, { "x": 540, "y": 1034 }, { "x": 492, "y": 1058 }], "fill": "$tie", "stroke": "$outline", "strokeWidth": 8 },
+      { "type": "polygon", "points": [{ "x": 588, "y": 1010 }, { "x": 540, "y": 1034 }, { "x": 588, "y": 1058 }], "fill": "$tie", "stroke": "$outline", "strokeWidth": 8 },
+      { "type": "rect", "x": 528, "y": 1020, "width": 24, "height": 28, "rx": 6, "fill": "$tie", "stroke": "$outline", "strokeWidth": 6 },
+      { "type": "ellipse", "cx": 520, "cy": 662, "rx": 170, "ry": 160, "fill": "$body", "stroke": "$outline", "strokeWidth": 18 },
+      { "type": "ellipse", "cx": 474, "cy": 602, "rx": 76, "ry": 58, "fill": "$bodyLight", "opacity": 0.45 },
+      { "type": "ellipse", "cx": 604, "cy": 690, "rx": 40, "ry": 84, "fill": "$beakBase", "stroke": "$outline", "strokeWidth": 8, "rotationDegrees": -10 },
+      { "type": "path", "d": "M598 596 C742 590 892 636 966 704 C998 733 988 762 946 760 C872 756 782 742 700 720 C640 704 596 660 598 596 Z", "fill": "$beak", "stroke": "$outline", "strokeWidth": 14, "lineJoin": "round" },
+      { "type": "path", "d": "M700 720 C782 742 872 756 946 760 C912 802 838 828 748 828 C676 828 626 794 606 742 C636 738 668 730 700 720 Z", "fill": "$beakDark", "stroke": "$outline", "strokeWidth": 14, "lineJoin": "round" },
+      { "type": "ellipse", "cx": 948, "cy": 748, "rx": 28, "ry": 24, "fill": "$beakTip", "stroke": "$outline", "strokeWidth": 8 }
+    ],
+    "eyes": {
+      "open": [
+        { "type": "ellipse", "cx": 446, "cy": 604, "rx": 58, "ry": 62, "fill": "$eyeRing", "stroke": "$outline", "strokeWidth": 10 },
+        { "type": "ellipse", "cx": 448, "cy": 606, "rx": 33, "ry": 38, "fill": "$white", "stroke": "$outline", "strokeWidth": 6 },
+        { "type": "ellipse", "cx": 456, "cy": 610, "rx": 17, "ry": 19, "fill": "$eye" },
+        { "type": "ellipse", "cx": 450, "cy": 601, "rx": 6, "ry": 6, "fill": "$white" },
+        { "type": "ellipse", "cx": 578, "cy": 604, "rx": 58, "ry": 62, "fill": "$eyeRing", "stroke": "$outline", "strokeWidth": 10 },
+        { "type": "ellipse", "cx": 580, "cy": 606, "rx": 33, "ry": 38, "fill": "$white", "stroke": "$outline", "strokeWidth": 6 },
+        { "type": "ellipse", "cx": 588, "cy": 610, "rx": 17, "ry": 19, "fill": "$eye" },
+        { "type": "ellipse", "cx": 582, "cy": 601, "rx": 6, "ry": 6, "fill": "$white" }
+      ],
+      "closed": [
+        { "type": "ellipse", "cx": 446, "cy": 604, "rx": 58, "ry": 62, "fill": "$eyeRing", "stroke": "$outline", "strokeWidth": 10 },
+        { "type": "path", "d": "M414 604 Q446 630 480 604", "fill": "none", "stroke": "$outline", "strokeWidth": 12, "lineCap": "round" },
+        { "type": "ellipse", "cx": 578, "cy": 604, "rx": 58, "ry": 62, "fill": "$eyeRing", "stroke": "$outline", "strokeWidth": 10 },
+        { "type": "path", "d": "M546 604 Q578 630 612 604", "fill": "none", "stroke": "$outline", "strokeWidth": 12, "lineCap": "round" }
+      ]
+    },
+    "mouth": {
+      "closed": [
+        { "type": "path", "d": "M612 744 C712 748 828 754 940 758", "fill": "none", "stroke": "$mouthDark", "strokeWidth": 10, "lineCap": "round" }
+      ],
+      "medium": [
+        { "type": "path", "d": "M612 742 C712 748 828 756 940 760 C832 772 714 766 610 754 Z", "fill": "$mouthDark" }
+      ],
+      "open": [
+        { "type": "path", "d": "M610 738 C712 746 828 758 942 762 C830 788 712 780 606 760 Z", "fill": "$mouthDark" },
+        { "type": "path", "d": "M660 756 C716 762 782 768 840 772 C784 782 716 778 662 770 Z", "fill": "$tongue" }
+      ]
+    },
+    "hands": {
+      "neutral": [
+        { "type": "path", "d": "M666 1058 C748 1104 778 1250 730 1360 C690 1338 672 1240 668 1150 C666 1110 660 1082 666 1058 Z", "fill": "$body", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
+        { "type": "ellipse", "cx": 724, "cy": 1330, "rx": 30, "ry": 46, "fill": "$bodyLight" }
+      ],
+      "point": [
+        { "type": "path", "d": "M672 1044 C760 1010 850 940 902 852 C922 812 892 786 852 812 C800 858 740 918 668 986 C650 1004 654 1030 672 1044 Z", "fill": "$body", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
+        { "type": "ellipse", "cx": 884, "cy": 838, "rx": 30, "ry": 38, "fill": "$bodyLight", "rotationDegrees": -30 }
+      ]
+    }
+  },
+  "provenance": {
+    "source": "Definición geométrica original del proyecto: tucán con traje, compuesta por primitivas y paths declarativos.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}
