@@ -114,11 +114,11 @@ h1, h2 { font-size: .98rem; }
   bottom: 0;
   z-index: 1;
   width: var(--side-banner-width);
+  overflow: hidden;
   border-color: color-mix(in srgb, var(--border) 65%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 62%, var(--bg)), color-mix(in srgb, var(--bg) 94%, var(--surface))),
     var(--bg);
-  pointer-events: none;
 }
 .side-banner-left {
   left: 0;
@@ -127,6 +127,66 @@ h1, h2 { font-size: .98rem; }
 .side-banner-right {
   right: 0;
   border-left: 1px solid;
+}
+.demo-ad-track {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  animation: demo-ad-scroll 24s linear infinite;
+  will-change: transform;
+}
+.side-banner-right .demo-ad-track {
+  animation-direction: reverse;
+  animation-duration: 27s;
+}
+.side-banner:hover .demo-ad-track { animation-play-state: paused; }
+.demo-ad-loop {
+  display: grid;
+  flex: none;
+  gap: .8rem;
+  justify-items: center;
+  padding: .8rem 0;
+}
+.demo-ad {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 2.75rem;
+  height: 15.5rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 999px;
+  padding: .7rem .55rem;
+  color: var(--text);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 18%, var(--surface-2)), color-mix(in srgb, var(--surface) 90%, transparent));
+  box-shadow: 0 .65rem 1.5rem rgb(0 0 0 / .12);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+.demo-ad-alt {
+  background: linear-gradient(180deg, color-mix(in srgb, #8ca8ff 16%, var(--surface-2)), color-mix(in srgb, var(--surface) 90%, transparent));
+}
+.demo-ad span {
+  border-radius: 999px;
+  padding: .35rem .2rem;
+  color: var(--accent-ink);
+  background: var(--accent);
+  font-size: .52rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.demo-ad strong { font-size: .72rem; letter-spacing: .035em; }
+.demo-ad small { color: var(--muted); font-size: .58rem; line-height: 1.3; }
+
+@keyframes demo-ad-scroll {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-ad-track { animation: none; }
+  .demo-ad-loop[aria-hidden="true"] { display: none; }
 }
 
 .brand, .brand > div, .topbar-actions, .section-header, .action-row, .viewer-header, .viewer-footer, .timeline-header {

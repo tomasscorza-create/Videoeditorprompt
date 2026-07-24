@@ -36,7 +36,7 @@ La pantalla de escritorio se divide en cinco áreas persistentes:
 
 Estas áreas pueden ganar funciones, pestañas, acordeones o controles internos. No deben intercambiar sus responsabilidades principales sin autorización explícita del usuario.
 
-En escritorio, dos franjas laterales de 60 px reservan aire visual desde debajo del encabezado hasta el final de la interfaz. No desplazan ni atraviesan el encabezado y desaparecen en el layout responsive de 1100 px o menos.
+En escritorio, dos franjas laterales de 60 px reservan aire visual desde debajo del encabezado hasta el final de la interfaz. Pueden alojar publicidad vertical claramente identificada, sin invadir las áreas de edición. No desplazan ni atraviesan el encabezado y desaparecen en el layout responsive de 1100 px o menos. Mientras no exista un proveedor real, toda creatividad publicitaria debe marcarse como demostración, carecer de seguimiento y no implicar asociaciones comerciales.
 
 ## 1. Encabezado
 
