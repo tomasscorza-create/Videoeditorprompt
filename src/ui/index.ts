@@ -2,6 +2,7 @@ import type { PreviewHandle } from '../preview/types.js';
 import { optional } from './dom.js';
 import { initPlaybackUi } from './playback.js';
 import { initDirectorUi } from './director/panel.js';
+import { initWorkspaceResize } from './layout-resize.js';
 import { initCompositionPreview } from './project/composition.js';
 import { initResourceLibrary } from './project/library.js';
 import { initProjectEditor } from './project/panel.js';
@@ -18,6 +19,7 @@ export { renderJobGallery } from './gallery.js';
 export function initShellUi(): void {
   initTheme();
   initSettingsModal();
+  initWorkspaceResize();
   initViewerSources();
   initTimelineShell();
 }

@@ -218,6 +218,18 @@ Las proporciones exactas pueden ajustarse por legibilidad, pero la jerarquía de
 
 Cada panel lateral debe tener scroll independiente. La página completa no debería convertirse en un scroll largo en escritorio.
 
+### Ajuste personal del espacio
+
+En escritorio, el usuario puede arrastrar los separadores entre Director/visor, visor/panel derecho y workspace/timeline. El encabezado mantiene su altura fija.
+
+- Director y panel derecho: entre 16% y 36% del ancho cada uno, con protección adicional de 280–560 px.
+- Visor: conserva al menos 32% del ancho y un piso de 360 px.
+- Timeline: entre 18% y 42% de la altura de la aplicación, con protección adicional de 150–460 px.
+- Si dos paneles compiten por espacio, prevalece el mínimo del visor.
+- Los tamaños se guardan localmente como proporciones para adaptarse a futuros cambios de ventana.
+- Los separadores aceptan arrastre, flechas del teclado y doble clic para restaurar su tamaño inicial.
+- Por debajo de 1101 px se desactivan los separadores y prevalece el layout responsive.
+
 ## Responsive
 
 En pantallas estrechas puede ser imposible mantener las cinco regiones simultáneamente. La adaptación puede usar pestañas, paneles plegables o apilado, pero debe conservar la misma lógica conceptual:

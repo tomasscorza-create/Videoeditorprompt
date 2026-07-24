@@ -62,6 +62,8 @@ Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localh
 
 El viewer central distingue tres fuentes: **Composición** proyecta el proyecto editable sin inventar tiempos; **Preview medido** reproduce una escena publicada; **MP4 final** muestra un render terminado. El proyecto actual se restaura desde `localStorage` solo si la revisión del catálogo sigue siendo compatible.
 
+En escritorio, los separadores entre Director, visor, panel derecho y timeline permiten ajustar el espacio de trabajo. Las proporciones se conservan localmente; doble clic sobre un separador restaura el tamaño inicial.
+
 La timeline inferior también distingue esos estados. Antes de renderizar muestra escenas y turnos como estructura editorial **sin medir**. En Preview y MP4 usa segundos reales: el preview aporta turnos medidos y el manifiesto final aporta inicio/fin de escenas, audio y fundidos. Clic, reproducción, navegación, zoom, mute y playhead actúan sobre el medio visible.
 
 `stage3b:publish-project` genera `public/projects/`, necesario para que la interfaz encuentre proyectos editables existentes. Los previews de video aparecen después de publicar al menos un trabajo del pipeline.
