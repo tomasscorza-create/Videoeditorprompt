@@ -36,6 +36,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const progressLabel = required<HTMLElement>('#render-progress-label');
   const gallery = required<HTMLElement>('#render-job-gallery');
   const refreshJobs = required<HTMLButtonElement>('#jobs-refresh');
+  const filesMenu = required<HTMLDetailsElement>('#files-menu');
 
   let variant = 0;
   let store = initialStore;
@@ -58,6 +59,12 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     }
   });
   refreshJobs.addEventListener('click', () => void refreshGallery(false));
+  document.addEventListener('pointerdown', (event) => {
+    if (filesMenu.open && event.target instanceof Node && !filesMenu.contains(event.target)) filesMenu.open = false;
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') filesMenu.open = false;
+  });
 
   generate.addEventListener('click', async () => {
     const value = prompt.value.trim();
@@ -236,7 +243,12 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     state.className = 'render-job-state';
     state.textContent = humanState(job.state);
     card.append(icon, copy, state);
-    if (job.result) card.addEventListener('click', () => showCompleted(job, true));
+    if (job.result) {
+      card.addEventListener('click', () => {
+        showCompleted(job, true);
+        filesMenu.open = false;
+      });
+    }
     return card;
   }
 

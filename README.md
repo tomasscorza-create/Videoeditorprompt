@@ -58,7 +58,7 @@ npm run dev
 
 Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localhost:5173).
 
-`npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, crear la propuesta, corregirla y pulsar **Renderizar video**. La galería **Videos creados** usa los jobs persistidos de la API local; no depende de copiar renders a `public/generated`.
+`npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, crear la propuesta, corregirla y pulsar **Renderizar video**. La galería **Videos creados** se abre desde **Archivos** en el encabezado y usa los jobs persistidos de la API local; no depende de copiar renders a `public/generated`.
 
 El viewer central distingue tres fuentes: **Composición** proyecta el proyecto editable sin inventar tiempos; **Preview medido** reproduce una escena publicada; **MP4 final** muestra un render terminado. El proyecto actual se restaura desde `localStorage` solo si la revisión del catálogo sigue siendo compatible.
 

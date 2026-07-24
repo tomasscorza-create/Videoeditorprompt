@@ -14,6 +14,21 @@
             <strong>Estudio de video local</strong>
             <span>IA local + render determinista</span>
           </div>
+          <details id="files-menu" class="files-menu">
+            <summary>Archivos</summary>
+            <section class="files-popover" aria-labelledby="files-videos-title">
+              <header class="section-header compact">
+                <div>
+                  <span class="eyebrow">Biblioteca local</span>
+                  <h2 id="files-videos-title">Videos creados</h2>
+                </div>
+                <button id="jobs-refresh" class="text-button" type="button">Actualizar</button>
+              </header>
+              <div id="render-job-gallery" class="render-job-gallery" role="list">
+                <p class="empty-state">Buscando renders locales…</p>
+              </div>
+            </section>
+          </details>
         </div>
         <div class="topbar-actions">
           <span id="save-status" class="save-status">Guardado local automático</span>
@@ -92,15 +107,6 @@
             </div>
           </section>
 
-          <section class="jobs-section" aria-labelledby="jobs-title">
-            <header class="section-header compact">
-              <h2 id="jobs-title">Videos creados</h2>
-              <button id="jobs-refresh" class="text-button" type="button">Actualizar</button>
-            </header>
-            <div id="render-job-gallery" class="render-job-gallery" role="list">
-              <p class="empty-state">Buscando renders locales…</p>
-            </div>
-          </section>
         </aside>
 
         <section class="viewer-column" aria-label="Visor del proyecto">

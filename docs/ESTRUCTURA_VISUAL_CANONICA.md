@@ -43,6 +43,7 @@ Identidad de la aplicación, estado global breve y acceso a configuración gener
 ### Contenido apropiado
 
 - Nombre e identidad del producto.
+- Botón global `Archivos`, con acceso a `Videos creados` y futuras colecciones persistentes.
 - Indicador discreto de guardado o estado global.
 - Configuración general.
 - Acciones globales futuras que sean realmente universales.
@@ -54,6 +55,7 @@ Debe permanecer limpio, bajo y tranquilo. No es una barra de edición ni un cont
 ### Evitar
 
 - Saturarlo con herramientas contextuales.
+- Convertir `Archivos` en una barra de edición; su acceso debe seguir siendo compacto.
 - Mostrar formularios extensos.
 - Duplicar acciones del Director, inspector o timeline.
 
@@ -68,14 +70,14 @@ Es el punto de entrada y comando del flujo creativo.
 - Escribir instrucciones para el Director IA.
 - Seleccionar tono, duración, escenas y futuros parámetros de dirección.
 - Generar, cancelar o regenerar propuestas.
-- Seleccionar proyecto o video en el que se trabajará.
-- Mostrar historial y estado resumido de renders.
+- Seleccionar el proyecto o contexto de autoría en el que se trabajará.
 - Iniciar el render cuando corresponda.
 
 ### Comportamiento esperado
 
-- Cambiar de proyecto o video actualiza el visor, el inspector y la timeline.
-- El contenido puede organizarse mediante pestañas o secciones como `Crear`, `Proyectos` y `Videos`.
+- Cambiar de proyecto actualiza el visor, el inspector y la timeline.
+- El contenido puede organizarse mediante pestañas o secciones como `Crear` y `Proyectos`.
+- La biblioteca persistente de videos terminados pertenece a `Archivos > Videos creados` en el encabezado, no al panel del Director.
 - Su scroll es independiente.
 - Las acciones primarias deben ser claras y estar cerca del contexto que las origina.
 
