@@ -2,7 +2,6 @@ import { required } from '../dom.js';
 import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
 import { showFinalVideo } from '../viewer.js';
-import { attachFinalTimeline } from '../timeline.js';
 import {
   cancelDirectorProposal,
   cancelRenderJob,
@@ -50,6 +49,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   let pollTimer: number | null = null;
   let readyForProposal = false;
   let readyForRender = false;
+  const renderProjectSnapshots = new Map<string, string>();
 
   root.hidden = false;
   syncDirectorMode();
@@ -131,6 +131,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     setBusy(true, 'Enviando el proyecto al pipeline local…');
     try {
       const job = await startRender(store.project());
+      renderProjectSnapshots.set(job.jobId, JSON.stringify(store.project()));
       currentJobId = job.jobId;
       persistLastJobId(job.jobId);
       cancel.disabled = false;
@@ -316,19 +317,15 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
 
   function showCompleted(job: RenderJob, switchSource: boolean): void {
     if (!job.result) return;
-    const source = `${job.result.videoUrl}?v=${encodeURIComponent(job.updatedAt ?? '')}`;
-    const video = required<HTMLVideoElement>('#director-result-video');
-    if (switchSource) showFinalVideo(source, job.result.downloadName);
-    else {
-      const finalTab = required<HTMLButtonElement>('#source-final');
-      const download = required<HTMLAnchorElement>('#director-result-download');
-      finalTab.disabled = false;
-      video.src = source;
-      download.href = source;
-      download.download = job.result.downloadName;
-      download.hidden = false;
-    }
-    attachFinalTimeline(video, job.result.timeline ?? null);
+    showFinalVideo({
+      projectId: job.projectId,
+      url: `${job.result.videoUrl}?v=${encodeURIComponent(job.updatedAt ?? '')}`,
+      downloadName: job.result.downloadName,
+      timeline: job.result.timeline ?? null,
+      current: job.projectId === store?.project().id
+        && renderProjectSnapshots.get(job.jobId) === JSON.stringify(store?.project()),
+      reveal: switchSource,
+    });
     persistLastJobId(job.jobId);
     progressRoot.hidden = true;
   }

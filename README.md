@@ -18,10 +18,10 @@ El repositorio incluye actualmente:
 - proyectos editables de hasta ocho escenas;
 - compilación de cada escena al contrato runtime v2;
 - render headless por escena y ensamblado multiescena con cortes o fundidos;
-- estudio local de tres columnas con composición estática, preview medido y MP4 final;
+- estudio local de tres columnas con espacios explícitos de Editor y Creador;
 - biblioteca durable con miniaturas, tags, licencias, registro validado y catálogo unificado para Director/editor/render;
 - creador local de personajes por capas y presets, con compilación al rig animable y persistencia fuera del repositorio;
-- pistas V1/A1, regla, playhead, timecode, zoom, snap, transporte, navegación y atajos conectados al preview y MP4;
+- timeline única de capas visuales y audio, con escala editorial o medida, playhead, timecode, zoom, transporte y atajos;
 - sesión editable y último render guardados localmente con revisión del catálogo;
 - Director IA local con Ollama y `qwen3:8b`, plan JSON cerrado, validación y caché;
 - parámetros rígidos de tono, duración objetivo y cantidad de escenas incorporados al esquema enviado a Ollama;
@@ -61,7 +61,7 @@ Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localh
 
 `npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. **Archivos → Nuevo +** crea un borrador con lienzo vacío; **Mis proyectos** abre proyectos editables durables y **Videos creados** conserva los MP4 terminados. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, y crear la propuesta. Una vez que el proyecto tiene contenido, el mismo campo acepta cambios contextuales como “cambiá el texto de la escena 2”; la IA devuelve comandos semánticos cerrados que pasan por el mismo núcleo y pueden deshacerse.
 
-El viewer central distingue **Editar video**, **Preview medido** y **MP4 final**. **CREAR → Personajes** abre temporalmente **Crear recurso**, con dos caminos: editar una plantilla o construir desde cero mediante piezas geométricas etiquetadas. Ambos guardan un rig animable en la biblioteca. La sesión rápida se conserva en `localStorage`; cada proyecto también se guarda como JSON durable fuera del repositorio.
+El visor central tiene solo dos espacios: **Editor** y **Creador**. El Editor mantiene el lienzo como superficie principal; el botón de reproducción de la timeline presenta el último MP4 dentro de ese mismo espacio y **Volver a editar** recupera el lienzo. No existen pestañas separadas para composición, preview y video final. **CREAR → Personajes** abre el Creador, con dos caminos: editar una plantilla o construir desde cero mediante piezas geométricas etiquetadas. Ambos guardan un rig animable en la biblioteca. La sesión rápida se conserva en `localStorage`; cada proyecto también se guarda como JSON durable fuera del repositorio.
 
 En **Recursos → Personajes**, una tarjeta puede seleccionarse y colocarse con un clic en el visor, o arrastrarse directamente. En una escena incompleta agrega personajes hasta alcanzar los dos que admite el render actual; después reemplaza al más cercano. Los personajes colocados se seleccionan y arrastran directamente en el visor.
 
@@ -69,7 +69,7 @@ El panel **Recursos** permite importar fondos JPG o PNG mediante **Agregar fondo
 
 En escritorio, los separadores entre Director, visor, panel derecho y timeline permiten ajustar el espacio de trabajo. Las proporciones se conservan localmente; doble clic sobre un separador restaura el tamaño inicial.
 
-La timeline inferior también distingue esos estados. Antes de renderizar presenta una sola superficie alineada: capas visuales (fondos y personajes) arriba y voces abajo. Permite seleccionar, reordenar escenas por arrastre, duplicar y eliminar estructura; visor e inspector siguen la misma selección. Los anchos son editoriales y se rotulan **sin medir**. En Preview y MP4 cambian a segundos reales aportados por Piper, FFprobe y el ensamblador.
+La timeline inferior pertenece siempre al Editor y presenta una sola superficie alineada: capas visuales (fondos y personajes) arriba y voces abajo. Permite seleccionar, reordenar escenas por arrastre, duplicar y eliminar estructura; visor e inspector siguen la misma selección. Sin una exportación actual, los anchos son editoriales y se rotulan **sin medir**. Después de renderizar la versión vigente, las mismas pistas adoptan segundos reales aportados por Piper, FFprobe y el ensamblador. Si el proyecto cambia, la exportación queda marcada como anterior y la timeline vuelve a autoría sin inventar tiempos.
 
 `stage3b:publish-project` genera `public/projects/`, necesario para que la interfaz encuentre proyectos editables existentes. Los previews de video aparecen después de publicar al menos un trabajo del pipeline.
 

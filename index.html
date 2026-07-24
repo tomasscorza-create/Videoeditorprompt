@@ -181,45 +181,44 @@
           <header class="viewer-header">
             <div>
               <span class="eyebrow">Vista</span>
-              <h2 id="viewer-title">Composición editable</h2>
+              <h2 id="viewer-title">Editor de video</h2>
             </div>
-            <div class="source-tabs" role="tablist" aria-label="Fuente del visor">
-              <button id="source-composition" class="source-tab is-active" type="button" role="tab" aria-selected="true">Editar video</button>
-              <button id="source-preview" class="source-tab" type="button" role="tab" aria-selected="false" disabled>Preview medido</button>
-              <button id="source-final" class="source-tab" type="button" role="tab" aria-selected="false" disabled>MP4 final</button>
-              <button id="source-character" class="source-tab" type="button" role="tab" aria-selected="false" hidden>Crear recurso</button>
+            <div class="source-tabs" role="tablist" aria-label="Espacio de trabajo">
+              <button id="workspace-editor" class="source-tab is-active" type="button" role="tab" aria-selected="true">Editor</button>
+              <button id="workspace-creator" class="source-tab" type="button" role="tab" aria-selected="false">Creador</button>
             </div>
           </header>
 
           <div class="viewer-stage-wrap">
-            <div id="composition-view" class="vertical-stage composition-view" role="tabpanel">
-              <div id="composition-canvas" class="composition-canvas">
-                <p class="viewer-empty">Creá o abrí un proyecto para ver su composición.</p>
+            <div id="editor-workspace" class="viewer-workspace" role="tabpanel">
+              <div id="composition-view" class="vertical-stage composition-view">
+                <div id="composition-canvas" class="composition-canvas">
+                  <p class="viewer-empty">Creá o abrí un proyecto para ver su composición.</p>
+                </div>
+              </div>
+              <div id="final-view" class="vertical-stage final-view" hidden>
+                <video id="director-result-video" preload="metadata"></video>
               </div>
             </div>
-            <div id="preview-view" class="vertical-stage" role="tabpanel" hidden>
+            <div id="creator-workspace" class="viewer-workspace" role="tabpanel" hidden>
+              <div id="creator-empty-state" class="creator-empty-state">
+                <strong>Elegí qué recurso querés crear</strong>
+                <span>Usá el menú CREAR del encabezado. El lienzo y las herramientas aparecerán acá.</span>
+              </div>
+              <div id="character-view" class="vertical-stage character-creator-view" hidden>
+                <svg id="character-creator-canvas" viewBox="0 0 1080 1920" role="img" aria-label="Vista previa del personaje"></svg>
+              </div>
+            </div>
+            <div id="preview-view" class="vertical-stage legacy-preview-view" aria-hidden="true" hidden>
               <div id="stage"></div>
               <div id="canvas-loading" class="canvas-loading" role="status">Cargando preview medido…</div>
             </div>
-            <div id="final-view" class="vertical-stage final-view" role="tabpanel" hidden>
-              <video id="director-result-video" controls preload="metadata"></video>
-            </div>
-            <div id="character-view" class="vertical-stage character-creator-view" role="tabpanel" hidden>
-              <svg id="character-creator-canvas" viewBox="0 0 1080 1920" role="img" aria-label="Vista previa del personaje"></svg>
-            </div>
-          </div>
-
-          <div id="preview-controls" class="viewer-controls" hidden>
-            <button id="viewer-play-btn" class="icon-button" type="button" aria-label="Reproducir o pausar" disabled>▶</button>
-            <span id="viewer-current">0:00</span>
-            <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Progreso del preview" disabled />
-            <span id="viewer-duration">0:00</span>
-            <button id="speed-btn" class="text-button" type="button" title="Velocidad: 1x">1x</button>
-            <button id="loop-btn" class="icon-button" type="button" aria-label="Alternar bucle">↻</button>
           </div>
 
           <div class="viewer-footer">
-            <p id="viewer-context">La composición es una proyección estática; voz, boca y tiempos se calculan al renderizar.</p>
+            <p id="viewer-context">Seleccioná y arrastrá personajes. La duración real aparece cuando el proyecto se renderiza.</p>
+            <span id="viewer-output-status" class="viewer-output-status" hidden></span>
+            <button id="viewer-return-edit" class="text-button" type="button" hidden>Volver a editar</button>
             <a id="director-result-download" class="download-link" href="#" download hidden>Descargar MP4</a>
           </div>
 
@@ -386,9 +385,9 @@
             <button id="timeline-previous" class="timeline-tool" type="button" disabled title="Clip anterior (↑)" aria-label="Clip anterior">◀</button>
             <button id="timeline-play" class="timeline-play" type="button" disabled title="Reproducir o pausar (Espacio)" aria-label="Reproducir o pausar">▶</button>
             <button id="timeline-next" class="timeline-tool" type="button" disabled title="Clip siguiente (↓)" aria-label="Clip siguiente">▶</button>
+            <button id="timeline-mute" class="timeline-tool" type="button" disabled aria-pressed="false" title="Silenciar exportación (M)" aria-label="Silenciar exportación">M</button>
           </div>
-          <div class="timeline-tool-group" aria-label="Ayudas de edición">
-            <button id="timeline-select-tool" class="timeline-tool is-active" type="button" aria-pressed="true" title="Herramienta de selección (V)" aria-label="Herramienta de selección">⌁</button>
+          <div class="timeline-tool-group" aria-label="Ajuste temporal">
             <button id="timeline-snap" class="timeline-tool is-active" type="button" aria-pressed="true" title="Ajuste magnético (S)" aria-label="Ajuste magnético">⌑</button>
           </div>
           <div class="timeline-tool-group" aria-label="Editar selección">
@@ -406,28 +405,6 @@
           </div>
         </header>
 
-        <div class="timeline-editor">
-          <div class="timeline-track-labels">
-            <div class="timeline-label-ruler"></div>
-            <div class="timeline-track-label">
-              <div><strong>V1</strong><span>Video</span></div>
-            </div>
-            <div class="timeline-track-label">
-              <div><strong>A1</strong><span>Diálogo</span></div>
-              <button id="timeline-mute" class="timeline-track-action" type="button" disabled aria-pressed="false" title="Silenciar audio (M)" aria-label="Silenciar pista de audio">M</button>
-            </div>
-          </div>
-          <div id="timeline-scroll" class="timeline-scroll">
-            <div id="timeline-surface" class="timeline-surface">
-              <div id="timeline-ruler" class="timeline-ruler" aria-label="Regla temporal"></div>
-              <div id="timeline-video-track" class="timeline-track video-track" aria-label="Pista de video"></div>
-              <div id="timeline-audio-track" class="timeline-track audio-track" aria-label="Pista de audio"></div>
-              <div id="timeline-playhead" class="timeline-playhead" hidden>
-                <span class="timeline-playhead-handle"></span>
-              </div>
-            </div>
-          </div>
-        </div>
         <div id="timeline-layer-stack" class="timeline-layer-stack" aria-label="Capas de la escena seleccionada"></div>
         <p id="timeline-summary" class="timeline-summary">Abrí un proyecto para ver sus escenas y diálogos.</p>
       </section>

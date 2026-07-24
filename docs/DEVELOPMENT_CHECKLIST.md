@@ -28,7 +28,7 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] Recuperación de estados interrumpidos, cierre de conexiones y terminación del árbol de render.
 - [x] CI mínima, `npm test` agregado y corpus de compatibilidad de contratos.
 - [x] Render interactivo de una pasada; verificación completa preservada en CLI/pruebas.
-- [x] Workspace de tres columnas con viewer de composición/preview/MP4, biblioteca licenciada, inspector plegable y timeline de escenas/turnos.
+- [x] Workspace de tres columnas con Editor/Creador, biblioteca licenciada, inspector plegable y timeline única coordinada con la reproducción.
 - [x] Proyecto y último job persistidos con versión y revisión de catálogo; galería alimentada por `/api/render-jobs`.
 - [x] Tono, duración objetivo y cantidad de escenas restringen el JSON Schema del Director, no solo su texto de prompt.
 - [x] Biblioteca local durable con registro validado, deduplicación, catálogo unificado y API limitada a loopback.

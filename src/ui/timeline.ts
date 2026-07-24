@@ -1,8 +1,17 @@
-import type { PreviewHandle } from '../preview/types.js';
 import { optional } from './dom.js';
+import {
+  EDITOR_WORKSPACE_EVENT,
+  EDITOR_PLAYBACK_EVENT,
+  editorWorkspace,
+  seekEditorPlayback,
+  showEditorCanvas,
+  showRenderedPlayback,
+  toggleEditorMute,
+  toggleEditorPlayback,
+  type MeasuredProjectTimeline,
+} from './editor-workspace.js';
 import type { ProjectStore } from './project/store.js';
 import type { SceneView } from './project/types.js';
-import type { ViewerSource } from './viewer.js';
 import {
   PROJECT_SELECTION_EVENT,
   projectSelection,
@@ -15,39 +24,11 @@ const DEFAULT_PIXELS_PER_SECOND = 60;
 const EDITORIAL_SCENE_WIDTH = 190;
 const MIN_CLIP_WIDTH = 4;
 
-export interface MeasuredScene {
-  id: string;
-  startSeconds: number;
-  endSeconds: number;
-  audioDurationSeconds?: number;
-  transitionToNext?: {
-    preset: string;
-    durationSeconds: number;
-    startSeconds: number;
-    endSeconds: number;
-  };
-}
-
-export interface MeasuredProjectTimeline {
-  durationSeconds: number;
-  scenes: MeasuredScene[];
-}
-
-interface FinalTimelineState {
-  video: HTMLVideoElement;
-  timeline: MeasuredProjectTimeline | null;
-}
-
 let initialized = false;
-let source: ViewerSource = 'composition';
 let store: ProjectStore | null = null;
-let preview: PreviewHandle | null = null;
-let finalState: FinalTimelineState | null = null;
 let pixelsPerSecond = DEFAULT_PIXELS_PER_SECOND;
 let snapEnabled = true;
-let selectedClipId: string | null = null;
 let currentTime = 0;
-const boundFinalMedia = new WeakSet<HTMLVideoElement>();
 
 export function initTimelineShell(): void {
   if (initialized) return;
@@ -68,13 +49,18 @@ export function initTimelineShell(): void {
   const shortcutsDialog = optional<HTMLDialogElement>('#timeline-shortcuts-dialog');
   optional<HTMLButtonElement>('#timeline-shortcuts')?.addEventListener('click', () => shortcutsDialog?.showModal());
   optional<HTMLButtonElement>('#timeline-shortcuts-close')?.addEventListener('click', () => shortcutsDialog?.close());
-  optional<HTMLElement>('#timeline-ruler')?.addEventListener('click', seekFromPointer);
-  optional<HTMLElement>('#timeline-video-track')?.addEventListener('click', seekFromPointer);
-  optional<HTMLElement>('#timeline-audio-track')?.addEventListener('click', seekFromPointer);
   window.addEventListener('keydown', handleShortcut);
   window.addEventListener(PROJECT_SELECTION_EVENT, () => {
     render();
     updateToolbar();
+  });
+  window.addEventListener(EDITOR_WORKSPACE_EVENT, () => {
+    render();
+    updateTimelineTime(editorWorkspace().currentTime);
+  });
+  window.addEventListener(EDITOR_PLAYBACK_EVENT, () => {
+    updateToolbar();
+    updateTimelineTime(editorWorkspace().currentTime);
   });
   render();
 }
@@ -85,41 +71,12 @@ export function attachProjectTimeline(projectStore: ProjectStore): void {
   render();
 }
 
-export function attachPreviewTimeline(handle: PreviewHandle): void {
-  preview = handle;
-  handle.audio.addEventListener('play', syncPlayButton);
-  handle.audio.addEventListener('pause', syncPlayButton);
-  handle.audio.addEventListener('ended', syncPlayButton);
-  handle.audio.addEventListener('timeupdate', () => updateTimelineTime(handle.audio.currentTime));
-  render();
-}
-
-export function attachFinalTimeline(video: HTMLVideoElement, timeline: MeasuredProjectTimeline | null): void {
-  finalState = { video, timeline };
-  if (!boundFinalMedia.has(video)) {
-    boundFinalMedia.add(video);
-    video.addEventListener('play', syncPlayButton);
-    video.addEventListener('pause', syncPlayButton);
-    video.addEventListener('ended', syncPlayButton);
-    video.addEventListener('loadedmetadata', () => render());
-    video.addEventListener('timeupdate', () => updateTimelineTime(video.currentTime));
-  }
-  render();
-}
-
-export function setTimelineSource(nextSource: ViewerSource): void {
-  source = nextSource;
-  currentTime = activeMedia()?.currentTime ?? 0;
-  selectedClipId = null;
-  render();
-}
-
 export function updateTimelineTime(timeSeconds: number): void {
   currentTime = clamp(timeSeconds, 0, activeDuration());
-  const playhead = optional<HTMLElement>('#timeline-playhead');
-  if (playhead) {
-    playhead.hidden = !isMeasured();
-    playhead.style.transform = `translateX(${currentTime * pixelsPerSecond}px)`;
+  const authoringPlayhead = optional<HTMLElement>('#authoring-playhead');
+  if (authoringPlayhead) {
+    authoringPlayhead.hidden = !isMeasured();
+    authoringPlayhead.style.left = `calc(var(--timeline-label-width) + ${currentTime * pixelsPerSecond}px)`;
   }
   updateTimecode();
   followPlayhead();
@@ -127,38 +84,64 @@ export function updateTimelineTime(timeSeconds: number): void {
 
 function render(): void {
   if (!initialized) return;
-  if (source === 'preview' && preview) renderPreview();
-  else if (source === 'final' && finalState) renderFinal();
+  if (editorWorkspace().mode === 'creator') renderCreatorTimeline();
   else renderProject();
   updateToolbar();
-  updateTimelineTime(activeMedia()?.currentTime ?? currentTime);
+  updateTimelineTime(editorWorkspace().currentTime);
+}
+
+function renderCreatorTimeline(): void {
+  const timeline = optional<HTMLElement>('.professional-timeline');
+  timeline?.classList.add('is-authoring', 'is-creator');
+  setTimelineMode(false, 'Creador');
+  const root = optional<HTMLElement>('#timeline-layer-stack');
+  if (root) {
+    root.hidden = false;
+    const message = document.createElement('div');
+    message.className = 'creator-timeline-state';
+    message.innerHTML = '<strong>Creador de recursos</strong><span>La timeline pertenece al Editor de video y se conserva sin cambios mientras diseñás.</span>';
+    root.replaceChildren(message);
+  }
+  setSummary('Volvé al Editor para seleccionar escenas, reproducir y editar la timeline.');
 }
 
 function renderProject(): void {
-  setTimelineMode(false);
   const project = store?.project();
   optional<HTMLElement>('.professional-timeline')?.classList.add('is-authoring');
+  optional<HTMLElement>('.professional-timeline')?.classList.remove('is-creator');
   if (!project) {
+    setTimelineMode(false);
     setSummary('Abrí un proyecto para ver sus escenas y diálogos.');
     renderLayerStack(null, [], []);
     return;
   }
+  const measured = compatibleTimeline(project.scenes);
   const scale = pixelsPerSecond / DEFAULT_PIXELS_PER_SECOND;
-  const sceneWidths = project.scenes.map((scene) => Math.max(EDITORIAL_SCENE_WIDTH, wordsInScene(scene) * 8) * scale);
-  const positions: number[] = [];
-  let cursor = 0;
-  for (const width of sceneWidths) {
-    positions.push(cursor);
-    cursor += width + 4;
+  let positions: number[] = [];
+  let sceneWidths: number[] = [];
+  if (measured) {
+    positions = measured.scenes.map((scene) => scene.startSeconds * pixelsPerSecond);
+    sceneWidths = measured.scenes.map((scene) => (scene.endSeconds - scene.startSeconds) * pixelsPerSecond);
+  } else {
+    sceneWidths = project.scenes.map((scene) => Math.max(EDITORIAL_SCENE_WIDTH, wordsInScene(scene) * 8) * scale);
+    let cursor = 0;
+    for (const width of sceneWidths) {
+      positions.push(cursor);
+      cursor += width + 4;
+    }
   }
-  renderLayerStack(project, positions, sceneWidths);
-  setSummary(`${project.scenes.length} escena(s) · visual arriba, audio abajo · arrastrá escenas para reordenar · tiempos reales después de medir.`);
+  setTimelineMode(Boolean(measured));
+  renderLayerStack(project, positions, sceneWidths, measured);
+  setSummary(measured
+    ? `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · capas editables alineadas con la exportación actual.`
+    : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`);
 }
 
 function renderLayerStack(
   project: ReturnType<ProjectStore['project']> | null,
   positions: number[] = [],
   sceneWidths: number[] = [],
+  measured: MeasuredProjectTimeline | null = null,
 ): void {
   const root = optional<HTMLElement>('#timeline-layer-stack');
   if (!root) return;
@@ -171,11 +154,18 @@ function renderLayerStack(
   root.style.setProperty('--timeline-grid-size', `${pixelsPerSecond}px`);
   const totalWidth = Math.max(640, (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0));
   const rows: HTMLElement[] = [
-    authoringRuler(project, positions, totalWidth),
+    authoringRuler(project, positions, totalWidth, measured),
     trackDivider('VISUAL', 'Capas que forman la imagen'),
   ];
   rows.push(authoringTrack('BG', 'Fondos', totalWidth, project.scenes.map((scene, index) => {
-    const clip = authoringClip(scene.title, `${scene.background.resourceId} · escena completa · sin medir`, positions[index], sceneWidths[index], 'background');
+    const duration = measured?.scenes[index] ? measured.scenes[index].endSeconds - measured.scenes[index].startSeconds : null;
+    const clip = authoringClip(
+      scene.title,
+      `${scene.background.resourceId} · ${duration === null ? 'escena completa · sin medir' : `${duration.toFixed(2)} s`}`,
+      positions[index],
+      sceneWidths[index],
+      'background',
+    );
     bindSceneClip(clip, scene.id);
     return clip;
   })));
@@ -213,7 +203,7 @@ function renderLayerStack(
           const selection = projectSelection();
           const clip = authoringClip(
             turn.text,
-            `${turn.voiceId} · duración pendiente de voz`,
+            measured ? `${turn.voiceId} · orden del guion dentro de la escena medida` : `${turn.voiceId} · duración pendiente de voz`,
             cursor,
             width,
             'dialogue',
@@ -228,6 +218,11 @@ function renderLayerStack(
     });
     rows.push(authoringTrack(`A${slot + 1}`, `Voz ${slot + 1}`, totalWidth, clips));
   }
+  const playhead = document.createElement('span');
+  playhead.id = 'authoring-playhead';
+  playhead.className = 'authoring-playhead';
+  playhead.hidden = !measured;
+  rows.push(playhead);
   root.replaceChildren(...rows);
 }
 
@@ -245,19 +240,33 @@ function authoringTrack(code: string, label: string, width: number, clips: HTMLE
   return row;
 }
 
-function authoringRuler(project: ReturnType<ProjectStore['project']>, positions: number[], width: number): HTMLElement {
+function authoringRuler(
+  project: ReturnType<ProjectStore['project']>,
+  positions: number[],
+  width: number,
+  measured: MeasuredProjectTimeline | null,
+): HTMLElement {
   const row = document.createElement('div');
   row.className = 'authoring-track-row authoring-ruler-row';
   const label = document.createElement('div');
   label.className = 'authoring-track-label';
-  label.innerHTML = '<strong>TIEMPO</strong><span>sin medir</span>';
+  label.innerHTML = `<strong>TIEMPO</strong><span>${measured ? 'medido' : 'sin medir'}</span>`;
   const ruler = document.createElement('div');
   ruler.className = 'authoring-track-ruler';
   ruler.style.width = `${Math.ceil(width)}px`;
+  if (measured) {
+    ruler.title = 'Clic para mover el cabezal de reproducción';
+    ruler.addEventListener('click', (event) => {
+      const bounds = ruler.getBoundingClientRect();
+      seekTo(snapTime((event.clientX - bounds.left) / pixelsPerSecond));
+    });
+  }
   positions.forEach((left, index) => {
     const mark = document.createElement('span');
     mark.style.left = `${left}px`;
-    mark.textContent = `E${index + 1} · ${project.scenes[index].title}`;
+    mark.textContent = measured
+      ? `${formatRulerTime(measured.scenes[index]?.startSeconds ?? 0)} · E${index + 1}`
+      : `E${index + 1} · ${project.scenes[index].title}`;
     ruler.append(mark);
   });
   row.append(label, ruler);
@@ -331,229 +340,41 @@ function bindSceneClip(clip: HTMLButtonElement, sceneId: string): void {
 }
 
 function selectScene(sceneId: string): void {
-  selectedClipId = `project-scene:${sceneId}`;
+  showEditorCanvas();
   selectProjectItem({ kind: 'scene', sceneId });
   store?.dispatch({ type: 'select-scene', sceneId });
 }
 
 function selectElement(sceneId: string, elementId: string): void {
-  selectedClipId = `project-element:${sceneId}:${elementId}`;
+  showEditorCanvas();
   selectProjectItem({ kind: 'element', sceneId, elementId });
   store?.dispatch({ type: 'select-scene', sceneId });
 }
 
 function selectDialogue(sceneId: string, turnId: string): void {
-  selectedClipId = `project-turn:${sceneId}:${turnId}`;
+  showEditorCanvas();
   selectProjectItem({ kind: 'dialogue', sceneId, turnId });
   store?.dispatch({ type: 'select-scene', sceneId });
-}
-
-function renderPreview(): void {
-  renderLayerStack(null);
-  if (!preview) return;
-  const duration = preview.durationSeconds;
-  const width = measuredWidth(duration);
-  setSurfaceWidth(width);
-  setTimelineMode(true);
-  renderMeasuredRuler(duration);
-
-  const scene = createClip({
-    id: 'preview-scene',
-    kind: 'video',
-    title: 'Escena publicada',
-    detail: `${duration.toFixed(2)} s medidos`,
-    left: 0,
-    width: duration * pixelsPerSecond,
-    selected: selectedClipId === 'preview-scene',
-  });
-  scene.addEventListener('click', () => selectAndSeek('preview-scene', 0));
-  optional<HTMLElement>('#timeline-video-track')?.replaceChildren(scene);
-
-  const turns = preview.turns?.length
-    ? preview.turns.map((turn) => {
-      const clip = createClip({
-        id: `preview-turn:${turn.id}`,
-        kind: 'audio',
-        title: turn.speakerId,
-        detail: `${turn.startSeconds.toFixed(2)}–${turn.endSeconds.toFixed(2)} s`,
-        left: turn.startSeconds * pixelsPerSecond,
-        width: turn.durationSeconds * pixelsPerSecond,
-        selected: selectedClipId === `preview-turn:${turn.id}`,
-      });
-      clip.addEventListener('click', () => selectAndSeek(`preview-turn:${turn.id}`, turn.startSeconds));
-      return clip;
-    })
-    : [createClip({
-      id: 'preview-audio',
-      kind: 'audio',
-      title: 'Audio generado',
-      detail: `${duration.toFixed(2)} s medidos`,
-      left: 0,
-      width: duration * pixelsPerSecond,
-    })];
-  optional<HTMLElement>('#timeline-audio-track')?.replaceChildren(...turns);
-  setSummary(`Preview medido · ${preview.turns?.length ?? 1} clip(s) de audio · clic en la regla o un clip para navegar.`);
-}
-
-function renderFinal(): void {
-  renderLayerStack(null);
-  if (!finalState) return;
-  const duration = finalState.timeline?.durationSeconds || finalState.video.duration || 0;
-  if (!duration) {
-    renderEmptyMeasured('El MP4 todavía está leyendo su duración.');
-    return;
-  }
-  setSurfaceWidth(measuredWidth(duration));
-  setTimelineMode(true);
-  renderMeasuredRuler(duration);
-  const scenes = finalState.timeline?.scenes?.length
-    ? finalState.timeline.scenes
-    : [{ id: 'video-final', startSeconds: 0, endSeconds: duration }];
-  const projectScenes = store?.project().scenes ?? [];
-  const videoNodes: HTMLElement[] = [];
-  const audioNodes: HTMLElement[] = [];
-  const transitionNodes: HTMLElement[] = [];
-
-  scenes.forEach((scene, index) => {
-    const title = sceneTitle(scene, projectScenes, index);
-    const width = (scene.endSeconds - scene.startSeconds) * pixelsPerSecond;
-    const video = createClip({
-      id: `final-scene:${scene.id}`,
-      kind: 'video',
-      title,
-      detail: `${scene.startSeconds.toFixed(2)}–${scene.endSeconds.toFixed(2)} s`,
-      left: scene.startSeconds * pixelsPerSecond,
-      width,
-      selected: selectedClipId === `final-scene:${scene.id}`,
-    });
-    video.addEventListener('click', () => selectAndSeek(`final-scene:${scene.id}`, scene.startSeconds));
-    videoNodes.push(video);
-
-    const audio = createClip({
-      id: `final-audio:${scene.id}`,
-      kind: 'audio',
-      title: `Audio · ${title}`,
-      detail: `${(scene.audioDurationSeconds ?? scene.endSeconds - scene.startSeconds).toFixed(2)} s`,
-      left: scene.startSeconds * pixelsPerSecond,
-      width,
-      selected: selectedClipId === `final-audio:${scene.id}`,
-    });
-    audio.addEventListener('click', () => selectAndSeek(`final-audio:${scene.id}`, scene.startSeconds));
-    audioNodes.push(audio);
-
-    if (scene.transitionToNext) {
-      const transition = document.createElement('span');
-      transition.className = 'timeline-transition';
-      transition.style.left = `${scene.transitionToNext.startSeconds * pixelsPerSecond}px`;
-      transition.style.width = `${Math.max(MIN_CLIP_WIDTH, scene.transitionToNext.durationSeconds * pixelsPerSecond)}px`;
-      transition.title = `${scene.transitionToNext.preset} · ${scene.transitionToNext.durationSeconds.toFixed(2)} s`;
-      transitionNodes.push(transition);
-    }
-  });
-  optional<HTMLElement>('#timeline-video-track')?.replaceChildren(...videoNodes, ...transitionNodes);
-  optional<HTMLElement>('#timeline-audio-track')?.replaceChildren(...audioNodes);
-  setSummary(`MP4 final medido · ${scenes.length} escena(s) · ${duration.toFixed(2)} s · transiciones superpuestas sobre V1.`);
-}
-
-function renderEmptyMeasured(message: string): void {
-  optional<HTMLElement>('#timeline-video-track')?.replaceChildren();
-  optional<HTMLElement>('#timeline-audio-track')?.replaceChildren();
-  optional<HTMLElement>('#timeline-ruler')?.replaceChildren();
-  setSurfaceWidth(600);
-  setTimelineMode(true);
-  setSummary(message);
-}
-
-function renderMeasuredRuler(duration: number): void {
-  const ruler = optional<HTMLElement>('#timeline-ruler');
-  if (!ruler) return;
-  const minorStep = pixelsPerSecond >= 120 ? 0.5 : pixelsPerSecond >= 50 ? 1 : pixelsPerSecond >= 28 ? 2 : 5;
-  const majorEvery = minorStep < 1 ? 2 : minorStep <= 2 ? 5 : 10;
-  const nodes: HTMLElement[] = [];
-  for (let second = 0; second <= duration + minorStep / 2; second += minorStep) {
-    const rounded = Math.round(second * 1000) / 1000;
-    const major = nearlyMultiple(rounded, majorEvery);
-    nodes.push(rulerMark(rounded * pixelsPerSecond, major ? formatRulerTime(rounded) : '', major));
-  }
-  ruler.replaceChildren(...nodes);
-}
-
-function createClip(options: {
-  id: string;
-  kind: 'video' | 'audio';
-  title: string;
-  detail: string;
-  left: number;
-  width: number;
-  selected?: boolean;
-  unmeasured?: boolean;
-}): HTMLButtonElement {
-  const clip = document.createElement('button');
-  clip.type = 'button';
-  clip.className = `timeline-clip ${options.kind}`;
-  clip.classList.toggle('is-selected', Boolean(options.selected));
-  clip.classList.toggle('is-unmeasured', Boolean(options.unmeasured));
-  clip.dataset.clipId = options.id;
-  clip.style.left = `${options.left}px`;
-  clip.style.width = `${Math.max(MIN_CLIP_WIDTH, options.width)}px`;
-  clip.title = `${options.title} · ${options.detail}`;
-  const title = document.createElement('strong');
-  title.textContent = options.title;
-  const detail = document.createElement('span');
-  detail.textContent = options.detail;
-  clip.append(title, detail);
-  return clip;
-}
-
-function rulerMark(left: number, text: string, major: boolean): HTMLElement {
-  const mark = document.createElement('span');
-  mark.className = 'timeline-ruler-mark';
-  mark.classList.toggle('is-major', major);
-  mark.style.left = `${left}px`;
-  mark.textContent = text;
-  return mark;
-}
-
-function seekFromPointer(event: MouseEvent): void {
-  if (!isMeasured() || (event.target as HTMLElement).closest('.timeline-clip')) return;
-  const surface = optional<HTMLElement>('#timeline-surface');
-  if (!surface) return;
-  const x = event.clientX - surface.getBoundingClientRect().left;
-  seekTo(snapTime(x / pixelsPerSecond));
-}
-
-function selectAndSeek(id: string, time: number): void {
-  selectedClipId = id;
-  seekTo(time);
-  render();
 }
 
 function seekTo(time: number): void {
   const duration = activeDuration();
   const target = clamp(time, 0, duration);
-  const media = activeMedia();
-  if (media) media.currentTime = target;
-  if (source === 'preview' && preview) preview.render(target);
+  seekEditorPlayback(target);
   updateTimelineTime(target);
 }
 
 function togglePlayback(): void {
-  const media = activeMedia();
-  if (!media) return;
-  if (media.paused) void media.play();
-  else media.pause();
+  void toggleEditorPlayback();
 }
 
 function syncPlayButton(): void {
   const button = optional<HTMLButtonElement>('#timeline-play');
-  const media = activeMedia();
-  if (button) button.textContent = media && !media.paused ? '❚❚' : '▶';
+  if (button) button.textContent = editorWorkspace().playing ? '❚❚' : '▶';
 }
 
 function toggleMute(): void {
-  const media = activeMedia();
-  if (!media) return;
-  media.muted = !media.muted;
+  toggleEditorMute();
   syncMuteButton();
 }
 
@@ -592,11 +413,11 @@ function deleteSelection(): void {
 
 function syncMuteButton(): void {
   const button = optional<HTMLButtonElement>('#timeline-mute');
-  const media = activeMedia();
+  const state = editorWorkspace();
   if (!button) return;
-  button.disabled = !media;
-  button.classList.toggle('is-active', Boolean(media?.muted));
-  button.setAttribute('aria-pressed', String(Boolean(media?.muted)));
+  button.disabled = !state.output;
+  button.classList.toggle('is-active', state.muted);
+  button.setAttribute('aria-pressed', String(state.muted));
 }
 
 function jumpBoundary(direction: -1 | 1): void {
@@ -615,6 +436,7 @@ function jumpBoundary(direction: -1 | 1): void {
 
 function jumpProjectScene(direction: -1 | 1): void {
   if (!store) return;
+  showEditorCanvas();
   const project = store.project();
   const index = project.scenes.findIndex((scene) => scene.id === store?.selectedSceneId());
   const target = project.scenes[clamp(index + direction, 0, project.scenes.length - 1)];
@@ -623,11 +445,7 @@ function jumpProjectScene(direction: -1 | 1): void {
 
 function measuredBoundaries(): number[] {
   const values = new Set<number>([0, activeDuration()]);
-  if (source === 'preview') {
-    for (const turn of preview?.turns ?? []) values.add(turn.startSeconds);
-  } else if (source === 'final') {
-    for (const scene of finalState?.timeline?.scenes ?? []) values.add(scene.startSeconds);
-  }
+  for (const scene of compatibleTimeline(store?.project().scenes ?? [])?.scenes ?? []) values.add(scene.startSeconds);
   return [...values].sort((left, right) => left - right);
 }
 
@@ -654,7 +472,7 @@ function zoomBy(factor: number): void {
 }
 
 function fitTimeline(): void {
-  const scroll = optional<HTMLElement>('#timeline-scroll');
+  const scroll = optional<HTMLElement>('#timeline-layer-stack');
   if (!scroll) return;
   if (isMeasured()) {
     const duration = activeDuration();
@@ -668,7 +486,8 @@ function fitTimeline(): void {
 
 function handleShortcut(event: KeyboardEvent): void {
   if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
-  if (event.code === 'Space' && isMeasured()) {
+  const hasOutput = Boolean(editorWorkspace().output);
+  if (event.code === 'Space' && hasOutput) {
     event.preventDefault();
     togglePlayback();
   } else if (event.code === 'ArrowLeft' && isMeasured()) {
@@ -689,22 +508,22 @@ function handleShortcut(event: KeyboardEvent): void {
   } else if (event.code === 'End' && isMeasured()) {
     event.preventDefault();
     seekTo(activeDuration());
-  } else if (event.code === 'KeyS') {
+  } else if (event.code === 'KeyS' && isMeasured()) {
     event.preventDefault();
     toggleSnap();
-  } else if (event.code === 'KeyM' && isMeasured()) {
+  } else if (event.code === 'KeyM' && hasOutput) {
     event.preventDefault();
     toggleMute();
-  } else if (event.code === 'KeyJ' && isMeasured()) {
+  } else if (event.code === 'KeyJ' && hasOutput) {
     event.preventDefault();
     activeMedia()?.pause();
     seekTo(currentTime - 1);
-  } else if (event.code === 'KeyK' && isMeasured()) {
+  } else if (event.code === 'KeyK' && hasOutput) {
     event.preventDefault();
     activeMedia()?.pause();
-  } else if (event.code === 'KeyL' && isMeasured()) {
+  } else if (event.code === 'KeyL' && hasOutput) {
     event.preventDefault();
-    void activeMedia()?.play();
+    void showRenderedPlayback();
   } else if (event.code === 'KeyF') {
     event.preventDefault();
     fitTimeline();
@@ -714,7 +533,7 @@ function handleShortcut(event: KeyboardEvent): void {
   } else if (event.code === 'Minus' || event.code === 'NumpadSubtract') {
     event.preventDefault();
     zoomBy(0.8);
-  } else if (event.code === 'Delete' && !isMeasured()) {
+  } else if (event.code === 'Delete') {
     event.preventDefault();
     deleteSelection();
   }
@@ -723,7 +542,9 @@ function handleShortcut(event: KeyboardEvent): void {
 function updateToolbar(): void {
   const hasProject = Boolean(store);
   const measured = isMeasured();
-  const hasNavigation = measured || Boolean(store?.project().scenes.length);
+  const creator = editorWorkspace().mode === 'creator';
+  const hasNavigation = !creator && Boolean(store?.project().scenes.length);
+  const hasOutput = !creator && Boolean(editorWorkspace().output);
   const undo = optional<HTMLButtonElement>('#timeline-undo');
   const redo = optional<HTMLButtonElement>('#timeline-redo');
   const play = optional<HTMLButtonElement>('#timeline-play');
@@ -731,17 +552,19 @@ function updateToolbar(): void {
   const next = optional<HTMLButtonElement>('#timeline-next');
   const duplicate = optional<HTMLButtonElement>('#timeline-duplicate');
   const remove = optional<HTMLButtonElement>('#timeline-delete');
+  const snap = optional<HTMLButtonElement>('#timeline-snap');
   if (undo) undo.disabled = !store?.canUndo();
   if (redo) redo.disabled = !store?.canRedo();
-  if (play) play.disabled = !measured;
+  if (play) play.disabled = !hasOutput;
   if (previous) previous.disabled = !hasNavigation;
   if (next) next.disabled = !hasNavigation;
+  if (snap) snap.disabled = creator || !measured;
   const selection = projectSelection();
-  if (duplicate) duplicate.disabled = measured || selection?.kind !== 'scene' || (store?.project().scenes.length ?? 0) >= 8;
+  if (duplicate) duplicate.disabled = creator || selection?.kind !== 'scene' || (store?.project().scenes.length ?? 0) >= 8;
   if (remove) {
-    remove.disabled = measured || !selection || (selection.kind === 'scene' && (store?.project().scenes.length ?? 0) <= 1);
+    remove.disabled = creator || !selection || (selection.kind === 'scene' && (store?.project().scenes.length ?? 0) <= 1);
   }
-  optional<HTMLButtonElement>('#timeline-fit')?.toggleAttribute('disabled', !hasProject && !measured);
+  optional<HTMLButtonElement>('#timeline-fit')?.toggleAttribute('disabled', creator || (!hasProject && !measured));
   syncPlayButton();
   syncMuteButton();
 }
@@ -763,21 +586,11 @@ function updateTimecode(): void {
     : '--:--.--- / --:--.---';
 }
 
-function setTimelineMode(measured: boolean): void {
+function setTimelineMode(measured: boolean, customLabel?: string): void {
   const mode = optional<HTMLElement>('#timeline-mode');
-  const playhead = optional<HTMLElement>('#timeline-playhead');
   if (mode) {
-    mode.textContent = measured ? 'Medido' : 'Sin medir';
+    mode.textContent = customLabel ?? (measured ? 'Medido' : 'Sin medir');
     mode.classList.toggle('is-measured', measured);
-  }
-  if (playhead) playhead.hidden = !measured;
-}
-
-function setSurfaceWidth(width: number): void {
-  const surface = optional<HTMLElement>('#timeline-surface');
-  if (surface) surface.style.width = `${Math.ceil(width)}px`;
-  for (const track of document.querySelectorAll<HTMLElement>('.timeline-track')) {
-    track.style.setProperty('--timeline-grid-size', `${pixelsPerSecond}px`);
   }
 }
 
@@ -787,10 +600,10 @@ function setSummary(message: string): void {
 }
 
 function followPlayhead(): void {
-  const media = activeMedia();
-  const scroll = optional<HTMLElement>('#timeline-scroll');
-  if (!media || media.paused || !scroll) return;
-  const x = currentTime * pixelsPerSecond;
+  const state = editorWorkspace();
+  const scroll = optional<HTMLElement>('#timeline-layer-stack');
+  if (!state.media || !state.playing || !scroll || !isMeasured()) return;
+  const x = currentTime * pixelsPerSecond + 78;
   const leftEdge = scroll.scrollLeft + 20;
   const rightEdge = scroll.scrollLeft + scroll.clientWidth - 30;
   if (x < leftEdge || x > rightEdge) {
@@ -799,28 +612,25 @@ function followPlayhead(): void {
 }
 
 function activeMedia(): HTMLMediaElement | null {
-  if (source === 'preview') return preview?.audio ?? null;
-  if (source === 'final') return finalState?.video ?? null;
-  return null;
+  return editorWorkspace().output ? editorWorkspace().media : null;
 }
 
 function activeDuration(): number {
-  if (source === 'preview') return preview?.durationSeconds ?? 0;
-  if (source === 'final') return finalState?.timeline?.durationSeconds || finalState?.video.duration || 0;
-  return 0;
+  return editorWorkspace().output ? editorWorkspace().duration : 0;
 }
 
 function isMeasured(): boolean {
-  return activeDuration() > 0 && Boolean(activeMedia());
+  return Boolean(compatibleTimeline(store?.project().scenes ?? []));
 }
 
-function measuredWidth(duration: number): number {
-  const scrollWidth = optional<HTMLElement>('#timeline-scroll')?.clientWidth ?? 600;
-  return Math.max(scrollWidth, duration * pixelsPerSecond + 2);
-}
-
-function sceneTitle(scene: MeasuredScene, projectScenes: SceneView[], index: number): string {
-  return projectScenes.find((item) => item.id === scene.id)?.title ?? projectScenes[index]?.title ?? `Escena ${index + 1}`;
+function compatibleTimeline(projectScenes: SceneView[]): MeasuredProjectTimeline | null {
+  const state = editorWorkspace();
+  const output = state.output;
+  const timeline = output?.timeline;
+  if (!output || !timeline || output.stale || output.projectId !== state.activeProjectId) return null;
+  if (timeline.scenes.length !== projectScenes.length) return null;
+  const sameScenes = timeline.scenes.every((scene, index) => scene.id === projectScenes[index]?.id);
+  return sameScenes ? timeline : null;
 }
 
 function wordsInScene(scene: SceneView): number {
@@ -829,10 +639,6 @@ function wordsInScene(scene: SceneView): number {
 
 function wordCount(value: string): number {
   return value.trim().split(/\s+/u).filter(Boolean).length;
-}
-
-function nearlyMultiple(value: number, divisor: number): boolean {
-  return Math.abs(value / divisor - Math.round(value / divisor)) < 0.0001;
 }
 
 function formatRulerTime(seconds: number): string {

@@ -1,6 +1,5 @@
 import type { PreviewHandle } from '../preview/types.js';
 import { optional } from './dom.js';
-import { initPlaybackUi } from './playback.js';
 import { initDirectorUi } from './director/panel.js';
 import { initWorkspaceResize } from './layout-resize.js';
 import { initCompositionPreview } from './project/composition.js';
@@ -10,10 +9,11 @@ import { persistStore, restoreSession } from './project/persistence.js';
 import { initProjectTimeline } from './project/project-timeline.js';
 import { loadProjectStore, type ProjectStore } from './project/store.js';
 import { initSettingsModal, initTheme } from './theme.js';
-import { attachPreviewTimeline, initTimelineShell } from './timeline.js';
-import { initViewerSources } from './viewer.js';
+import { initTimelineShell } from './timeline.js';
+import { initViewerWorkspace } from './viewer.js';
 import { initCharacterCreator } from './character-creator.js';
 import { initProjectFiles } from './project/files.js';
+import { markEditorProjectChanged, setActiveEditorProject } from './editor-workspace.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -22,15 +22,15 @@ export function initShellUi(): void {
   initTheme();
   initSettingsModal();
   initWorkspaceResize();
-  initViewerSources();
+  initViewerWorkspace();
   initCharacterCreator();
   initTimelineShell();
 }
 
-// Interfaz que consume la reproducción ya iniciada por el preview.
+// El preview publicado de una escena se mantiene como comprobación interna de
+// compatibilidad. El flujo principal reproduce únicamente el MP4 del Editor.
 export function initEditorUi(handle: PreviewHandle): void {
-  attachPreviewTimeline(handle);
-  initPlaybackUi(handle);
+  void handle;
 }
 
 // Editor del proyecto de autoría. Es independiente del preview: si el proyecto no
@@ -59,14 +59,21 @@ export async function initProjectUi(): Promise<void> {
 }
 
 function attachProjectUi(store: ProjectStore): void {
+  setActiveEditorProject(store.project().id);
   initProjectFiles(store);
   initProjectEditor(store);
   initProjectTimeline(store);
   void initCompositionPreview(store);
   void initResourceLibrary(store);
   persistStore(store);
+  let projectSnapshot = JSON.stringify(store.project());
   store.subscribe(() => {
     persistStore(store);
+    const nextSnapshot = JSON.stringify(store.project());
+    if (nextSnapshot !== projectSnapshot) {
+      projectSnapshot = nextSnapshot;
+      markEditorProjectChanged(store.project().id);
+    }
     const status = optional<HTMLElement>('#save-status');
     if (status) status.textContent = `Guardado ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   });

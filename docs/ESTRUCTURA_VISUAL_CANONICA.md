@@ -109,19 +109,19 @@ Es el foco visual dominante. Responde a la pregunta: “¿Qué video o composici
 
 ### Responsabilidades
 
-- Mostrar la composición editable.
+- Mantener el lienzo editable como superficie principal del Editor.
 - Seleccionar y mover elementos compatibles directamente sobre la composición.
-- Mostrar el preview medido.
-- Reproducir el MP4 final.
+- Reproducir la última exportación dentro del mismo Editor, sin convertirla en otra fuente o pestaña.
 - Conservar claramente la relación vertical 9:16.
-- Ofrecer controles de reproducción relacionados con la vista.
-- Mostrar contexto breve y descarga del resultado cuando corresponda.
+- Compartir transporte, tiempo y estado de medición con la timeline.
+- Mostrar contexto breve, vigencia de la exportación y descarga cuando corresponda.
 
-### Fuentes vigentes
+### Espacios vigentes
 
-- **Composición:** proyección estática del proyecto editable.
-- **Preview medido:** escena publicada con tiempos reales.
-- **MP4 final:** resultado ensamblado por el pipeline.
+- **Editor:** lienzo editable y reproducción temporal de su última exportación.
+- **Creador:** autoría de recursos reutilizables; no modifica ni simula una timeline de video.
+
+La reproducción es un estado del Editor, no un tercer espacio. **Volver a editar** pausa el medio y recupera el lienzo. La preview PixiJS publicada se conserva únicamente como compatibilidad técnica interna.
 
 ### Regla visual
 
@@ -131,7 +131,8 @@ Debe recibir el mayor espacio del área principal. Los paneles laterales sirven 
 
 - Mezclar formularios largos sobre el video.
 - Duplicar la biblioteca o el inspector dentro del visor.
-- Ocultar qué fuente está activa.
+- Exponer composición, preview y MP4 como modos paralelos.
+- Presentar una exportación histórica como si correspondiera con certeza a la revisión actual.
 
 ## 4. Panel derecho — Edición, ajustes y recursos
 
@@ -211,8 +212,10 @@ Director / selección izquierda
 - Seleccionar un trabajo a la izquierda carga el contexto de las demás áreas.
 - Seleccionar una escena o turno en la timeline actualiza el visor y el inspector.
 - Editar en el panel derecho actualiza composición y clips relacionados.
-- Cambiar entre Composición, Preview y MP4 cambia el modo temporal de la timeline.
-- Reproducir o hacer seek mantiene sincronizados visor, timecode y playhead.
+- Reproducir o hacer seek mantiene sincronizados visor, timecode y playhead sin cambiar de timeline.
+- Una exportación compatible aporta tiempos reales a las mismas capas editables.
+- Cualquier cambio posterior marca esa exportación como anterior y devuelve la timeline a **Sin medir**.
+- El Creador conserva el proyecto intacto y muestra que la timeline pertenece al Editor.
 
 ## Proporciones y comportamiento
 

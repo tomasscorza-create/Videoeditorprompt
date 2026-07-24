@@ -14,12 +14,13 @@ import {
   type TemplateCharacterDesign,
 } from '../../shared/character-design-presets.js';
 import { optional } from './dom.js';
+import { EDITOR_WORKSPACE_EVENT, editorWorkspace } from './editor-workspace.js';
 import {
   listCharacterDesigns,
   saveCharacterDesign,
   type SavedCharacterDesign,
 } from './director/api.js';
-import { showViewerSource } from './viewer.js';
+import { showViewerWorkspace } from './viewer.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const COLOR_LABELS: Record<string, string> = {
@@ -58,6 +59,10 @@ export function initCharacterCreator(): void {
   optional<HTMLButtonElement>('#character-part-up')?.addEventListener('click', () => movePart(1));
   optional<HTMLButtonElement>('#character-part-down')?.addEventListener('click', () => movePart(-1));
   optional<HTMLButtonElement>('#character-part-delete')?.addEventListener('click', deletePart);
+  window.addEventListener(EDITOR_WORKSPACE_EVENT, () => {
+    if (editorWorkspace().mode !== 'editor' || optional<HTMLElement>('#character-creator-panel')?.hidden) return;
+    suspendCreator();
+  });
   for (const checkbox of document.querySelectorAll<HTMLInputElement>('[data-character-layer]')) {
     checkbox.addEventListener('change', render);
   }
@@ -92,9 +97,9 @@ async function openCreator(): Promise<void> {
     populateSavedDesigns();
     optional<HTMLElement>('#resource-library')!.hidden = true;
     optional<HTMLElement>('#character-creator-panel')!.hidden = false;
-    const sourceButton = optional<HTMLButtonElement>('#source-character');
-    if (sourceButton) sourceButton.hidden = false;
-    showViewerSource('character');
+    optional<HTMLElement>('#creator-empty-state')!.hidden = true;
+    optional<HTMLElement>('#character-view')!.hidden = false;
+    showViewerWorkspace('creator');
     syncControlsFromDesign();
     setStatus('Elegí un camino de creación. Los diseños guardados se editan como copias.', false);
   } catch (error) {
@@ -103,11 +108,15 @@ async function openCreator(): Promise<void> {
 }
 
 function closeCreator(): void {
+  suspendCreator();
+  showViewerWorkspace('editor');
+}
+
+function suspendCreator(): void {
   optional<HTMLElement>('#character-creator-panel')!.hidden = true;
   optional<HTMLElement>('#resource-library')!.hidden = false;
-  const sourceButton = optional<HTMLButtonElement>('#source-character');
-  if (sourceButton) sourceButton.hidden = true;
-  showViewerSource('composition');
+  optional<HTMLElement>('#creator-empty-state')!.hidden = false;
+  optional<HTMLElement>('#character-view')!.hidden = true;
 }
 
 function createTemplateDesign(): TemplateCharacterDesign {

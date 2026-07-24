@@ -3,7 +3,6 @@ import { startDialoguePreview } from './preview/dialogue.js';
 import { startLegacyPreview } from './preview/legacy.js';
 import type { PreviewIndex, PreviewSelection, PreviewUi, SceneConfig, SceneRuntime } from './preview/types.js';
 import { initEditorUi, initProjectUi, initShellUi, renderJobGallery } from './ui/index.js';
-import { setViewerSourceAvailable } from './ui/viewer.js';
 import './style.css';
 
 const previewUi: PreviewUi = {
@@ -48,7 +47,6 @@ async function start(): Promise<void> {
   const options = { selection, config, runtime, generatedUrl, assetUrl, ui: previewUi };
   const handle = config.version === 2 ? await startDialoguePreview(options) : await startLegacyPreview(options);
   initEditorUi(handle);
-  setViewerSourceAvailable('preview');
 }
 
 async function selectPreview(): Promise<PreviewSelection> {
