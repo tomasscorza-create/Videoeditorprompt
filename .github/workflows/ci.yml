@@ -17,6 +17,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # FFmpeg/FFprobe son tecnología núcleo del pipeline (ver AGENTS.md). El runner
+      # no los trae; stage2f:test-parametric usa ffprobe para verificar los PNG.
+      - name: Install FFmpeg
+        run: choco install ffmpeg -y --no-progress
       - run: npm ci
       - run: npm test
       - run: npm run build
