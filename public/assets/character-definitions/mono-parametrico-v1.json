@@ -37,6 +37,74 @@
         "tongue": "#ef8085",
         "shadow": "#0a102059"
       }
+    },
+    {
+      "id": "verde",
+      "outputId": "mono-parametrico-verde-v1",
+      "label": "Mono divulgador verde",
+      "palette": {
+        "outline": "#14231a",
+        "fur": "#7a5334",
+        "lightFur": "#c9975f",
+        "suit": "#235a3c",
+        "shirt": "#eef0da",
+        "accent": "#e6a93c",
+        "white": "#fffaf0",
+        "mouthDark": "#2a1a1e",
+        "tongue": "#ef8a80",
+        "shadow": "#0a102059"
+      }
+    },
+    {
+      "id": "teal",
+      "outputId": "mono-parametrico-teal-v1",
+      "label": "Mono divulgador teal",
+      "palette": {
+        "outline": "#0f2226",
+        "fur": "#6f5340",
+        "lightFur": "#c59a6f",
+        "suit": "#1f6d78",
+        "shirt": "#e9f1ec",
+        "accent": "#f2c14e",
+        "white": "#fffaf0",
+        "mouthDark": "#241a20",
+        "tongue": "#ef8580",
+        "shadow": "#0a102059"
+      }
+    },
+    {
+      "id": "terracota",
+      "outputId": "mono-parametrico-terracota-v1",
+      "label": "Mono divulgador terracota",
+      "palette": {
+        "outline": "#241310",
+        "fur": "#8a5836",
+        "lightFur": "#d69a66",
+        "suit": "#b0532b",
+        "shirt": "#fbecdb",
+        "accent": "#3f8390",
+        "white": "#fffaf0",
+        "mouthDark": "#341a1c",
+        "tongue": "#ef8278",
+        "shadow": "#0a102059"
+      }
+    },
+    {
+      "id": "pizarra",
+      "outputId": "mono-parametrico-pizarra-v1",
+      "label": "Mono divulgador pizarra",
+      "palette": {
+        "outline": "#1a1d21",
+        "fur": "#6d6153",
+        "lightFur": "#b8ab97",
+        "suit": "#3c4653",
+        "shirt": "#eef1f3",
+        "accent": "#e0603f",
+        "white": "#fffaf0",
+        "mouthDark": "#29222a",
+        "tongue": "#e88b83",
+        "shadow": "#0a102059"
+      }
     }
   ],
   "joints": [

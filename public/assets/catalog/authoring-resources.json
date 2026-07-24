@@ -38,6 +38,78 @@
       }
     },
     {
+      "id": "mono-verde-v1",
+      "type": "character",
+      "label": "Mono divulgador verde",
+      "tags": ["divulgador", "geometrico", "mono", "verde"],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "mono-parametrico-verde-v1"
+      },
+      "capabilities": {
+        "poses": ["neutral", "point"],
+        "animationPresets": ["idle-calm", "talk-calm"]
+      },
+      "provenance": {
+        "source": "Variante de paleta de la definición geométrica original del proyecto.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "mono-teal-v1",
+      "type": "character",
+      "label": "Mono divulgador teal",
+      "tags": ["divulgador", "geometrico", "mono", "teal"],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "mono-parametrico-teal-v1"
+      },
+      "capabilities": {
+        "poses": ["neutral", "point"],
+        "animationPresets": ["idle-calm", "talk-calm"]
+      },
+      "provenance": {
+        "source": "Variante de paleta de la definición geométrica original del proyecto.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "mono-terracota-v1",
+      "type": "character",
+      "label": "Mono divulgador terracota",
+      "tags": ["calido", "divulgador", "geometrico", "mono"],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "mono-parametrico-terracota-v1"
+      },
+      "capabilities": {
+        "poses": ["neutral", "point"],
+        "animationPresets": ["idle-calm", "talk-calm"]
+      },
+      "provenance": {
+        "source": "Variante de paleta de la definición geométrica original del proyecto.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "mono-pizarra-v1",
+      "type": "character",
+      "label": "Mono divulgador pizarra",
+      "tags": ["divulgador", "geometrico", "gris", "mono"],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "mono-parametrico-pizarra-v1"
+      },
+      "capabilities": {
+        "poses": ["neutral", "point"],
+        "animationPresets": ["idle-calm", "talk-calm"]
+      },
+      "provenance": {
+        "source": "Variante de paleta de la definición geométrica original del proyecto.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
       "id": "voz-daniela-ar-v1",
       "type": "voice",
       "label": "Daniela — español de Argentina",

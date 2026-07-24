@@ -34,8 +34,8 @@ try {
     builtinCatalog,
     now: () => new Date('2026-07-24T00:00:00.000Z'),
   });
-  assert.equal(library.list().length, 5);
-  assert.equal(library.catalog().entries.length, 5);
+  assert.equal(library.list().length, 9);
+  assert.equal(library.catalog().entries.length, 9);
   assert.match(library.catalogRelative, /^assets\/library\/test-[^/]+\/authoring-resources\.json$/);
 
   const voice = {
@@ -58,7 +58,7 @@ try {
   const registered = library.register(voice);
   assert.equal(registered.created, true);
   assert.equal(registered.resource.origin, 'local');
-  assert.equal(library.catalog().entries.length, 6);
+  assert.equal(library.catalog().entries.length, 10);
 
   const same = library.register(voice);
   assert.equal(same.created, false);
@@ -103,7 +103,7 @@ try {
   assert.equal(importedBackground.created, true);
   assert.equal(importedBackground.resource.entry.type, 'background');
   assert.equal(importedBackground.image.mimeType, 'image/png');
-  assert.equal(library.catalog().entries.length, 7);
+  assert.equal(library.catalog().entries.length, 11);
   const importedManifest = JSON.parse(readFileSync(
     path.join(assetsRoot, importedBackground.resource.entry.backgroundManifest),
     'utf8',
@@ -229,10 +229,10 @@ try {
   legacyCharacterRecord.entry.capabilities.animationPresets = ['idle', 'dialogue'];
   writeFileSync(library.indexPath, JSON.stringify(registryBeforeUpgrade), 'utf8');
   const restored = createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
-  assert.equal(restored.list().length, 10);
+  assert.equal(restored.list().length, 14);
   assert.equal(restored.catalog().entries.at(-1).type, 'character');
   assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 5);
-  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 10);
+  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 14);
   assert.equal(existsSync(path.join(
     publishRoot,
     'backgrounds',
@@ -258,7 +258,7 @@ try {
     builtinCatalog,
     legacyIndexPath: restored.indexPath,
   });
-  assert.equal(migrated.list().length, 10);
+  assert.equal(migrated.list().length, 14);
   assert.equal(existsSync(migrated.indexPath), true);
   assert.equal(existsSync(path.join(
     migrated.storageAssetsRoot,

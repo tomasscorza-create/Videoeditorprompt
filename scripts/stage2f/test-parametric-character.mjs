@@ -13,7 +13,7 @@ const sourceDefinitionPath = path.join(projectRoot, 'public', 'assets', 'charact
 const source = loadParametricCharacterDefinition(sourceDefinitionPath);
 const results = [];
 
-assert.equal(source.variants.length, 2);
+assert.equal(source.variants.length, 6);
 assert.ok(source.joints.some((joint) => joint.id === 'shoulder_right'));
 assert.deepEqual(source.poses.map((pose) => pose.id), ['neutral', 'point']);
 results.push({ name: 'definition-valid-with-variants-joints-poses', passed: true });
@@ -48,7 +48,7 @@ for (const name of ['run-a', 'run-b']) {
 
 for (const compiled of compiledRuns) {
   const catalog = validateAssetCatalog(readJson(compiled.catalogPath));
-  assert.equal(catalog.entries.length, 2);
+  assert.equal(catalog.entries.length, 6);
   assert.ok(catalog.entries.every((entry) => !path.isAbsolute(entry.manifest) && !entry.manifest.includes('..') && entry.capabilities.poses.includes('point')));
 }
 results.push({ name: 'portable-catalog-with-two-variants', passed: true });

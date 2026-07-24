@@ -71,6 +71,146 @@
         "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
         "license": "Asset original para uso interno del proyecto."
       }
+    },
+    {
+      "id": "mono-parametrico-verde-v1",
+      "type": "character",
+      "label": "Mono divulgador verde",
+      "manifest": "assets/characters/mono-parametrico-verde-v1/character.manifest.json",
+      "thumbnail": "assets/characters/mono-parametrico-verde-v1/pose_neutral.png",
+      "tags": [
+        "geometrico",
+        "mono",
+        "parametrico"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open"
+        ],
+        "joints": [
+          "root",
+          "head",
+          "shoulder_left",
+          "shoulder_right",
+          "elbow_right",
+          "wrist_right"
+        ]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "mono-parametrico-teal-v1",
+      "type": "character",
+      "label": "Mono divulgador teal",
+      "manifest": "assets/characters/mono-parametrico-teal-v1/character.manifest.json",
+      "thumbnail": "assets/characters/mono-parametrico-teal-v1/pose_neutral.png",
+      "tags": [
+        "geometrico",
+        "mono",
+        "parametrico"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open"
+        ],
+        "joints": [
+          "root",
+          "head",
+          "shoulder_left",
+          "shoulder_right",
+          "elbow_right",
+          "wrist_right"
+        ]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "mono-parametrico-terracota-v1",
+      "type": "character",
+      "label": "Mono divulgador terracota",
+      "manifest": "assets/characters/mono-parametrico-terracota-v1/character.manifest.json",
+      "thumbnail": "assets/characters/mono-parametrico-terracota-v1/pose_neutral.png",
+      "tags": [
+        "geometrico",
+        "mono",
+        "parametrico"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open"
+        ],
+        "joints": [
+          "root",
+          "head",
+          "shoulder_left",
+          "shoulder_right",
+          "elbow_right",
+          "wrist_right"
+        ]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "mono-parametrico-pizarra-v1",
+      "type": "character",
+      "label": "Mono divulgador pizarra",
+      "manifest": "assets/characters/mono-parametrico-pizarra-v1/character.manifest.json",
+      "thumbnail": "assets/characters/mono-parametrico-pizarra-v1/pose_neutral.png",
+      "tags": [
+        "geometrico",
+        "mono",
+        "parametrico"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open"
+        ],
+        "joints": [
+          "root",
+          "head",
+          "shoulder_left",
+          "shoulder_right",
+          "elbow_right",
+          "wrist_right"
+        ]
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
+        "license": "Asset original para uso interno del proyecto."
+      }
     }
   ]
 }
