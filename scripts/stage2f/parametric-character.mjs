@@ -261,6 +261,13 @@ function rasterizeSvg(browserExecutable, browserProfile, svgPath, pngPath, canva
   run(browserExecutable, [
     '--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1',
     '--default-background-color=00000000', `--window-size=${canvas.width},${canvas.height}`,
+    // Flags de estabilidad para entornos headless/CI: sin ellos, Chrome intenta
+    // registro GCM, actualización de componentes y modelos on-device por red, lo que
+    // cuelga el runner hasta el timeout. No afectan el output rasterizado (determinismo).
+    '--no-sandbox', '--no-first-run', '--no-default-browser-check',
+    '--disable-background-networking', '--disable-sync', '--disable-component-update',
+    '--disable-default-apps', '--disable-extensions', '--metrics-recording-only',
+    '--disable-features=OptimizationGuideModelDownloading,Translate,MediaRouter,DialMediaRouteProvider',
     `--user-data-dir=${browserProfile}`, `--screenshot=${pngPath}`, pathToFileURL(svgPath).href,
   ], { stage: 'generating_assets', errorCode: 'BROWSER_ASSET_GENERATION_FAILED' });
 }
