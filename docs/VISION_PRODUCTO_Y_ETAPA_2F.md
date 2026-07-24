@@ -319,7 +319,7 @@ Resultado comprobado:
 
 Límite deliberado: los joints y rotaciones ya forman un contrato portable, pero el runtime todavía selecciona capas PNG precompiladas. La aplicación continua de transforms jerárquicos pertenece a un incremento posterior, no a 2F.2.
 
-La evidencia completa está en `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`.
+La evidencia completa está en `etapas/ETAPA_2F_PARAMETRICOS_RESULTADOS.md`.
 
 ### Gate para comenzar 3A
 

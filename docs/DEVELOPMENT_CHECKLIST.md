@@ -38,7 +38,7 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] Preview usa turnos medidos; MP4 usa escenas, audio y fundidos del manifiesto final; autoría queda marcada sin medir.
 - [ ] Próximo gate: producción personal real, métricas de planes válidos y mejoras de variantes/reparación y edición manual.
 
-Evidencia vigente: `ETAPA_2F_CALIDAD_RESULTADOS.md`, `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.
+Evidencia vigente: `etapas/ETAPA_2F_CALIDAD_RESULTADOS.md`, `etapas/ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `etapas/ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `etapas/ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `etapas/ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `etapas/ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.
 
 El próximo incremento debe medir el flujo en producción personal y profundizar variantes, reparación y edición manual sobre el contrato vigente. No incorporar todavía Electron, timeline profesional, lip sync fonético, backend remoto ni funciones multiusuario.
 

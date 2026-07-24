@@ -27,7 +27,7 @@ No reinterpretar sin autorización estas decisiones:
 - Una API paga solo se usa cuando aporta una ventaja demostrable y con presupuesto, caché, métricas y sustitución local.
 - No reemplazar PixiJS, FFmpeg, Piper o el pipeline vigente sin una razón probada y una tarea específica.
 
-Cuando documentos históricos contradigan el código actual, prevalecen este archivo, `ETAPA_1_ENDURECIMIENTO_RESULTADOS.md` y el código verificado. `PROPUESTA_TECNICA.md` y los informes de Etapa 0/1 conservan decisiones e historia, pero algunos comandos y rutas ya fueron superados.
+Cuando documentos históricos contradigan el código actual, prevalecen este archivo, `docs/etapas/ETAPA_1_ENDURECIMIENTO_RESULTADOS.md` y el código verificado. `docs/PROPUESTA_TECNICA.md` y los informes de Etapa 0/1 conservan decisiones e historia, pero algunos comandos y rutas ya fueron superados.
 
 ## 2. Prioridades
 

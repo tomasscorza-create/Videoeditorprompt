@@ -230,18 +230,18 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [Flujo de colaboración](docs/FLUJO_COLABORACION_CODEX_CLAUDE.md) | Reglas usadas para integrar motor y UX/UI. |
 | [Deuda técnica y plan UX](docs/UX_DEUDA_TECNICA_Y_PLAN.md) | Decisiones y pendientes de experiencia visual. |
 
-La evidencia histórica está documentada en los informes `ETAPA_*_RESULTADOS.md`. Para el estado reciente, consultar:
+La evidencia histórica está documentada en los informes `docs/etapas/ETAPA_*_RESULTADOS.md`. Para el estado reciente, consultar:
 
-- [Etapa 2F — calidad](ETAPA_2F_CALIDAD_RESULTADOS.md)
-- [Etapa 2F — personajes paramétricos](ETAPA_2F_PARAMETRICOS_RESULTADOS.md)
-- [Etapa 3A.0 — proyecto editable](ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md)
-- [Etapa 3A.1 — compilador](ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md)
-- [Etapa 3A.2 — render multiescena](ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md)
-- [Etapa 3B.0 — núcleo del editor](ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md)
-- [Etapa 4A — Director IA local](ETAPA_4A_DIRECTOR_IA_LOCAL_RESULTADOS.md)
-- [Etapa 4B — estabilización local](ETAPA_4B_ESTABILIZACION_LOCAL_RESULTADOS.md)
+- [Etapa 2F — calidad](docs/etapas/ETAPA_2F_CALIDAD_RESULTADOS.md)
+- [Etapa 2F — personajes paramétricos](docs/etapas/ETAPA_2F_PARAMETRICOS_RESULTADOS.md)
+- [Etapa 3A.0 — proyecto editable](docs/etapas/ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md)
+- [Etapa 3A.1 — compilador](docs/etapas/ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md)
+- [Etapa 3A.2 — render multiescena](docs/etapas/ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md)
+- [Etapa 3B.0 — núcleo del editor](docs/etapas/ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md)
+- [Etapa 4A — Director IA local](docs/etapas/ETAPA_4A_DIRECTOR_IA_LOCAL_RESULTADOS.md)
+- [Etapa 4B — estabilización local](docs/etapas/ETAPA_4B_ESTABILIZACION_LOCAL_RESULTADOS.md)
 
-Cuando un documento histórico contradiga el código vigente, prevalecen `AGENTS.md`, `ETAPA_1_ENDURECIMIENTO_RESULTADOS.md` y el código verificado.
+Cuando un documento histórico contradiga el código vigente, prevalecen `AGENTS.md`, `docs/etapas/ETAPA_1_ENDURECIMIENTO_RESULTADOS.md` y el código verificado.
 
 ## Licencias
 

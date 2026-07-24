@@ -4,7 +4,10 @@ dist/
 # Temporales de trabajo (regenerables)
 temp/
 output/*.mp4
+output/**/*.mp4
 output/*.json
+pilots/**/output/*.mp4
+assets/*.wav
 *.log
 
 # Publicación de preview: regenerable, no es almacenamiento del motor (ver AGENTS.md)

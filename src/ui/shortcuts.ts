@@ -9,7 +9,7 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && target.isContentEditable;
 }
 
-// Atajos documentados en comandos.md.
+// Atajos documentados en docs/comandos.md.
 export function initShortcuts(handle: PreviewHandle): void {
   const { audio, render, durationSeconds } = handle;
   window.addEventListener('keydown', (event) => {

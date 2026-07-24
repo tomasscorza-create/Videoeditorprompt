@@ -7,4 +7,4 @@ Esta carpeta contiene la prueba de TTS local de la Etapa 0.
 - Los WAV y métricas se guardan en `output/`.
 - Nada de esta carpeta está integrado con `src/` ni con `package.json`.
 
-Los resultados consolidados se documentan en `../ETAPA_0_RESULTADOS.md`.
+Los resultados consolidados se documentan en `../docs/etapas/ETAPA_0_RESULTADOS.md`.
