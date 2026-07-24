@@ -146,6 +146,7 @@ export function createRenderJobManager(options = {}) {
           deterministic: manifest.deterministic,
           videoUrl: `/api/render-jobs/${job.jobId}/video`,
           downloadName: `${job.projectId}.mp4`,
+          timeline: publicTimeline(manifest.timeline),
         },
       });
     });
@@ -276,6 +277,12 @@ export function createRenderJobManager(options = {}) {
             message: 'El servicio se reinició antes de que terminara el render.',
             suggestedAction: 'Volvé a iniciar el render; los outputs incompletos no se publicaron.',
           }), 'recovery');
+        } else if (recovered.state === 'completed' && recovered.result && !recovered.result.timeline) {
+          const manifestFile = resultPath(recovered.jobId, 'project-manifest.json');
+          if (existsSync(manifestFile)) {
+            const manifest = readJson(manifestFile);
+            recovered.result = { ...recovered.result, timeline: publicTimeline(manifest.timeline) };
+          }
         }
         jobs.set(recovered.jobId, recovered);
         if (recovered.state === 'failed' && recovered.stage === 'recovery') persist(recovered);
@@ -297,6 +304,26 @@ export function createRenderJobManager(options = {}) {
   }
 
   return { create, get, list, cancel, cancelActive, video, get activeJobId() { return activeJobId; } };
+}
+
+function publicTimeline(timeline) {
+  return {
+    durationSeconds: timeline.durationSeconds,
+    scenes: timeline.scenes.map((scene) => ({
+      id: scene.id,
+      startSeconds: scene.startSeconds,
+      endSeconds: scene.endSeconds,
+      audioDurationSeconds: scene.audioDurationSeconds,
+      ...(scene.transitionToNext ? {
+        transitionToNext: {
+          preset: scene.transitionToNext.preset,
+          durationSeconds: scene.transitionToNext.durationSeconds,
+          startSeconds: scene.transitionToNext.startSeconds,
+          endSeconds: scene.transitionToNext.endSeconds,
+        },
+      } : {}),
+    })),
+  };
 }
 
 function publicJob(job) {

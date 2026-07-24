@@ -79,6 +79,47 @@ assert.equal(failedStatus.state, 'failed');
 assert.equal(failedStatus.error.code, 'ERR_ASSERTION');
 assert.equal(failedStatus.error.message, 'Duración compilada coincide');
 
+const completedJob = manager.create(project);
+const completedOutput = path.join(root, 'output', completedJob.jobId);
+mkdirSync(completedOutput, { recursive: true });
+writeFileSync(path.join(completedOutput, 'render-1.mp4'), 'video');
+writeFileSync(path.join(completedOutput, 'project-manifest.json'), JSON.stringify({
+  version: 1,
+  jobId: completedJob.jobId,
+  projectId: project.id,
+  deterministic: false,
+  timeline: {
+    durationSeconds: 12.5,
+    scenes: [
+      {
+        id: project.scenes[0].id,
+        startSeconds: 0,
+        endSeconds: 6.5,
+        audioDurationSeconds: 6.45,
+        transitionToNext: {
+          preset: 'fade',
+          durationSeconds: 0.35,
+          startSeconds: 6.15,
+          endSeconds: 6.5,
+        },
+      },
+      {
+        id: project.scenes[1].id,
+        startSeconds: 6.15,
+        endSeconds: 12.5,
+        audioDurationSeconds: 6.3,
+      },
+    ],
+  },
+}));
+spawned.child.emit('close', 0);
+const completedStatus = manager.get(completedJob.jobId);
+assert.equal(completedStatus.state, 'completed');
+assert.equal(completedStatus.result.timeline.durationSeconds, 12.5);
+assert.equal(completedStatus.result.timeline.scenes.length, 2);
+assert.equal(completedStatus.result.timeline.scenes[0].transitionToNext.preset, 'fade');
+assert.equal(completedStatus.result.timeline.scenes[1].startSeconds, 6.15);
+
 const recoveryJobsRoot = path.join(root, 'recovery-jobs');
 mkdirSync(recoveryJobsRoot, { recursive: true });
 writeFileSync(path.join(recoveryJobsRoot, 'render-interrupted.json'), JSON.stringify({
@@ -111,4 +152,4 @@ assert.throws(
   (error) => error.code === 'JOB_ID_INVALID',
 );
 
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 24, failed: 0, jobId: job.jobId })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 29, failed: 0, jobId: job.jobId })}\n`);

@@ -402,14 +402,27 @@ h1, h2 { font-size: .98rem; }
 }
 .timeline-label-ruler { border-bottom: 1px solid var(--border); }
 .timeline-track-label {
-  display: grid;
-  align-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .25rem;
   padding: 0 .6rem;
   border-bottom: 1px solid var(--border);
   line-height: 1.1;
 }
+.timeline-track-label > div { display: grid; line-height: 1.1; }
 .timeline-track-label strong { color: var(--text); font-size: .66rem; }
 .timeline-track-label span { color: var(--muted); font-size: .55rem; }
+.timeline-track-action {
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+  border-color: transparent;
+  padding: .1rem;
+  color: var(--muted);
+  background: transparent;
+  font-size: .55rem;
+}
+.timeline-track-action.is-active { color: var(--danger); border-color: var(--danger); }
 .timeline-scroll { min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-color: var(--border-strong) var(--bg); scrollbar-width: thin; }
 .timeline-surface { position: relative; min-width: 100%; height: 100%; }
 .timeline-ruler {
@@ -504,6 +517,12 @@ h1, h2 { font-size: .98rem; }
   white-space: nowrap;
 }
 
+.shortcuts-modal { width: min(28rem, calc(100vw - 2rem)); }
+.shortcut-list { display: grid; gap: .35rem; margin: 0; }
+.shortcut-list > div { display: grid; grid-template-columns: 7.5rem 1fr; gap: .75rem; padding: .45rem 0; border-bottom: 1px solid var(--border); }
+.shortcut-list dt { color: var(--accent); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .72rem; }
+.shortcut-list dd { margin: 0; color: var(--muted); font-size: .72rem; }
+
 .modal { max-width: 24rem; border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0; color: var(--text); background: var(--surface); }
 .modal::backdrop { background: rgb(0 0 0 / .65); }
 .modal-content { display: grid; gap: 1rem; padding: 1rem; }
@@ -531,7 +550,7 @@ h1, h2 { font-size: .98rem; }
   .vertical-stage { max-width: 100%; height: auto; width: min(100%, 19rem); }
   .viewer-stage-wrap { min-height: 29rem; }
   .professional-timeline { margin: 0 .5rem .5rem; }
-  .timeline-title-block, .timeline-tool-group[aria-label="Historial"], .timeline-select-tool { display: none; }
+  .timeline-title-block, .timeline-tool-group[aria-label="Historial"], #timeline-select-tool, #timeline-shortcuts { display: none; }
   .timeline-timecode { min-width: 7.8rem; }
   .timeline-mode { display: none; }
 }

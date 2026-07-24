@@ -2,6 +2,7 @@ import { required } from '../dom.js';
 import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
 import { showFinalVideo } from '../viewer.js';
+import { attachFinalTimeline } from '../timeline.js';
 import {
   cancelDirectorProposal,
   cancelRenderJob,
@@ -288,10 +289,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   function showCompleted(job: RenderJob, switchSource: boolean): void {
     if (!job.result) return;
     const source = `${job.result.videoUrl}?v=${encodeURIComponent(job.updatedAt ?? '')}`;
+    const video = required<HTMLVideoElement>('#director-result-video');
     if (switchSource) showFinalVideo(source, job.result.downloadName);
     else {
       const finalTab = required<HTMLButtonElement>('#source-final');
-      const video = required<HTMLVideoElement>('#director-result-video');
       const download = required<HTMLAnchorElement>('#director-result-download');
       finalTab.disabled = false;
       video.src = source;
@@ -299,6 +300,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       download.download = job.result.downloadName;
       download.hidden = false;
     }
+    attachFinalTimeline(video, job.result.timeline ?? null);
     persistLastJobId(job.jobId);
     progressRoot.hidden = true;
   }

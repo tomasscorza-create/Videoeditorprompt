@@ -42,6 +42,21 @@ export interface RenderJob {
     deterministic: boolean;
     videoUrl: string;
     downloadName: string;
+    timeline?: {
+      durationSeconds: number;
+      scenes: Array<{
+        id: string;
+        startSeconds: number;
+        endSeconds: number;
+        audioDurationSeconds?: number;
+        transitionToNext?: {
+          preset: string;
+          durationSeconds: number;
+          startSeconds: number;
+          endSeconds: number;
+        };
+      }>;
+    };
   };
 }
 

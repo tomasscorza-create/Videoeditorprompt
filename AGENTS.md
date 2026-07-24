@@ -9,7 +9,7 @@ Construimos una herramienta local, dirigida por datos, para producir videos anim
 Estado vigente:
 
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
-- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`. El primer vertical slice dirigido por prompt usa Ollama con `qwen3:8b`, normaliza un plan semántico cerrado al mismo proyecto editable y permite renderizarlo desde la interfaz mediante un servicio limitado a loopback. La interfaz vigente organiza Director, viewer y edición en tres columnas, persiste la sesión compatible, enumera jobs de la API y separa composición estática, preview medido y MP4 final.
+- La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`. El primer vertical slice dirigido por prompt usa Ollama con `qwen3:8b`, normaliza un plan semántico cerrado al mismo proyecto editable y permite renderizarlo desde la interfaz mediante un servicio limitado a loopback. La interfaz vigente organiza Director, viewer y edición en tres columnas, persiste la sesión compatible, enumera jobs de la API y separa composición estática, preview medido y MP4 final. La timeline V1/A1 comparte esa selección: estructura sin medir durante autoría y escala real para preview/MP4.
 - Existe un runtime probado de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC. Un pipeline padre ya compone varias de esas escenas en un MP4 mediante cortes o fundidos.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
@@ -104,6 +104,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `scripts/local-app/render-job-manager.mjs`: congelado, aislamiento, progreso, cancelación y entrega del MP4.
 - `scripts/local-app/retention.mjs`: limpieza validada de temporales y retención local; el modo predeterminado no borra.
 - `src/ui/viewer.ts`: selector explícito entre composición editable, preview medido y MP4 final.
+- `src/ui/timeline.ts`: timeline audiovisual, transporte, zoom, snap, atajos y despacho al medio activo; nunca estima duración como si fuera medida.
 - `src/ui/project/composition.ts`: proyección visual estática del proyecto y catálogo; no evalúa audio, boca ni tiempos.
 - `src/ui/project/persistence.ts`: sesión local versionada y ligada a la revisión del catálogo.
 - `src/ui/project/library.ts` y `project-timeline.ts`: recursos aplicables e inventario estructural de escenas/turnos.
@@ -159,6 +160,7 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 - El Director acepta tono, duración objetivo y cantidad de escenas como restricciones del JSON Schema; siguen siendo objetivos editoriales y la duración real solo existe después de Piper/FFprobe.
 - El servicio local acepta un solo render activo, recupera estados interrumpidos y no es un backend multiusuario ni una cola durable.
 - La UI usa verificación interactiva de una pasada; la CLI conserva la verificación completa de dos pasadas por defecto.
+- La timeline permite selección/navegación de escenas y turnos, pero cortar, eliminar, estirar o crear clips sigue fuera de alcance hasta que existan comandos semánticos compatibles en el núcleo.
 - `public/projects` es una publicación regenerable para la UI, no almacenamiento del motor. Solo lista proyectos aceptados por 3A y 3B.0; debe regenerarse antes del build que se quiera distribuir.
 - 3A.1 solo compila escenas con exactamente dos personajes, al menos dos turnos, pose inicial neutral, ancla central, rotación 0 y opacidad 1. Texto, imágenes y otros transforms se rechazan explícitamente hasta que el runtime pueda representarlos.
 - El rig versión 2 y el catálogo demuestran `neutral` y `point`, pero todavía no modelan una biblioteca general de gestos o animaciones.

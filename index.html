@@ -216,6 +216,7 @@
           <div class="timeline-spacer"></div>
           <output id="timeline-timecode" class="timeline-timecode">00:00.000 / --:--.---</output>
           <span id="timeline-mode" class="timeline-mode">Sin medir</span>
+          <button id="timeline-shortcuts" class="timeline-tool" type="button" title="Ver atajos de timeline" aria-label="Ver atajos de timeline">⌨</button>
           <div class="timeline-tool-group" aria-label="Zoom">
             <button id="timeline-zoom-out" class="timeline-tool" type="button" title="Alejar (-)" aria-label="Alejar timeline">−</button>
             <button id="timeline-fit" class="timeline-tool" type="button" title="Ajustar al ancho (F)" aria-label="Ajustar timeline al ancho">Ajustar</button>
@@ -224,15 +225,14 @@
         </header>
 
         <div class="timeline-editor">
-          <div class="timeline-track-labels" aria-hidden="true">
+          <div class="timeline-track-labels">
             <div class="timeline-label-ruler"></div>
             <div class="timeline-track-label">
-              <strong>V1</strong>
-              <span>Video</span>
+              <div><strong>V1</strong><span>Video</span></div>
             </div>
             <div class="timeline-track-label">
-              <strong>A1</strong>
-              <span>Diálogo</span>
+              <div><strong>A1</strong><span>Diálogo</span></div>
+              <button id="timeline-mute" class="timeline-track-action" type="button" disabled aria-pressed="false" title="Silenciar audio (M)" aria-label="Silenciar pista de audio">M</button>
             </div>
           </div>
           <div id="timeline-scroll" class="timeline-scroll">
@@ -258,6 +258,25 @@
           <select id="theme-select"><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option></select>
         </label>
         <p class="muted">Los proyectos se guardan automáticamente en este navegador.</p>
+      </div>
+    </dialog>
+
+    <dialog id="timeline-shortcuts-dialog" class="modal shortcuts-modal">
+      <div class="modal-content">
+        <header class="section-header">
+          <div><span class="eyebrow">Timeline</span><h2>Atajos de reproducción</h2></div>
+          <button id="timeline-shortcuts-close" class="icon-button" aria-label="Cerrar">×</button>
+        </header>
+        <dl class="shortcut-list">
+          <div><dt>Espacio</dt><dd>Reproducir / pausar</dd></div>
+          <div><dt>J / K / L</dt><dd>Retroceder 1 s / pausar / reproducir</dd></div>
+          <div><dt>← / →</dt><dd>Retroceder / avanzar 0,5 s; con Shift, 5 s</dd></div>
+          <div><dt>↑ / ↓</dt><dd>Clip anterior / siguiente</dd></div>
+          <div><dt>Inicio / Fin</dt><dd>Ir al inicio / final</dd></div>
+          <div><dt>S / M</dt><dd>Snap magnético / silenciar audio</dd></div>
+          <div><dt>F / + / −</dt><dd>Ajustar al ancho / acercar / alejar</dd></div>
+          <div><dt>Ctrl+Z / Ctrl+Y</dt><dd>Deshacer / rehacer edición</dd></div>
+        </dl>
       </div>
     </dialog>
 

@@ -42,6 +42,7 @@ let pixelsPerSecond = DEFAULT_PIXELS_PER_SECOND;
 let snapEnabled = true;
 let selectedClipId: string | null = null;
 let currentTime = 0;
+const boundFinalMedia = new WeakSet<HTMLVideoElement>();
 
 export function initTimelineShell(): void {
   if (initialized) return;
@@ -56,6 +57,10 @@ export function initTimelineShell(): void {
   optional<HTMLButtonElement>('#timeline-zoom-in')?.addEventListener('click', () => zoomBy(1.25));
   optional<HTMLButtonElement>('#timeline-fit')?.addEventListener('click', fitTimeline);
   optional<HTMLButtonElement>('#timeline-snap')?.addEventListener('click', toggleSnap);
+  optional<HTMLButtonElement>('#timeline-mute')?.addEventListener('click', toggleMute);
+  const shortcutsDialog = optional<HTMLDialogElement>('#timeline-shortcuts-dialog');
+  optional<HTMLButtonElement>('#timeline-shortcuts')?.addEventListener('click', () => shortcutsDialog?.showModal());
+  optional<HTMLButtonElement>('#timeline-shortcuts-close')?.addEventListener('click', () => shortcutsDialog?.close());
   optional<HTMLElement>('#timeline-ruler')?.addEventListener('click', seekFromPointer);
   optional<HTMLElement>('#timeline-video-track')?.addEventListener('click', seekFromPointer);
   optional<HTMLElement>('#timeline-audio-track')?.addEventListener('click', seekFromPointer);
@@ -80,10 +85,14 @@ export function attachPreviewTimeline(handle: PreviewHandle): void {
 
 export function attachFinalTimeline(video: HTMLVideoElement, timeline: MeasuredProjectTimeline | null): void {
   finalState = { video, timeline };
-  video.addEventListener('play', syncPlayButton);
-  video.addEventListener('pause', syncPlayButton);
-  video.addEventListener('ended', syncPlayButton);
-  video.addEventListener('timeupdate', () => updateTimelineTime(video.currentTime));
+  if (!boundFinalMedia.has(video)) {
+    boundFinalMedia.add(video);
+    video.addEventListener('play', syncPlayButton);
+    video.addEventListener('pause', syncPlayButton);
+    video.addEventListener('ended', syncPlayButton);
+    video.addEventListener('loadedmetadata', () => render());
+    video.addEventListener('timeupdate', () => updateTimelineTime(video.currentTime));
+  }
   render();
 }
 
@@ -102,6 +111,7 @@ export function updateTimelineTime(timeSeconds: number): void {
     playhead.style.transform = `translateX(${currentTime * pixelsPerSecond}px)`;
   }
   updateTimecode();
+  followPlayhead();
 }
 
 function render(): void {
@@ -114,6 +124,7 @@ function render(): void {
 }
 
 function renderProject(): void {
+  setTimelineMode(false);
   const project = store?.project();
   const videoTrack = optional<HTMLElement>('#timeline-video-track');
   const audioTrack = optional<HTMLElement>('#timeline-audio-track');
@@ -137,8 +148,6 @@ function renderProject(): void {
     cursor += width + 4;
   }
   setSurfaceWidth(Math.max(600, cursor));
-  setTimelineMode(false);
-
   const sceneNodes = project.scenes.map((scene, index) => {
     const clip = createClip({
       id: `project-scene:${scene.id}`,
@@ -391,6 +400,22 @@ function syncPlayButton(): void {
   if (button) button.textContent = media && !media.paused ? '❚❚' : '▶';
 }
 
+function toggleMute(): void {
+  const media = activeMedia();
+  if (!media) return;
+  media.muted = !media.muted;
+  syncMuteButton();
+}
+
+function syncMuteButton(): void {
+  const button = optional<HTMLButtonElement>('#timeline-mute');
+  const media = activeMedia();
+  if (!button) return;
+  button.disabled = !media;
+  button.classList.toggle('is-active', Boolean(media?.muted));
+  button.setAttribute('aria-pressed', String(Boolean(media?.muted)));
+}
+
 function jumpBoundary(direction: -1 | 1): void {
   if (!isMeasured()) {
     jumpProjectScene(direction);
@@ -484,6 +509,19 @@ function handleShortcut(event: KeyboardEvent): void {
   } else if (event.code === 'KeyS') {
     event.preventDefault();
     toggleSnap();
+  } else if (event.code === 'KeyM' && isMeasured()) {
+    event.preventDefault();
+    toggleMute();
+  } else if (event.code === 'KeyJ' && isMeasured()) {
+    event.preventDefault();
+    activeMedia()?.pause();
+    seekTo(currentTime - 1);
+  } else if (event.code === 'KeyK' && isMeasured()) {
+    event.preventDefault();
+    activeMedia()?.pause();
+  } else if (event.code === 'KeyL' && isMeasured()) {
+    event.preventDefault();
+    void activeMedia()?.play();
   } else if (event.code === 'KeyF') {
     event.preventDefault();
     fitTimeline();
@@ -512,6 +550,7 @@ function updateToolbar(): void {
   if (next) next.disabled = !hasNavigation;
   optional<HTMLButtonElement>('#timeline-fit')?.toggleAttribute('disabled', !hasProject && !measured);
   syncPlayButton();
+  syncMuteButton();
 }
 
 function updateTimecode(): void {
@@ -543,6 +582,18 @@ function setSurfaceWidth(width: number): void {
 function setSummary(message: string): void {
   const summary = optional<HTMLElement>('#timeline-summary');
   if (summary) summary.textContent = message;
+}
+
+function followPlayhead(): void {
+  const media = activeMedia();
+  const scroll = optional<HTMLElement>('#timeline-scroll');
+  if (!media || media.paused || !scroll) return;
+  const x = currentTime * pixelsPerSecond;
+  const leftEdge = scroll.scrollLeft + 20;
+  const rightEdge = scroll.scrollLeft + scroll.clientWidth - 30;
+  if (x < leftEdge || x > rightEdge) {
+    scroll.scrollLeft = Math.max(0, x - scroll.clientWidth * 0.25);
+  }
 }
 
 function activeMedia(): HTMLMediaElement | null {
