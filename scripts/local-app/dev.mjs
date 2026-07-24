@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { projectRoot } from '../stage1/common.mjs';
 import { createLocalAppServer } from './server.mjs';
 
-const app = createLocalAppServer();
+const sessionToken = randomBytes(32).toString('hex');
+const app = createLocalAppServer({ sessionToken });
 const listening = await app.listen();
 process.stdout.write(`${JSON.stringify({ version: 1, component: 'local-api', state: 'ready', url: listening.url })}\n`);
 
@@ -13,6 +15,7 @@ const vite = spawn(process.execPath, [viteBin], {
   shell: false,
   stdio: 'inherit',
   windowsHide: true,
+  env: { ...process.env, VITE_LOCAL_VIDEO_TOKEN: sessionToken },
 });
 
 let stopping = false;

@@ -152,3 +152,8 @@ export async function loadProjectStore(requestedProjectId?: string | null): Prom
   ]);
   return createStore(createProjectEditor(project, catalog));
 }
+
+export async function createProjectStore(project: unknown): Promise<ProjectStore> {
+  const catalog = await fetchJson('/assets/catalog/authoring-resources.json');
+  return createStore(createProjectEditor(project, catalog));
+}

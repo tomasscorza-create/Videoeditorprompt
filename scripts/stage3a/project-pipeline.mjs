@@ -14,23 +14,26 @@ const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateRenderedProjectSchema = ajv.compile(readJson(path.join(projectRoot, 'schema', 'rendered-project.schema.json')));
 
 export function runProjectPipeline(context) {
+  const verificationMode = context.args?.['verification-mode'] === 'interactive' ? 'interactive' : 'full';
   const report = createProgressReporter(context);
   try {
     const compiled = compileVideoProject(context, { report, emitCompleted: false });
-    const sceneRuns = renderCompiledScenes(context, compiled.manifest, report);
+    const sceneRuns = renderCompiledScenes(context, compiled.manifest, report, verificationMode);
     const assemblyPlan = buildAssemblyPlan(sceneRuns.map((scene, index) => ({
       id: scene.id,
       renderDurationSeconds: scene.renderDurationSeconds,
       transitionToNext: compiled.manifest.scenes[index].transitionToNext,
     })));
-    const outputs = [1, 2].map((runNumber) => assembleProjectRun(context, sceneRuns, assemblyPlan, runNumber, report));
-    const verification = verifyProjectRender(context, compiled.manifest, sceneRuns, assemblyPlan, outputs);
+    const runNumbers = verificationMode === 'full' ? [1, 2] : [1];
+    const outputs = runNumbers.map((runNumber) => assembleProjectRun(context, sceneRuns, assemblyPlan, runNumber, report));
+    const verification = verifyProjectRender(context, compiled.manifest, sceneRuns, assemblyPlan, outputs, verificationMode);
     const manifest = {
       version: 1,
       jobId: context.jobId,
       projectId: compiled.manifest.projectId,
       compiledProject: 'compiled/compiled-project.json',
       compiledSemanticHash: compiled.manifest.semanticHash,
+      verificationMode,
       video: compiled.manifest.video,
       timeline: {
         durationSeconds: assemblyPlan.durationSeconds,
@@ -41,7 +44,7 @@ export function runProjectPipeline(context) {
           config: sceneRuns[index].config,
           runtime: sceneRuns[index].runtime,
           render1: sceneRuns[index].render1,
-          render2: sceneRuns[index].render2,
+          ...(sceneRuns[index].render2 ? { render2: sceneRuns[index].render2 } : {}),
           audioDurationSeconds: sceneRuns[index].audioDurationSeconds,
           renderDurationSeconds: sceneRuns[index].renderDurationSeconds,
           startSeconds: timelineScene.startSeconds,
@@ -51,7 +54,7 @@ export function runProjectPipeline(context) {
         })),
       },
       outputs: outputs.map(({ probe, ...output }) => output),
-      deterministic: outputs[0].sha256 === outputs[1].sha256,
+      deterministic: verificationMode === 'full' && outputs[0].sha256 === outputs[1].sha256,
       verification: 'verification.json',
     };
     assertRenderedManifest(manifest);
@@ -71,7 +74,7 @@ export function runProjectPipeline(context) {
   }
 }
 
-function renderCompiledScenes(context, compiledManifest, report) {
+function renderCompiledScenes(context, compiledManifest, report, verificationMode) {
   const sceneWorkRoot = ensureDirectory(path.join(context.jobRoot, 'scene-work'));
   const sceneOutputRoot = ensureDirectory(path.join(context.jobRoot, 'scene-output'));
   return compiledManifest.scenes.map((scene, index) => {
@@ -86,10 +89,10 @@ function renderCompiledScenes(context, compiledManifest, report) {
       'output-dir': sceneOutputRoot,
       'tts-root': context.ttsRoot,
     });
-    const result = runPipeline(sceneContext);
+    const result = runPipeline(sceneContext, { verificationMode });
     const runtime = readJson(path.join(sceneContext.runtimeRoot, 'scene-runtime.json'));
     const metrics = readJson(path.join(sceneContext.resultRoot, 'export-metrics-1.json'));
-    if (!result.manifest.deterministic) {
+    if (verificationMode === 'full' && !result.manifest.deterministic) {
       throw new PipelineError({
         code: 'SCENE_RENDER_NOT_DETERMINISTIC',
         stage: 'rendering_scene',
@@ -104,7 +107,7 @@ function renderCompiledScenes(context, compiledManifest, report) {
       config: toPortable(path.relative(context.jobRoot, sceneContext.jobConfigPath)),
       runtime: toPortable(path.relative(context.jobRoot, path.join(sceneContext.runtimeRoot, 'scene-runtime.json'))),
       render1: toPortable(path.relative(context.jobRoot, path.join(sceneContext.resultRoot, 'render-1.mp4'))),
-      render2: toPortable(path.relative(context.jobRoot, path.join(sceneContext.resultRoot, 'render-2.mp4'))),
+      ...(verificationMode === 'full' ? { render2: toPortable(path.relative(context.jobRoot, path.join(sceneContext.resultRoot, 'render-2.mp4')))} : {}),
       render1File: path.join(sceneContext.resultRoot, 'render-1.mp4'),
       render2File: path.join(sceneContext.resultRoot, 'render-2.mp4'),
       audioDurationSeconds: runtime.audio.durationSeconds,
@@ -208,7 +211,7 @@ function assembleProjectRun(context, sceneRuns, plan, runNumber, report) {
   };
 }
 
-function verifyProjectRender(context, compiledManifest, sceneRuns, plan, outputs) {
+function verifyProjectRender(context, compiledManifest, sceneRuns, plan, outputs, verificationMode = 'full') {
   const checks = [];
   const check = (name, condition, evidence) => {
     if (!condition) {
@@ -233,7 +236,11 @@ function verifyProjectRender(context, compiledManifest, sceneRuns, plan, outputs
     check(`MP4 ${output.runNumber} vertical 30 fps`, video?.width === 1080 && video?.height === 1920 && video?.r_frame_rate === '30/1', video);
     check(`MP4 ${output.runNumber} duración completa`, Math.abs(output.durationSeconds - plan.durationSeconds) <= 0.08, { actual: output.durationSeconds, expected: plan.durationSeconds });
   }
-  check('MP4 finales binariamente idénticos', outputs[0].sha256 === outputs[1].sha256, outputs[0].sha256);
+  if (verificationMode === 'full') {
+    check('MP4 finales binariamente idénticos', outputs[0].sha256 === outputs[1].sha256, outputs[0].sha256);
+  } else {
+    check('Modo interactivo produce un MP4 verificado', outputs.length === 1, outputs[0].sha256);
+  }
   const result = {
     version: 1,
     jobId: context.jobId,

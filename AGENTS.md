@@ -102,6 +102,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `scripts/director/director-plan.mjs`: validación semántica y normalización determinista del plan IA al proyecto editable.
 - `scripts/local-app/server.mjs`: API HTTP local limitada a loopback para salud, propuestas, validación y trabajos.
 - `scripts/local-app/render-job-manager.mjs`: congelado, aislamiento, progreso, cancelación y entrega del MP4.
+- `scripts/local-app/retention.mjs`: limpieza validada de temporales y retención local; el modo predeterminado no borra.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.
 - `pilots/personaje-mono-01/scene.config.json`: piloto vigente del personaje animable real.
 - `pilots/dialogo-monos-01/scene.config.json`: piloto del contrato v2 con dos hablantes y tres turnos.
@@ -138,6 +139,9 @@ npm run director:test-plan # contrato, catálogo, límites y normalización dete
 npm run director:test-ollama # adaptador, salida estructurada, caché y fallos
 npm run local:test-server # API loopback, límites y respuestas
 npm run local:test-render-manager # aislamiento, proceso, cancelación y errores
+npm run local:test-retention # limpieza, rutas protegidas y trabajos activos
+npm run stage3b:test-contracts # compatibilidad entre autoría, editor y compilador
+npm test                  # suite central agregada
 npm run build              # TypeScript + Vite
 ```
 
@@ -148,7 +152,8 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 - Los contratos de runtime v1 y v2 siguen limitados a una escena. 3A.2 los ejecuta como subtrabajos aislados y ensambla el resultado; no existe todavía un runtime ni preview PixiJS multiescena continuo.
 - 3B.0 edita desde la interfaz proyectos existentes o creados por prompt del subconjunto compilable, pero todavía no crea/elimina escenas, elementos o turnos.
 - El Director inicial usa un único modelo y un catálogo cerrado; todavía no formula preguntas aclaratorias, compara variantes ni repara automáticamente un plan rechazado.
-- El servicio local acepta un solo render activo y no es un backend multiusuario ni una cola durable.
+- El servicio local acepta un solo render activo, recupera estados interrumpidos y no es un backend multiusuario ni una cola durable.
+- La UI usa verificación interactiva de una pasada; la CLI conserva la verificación completa de dos pasadas por defecto.
 - `public/projects` es una publicación regenerable para la UI, no almacenamiento del motor. Solo lista proyectos aceptados por 3A y 3B.0; debe regenerarse antes del build que se quiera distribuir.
 - 3A.1 solo compila escenas con exactamente dos personajes, al menos dos turnos, pose inicial neutral, ancla central, rotación 0 y opacidad 1. Texto, imágenes y otros transforms se rechazan explícitamente hasta que el runtime pueda representarlos.
 - El rig versión 2 y el catálogo demuestran `neutral` y `point`, pero todavía no modelan una biblioteca general de gestos o animaciones.

@@ -120,6 +120,9 @@ npm run director:test-plan
 npm run director:test-ollama
 npm run local:test-server
 npm run local:test-render-manager
+npm run local:test-retention
+npm run stage3b:test-contracts
+npm test
 ```
 
 ### Integración y determinismo
@@ -190,6 +193,7 @@ No deben versionarse.
 - La integración de Piper actual contiene rutas específicas de Windows; Linux/contenedores todavía requieren adaptación y verificación.
 - El Director inicial usa un único modelo y catálogo cerrado; todavía no hace preguntas aclaratorias ni repara automáticamente planes rechazados.
 - El gestor local admite un solo render activo, conserva cancelación y timeout, pero no es un backend multiusuario ni una cola durable.
+- La interfaz usa una pasada verificada para responder más rápido; las pruebas y la CLI conservan la doble pasada determinista.
 - Sigue faltando protección completa ante cachés/publicaciones concurrentes antes de ofrecer el motor como servicio web.
 
 El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -201,6 +205,8 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [AGENTS.md](AGENTS.md) | Constitución técnica, invariantes, seguridad y normas de cambio. |
 | [Roadmap](docs/ROADMAP.md) | Dirección de producto, fases y criterios de avance. |
 | [Checklist de desarrollo](docs/DEVELOPMENT_CHECKLIST.md) | Control operativo antes y después de cada cambio. |
+| [Operación local](docs/OPERACION_LOCAL.md) | Seguridad de sesión, recuperación, render interactivo y retención. |
+| [Dependencias de IA](docs/DEPENDENCIAS_IA_LOCAL.md) | Procedencia y licencias declaradas de Ollama y Qwen. |
 | [Visión de producto y Etapa 2F](docs/VISION_PRODUCTO_Y_ETAPA_2F.md) | Flujo creativo y dirección del producto. |
 | [Flujo de colaboración](docs/FLUJO_COLABORACION_CODEX_CLAUDE.md) | Reglas usadas para integrar motor y UX/UI. |
 | [Deuda técnica y plan UX](docs/UX_DEUDA_TECNICA_Y_PLAN.md) | Decisiones y pendientes de experiencia visual. |
@@ -213,6 +219,8 @@ La evidencia histórica está documentada en los informes `ETAPA_*_RESULTADOS.md
 - [Etapa 3A.1 — compilador](ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md)
 - [Etapa 3A.2 — render multiescena](ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md)
 - [Etapa 3B.0 — núcleo del editor](ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md)
+- [Etapa 4A — Director IA local](ETAPA_4A_DIRECTOR_IA_LOCAL_RESULTADOS.md)
+- [Etapa 4B — estabilización local](ETAPA_4B_ESTABILIZACION_LOCAL_RESULTADOS.md)
 
 Cuando un documento histórico contradiga el código vigente, prevalecen `AGENTS.md`, `ETAPA_1_ENDURECIMIENTO_RESULTADOS.md` y el código verificado.
 

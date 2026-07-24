@@ -56,11 +56,12 @@ export async function getHealth(): Promise<LocalHealth> {
   return apiRequest<LocalHealth>('/api/health');
 }
 
-export async function createProposal(prompt: string, variant: number): Promise<DirectorProposal> {
+export async function createProposal(prompt: string, variant: number, signal?: AbortSignal): Promise<DirectorProposal> {
   return apiRequest<DirectorProposal>('/api/director/proposals', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ prompt, variant }),
+    signal,
   });
 }
 
@@ -82,13 +83,47 @@ export async function cancelRenderJob(jobId: string): Promise<RenderJob> {
   });
 }
 
+export async function cancelDirectorProposal(): Promise<void> {
+  await apiRequest('/api/director/cancel', { method: 'POST' });
+}
+
 async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, { cache: 'no-store', ...options });
-  const body = await response.json() as T & { error?: ApiError };
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      cache: 'no-store',
+      ...options,
+      headers: {
+        ...(options?.method && options.method !== 'GET' ? { 'x-local-video-token': import.meta.env.VITE_LOCAL_VIDEO_TOKEN || '' } : {}),
+        ...options?.headers,
+      },
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw friendlyError('Se canceló la generación de la propuesta.', 'Podés modificar el prompt y volver a intentarlo.');
+    }
+    throw friendlyError('No se pudo conectar con el servicio local.', 'Iniciá la aplicación con npm run dev.');
+  }
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw friendlyError('El servicio local devolvió una respuesta inesperada.', 'Reiniciá npm run dev y volvé a intentar.');
+  }
+  let body: T & { error?: ApiError };
+  try {
+    body = await response.json() as T & { error?: ApiError };
+  } catch {
+    throw friendlyError('El servicio local devolvió datos incompletos.', 'Reiniciá npm run dev y volvé a intentar.');
+  }
   if (!response.ok) {
     const error = new Error(body.error?.message || `HTTP ${response.status}`) as Error & { detail?: ApiError };
     error.detail = body.error;
     throw error;
   }
   return body;
+}
+
+function friendlyError(message: string, suggestedAction: string) {
+  const error = new Error(message) as Error & { detail?: ApiError };
+  error.detail = { code: 'LOCAL_SERVICE_UNAVAILABLE', message, suggestedAction };
+  return error;
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -40,6 +40,7 @@ assert.equal(spawned.executable, process.execPath);
 assert.equal(spawned.options.shell, false);
 assert.equal(spawned.args.some((argument) => argument === `--job-id=${job.jobId}`), true);
 assert.equal(spawned.args.some((argument) => argument.startsWith('--project=')), true);
+assert.equal(spawned.args.includes('--verification-mode=interactive'), true);
 
 assert.throws(
   () => manager.create(project),
@@ -78,9 +79,36 @@ assert.equal(failedStatus.state, 'failed');
 assert.equal(failedStatus.error.code, 'ERR_ASSERTION');
 assert.equal(failedStatus.error.message, 'Duración compilada coincide');
 
+const recoveryJobsRoot = path.join(root, 'recovery-jobs');
+mkdirSync(recoveryJobsRoot, { recursive: true });
+writeFileSync(path.join(recoveryJobsRoot, 'render-interrupted.json'), JSON.stringify({
+  version: 1,
+  jobId: 'render-interrupted',
+  projectId: project.id,
+  state: 'rendering',
+  stage: 'rendering_frames',
+  createdAt: new Date(0).toISOString(),
+  updatedAt: new Date(0).toISOString(),
+  progress: null,
+  error: null,
+}));
+const recoveredManager = createRenderJobManager({
+  root: projectRoot,
+  appJobsRoot: recoveryJobsRoot,
+  appInputRoot: path.join(root, 'recovery-input'),
+  workRoot: path.join(root, 'recovery-work'),
+  outputRoot: path.join(root, 'recovery-output'),
+  spawnImpl,
+});
+const recovered = recoveredManager.get('render-interrupted');
+assert.equal(recovered.state, 'failed');
+assert.equal(recovered.stage, 'recovery');
+assert.equal(recovered.error.code, 'RENDER_INTERRUPTED');
+assert.equal(recoveredManager.list().length, 1);
+
 assert.throws(
   () => manager.get('../escape'),
   (error) => error.code === 'JOB_ID_INVALID',
 );
 
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 19, failed: 0, jobId: job.jobId })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 24, failed: 0, jobId: job.jobId })}\n`);

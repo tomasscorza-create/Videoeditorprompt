@@ -23,6 +23,11 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] El Director IA local transforma prompts en planes cerrados con `qwen3:8b`, los valida y normaliza al proyecto editable vigente.
 - [x] El puente local seguro congela el proyecto, admite un render activo, lanza el pipeline con `shell: false` y expone progreso, cancelación y MP4.
 - [x] Flujo real verificado: prompt desde la UI, 3 escenas, 33,03 s y dos MP4 finales binariamente idénticos.
+- [x] API mutante protegida por Host, Origin y token efímero; lectura limitada y tipada.
+- [x] Limpieza automática de frames/temp en trabajos completados y comando de retención con dry-run.
+- [x] Recuperación de estados interrumpidos, cierre de conexiones y terminación del árbol de render.
+- [x] CI mínima, `npm test` agregado y corpus de compatibilidad de contratos.
+- [x] Render interactivo de una pasada; verificación completa preservada en CLI/pruebas.
 - [ ] Próximo gate: producción personal real, métricas de planes válidos y mejoras de variantes/reparación y edición manual.
 
 Evidencia vigente: `ETAPA_2F_CALIDAD_RESULTADOS.md`, `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.

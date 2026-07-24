@@ -1,13 +1,17 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { PipelineError } from '../stage1/errors.mjs';
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
+import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 
 const planSchema = readJson(path.join(projectRoot, 'schema', 'ai-video-plan.schema.json'));
 const validatePlanSchema = new Ajv2020({ allErrors: true, strict: true }).compile(planSchema);
+const catalogSchema = readJson(path.join(projectRoot, 'schema', 'authoring-resource-catalog.schema.json'));
+const validateCatalogSchema = new Ajv2020({ allErrors: true, strict: true }).compile(catalogSchema);
+const catalogCache = new Map();
 
 const LAYOUTS = Object.freeze({
   balanced: Object.freeze({
@@ -81,11 +85,11 @@ export function validateDirectorPlan(plan, catalog) {
 }
 
 export function normalizeDirectorPlan(plan, catalog, options = {}) {
-  validateDirectorPlan(plan, catalog);
+  const budget = validateDirectorPlan(plan, catalog);
   const semanticHash = hashJson({
     plan,
     promptHash: options.promptHash || null,
-    normalizerVersion: 2,
+    normalizerVersion: DIRECTOR_PIPELINE_VERSION,
   });
   const projectId = safeId(options.projectId || `${slug(plan.title)}-${semanticHash.slice(0, 8)}`);
   const seed = Number.parseInt(semanticHash.slice(0, 8), 16);
@@ -103,7 +107,7 @@ export function normalizeDirectorPlan(plan, catalog, options = {}) {
     catalog,
     assetsRoot: options.assetsRoot || path.join(projectRoot, 'public'),
   });
-  return { project, semanticHash };
+  return { project, semanticHash, budget };
 }
 
 function normalizeScene(plan, scene, sceneIndex) {
@@ -197,5 +201,16 @@ function directorError(code, message, technicalDetail) {
 
 export function loadAuthoringCatalog(assetsRoot = path.join(projectRoot, 'public')) {
   const catalogPath = path.join(assetsRoot, 'assets', 'catalog', 'authoring-resources.json');
-  return JSON.parse(readFileSync(catalogPath, 'utf8'));
+  const stats = statSync(catalogPath);
+  const cacheKey = `${catalogPath}:${stats.mtimeMs}:${stats.size}`;
+  if (catalogCache.has(cacheKey)) return catalogCache.get(cacheKey);
+  const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  if (!validateCatalogSchema(catalog)) {
+    const detail = (validateCatalogSchema.errors || []).slice(0, 12)
+      .map((error) => `${error.instancePath || '/'} ${error.message}`).join('; ');
+    directorError('DIRECTOR_CATALOG_SCHEMA_INVALID', 'El catálogo de autoría no tiene un formato válido.', detail);
+  }
+  catalogCache.clear();
+  catalogCache.set(cacheKey, catalog);
+  return catalog;
 }

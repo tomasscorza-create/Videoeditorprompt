@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import path from 'node:path';
 import { createDirectorProposal, inspectOllama } from '../director/ollama-director.mjs';
@@ -9,6 +10,7 @@ import { validateVideoProjectDocument } from '../stage3a/validate-video-project.
 import { createRenderJobManager, streamVideoResponse } from './render-job-manager.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
+const BODY_TIMEOUT_MS = 15_000;
 const ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:5173',
   'http://localhost:5173',
@@ -19,16 +21,26 @@ const ALLOWED_ORIGINS = new Set([
 export function createLocalAppServer(options = {}) {
   const host = options.host || '127.0.0.1';
   const port = Number(options.port ?? 4174);
+  const sessionToken = String(options.sessionToken || randomBytes(32).toString('hex'));
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
   const catalog = options.catalog || loadAuthoringCatalog(assetsRoot);
   const manager = options.manager || createRenderJobManager({ ...options, assetsRoot, catalog });
   const director = options.director || createDirectorProposal;
   const ollamaInspector = options.ollamaInspector || inspectOllama;
+  let directorController = null;
 
   const server = http.createServer(async (request, response) => {
     try {
-      if (!isAllowedOrigin(request.headers.origin)) {
+      if (!isAllowedHost(request.headers.host, server.address(), host, port)) {
+        sendJson(response, 403, { version: 1, error: { code: 'HOST_FORBIDDEN', message: 'Host local no permitido.' } });
+        return;
+      }
+      if (isMutation(request.method) && !isAllowedOrigin(request.headers.origin)) {
         sendJson(response, 403, { version: 1, error: { code: 'ORIGIN_FORBIDDEN', message: 'Origen no permitido.' } });
+        return;
+      }
+      if (isMutation(request.method) && !validToken(request.headers['x-local-video-token'], sessionToken)) {
+        sendJson(response, 403, { version: 1, error: { code: 'SESSION_TOKEN_INVALID', message: 'La sesión local no es válida.' } });
         return;
       }
       const url = new URL(request.url || '/', `http://${host}:${port}`);
@@ -50,12 +62,25 @@ export function createLocalAppServer(options = {}) {
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/director/proposals') {
+        assertJsonContentType(request);
+        if (directorController) {
+          const error = new Error('Ya existe una propuesta en generación.');
+          error.code = 'DIRECTOR_BUSY';
+          throw error;
+        }
         const body = await readJsonBody(request);
-        const proposal = await director({
-          prompt: body.prompt,
-          variant: body.variant,
-          assetsRoot,
-        });
+        directorController = new AbortController();
+        let proposal;
+        try {
+          proposal = await director({
+            prompt: body.prompt,
+            variant: body.variant,
+            assetsRoot,
+            signal: directorController.signal,
+          });
+        } finally {
+          directorController = null;
+        }
         sendJson(response, 200, {
           version: 1,
           cacheHit: proposal.cacheHit,
@@ -66,7 +91,13 @@ export function createLocalAppServer(options = {}) {
         });
         return;
       }
+      if (request.method === 'POST' && url.pathname === '/api/director/cancel') {
+        directorController?.abort();
+        sendJson(response, 200, { version: 1, cancelled: Boolean(directorController) });
+        return;
+      }
       if (request.method === 'POST' && url.pathname === '/api/projects/validate') {
+        assertJsonContentType(request);
         const body = await readJsonBody(request);
         const result = validateVideoProjectDocument({ project: body.project, catalog, assetsRoot });
         sendJson(response, 200, {
@@ -78,6 +109,7 @@ export function createLocalAppServer(options = {}) {
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/render-jobs') {
+        assertJsonContentType(request);
         const body = await readJsonBody(request);
         const job = manager.create(body.project);
         sendJson(response, 202, job);
@@ -110,7 +142,7 @@ export function createLocalAppServer(options = {}) {
       sendNotFound(response);
     } catch (error) {
       const serialized = serializeError(error, 'local_app');
-      const status = error?.code === 'RENDER_BUSY' ? 409
+      const status = ['RENDER_BUSY', 'DIRECTOR_BUSY'].includes(error?.code) ? 409
         : String(error?.code || '').includes('INVALID') ? 400
           : error?.code === 'REQUEST_BODY_TOO_LARGE' ? 413
             : 500;
@@ -121,6 +153,7 @@ export function createLocalAppServer(options = {}) {
   return {
     server,
     manager,
+    sessionToken,
     listen() {
       return new Promise((resolve, reject) => {
         server.once('error', reject);
@@ -133,21 +166,38 @@ export function createLocalAppServer(options = {}) {
       });
     },
     close() {
+      manager.cancelActive?.();
+      server.closeAllConnections?.();
       return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     },
   };
 }
 
 async function readJsonBody(request) {
-  let body = '';
-  for await (const chunk of request) {
-    body += chunk;
-    if (Buffer.byteLength(body, 'utf8') > MAX_BODY_BYTES) {
-      const error = new Error('El cuerpo de la solicitud supera 1 MB.');
-      error.code = 'REQUEST_BODY_TOO_LARGE';
-      throw error;
+  const chunks = [];
+  let receivedBytes = 0;
+  request.setTimeout(BODY_TIMEOUT_MS);
+  try {
+    for await (const value of request) {
+      const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+      receivedBytes += chunk.length;
+      if (receivedBytes > MAX_BODY_BYTES) {
+        request.resume();
+        const error = new Error('El cuerpo de la solicitud supera 1 MB.');
+        error.code = 'REQUEST_BODY_TOO_LARGE';
+        throw error;
+      }
+      chunks.push(chunk);
     }
+  } catch (error) {
+    if (error?.code === 'REQUEST_BODY_TOO_LARGE') throw error;
+    const wrapped = new Error('No se pudo leer el cuerpo de la solicitud.');
+    wrapped.code = error?.code === 'ERR_HTTP_REQUEST_TIMEOUT' ? 'REQUEST_BODY_TIMEOUT' : 'REQUEST_BODY_INVALID';
+    throw wrapped;
+  } finally {
+    request.setTimeout(0);
   }
+  const body = Buffer.concat(chunks, receivedBytes).toString('utf8');
   try {
     return JSON.parse(body || '{}');
   } catch {
@@ -157,8 +207,36 @@ async function readJsonBody(request) {
   }
 }
 
+function assertJsonContentType(request) {
+  const contentType = String(request.headers['content-type'] || '').split(';', 1)[0].trim().toLowerCase();
+  if (contentType !== 'application/json') {
+      const error = new Error('El cuerpo de la solicitud supera 1 MB.');
+      error.message = 'La operación requiere Content-Type application/json.';
+      error.code = 'CONTENT_TYPE_INVALID';
+      throw error;
+  }
+}
+
 function isAllowedOrigin(origin) {
-  return !origin || ALLOWED_ORIGINS.has(origin);
+  return typeof origin === 'string' && ALLOWED_ORIGINS.has(origin);
+}
+
+function isAllowedHost(header, address, configuredHost, configuredPort) {
+  if (typeof header !== 'string') return false;
+  const actualPort = typeof address === 'object' && address ? address.port : configuredPort;
+  return new Set([`127.0.0.1:${actualPort}`, `localhost:${actualPort}`, `[::1]:${actualPort}`]).has(header.toLowerCase())
+    && ['127.0.0.1', 'localhost', '::1'].includes(configuredHost);
+}
+
+function isMutation(method) {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(String(method || '').toUpperCase());
+}
+
+function validToken(value, expected) {
+  if (typeof value !== 'string') return false;
+  const left = Buffer.from(value);
+  const right = Buffer.from(expected);
+  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 function sendJson(response, status, value) {

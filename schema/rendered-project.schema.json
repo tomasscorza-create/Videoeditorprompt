@@ -30,9 +30,10 @@
         "scenes": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/renderedScene" } }
       }
     },
+    "verificationMode": { "enum": ["full", "interactive"] },
     "outputs": {
       "type": "array",
-      "minItems": 2,
+      "minItems": 1,
       "maxItems": 2,
       "items": { "$ref": "#/$defs/output" }
     },
@@ -57,7 +58,7 @@
     "renderedScene": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["index", "id", "sceneJobId", "config", "runtime", "render1", "render2", "audioDurationSeconds", "renderDurationSeconds", "startSeconds", "endSeconds", "verificationPassed"],
+      "required": ["index", "id", "sceneJobId", "config", "runtime", "render1", "audioDurationSeconds", "renderDurationSeconds", "startSeconds", "endSeconds", "verificationPassed"],
       "properties": {
         "index": { "type": "integer", "minimum": 0, "maximum": 7 },
         "id": { "$ref": "#/$defs/id" },

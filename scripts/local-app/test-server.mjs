@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLocalAppServer } from './server.mjs';
@@ -34,13 +35,20 @@ const manager = {
   cancel: (id) => id === completedJob.jobId ? { ...completedJob, state: 'cancelled' } : null,
   video: () => null,
 };
-const director = async ({ prompt }) => ({
-  cacheHit: false,
-  model: 'qwen3:8b',
-  plan: { title: prompt },
-  project,
-  budget: { totalWords: 20, maximumWords: 60 },
-});
+const director = async ({ prompt, signal }) => {
+  if (prompt === 'slow') {
+    await new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })), { once: true });
+    });
+  }
+  return {
+    cacheHit: false,
+    model: 'qwen3:8b',
+    plan: { title: prompt },
+    project,
+    budget: { totalWords: 20, maximumWords: 60 },
+  };
+};
 const app = createLocalAppServer({
   port: 0,
   manager,
@@ -50,7 +58,11 @@ const app = createLocalAppServer({
 const listening = await app.listen();
 const request = (pathname, options = {}) => fetch(`${listening.url}${pathname}`, {
   ...options,
-  headers: { origin: 'http://127.0.0.1:5173', ...(options.headers || {}) },
+  headers: {
+    origin: 'http://127.0.0.1:5173',
+    'x-local-video-token': app.sessionToken,
+    ...(options.headers || {}),
+  },
 });
 
 const healthResponse = await request('/api/health');
@@ -85,13 +97,73 @@ const statusResponse = await request(`/api/render-jobs/${completedJob.jobId}`);
 assert.equal(statusResponse.status, 200);
 assert.equal((await statusResponse.json()).state, 'completed');
 
-const forbidden = await fetch(`${listening.url}/api/health`, {
-  headers: { origin: 'https://example.com' },
+const forbidden = await fetch(`${listening.url}/api/render-jobs`, {
+  method: 'POST',
+  headers: {
+    origin: 'https://example.com',
+    'x-local-video-token': app.sessionToken,
+    'content-type': 'application/json',
+  },
+  body: JSON.stringify({ project }),
 });
 assert.equal(forbidden.status, 403);
+
+const missingOrigin = await fetch(`${listening.url}/api/render-jobs`, {
+  method: 'POST',
+  headers: { 'x-local-video-token': app.sessionToken, 'content-type': 'application/json' },
+  body: JSON.stringify({ project }),
+});
+assert.equal(missingOrigin.status, 403);
+
+const badToken = await fetch(`${listening.url}/api/render-jobs`, {
+  method: 'POST',
+  headers: { origin: 'http://127.0.0.1:5173', 'x-local-video-token': 'wrong', 'content-type': 'application/json' },
+  body: JSON.stringify({ project }),
+});
+assert.equal(badToken.status, 403);
+
+const badContentType = await request('/api/render-jobs', { method: 'POST', body: JSON.stringify({ project }) });
+assert.equal(badContentType.status, 400);
+
+const badHostStatus = await new Promise((resolve, reject) => {
+  const target = new URL('/api/health', listening.url);
+  const hostRequest = http.request({
+    hostname: target.hostname,
+    port: target.port,
+    path: target.pathname,
+    headers: { host: 'example.com' },
+  }, (response) => {
+    response.resume();
+    response.on('end', () => resolve(response.statusCode));
+  });
+  hostRequest.on('error', reject);
+  hostRequest.end();
+});
+assert.equal(badHostStatus, 403);
+
+const cancelDirector = await request('/api/director/cancel', { method: 'POST' });
+assert.equal(cancelDirector.status, 200);
+assert.equal((await cancelDirector.json()).cancelled, false);
+
+const slowProposal = request('/api/director/proposals', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ prompt: 'slow' }),
+});
+await new Promise((resolve) => setImmediate(resolve));
+const concurrentProposal = await request('/api/director/proposals', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ prompt: 'second' }),
+});
+assert.equal(concurrentProposal.status, 409);
+const cancelSlow = await request('/api/director/cancel', { method: 'POST' });
+assert.equal(cancelSlow.status, 200);
+assert.equal((await cancelSlow.json()).cancelled, true);
+assert.equal((await slowProposal).status, 500);
 
 const missing = await request('/api/render-jobs/render-missing');
 assert.equal(missing.status, 404);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 13, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 24, failed: 0, url: listening.url })}\n`);

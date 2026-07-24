@@ -1,7 +1,8 @@
 import { required } from '../dom.js';
-import type { ProjectStore } from '../project/store.js';
+import { createProjectStore, type ProjectStore } from '../project/store.js';
 import {
   cancelRenderJob,
+  cancelDirectorProposal,
   createProposal,
   getHealth,
   getRenderJob,
@@ -12,7 +13,7 @@ import {
 
 const POLL_INTERVAL_MS = 1000;
 
-export function initDirectorUi(store: ProjectStore): void {
+export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated: (store: ProjectStore) => void): void {
   const root = required<HTMLElement>('#director-panel');
   const prompt = required<HTMLTextAreaElement>('#director-prompt');
   const generate = required<HTMLButtonElement>('#director-generate');
@@ -24,10 +25,12 @@ export function initDirectorUi(store: ProjectStore): void {
   const download = required<HTMLAnchorElement>('#director-result-download');
 
   let variant = 0;
+  let store = initialStore;
+  let proposalController: AbortController | null = null;
   let currentJobId: string | null = null;
   let pollTimer: number | null = null;
   root.hidden = false;
-  render.disabled = false;
+  render.disabled = store === null;
   void refreshHealth();
 
   generate.addEventListener('click', async () => {
@@ -36,19 +39,30 @@ export function initDirectorUi(store: ProjectStore): void {
       report('Escribí una idea de al menos tres caracteres.');
       return;
     }
-    setBusy(true, 'El Director IA está preparando la propuesta…');
+    if (store?.canUndo() && !window.confirm('Crear otra propuesta reemplazará tus cambios manuales y el historial de deshacer. ¿Continuar?')) {
+      return;
+    }
+    proposalController = new AbortController();
+    setBusy(true, 'El Director IA está preparando la propuesta… Puede tardar entre uno y cuatro minutos en CPU.');
+    cancel.disabled = false;
     proposal.textContent = '';
     video.hidden = true;
     download.hidden = true;
     try {
-      const result = await createProposal(value, variant);
-      const replacementError = store.replaceProject(result.project);
-      if (replacementError) throw new Error(replacementError);
+      const result = await createProposal(value, variant, proposalController.signal);
+      if (store) {
+        const replacementError = store.replaceProject(result.project);
+        if (replacementError) throw new Error(replacementError);
+      } else {
+        store = await createProjectStore(result.project);
+        onStoreCreated(store);
+      }
       variant += 1;
       proposal.textContent = [
         result.plan.title,
         `${result.plan.scenes.length} escena(s)`,
         `${result.budget.totalWords} palabras`,
+        `objetivo aproximado ${result.plan.targetDurationSeconds} s`,
         result.cacheHit ? 'caché local' : result.model,
       ].join(' · ');
       report('Propuesta creada. Podés corregirla en el editor antes de renderizar.', true);
@@ -56,11 +70,16 @@ export function initDirectorUi(store: ProjectStore): void {
     } catch (error) {
       reportError(error);
     } finally {
+      proposalController = null;
       setBusy(false);
     }
   });
 
   render.addEventListener('click', async () => {
+    if (!store) {
+      report('Primero creá una propuesta válida.');
+      return;
+    }
     const validationError = store.validate();
     if (validationError) {
       report(`El proyecto no se puede renderizar: ${validationError}`);
@@ -83,6 +102,13 @@ export function initDirectorUi(store: ProjectStore): void {
   });
 
   cancel.addEventListener('click', async () => {
+    if (proposalController) {
+      proposalController.abort();
+      void cancelDirectorProposal().catch(() => {});
+      proposalController = null;
+      cancel.disabled = true;
+      return;
+    }
     if (!currentJobId) return;
     cancel.disabled = true;
     try {
@@ -167,14 +193,14 @@ export function initDirectorUi(store: ProjectStore): void {
     pollTimer = null;
     currentJobId = null;
     generate.disabled = false;
-    render.disabled = false;
+    render.disabled = store === null;
     cancel.disabled = true;
   }
 
   function setBusy(busy: boolean, message?: string): void {
     generate.disabled = busy;
-    render.disabled = busy;
-    if (!currentJobId) cancel.disabled = true;
+    render.disabled = busy || store === null;
+    if (!currentJobId && !proposalController) cancel.disabled = true;
     if (message) report(message, true);
   }
 

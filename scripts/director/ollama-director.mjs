@@ -7,12 +7,11 @@ import {
   getDirectorPlanSchema,
   loadAuthoringCatalog,
   normalizeDirectorPlan,
-  validateDirectorPlan,
 } from './director-plan.mjs';
+import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_DIRECTOR_MODEL = 'qwen3:8b';
-const DIRECTOR_VERSION = 1;
 const MAX_PROMPT_LENGTH = 2000;
 
 export async function createDirectorProposal(options) {
@@ -25,7 +24,7 @@ export async function createDirectorProposal(options) {
   const variant = integerOption(options.variant, 0, 0, 1_000_000);
   const schema = buildOllamaPlanSchema(catalog);
   const cacheKey = hashJson({
-    version: DIRECTOR_VERSION,
+    version: DIRECTOR_PIPELINE_VERSION,
     prompt,
     model,
     temperature,
@@ -37,7 +36,6 @@ export async function createDirectorProposal(options) {
   const cachePath = path.join(cacheRoot, `${cacheKey}.json`);
   if (options.useCache !== false && existsSync(cachePath)) {
     const cached = readJson(cachePath);
-    validateDirectorPlan(cached.plan, catalog);
     const normalized = normalizeDirectorPlan(cached.plan, catalog, { assetsRoot, promptHash: cacheKey });
     return {
       ...cached,
@@ -56,6 +54,7 @@ export async function createDirectorProposal(options) {
     fetchImpl,
     baseUrl,
     timeoutMs,
+    signal: options.signal,
     body: {
       model,
       stream: false,
@@ -89,16 +88,15 @@ export async function createDirectorProposal(options) {
       suggestedAction: 'Reintentá la propuesta o verificá el soporte de salidas estructuradas del modelo.',
     });
   }
-  const budget = validateDirectorPlan(plan, catalog);
   const normalized = normalizeDirectorPlan(plan, catalog, { assetsRoot, promptHash: cacheKey });
   const cached = {
     version: 1,
-    directorVersion: DIRECTOR_VERSION,
+    directorVersion: DIRECTOR_PIPELINE_VERSION,
     model,
     plan,
     project: normalized.project,
     semanticHash: normalized.semanticHash,
-    budget,
+    budget: normalized.budget,
     usage: {
       promptEvalCount: response.prompt_eval_count ?? null,
       evalCount: response.eval_count ?? null,
@@ -145,18 +143,21 @@ export function buildOllamaPlanSchema(catalog) {
   return schema;
 }
 
-async function requestOllama({ fetchImpl, baseUrl, timeoutMs, body }) {
+async function requestOllama({ fetchImpl, baseUrl, timeoutMs, body, signal }) {
   return requestJson(fetchImpl, `${baseUrl}/api/chat`, {
     timeoutMs,
     method: 'POST',
     body: JSON.stringify(body),
     headers: { 'content-type': 'application/json' },
     errorCode: 'OLLAMA_DIRECTOR_REQUEST_FAILED',
+    signal,
   });
 }
 
 async function requestJson(fetchImpl, url, options) {
   const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  options.signal?.addEventListener('abort', abortFromCaller, { once: true });
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
     const response = await fetchImpl(url, {
@@ -198,6 +199,7 @@ async function requestJson(fetchImpl, url, options) {
     });
   } finally {
     clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', abortFromCaller);
   }
 }
 

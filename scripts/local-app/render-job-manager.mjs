@@ -1,13 +1,15 @@
 import { randomBytes } from 'node:crypto';
-import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { PipelineError, serializeError } from '../stage1/errors.mjs';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
+import { cleanupCompletedJob } from './retention.mjs';
 
 const JOB_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/;
+const MAX_IN_MEMORY_JOBS = 500;
 
 export function createRenderJobManager(options = {}) {
   const root = path.resolve(options.root || projectRoot);
@@ -19,8 +21,10 @@ export function createRenderJobManager(options = {}) {
   const catalog = options.catalog || loadAuthoringCatalog(assetsRoot);
   const pipelineScript = path.join(root, 'scripts', 'stage3a', 'project-pipeline.mjs');
   const spawnImpl = options.spawnImpl || spawn;
+  const terminateTree = options.terminateProcessTreeImpl || terminateProcessTree;
   const jobs = new Map();
   let activeJobId = null;
+  recoverPersistedJobs();
 
   function create(project) {
     if (activeJobId) {
@@ -68,14 +72,18 @@ export function createRenderJobManager(options = {}) {
       `--assets-dir=${assetsRoot}`,
       `--work-dir=${workRoot}`,
       `--output-dir=${outputRoot}`,
+      '--verification-mode=interactive',
     ];
     const child = spawnImpl(process.execPath, args, {
       cwd: root,
       shell: false,
       windowsHide: true,
+      detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     job.process = child;
+    job.processId = child.pid ?? null;
+    persist(job);
     const timeoutMs = Number(options.renderTimeoutMs || 45 * 60 * 1000);
     job.timeout = setTimeout(() => {
       fail(job, new PipelineError({
@@ -84,7 +92,7 @@ export function createRenderJobManager(options = {}) {
         message: 'El render superó el tiempo máximo permitido.',
         suggestedAction: 'Reducí la cantidad de escenas o revisá el rendimiento de Piper y FFmpeg.',
       }));
-      child.kill();
+      terminateTree(child);
     }, timeoutMs);
     child.stdout?.setEncoding('utf8');
     child.stderr?.setEncoding('utf8');
@@ -95,7 +103,11 @@ export function createRenderJobManager(options = {}) {
     });
     child.on('error', (error) => fail(job, error));
     child.on('close', (code) => {
-      if (job.state === 'failed' || job.state === 'cancelled') return;
+      if (job.state === 'cancelled') {
+        cleanupJob(job);
+        return;
+      }
+      if (job.state === 'failed') return;
       if (code !== 0) {
         const reportedFailure = job.progress?.state === 'failed' ? job.progress : null;
         fail(job, new PipelineError(reportedFailure ? {
@@ -179,7 +191,7 @@ export function createRenderJobManager(options = {}) {
     job.process = null;
     activeJobId = null;
     update(job, { state: 'cancelled', stage: 'cancelled' });
-    processToKill?.kill();
+    if (processToKill) terminateTree(processToKill);
     return publicJob(job);
   }
 
@@ -195,6 +207,10 @@ export function createRenderJobManager(options = {}) {
     return [...jobs.values()].map(publicJob).sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
+  function cancelActive() {
+    return activeJobId ? cancel(activeJobId) : null;
+  }
+
   function update(job, patch) {
     Object.assign(job, patch, { updatedAt: new Date().toISOString() });
     persist(job);
@@ -206,6 +222,16 @@ export function createRenderJobManager(options = {}) {
     job.process = null;
     activeJobId = null;
     update(job, { ...patch, state: 'completed', error: null });
+    cleanupJob(job);
+  }
+
+  function cleanupJob(job) {
+    try {
+      const cleanup = cleanupCompletedJob({ workRoot, jobId: job.jobId, apply: true });
+      update(job, { cleanup: { removedBytes: cleanup.removedBytes, paths: cleanup.paths.length } });
+    } catch (error) {
+      update(job, { cleanup: { removedBytes: 0, paths: 0, warning: serializeError(error, 'cleanup') } });
+    }
   }
 
   function fail(job, error) {
@@ -233,7 +259,44 @@ export function createRenderJobManager(options = {}) {
     return path.join(outputRoot, jobId, filename);
   }
 
-  return { create, get, list, cancel, video, get activeJobId() { return activeJobId; } };
+  function recoverPersistedJobs() {
+    for (const entry of readdirSync(appJobsRoot, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+      try {
+        const status = readJson(path.join(appJobsRoot, entry.name));
+        if (!status?.jobId || !JOB_ID_PATTERN.test(status.jobId)) continue;
+        const recovered = { ...status, process: null, processId: null, stdoutBuffer: '', timeout: null };
+        if (['queued', 'rendering'].includes(recovered.state)) {
+          recovered.state = 'failed';
+          recovered.stage = 'recovery';
+          recovered.updatedAt = new Date().toISOString();
+          recovered.error = serializeError(new PipelineError({
+            code: 'RENDER_INTERRUPTED',
+            stage: 'recovery',
+            message: 'El servicio se reinició antes de que terminara el render.',
+            suggestedAction: 'Volvé a iniciar el render; los outputs incompletos no se publicaron.',
+          }), 'recovery');
+        }
+        jobs.set(recovered.jobId, recovered);
+        if (recovered.state === 'failed' && recovered.stage === 'recovery') persist(recovered);
+      } catch {
+        // Un estado corrupto no puede bloquear el arranque ni convertirse en fuente de verdad.
+      }
+    }
+    trimJobs();
+  }
+
+  function trimJobs() {
+    if (jobs.size <= MAX_IN_MEMORY_JOBS) return;
+    const removable = [...jobs.values()]
+      .filter((job) => !['queued', 'rendering'].includes(job.state))
+      .sort((left, right) => String(left.updatedAt).localeCompare(String(right.updatedAt)));
+    while (jobs.size > MAX_IN_MEMORY_JOBS && removable.length > 0) {
+      jobs.delete(removable.shift().jobId);
+    }
+  }
+
+  return { create, get, list, cancel, cancelActive, video, get activeJobId() { return activeJobId; } };
 }
 
 function publicJob(job) {
@@ -247,8 +310,31 @@ function publicJob(job) {
     updatedAt: job.updatedAt,
     progress: job.progress,
     error: job.error,
+    ...(job.cleanup ? { cleanup: job.cleanup } : {}),
     ...(job.result ? { result: job.result } : {}),
   };
+}
+
+export function terminateProcessTree(child) {
+  const pid = Number(child?.pid);
+  if (!Number.isInteger(pid) || pid <= 0) {
+    child?.kill?.();
+    return;
+  }
+  if (process.platform === 'win32') {
+    spawnSync('taskkill.exe', ['/pid', String(pid), '/T', '/F'], {
+      shell: false,
+      windowsHide: true,
+      stdio: 'ignore',
+      timeout: 15_000,
+    });
+    return;
+  }
+  try {
+    process.kill(-pid, 'SIGTERM');
+  } catch {
+    child.kill?.('SIGTERM');
+  }
 }
 
 function createJobId() {

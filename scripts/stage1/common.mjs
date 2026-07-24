@@ -79,13 +79,18 @@ export function run(executable, args, options = {}) {
     shell: false,
     stdio: options.capture ? 'pipe' : 'inherit',
     maxBuffer: 20 * 1024 * 1024,
+    timeout: options.timeoutMs ?? 15 * 60 * 1000,
+    killSignal: 'SIGKILL',
   });
   const executableName = path.basename(executable).replace(/\.[^.]+$/, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_') || 'PROCESS';
   if (result.error) {
+    const timedOut = result.error.code === 'ETIMEDOUT';
     throw new PipelineError({
-      code: `${executableName}_START_FAILED`,
+      code: timedOut ? `${executableName}_TIMEOUT` : `${executableName}_START_FAILED`,
       stage: options.stage || 'external_process',
-      message: `No se pudo iniciar ${path.basename(executable)}.`,
+      message: timedOut
+        ? `${path.basename(executable)} superó el tiempo máximo permitido.`
+        : `No se pudo iniciar ${path.basename(executable)}.`,
       cause: result.error,
       suggestedAction: `Verifique que ${path.basename(executable)} exista y sea ejecutable.`,
     });
