@@ -83,7 +83,7 @@
         "purpose": { "type": "string", "minLength": 1, "maxLength": 160 },
         "backgroundResourceId": { "$ref": "#/$defs/id" },
         "cameraPreset": { "enum": ["static", "slow-pan", "slow-zoom"] },
-        "layoutPreset": { "enum": ["balanced", "focus-a", "focus-b"] },
+        "layoutPreset": { "$ref": "#/$defs/id" },
         "transitionPreset": { "enum": ["cut", "fade"] },
         "transitionDurationSeconds": { "type": "number", "minimum": 0, "maximum": 1 },
         "dialogue": {

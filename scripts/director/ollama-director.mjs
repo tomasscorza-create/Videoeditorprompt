@@ -5,6 +5,7 @@ import { PipelineError } from '../stage1/errors.mjs';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import {
   getDirectorPlanSchema,
+  listLayoutPresetIds,
   loadAuthoringCatalog,
   normalizeDirectorPlan,
 } from './director-plan.mjs';
@@ -184,10 +185,11 @@ export function buildOllamaPlanSchema(catalog, constraints = {}) {
   schema.$defs.castMember.properties.poseId = { type: 'string', enum: poses };
   schema.$defs.castMember.properties.animationPreset = { type: 'string', enum: animationPresets };
   schema.$defs.scene.properties.transitionDurationSeconds = { type: 'number', minimum: 0, maximum: 1 };
+  schema.$defs.scene.properties.layoutPreset = { type: 'string', enum: listLayoutPresetIds() };
+  // A5: `static` es una elección legítima; ya no se filtra del enum de cámara.
   const cameraPresets = [...new Set(catalog.entries
     .filter((entry) => entry.type === 'background')
-    .flatMap((entry) => entry.capabilities.cameraPresets))]
-    .filter((preset) => preset !== 'static');
+    .flatMap((entry) => entry.capabilities.cameraPresets))];
   schema.$defs.scene.properties.cameraPreset = { type: 'string', enum: cameraPresets };
   if (constraints.tone) schema.properties.tone = { const: constraints.tone };
   if (constraints.targetDurationSeconds) {

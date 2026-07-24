@@ -86,9 +86,26 @@ assert.equal(normalizedA.project.scenes[0].transitionToNext.preset, 'fade');
 assert.equal(Object.hasOwn(normalizedA.project.scenes[1], 'transitionToNext'), false);
 assert.equal(normalizedA.project.scenes.every((scene) => scene.dialogue.at(-1).gapAfterSeconds === 0), true);
 assert.equal(normalizedA.project.scenes.every((scene) => scene.elements[0].transform.zIndex < scene.elements[1].transform.zIndex), true);
+// A5: `static` es una elección legítima y sobrevive sin coerción hasta el proyecto.
 const staticPlan = structuredClone(validPlan);
 staticPlan.scenes[0].cameraPreset = 'static';
-assert.equal(normalizeDirectorPlan(staticPlan, catalog).project.scenes[0].background.cameraPreset, 'slow-pan');
+assert.equal(normalizeDirectorPlan(staticPlan, catalog).project.scenes[0].background.cameraPreset, 'static');
+
+// A4: un layout nuevo del catálogo de datos ubica los personajes por ID.
+const wideLayoutPlan = structuredClone(validPlan);
+wideLayoutPlan.scenes[0].layoutPreset = 'stacked';
+const wideNormalized = normalizeDirectorPlan(wideLayoutPlan, catalog).project.scenes[0];
+assert.equal(wideNormalized.elements[0].transform.x, 540);
+assert.equal(wideNormalized.elements[1].transform.y, 1240);
+
+// A4: un layout inexistente se rechaza con recurso no soportado.
+assert.throws(
+  () => validateDirectorPlan({
+    ...validPlan,
+    scenes: [{ ...validPlan.scenes[0], layoutPreset: 'no-existe' }, validPlan.scenes[1]],
+  }, catalog),
+  (error) => error.code === 'DIRECTOR_RESOURCE_UNSUPPORTED',
+);
 
 // A1/A2: pose y animación elegidas por el plan llegan al proyecto normalizado.
 assert.equal(normalizedA.project.scenes[0].elements[0].poseId, 'point');
@@ -159,7 +176,7 @@ assert.throws(
 
 const summary = {
   version: 1,
-  passed: 19,
+  passed: 22,
   failed: 0,
   semanticHash: normalizedA.semanticHash,
   projectId: normalizedA.project.id,

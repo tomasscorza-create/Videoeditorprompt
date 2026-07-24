@@ -41,6 +41,8 @@ const fakeFetch = async (url, options = {}) => {
     assert.ok(request.format.$defs.castMember.properties.poseId.enum.includes('point'));
     assert.ok(request.format.$defs.castMember.properties.animationPreset.enum.includes('talk-calm'));
     assert.equal(request.format.$defs.scene.properties.transitionDurationSeconds.maximum, 1);
+    assert.ok(request.format.$defs.scene.properties.layoutPreset.enum.includes('stacked'));
+    assert.ok(request.format.$defs.scene.properties.cameraPreset.enum.includes('static'));
     return response({
       message: { role: 'assistant', content: JSON.stringify(plan) },
       prompt_eval_count: 100,
@@ -169,7 +171,7 @@ assert.equal(failCalls, 3);
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 29,
+  passed: 31,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

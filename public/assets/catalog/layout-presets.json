@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "balanced",
+      "label": "Equilibrado",
+      "slots": {
+        "a": { "x": 300, "y": 1100, "scale": 0.7, "zIndex": 20 },
+        "b": { "x": 780, "y": 1100, "scale": 0.7, "zIndex": 21 }
+      }
+    },
+    {
+      "id": "focus-a",
+      "label": "Foco en A",
+      "slots": {
+        "a": { "x": 350, "y": 1080, "scale": 0.78, "zIndex": 20 },
+        "b": { "x": 800, "y": 1130, "scale": 0.62, "zIndex": 21 }
+      }
+    },
+    {
+      "id": "focus-b",
+      "label": "Foco en B",
+      "slots": {
+        "a": { "x": 280, "y": 1130, "scale": 0.62, "zIndex": 20 },
+        "b": { "x": 730, "y": 1080, "scale": 0.78, "zIndex": 21 }
+      }
+    },
+    {
+      "id": "close-up-a",
+      "label": "Primer plano de A",
+      "slots": {
+        "a": { "x": 360, "y": 1000, "scale": 0.95, "zIndex": 20 },
+        "b": { "x": 830, "y": 1170, "scale": 0.55, "zIndex": 21 }
+      }
+    },
+    {
+      "id": "close-up-b",
+      "label": "Primer plano de B",
+      "slots": {
+        "a": { "x": 250, "y": 1170, "scale": 0.55, "zIndex": 20 },
+        "b": { "x": 720, "y": 1000, "scale": 0.95, "zIndex": 21 }
+      }
+    },
+    {
+      "id": "wide",
+      "label": "Plano abierto",
+      "slots": {
+        "a": { "x": 240, "y": 1140, "scale": 0.6, "zIndex": 20 },
+        "b": { "x": 840, "y": 1140, "scale": 0.6, "zIndex": 21 }
+      }
+    },
+    {
+      "id": "stacked",
+      "label": "Apilado vertical",
+      "slots": {
+        "a": { "x": 540, "y": 880, "scale": 0.62, "zIndex": 20 },
+        "b": { "x": 540, "y": 1240, "scale": 0.62, "zIndex": 21 }
+      }
+    }
+  ]
+}

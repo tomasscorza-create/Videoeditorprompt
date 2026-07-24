@@ -13,20 +13,29 @@ const catalogSchema = readJson(path.join(projectRoot, 'schema', 'authoring-resou
 const validateCatalogSchema = new Ajv2020({ allErrors: true, strict: true }).compile(catalogSchema);
 const catalogCache = new Map();
 
-const LAYOUTS = Object.freeze({
-  balanced: Object.freeze({
-    a: Object.freeze({ x: 300, y: 1100, scale: 0.7, zIndex: 20 }),
-    b: Object.freeze({ x: 780, y: 1100, scale: 0.7, zIndex: 21 }),
-  }),
-  'focus-a': Object.freeze({
-    a: Object.freeze({ x: 350, y: 1080, scale: 0.78, zIndex: 20 }),
-    b: Object.freeze({ x: 800, y: 1130, scale: 0.62, zIndex: 21 }),
-  }),
-  'focus-b': Object.freeze({
-    a: Object.freeze({ x: 280, y: 1130, scale: 0.62, zIndex: 20 }),
-    b: Object.freeze({ x: 730, y: 1080, scale: 0.78, zIndex: 21 }),
-  }),
-});
+// A4: el vocabulario de layouts es un dato validado por schema, no código. Agregar
+// una composición nueva es editar el JSON; la IA la ve en el enum en la próxima
+// propuesta. Se sigue eligiendo por ID de preset (no x/y libres en la propuesta).
+const LAYOUTS = loadLayoutPresets();
+const LAYOUT_PRESET_IDS = Object.freeze(Object.keys(LAYOUTS));
+
+function loadLayoutPresets() {
+  const layoutSchema = readJson(path.join(projectRoot, 'schema', 'layout-presets.schema.json'));
+  const validateLayoutSchema = new Ajv2020({ allErrors: true, strict: true }).compile(layoutSchema);
+  const document = readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'layout-presets.json'));
+  if (!validateLayoutSchema(document)) {
+    const detail = (validateLayoutSchema.errors || []).slice(0, 12)
+      .map((error) => `${error.instancePath || '/'} ${error.message}`).join('; ');
+    directorError('DIRECTOR_LAYOUT_CATALOG_INVALID', 'El catálogo de layouts no tiene un formato válido.', detail);
+  }
+  const map = {};
+  for (const preset of document.presets) map[preset.id] = preset.slots;
+  return Object.freeze(map);
+}
+
+export function listLayoutPresetIds() {
+  return [...LAYOUT_PRESET_IDS];
+}
 
 export function getDirectorPlanSchema() {
   return structuredClone(planSchema);
@@ -64,6 +73,9 @@ export function validateDirectorPlan(plan, catalog) {
     const background = requireResource(resources, scene.backgroundResourceId, 'background', `/scenes/${sceneIndex}/backgroundResourceId`);
     if (!background.capabilities.cameraPresets.includes(scene.cameraPreset)) {
       directorError('DIRECTOR_RESOURCE_UNSUPPORTED', 'El fondo no soporta la cámara seleccionada.', `/scenes/${sceneIndex}/cameraPreset`);
+    }
+    if (!Object.hasOwn(LAYOUTS, scene.layoutPreset)) {
+      directorError('DIRECTOR_RESOURCE_UNSUPPORTED', 'El layout elegido no existe en el catálogo de composiciones.', `/scenes/${sceneIndex}/layoutPreset`);
     }
     const isLastScene = sceneIndex === plan.scenes.length - 1;
     if (!isLastScene && scene.transitionPreset === 'fade') {
@@ -150,7 +162,9 @@ function normalizeScene(plan, scene, sceneIndex) {
     title: scene.title,
     background: {
       resourceId: scene.backgroundResourceId,
-      cameraPreset: scene.cameraPreset === 'static' ? 'slow-pan' : scene.cameraPreset,
+      // A5: `static` es una elección legítima de la IA (el compilador la soporta),
+      // ya no se coerciona a slow-pan.
+      cameraPreset: scene.cameraPreset,
     },
     elements,
     dialogue: scene.dialogue.map((turn, turnIndex) => ({
