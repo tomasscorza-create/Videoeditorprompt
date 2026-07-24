@@ -20,7 +20,10 @@ import {
   validateCompiledCharacterManifest,
 } from '../stage2f/parametric-character.mjs';
 import { validateResourceCatalogSemantics } from '../stage3a/validate-video-project.mjs';
-import { applyCharacterDesign } from '../../shared/character-design-presets.js';
+import {
+  applyCharacterDesign,
+  customCharacterDesignIssues,
+} from '../../shared/character-design-presets.js';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 ajv.addFormat('date-time', {
@@ -463,6 +466,12 @@ function validateCharacterDesign(design) {
       .map((error) => `${error.instancePath || '/'} ${error.message}`).join('; ');
     const error = libraryError('LIBRARY_CHARACTER_DESIGN_INVALID', 'El diseño del personaje no cumple el contrato permitido.');
     error.technicalDetail = detail;
+    throw error;
+  }
+  const issues = customCharacterDesignIssues(design);
+  if (design.version === 2 && issues.length > 0) {
+    const error = libraryError('LIBRARY_CHARACTER_DESIGN_INVALID', 'El personaje necesita todas las piezas funcionales para poder animarse.');
+    error.technicalDetail = issues.slice(0, 12).join('; ');
     throw error;
   }
   return design;

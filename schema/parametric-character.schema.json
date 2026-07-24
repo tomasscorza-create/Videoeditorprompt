@@ -177,7 +177,8 @@
         "width": { "type": "number", "exclusiveMinimum": 0 }, "height": { "type": "number", "exclusiveMinimum": 0 },
         "rx": { "type": "number", "minimum": 0 }, "fill": { "$ref": "#/$defs/color" },
         "stroke": { "$ref": "#/$defs/color" }, "strokeWidth": { "type": "number", "minimum": 0, "maximum": 200 },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180 }
       }
     },
     "path": {

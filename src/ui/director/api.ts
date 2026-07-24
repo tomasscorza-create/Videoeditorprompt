@@ -1,3 +1,5 @@
+import type { CharacterDesign } from '../../../shared/character-design-presets.js';
+
 export interface LocalHealth {
   version: number;
   ready: boolean;
@@ -78,15 +80,6 @@ export interface RegisteredResource {
   type: string;
   label: string;
   origin: 'builtin' | 'local';
-}
-
-export interface CharacterDesign {
-  version: 1;
-  preset: 'mono-parametrico-v1';
-  name: string;
-  accessory: 'none' | 'glasses' | 'badge';
-  headwear: 'none' | 'cap';
-  palette: Record<string, string>;
 }
 
 export interface SavedCharacterDesign {

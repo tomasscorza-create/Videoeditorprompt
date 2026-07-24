@@ -241,7 +241,12 @@ function renderShape(shape, palette) {
     const transform = shape.rotationDegrees ? ` transform="rotate(${shape.rotationDegrees} ${shape.cx} ${shape.cy})"` : '';
     return `<ellipse cx="${shape.cx}" cy="${shape.cy}" rx="${shape.rx}" ry="${shape.ry}" ${style}${transform}/>`;
   }
-  if (shape.type === 'rect') return `<rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="${shape.rx || 0}" ${style}/>`;
+  if (shape.type === 'rect') {
+    const centerX = shape.x + shape.width / 2;
+    const centerY = shape.y + shape.height / 2;
+    const transform = shape.rotationDegrees ? ` transform="rotate(${shape.rotationDegrees} ${centerX} ${centerY})"` : '';
+    return `<rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="${shape.rx || 0}" ${style}${transform}/>`;
+  }
   if (shape.type === 'path') return `<path d="${shape.d}" ${style}/>`;
   if (shape.type === 'polygon') return `<polygon points="${shape.points.map((point) => `${point.x},${point.y}`).join(' ')}" ${style}/>`;
   throw new Error(`Primitiva no soportada: ${shape.type}`);

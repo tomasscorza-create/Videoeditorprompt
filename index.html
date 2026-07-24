@@ -267,7 +267,11 @@
               </div>
               <button id="character-creator-close" class="icon-button" type="button" aria-label="Cerrar diseñador">×</button>
             </header>
-            <p class="muted">Personalizá una plantilla por capas. Al guardar se compila un rig con ojos, boca y gestos.</p>
+            <p class="muted">Elegí una plantilla rápida o construí un personaje por piezas semánticas. Ambos caminos producen un rig animable.</p>
+            <div class="character-mode-tabs" role="tablist" aria-label="Modo de creación">
+              <button id="character-mode-template" class="is-active" type="button" role="tab" aria-selected="true">Usar plantilla</button>
+              <button id="character-mode-scratch" type="button" role="tab" aria-selected="false">Crear desde cero</button>
+            </div>
             <label class="field" for="character-existing">
               <span>Diseño</span>
               <select id="character-existing"><option value="">Nuevo personaje</option></select>
@@ -276,25 +280,78 @@
               <span>Nombre</span>
               <input id="character-name" maxlength="80" value="Mi personaje">
             </label>
-            <div class="character-control-grid">
-              <label class="field" for="character-palette-preset"><span>Estilo de color</span><select id="character-palette-preset"><option value="azul">Azul</option><option value="ciruela">Ciruela</option><option value="custom">Personalizado</option></select></label>
-              <label class="field" for="character-accessory"><span>Accesorio</span><select id="character-accessory"><option value="none">Ninguno</option><option value="glasses">Lentes</option><option value="badge">Insignia</option></select></label>
-              <label class="field" for="character-headwear"><span>Sombrero</span><select id="character-headwear"><option value="none">Ninguno</option><option value="cap">Gorra</option></select></label>
-              <label class="field" for="character-pose"><span>Gesto</span><select id="character-pose"><option value="neutral">Neutral</option><option value="point">Señalar</option></select></label>
-              <label class="field" for="character-eyes"><span>Ojos</span><select id="character-eyes"><option value="open">Abiertos</option><option value="closed">Cerrados</option></select></label>
-              <label class="field" for="character-mouth"><span>Boca</span><select id="character-mouth"><option value="closed">Cerrada</option><option value="medium">Hablando</option><option value="open">Abierta</option></select></label>
-            </div>
-            <details class="character-colors">
-              <summary>Colores</summary>
-              <div id="character-color-controls" class="character-color-controls"></div>
-            </details>
-            <fieldset class="character-layers">
-              <legend>Capas visibles en la vista</legend>
-              <label><input type="checkbox" data-character-layer="body" checked> Cuerpo</label>
-              <label><input type="checkbox" data-character-layer="eyes" checked> Ojos</label>
-              <label><input type="checkbox" data-character-layer="mouth" checked> Boca</label>
-              <label><input type="checkbox" data-character-layer="hands" checked> Manos</label>
-            </fieldset>
+            <section id="character-template-editor" class="character-editor-mode" role="tabpanel">
+              <div class="character-control-grid">
+                <label class="field" for="character-palette-preset"><span>Estilo de color</span><select id="character-palette-preset"><option value="azul">Azul</option><option value="ciruela">Ciruela</option><option value="custom">Personalizado</option></select></label>
+                <label class="field" for="character-accessory"><span>Accesorio</span><select id="character-accessory"><option value="none">Ninguno</option><option value="glasses">Lentes</option><option value="badge">Insignia</option></select></label>
+                <label class="field" for="character-headwear"><span>Sombrero</span><select id="character-headwear"><option value="none">Ninguno</option><option value="cap">Gorra</option></select></label>
+                <label class="field" for="character-pose"><span>Gesto</span><select id="character-pose"><option value="neutral">Neutral</option><option value="point">Señalar</option></select></label>
+                <label class="field" for="character-eyes"><span>Ojos</span><select id="character-eyes"><option value="open">Abiertos</option><option value="closed">Cerrados</option></select></label>
+                <label class="field" for="character-mouth"><span>Boca</span><select id="character-mouth"><option value="closed">Cerrada</option><option value="medium">Hablando</option><option value="open">Abierta</option></select></label>
+              </div>
+              <details class="character-colors">
+                <summary>Colores</summary>
+                <div id="character-color-controls" class="character-color-controls"></div>
+              </details>
+              <fieldset class="character-layers">
+                <legend>Capas visibles en la vista</legend>
+                <label><input type="checkbox" data-character-layer="body" checked> Cuerpo</label>
+                <label><input type="checkbox" data-character-layer="eyes" checked> Ojos</label>
+                <label><input type="checkbox" data-character-layer="mouth" checked> Boca</label>
+                <label><input type="checkbox" data-character-layer="hands" checked> Manos</label>
+              </fieldset>
+            </section>
+            <section id="character-scratch-editor" class="character-editor-mode" role="tabpanel" hidden>
+              <div class="scratch-start-actions">
+                <button id="character-empty-canvas" type="button">Lienzo vacío</button>
+                <button id="character-load-minimal" type="button">Cargar base mínima</button>
+              </div>
+              <div class="scratch-add-row">
+                <label class="field" for="character-add-role"><span>Nueva pieza</span>
+                  <select id="character-add-role">
+                    <option value="body">Cuerpo</option><option value="head">Cabeza</option>
+                    <option value="eye-left">Ojo izquierdo</option><option value="eye-right">Ojo derecho</option>
+                    <option value="mouth">Boca</option><option value="arm-left">Brazo izquierdo</option>
+                    <option value="arm-right">Brazo derecho</option><option value="leg-left">Pierna izquierda</option>
+                    <option value="leg-right">Pierna derecha</option><option value="garment">Ropa</option>
+                    <option value="accessory">Accesorio</option>
+                  </select>
+                </label>
+                <button id="character-add-part" type="button">Agregar</button>
+              </div>
+              <label class="field" for="character-scratch-preview-state"><span>Probar reconocimiento y animación</span>
+                <select id="character-scratch-preview-state">
+                  <option value="design">Editar piezas</option>
+                  <option value="blink">Parpadeo</option>
+                  <option value="talk">Boca hablando</option>
+                  <option value="point">Gesto señalar</option>
+                </select>
+              </label>
+              <p id="character-parts-validation" class="muted"></p>
+              <div id="character-parts-list" class="character-parts-list" aria-label="Capas del personaje"></div>
+              <fieldset id="character-part-inspector" class="character-part-inspector">
+                <legend>Pieza seleccionada</legend>
+                <label class="field" for="character-part-name"><span>Nombre</span><input id="character-part-name" maxlength="60"></label>
+                <div class="character-control-grid">
+                  <label class="field" for="character-part-role"><span>Función</span><select id="character-part-role"></select></label>
+                  <label class="field" for="character-part-shape"><span>Forma</span><select id="character-part-shape"><option value="ellipse">Elipse/círculo</option><option value="rect">Rectángulo redondeado</option></select></label>
+                  <label class="field" for="character-part-x"><span>X</span><input id="character-part-x" type="number" min="0" max="1080" step="1"></label>
+                  <label class="field" for="character-part-y"><span>Y</span><input id="character-part-y" type="number" min="0" max="1920" step="1"></label>
+                  <label class="field" for="character-part-width"><span>Ancho</span><input id="character-part-width" type="number" min="10" max="1080" step="1"></label>
+                  <label class="field" for="character-part-height"><span>Alto</span><input id="character-part-height" type="number" min="10" max="1920" step="1"></label>
+                  <label class="field" for="character-part-rotation"><span>Rotación</span><input id="character-part-rotation" type="number" min="-180" max="180" step="1"></label>
+                  <label class="field" for="character-part-stroke-width"><span>Contorno</span><input id="character-part-stroke-width" type="number" min="0" max="80" step="1"></label>
+                  <label class="field" for="character-part-fill"><span>Color</span><input id="character-part-fill" type="color"></label>
+                  <label class="field" for="character-part-stroke"><span>Color borde</span><input id="character-part-stroke" type="color"></label>
+                </div>
+                <div class="character-part-actions">
+                  <button id="character-part-down" type="button">Bajar capa</button>
+                  <button id="character-part-up" type="button">Subir capa</button>
+                  <button id="character-part-delete" class="danger-button" type="button">Eliminar</button>
+                </div>
+              </fieldset>
+              <p class="muted">También podés arrastrar la pieza seleccionada directamente sobre el visor.</p>
+            </section>
             <button id="character-save" class="primary-button full-button" type="button">Guardar en la biblioteca</button>
             <p id="character-creator-status" class="muted" role="status" aria-live="polite"></p>
           </section>

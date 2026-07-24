@@ -1,16 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local-video.invalid/schema/local-character-design-v1.json",
-  "title": "Diseño local de personaje basado en plantilla",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["version", "preset", "name", "accessory", "headwear", "palette"],
-  "properties": {
-    "version": { "const": 1 },
-    "preset": { "const": "mono-parametrico-v1" },
-    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-    "accessory": { "enum": ["none", "glasses", "badge"] },
-    "headwear": { "enum": ["none", "cap"] },
+  "$id": "https://local-video.invalid/schema/local-character-design.json",
+  "title": "Diseño local de personaje",
+  "oneOf": [
+    { "$ref": "#/$defs/templateDesign" },
+    { "$ref": "#/$defs/customDesign" }
+  ],
+  "$defs": {
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+    },
     "palette": {
       "type": "object",
       "additionalProperties": false,
@@ -27,12 +27,60 @@
         "tongue": { "$ref": "#/$defs/color" },
         "shadow": { "$ref": "#/$defs/color" }
       }
-    }
-  },
-  "$defs": {
-    "color": {
-      "type": "string",
-      "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+    },
+    "templateDesign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "preset", "name", "accessory", "headwear", "palette"],
+      "properties": {
+        "version": { "const": 1 },
+        "preset": { "const": "mono-parametrico-v1" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "accessory": { "enum": ["none", "glasses", "badge"] },
+        "headwear": { "enum": ["none", "cap"] },
+        "palette": { "$ref": "#/$defs/palette" }
+      }
+    },
+    "customDesign": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "mode", "name", "parts"],
+      "properties": {
+        "version": { "const": 2 },
+        "mode": { "const": "from-scratch" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "parts": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 40,
+          "items": { "$ref": "#/$defs/part" }
+        }
+      }
+    },
+    "part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role", "shape", "x", "y", "width", "height", "rotationDegrees", "fill", "stroke", "strokeWidth"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "role": {
+          "enum": [
+            "body", "head", "eye-left", "eye-right", "mouth",
+            "arm-left", "arm-right", "leg-left", "leg-right",
+            "garment", "accessory"
+          ]
+        },
+        "shape": { "enum": ["ellipse", "rect"] },
+        "x": { "type": "number", "minimum": 0, "maximum": 1080 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1920 },
+        "width": { "type": "number", "minimum": 10, "maximum": 1080 },
+        "height": { "type": "number", "minimum": 10, "maximum": 1920 },
+        "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180 },
+        "fill": { "$ref": "#/$defs/color" },
+        "stroke": { "$ref": "#/$defs/color" },
+        "strokeWidth": { "type": "number", "minimum": 0, "maximum": 80 }
+      }
     }
   }
 }
