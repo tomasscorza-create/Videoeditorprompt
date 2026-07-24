@@ -112,6 +112,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `src/ui/project/composition.ts`: proyección visual estática del proyecto y catálogo; no evalúa audio, boca ni tiempos.
 - `src/ui/project/persistence.ts`: sesión local versionada y ligada a la revisión del catálogo.
 - `src/ui/project/library.ts` y `project-timeline.ts`: recursos aplicables e inventario estructural de escenas/turnos.
+- `src/ui/project/character-placement.ts`: selección y transferencia drag/drop de personajes; composición resuelve el personaje más cercano y despacha una colocación atómica sin superar dos instancias.
 - `src/ui/character-creator.ts` y `shared/character-design-presets.js`: modo visual de autoría y transformación compartida hacia la definición paramétrica compilable.
 - `docs/ESTRUCTURA_VISUAL_CANONICA.md`: contrato de layout y responsabilidades visuales que deben preservar las ampliaciones de la UI.
 - `scripts/stage1/validate-scene-config.mjs`: validación estructural, semántica, de rutas/assets y límites medidos.

@@ -202,6 +202,10 @@ try {
   scratchDesign.parts.find((part) => part.role === 'arm-right').rotationDegrees = -28;
   const scratchCharacter = library.saveCharacterDesign(scratchDesign);
   assert.equal(scratchCharacter.created, true);
+  assert.deepEqual(
+    scratchCharacter.resource.entry.capabilities.animationPresets,
+    ['idle-calm', 'talk-calm'],
+  );
   assert.equal(library.characterDesigns().find((item) => item.id === scratchCharacter.resource.id).design.version, 2);
   const scratchManifest = JSON.parse(readFileSync(path.join(
     library.storageAssetsRoot,
@@ -220,6 +224,10 @@ try {
 
   rmSync(path.join(publishRoot, 'backgrounds'), { recursive: true, force: true });
   rmSync(path.join(publishRoot, 'characters'), { recursive: true, force: true });
+  const registryBeforeUpgrade = JSON.parse(readFileSync(library.indexPath, 'utf8'));
+  const legacyCharacterRecord = registryBeforeUpgrade.entries.find((record) => record.entry.type === 'character');
+  legacyCharacterRecord.entry.capabilities.animationPresets = ['idle', 'dialogue'];
+  writeFileSync(library.indexPath, JSON.stringify(registryBeforeUpgrade), 'utf8');
   const restored = createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
   assert.equal(restored.list().length, 10);
   assert.equal(restored.catalog().entries.at(-1).type, 'character');
@@ -231,6 +239,10 @@ try {
     importedBackground.resource.id,
     'background.png',
   )), true);
+  assert.deepEqual(
+    restored.list().find((resource) => resource.id === legacyCharacterRecord.id).entry.capabilities.animationPresets,
+    ['idle-calm', 'talk-calm'],
+  );
   assert.equal(existsSync(path.join(
     publishRoot,
     'characters',
@@ -263,7 +275,7 @@ try {
     (error) => error.code === 'LIBRARY_INDEX_INVALID',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 55, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 57, failed: 0 })}\n`);
 } finally {
   rmSync(root, { recursive: true, force: true });
   rmSync(publishRoot, { recursive: true, force: true });

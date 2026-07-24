@@ -177,6 +177,18 @@ function applyMutation(project, catalog, command) {
       element.resourceId = command.resourceId;
       return;
     }
+    case 'place-character-resource': {
+      const element = requireElement(requireScene(project, command.sceneId), command.elementId, 'character');
+      const resource = requireResource(resources, command.resourceId, 'character', '/command/resourceId');
+      if (!resource.capabilities.poses.includes(element.poseId) || !resource.capabilities.animationPresets.includes(element.animationPreset)) {
+        fail('EDITOR_CHARACTER_INCOMPATIBLE', 'El personaje seleccionado no soporta la pose o animación actuales.', '/command/resourceId');
+      }
+      element.resourceId = command.resourceId;
+      element.transform.x = command.x;
+      element.transform.y = command.y;
+      validateEditableTransform(element.transform, '/command/transform');
+      return;
+    }
     case 'set-character-transform': {
       const element = requireElement(requireScene(project, command.sceneId), command.elementId, 'character');
       const keys = ['x', 'y', 'scale', 'zIndex'].filter((key) => Object.hasOwn(command, key));
@@ -272,6 +284,7 @@ function assertCommandShape(command) {
     'set-scene-title': { required: ['type', 'sceneId', 'title'], optional: [] },
     'set-scene-background': { required: ['type', 'sceneId', 'resourceId', 'cameraPreset'], optional: [] },
     'set-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId'], optional: [] },
+    'place-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y'], optional: [] },
     'set-character-transform': { required: ['type', 'sceneId', 'elementId'], optional: ['x', 'y', 'scale', 'zIndex'] },
     'set-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: ['text', 'voiceId', 'gestureId', 'gapAfterSeconds'] },
     'set-transition': { required: ['type', 'sceneId', 'preset', 'durationSeconds'], optional: [] },

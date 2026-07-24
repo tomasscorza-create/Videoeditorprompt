@@ -74,6 +74,11 @@ export function createResourceLibrary(options = {}) {
   ));
   validateCatalog(builtinCatalog, assetsRoot);
   let registry = readRegistry(indexPath);
+  const upgradedRegistry = upgradeManagedCharacterCapabilities(registry, publishedAssetsRelative);
+  if (JSON.stringify(upgradedRegistry) !== JSON.stringify(registry)) {
+    atomicWriteJson(indexPath, upgradedRegistry);
+    registry = upgradedRegistry;
+  }
   validateRegistry(registry);
   publish();
 
@@ -278,7 +283,7 @@ export function createResourceLibrary(options = {}) {
         characterRef: { catalog: characterCatalogRelative, entryId: id },
         capabilities: {
           poses: ['neutral', 'point'],
-          animationPresets: ['idle', 'dialogue'],
+          animationPresets: ['idle-calm', 'talk-calm'],
         },
         provenance: {
           source: 'Creado con el diseñador local de personajes.',
@@ -396,6 +401,32 @@ export function createResourceLibrary(options = {}) {
       ...registry.entries.map((record) => summary(record.entry, 'local', record)),
     ].find((resource) => resource.id === id);
   }
+}
+
+function upgradeManagedCharacterCapabilities(registry, publishedAssetsRelative) {
+  return {
+    ...registry,
+    entries: registry.entries.map((record) => {
+      if (!isManagedCharacter(record.entry, publishedAssetsRelative)) return record;
+      const animationPresets = record.entry.capabilities?.animationPresets;
+      if (
+        Array.isArray(animationPresets)
+        && animationPresets.includes('idle-calm')
+        && animationPresets.includes('talk-calm')
+      ) return record;
+      return {
+        ...record,
+        entry: {
+          ...record.entry,
+          capabilities: {
+            ...record.entry.capabilities,
+            poses: ['neutral', 'point'],
+            animationPresets: ['idle-calm', 'talk-calm'],
+          },
+        },
+      };
+    }),
+  };
 }
 
 export function defaultLibraryStorageRoot({

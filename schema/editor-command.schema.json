@@ -8,6 +8,7 @@
     { "$ref": "#/$defs/setSceneTitle" },
     { "$ref": "#/$defs/setSceneBackground" },
     { "$ref": "#/$defs/setCharacterResource" },
+    { "$ref": "#/$defs/placeCharacterResource" },
     { "$ref": "#/$defs/setCharacterTransform" },
     { "$ref": "#/$defs/setDialogueTurn" },
     { "$ref": "#/$defs/setTransition" },
@@ -39,6 +40,18 @@
       "type": "object", "additionalProperties": false,
       "required": ["type", "sceneId", "elementId", "resourceId"],
       "properties": { "type": { "const": "set-character-resource" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" }, "resourceId": { "$ref": "#/$defs/id" } }
+    },
+    "placeCharacterResource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId", "resourceId", "x", "y"],
+      "properties": {
+        "type": { "const": "place-character-resource" },
+        "sceneId": { "$ref": "#/$defs/id" },
+        "elementId": { "$ref": "#/$defs/id" },
+        "resourceId": { "$ref": "#/$defs/id" },
+        "x": { "type": "number", "minimum": -1080, "maximum": 2160 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 3840 }
+      }
     },
     "setCharacterTransform": {
       "type": "object", "additionalProperties": false,

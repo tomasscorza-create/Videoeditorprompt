@@ -633,6 +633,39 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .composition-layer, .composition-character { position: absolute; pointer-events: none; user-select: none; }
 .composition-layer { inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .composition-character { width: 100%; height: 100%; object-fit: contain; transform-origin: center; }
+.composition-canvas.is-character-placement-active { cursor: crosshair; }
+.composition-canvas.is-character-placement-active::after,
+.composition-canvas.is-character-drag-over::after {
+  content: "";
+  position: absolute;
+  inset: .45rem;
+  z-index: 2050;
+  border: 2px dashed var(--accent);
+  border-radius: .45rem;
+  pointer-events: none;
+}
+.composition-canvas.is-character-drag-over::after {
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.composition-placement-hint {
+  position: absolute;
+  top: .65rem;
+  left: 50%;
+  max-width: calc(100% - 1.3rem);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: .35rem .6rem;
+  color: var(--accent-ink);
+  background: var(--accent);
+  font-size: .62rem;
+  font-weight: 750;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.resource-card.is-placement-source { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.resource-card.is-dragging { opacity: .55; }
 .composition-label {
   position: absolute;
   left: .6rem;

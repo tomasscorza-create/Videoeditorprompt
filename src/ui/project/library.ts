@@ -1,5 +1,11 @@
 import { optional } from '../dom.js';
 import { importBackgroundResource } from '../director/api.js';
+import {
+  CHARACTER_PLACEMENT_EVENT,
+  beginCharacterPlacement,
+  currentCharacterPlacement,
+  writeCharacterDrag,
+} from './character-placement.js';
 import type { ProjectStore } from './store.js';
 import type { ResourceEntry, ResourceType } from './types.js';
 
@@ -12,14 +18,26 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   const registerButton = optional<HTMLButtonElement>('#resource-register');
   const registerFile = optional<HTMLInputElement>('#resource-register-file');
   const libraryStatus = optional<HTMLElement>('#resource-library-status');
+  window.addEventListener(CHARACTER_PLACEMENT_EVENT, () => {
+    if (currentCharacterPlacement()) return;
+    for (const item of root.querySelectorAll('.resource-card')) item.classList.remove('is-placement-source');
+  });
   let activeType: LibraryType = sessionStorage.getItem(ACTIVE_LIBRARY_TAB_KEY) === 'background' ? 'background' : 'character';
   let thumbnails = new Map<string, string>();
-  try {
-    const response = await fetch('/assets/catalog/index.json', { cache: 'no-store' });
-    const catalog = await response.json() as { entries?: Array<{ id: string; thumbnail?: string }> };
-    thumbnails = new Map((catalog.entries ?? []).flatMap((entry) => entry.thumbnail ? [[entry.id, entry.thumbnail]] : []));
-  } catch {
-    // La biblioteca conserva etiquetas, tags y licencias sin miniaturas.
+  const characterCatalogs = new Set(
+    store.resources('character')
+      .flatMap((resource) => resource.characterRef?.catalog ? [resource.characterRef.catalog] : []),
+  );
+  for (const catalogPath of characterCatalogs) {
+    try {
+      const response = await fetch(`/${catalogPath}`, { cache: 'no-store' });
+      const catalog = await response.json() as { entries?: Array<{ id: string; thumbnail?: string }> };
+      for (const entry of catalog.entries ?? []) {
+        if (entry.thumbnail) thumbnails.set(entry.id, entry.thumbnail);
+      }
+    } catch {
+      // La biblioteca conserva etiquetas, tags y licencias sin miniaturas.
+    }
   }
   await Promise.all(store.resources('background').map(async (resource) => {
     if (!resource.backgroundManifest) return;
@@ -91,7 +109,9 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'resource-card';
-    card.title = `Aplicar ${resource.label} a la escena seleccionada`;
+    card.title = resource.type === 'character'
+      ? `Colocar ${resource.label} en el visor`
+      : `Aplicar ${resource.label} a la escena seleccionada`;
     const thumbnail = resource.characterRef
       ? thumbnails.get(resource.characterRef.entryId)
       : resource.type === 'background' ? thumbnails.get(resource.id) : null;
@@ -115,7 +135,22 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     license.className = 'resource-license';
     license.textContent = resource.provenance?.license || 'Licencia sin detalle';
     card.append(name, tags, license);
-    card.addEventListener('click', () => apply(resource));
+    if (resource.type === 'character') {
+      card.draggable = true;
+      card.addEventListener('click', () => {
+        beginCharacterPlacement(resource.id, resource.label);
+        for (const item of root!.querySelectorAll('.resource-card')) item.classList.toggle('is-placement-source', item === card);
+        setLibraryStatus(`Ahora hacé clic en el visor o arrastrá «${resource.label}» sobre el personaje que querés reemplazar.`, false);
+      });
+      card.addEventListener('dragstart', (event) => {
+        beginCharacterPlacement(resource.id, resource.label);
+        if (event.dataTransfer) writeCharacterDrag(event.dataTransfer, { resourceId: resource.id, label: resource.label });
+        card.classList.add('is-dragging');
+      });
+      card.addEventListener('dragend', () => card.classList.remove('is-dragging'));
+    } else {
+      card.addEventListener('click', () => apply(resource));
+    }
     return card;
   }
 
@@ -123,10 +158,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     const scene = store.project().scenes.find((item) => item.id === store.selectedSceneId());
     if (!scene) return;
     let error: string | null = null;
-    if (resource.type === 'character') {
-      const element = scene.elements.find((item) => item.type === 'character');
-      if (element) error = store.dispatch({ type: 'set-character-resource', sceneId: scene.id, elementId: element.id, resourceId: resource.id });
-    } else if (resource.type === 'background') {
+    if (resource.type === 'background') {
       const presets = resource.capabilities?.cameraPresets;
       const cameraPreset = Array.isArray(presets) && presets.includes(scene.background.cameraPreset)
         ? scene.background.cameraPreset

@@ -88,6 +88,24 @@ test('edits-background-character-and-canvas-transform', () => {
   );
 });
 
+test('places-character-resource-and-position-atomically', () => {
+  const initial = createProjectEditor(project, catalog);
+  const state = command(initial, {
+    type: 'place-character-resource',
+    sceneId: 'escena-presentacion',
+    elementId: 'presentadora',
+    resourceId: 'mono-ciruela-v1',
+    x: 275,
+    y: 980,
+  });
+  const element = state.project.scenes[0].elements.find((item) => item.id === 'presentadora');
+  assert.equal(state.revision, 1);
+  assert.equal(element.resourceId, 'mono-ciruela-v1');
+  assert.equal(element.transform.x, 275);
+  assert.equal(element.transform.y, 980);
+  assert.equal(initial.project.scenes[0].elements[0].resourceId, 'mono-azul-v1');
+});
+
 test('edits-dialogue-voice-gesture-and-gap', () => {
   const state = command(createProjectEditor(project, catalog), {
     type: 'set-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01',

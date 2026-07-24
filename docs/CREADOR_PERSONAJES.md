@@ -52,6 +52,16 @@ El paquete maestro se guarda fuera del repositorio:
 
 `public/assets/library/characters` es una publicación regenerable para la UI, Director y render. El ID se deriva de un hash canónico del diseño, por lo que guardar exactamente el mismo contenido no crea duplicados.
 
+## Colocación en una escena
+
+La pestaña **Recursos → Personajes** muestra tanto los personajes incluidos como los creados localmente.
+
+- Un clic en una tarjeta activa el modo de colocación; el siguiente clic en el visor sitúa allí el personaje.
+- La tarjeta también puede arrastrarse y soltarse sobre el visor.
+- `Escape` cancela el modo de colocación.
+
+El runtime vigente exige exactamente dos personajes por escena. Por eso la colocación reemplaza al personaje más cercano al punto elegido y conserva la escena compilable; no añade un tercer personaje. Recurso y posición se actualizan mediante un solo comando semántico, compatible con undo/redo.
+
 ## Límites vigentes
 
 - El modo desde cero admite elipses y rectángulos redondeados; no dibujo libre ni paths aportados por el usuario.

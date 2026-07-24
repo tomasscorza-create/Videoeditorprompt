@@ -63,6 +63,8 @@ Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localh
 
 El viewer central distingue **Composición**, **Preview medido** y **MP4 final**. **CREAR → Personajes** abre temporalmente una cuarta vista de autoría con dos caminos: editar una plantilla o construir desde cero mediante piezas geométricas etiquetadas. Ambos guardan un rig animable en la biblioteca. El proyecto actual se restaura desde `localStorage` y vuelve a validarse cuando la biblioteca agrega recursos.
 
+En **Recursos → Personajes**, una tarjeta puede seleccionarse y colocarse con un clic en el visor, o arrastrarse directamente. Como el contrato actual mantiene dos personajes por escena, la colocación reemplaza al más cercano y actualiza su posición sin invalidar el proyecto.
+
 El panel **Recursos** permite importar fondos JPG o PNG mediante **Agregar fondo**. La imagen queda normalizada al lienzo vertical y guardada fuera del repositorio: en Windows, bajo `%LOCALAPPDATA%\DisenadorVideosLocal\library`, o en `LOCAL_VIDEO_LIBRARY_ROOT` si se configura. `public/assets/library/` es únicamente una publicación reconstruible para que Director, editor y render usen exactamente los mismos IDs. Véase [Biblioteca local](docs/BIBLIOTECA_LOCAL.md).
 
 En escritorio, los separadores entre Director, visor, panel derecho y timeline permiten ajustar el espacio de trabajo. Las proporciones se conservan localmente; doble clic sobre un separador restaura el tamaño inicial.
