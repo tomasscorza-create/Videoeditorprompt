@@ -29,7 +29,6 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const render = required<HTMLButtonElement>('#director-render');
   const cancel = required<HTMLButtonElement>('#director-cancel');
   const status = required<HTMLElement>('#director-status');
-  const proposal = required<HTMLElement>('#director-proposal');
   const proposalDetails = required<HTMLDetailsElement>('#director-proposal-details');
   const healthBadge = required<HTMLElement>('#director-health-badge');
   const progressRoot = required<HTMLElement>('#render-progress');
@@ -79,7 +78,6 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     proposalController = new AbortController();
     setBusy(true, 'El Director IA está preparando la propuesta. Puede tardar entre uno y cuatro minutos en CPU.');
     cancel.disabled = false;
-    proposal.textContent = '';
     try {
       const result = await createProposal(value, variant, readConstraints(), proposalController.signal);
       if (store) {
@@ -90,13 +88,6 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         onStoreCreated(store);
       }
       variant += 1;
-      proposal.textContent = [
-        result.plan.title,
-        `${result.plan.scenes.length} escena(s)`,
-        `${result.budget.totalWords} palabras`,
-        `objetivo ${result.plan.targetDurationSeconds} s`,
-        result.cacheHit ? 'caché local' : result.model,
-      ].join(' · ');
       proposalDetails.hidden = false;
       proposalDetails.open = true;
       report('Propuesta creada. Podés corregirla antes de renderizar.', true);

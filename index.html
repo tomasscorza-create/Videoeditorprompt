@@ -95,8 +95,7 @@
               <summary>
                 <span class="proposal-summary-copy">
                   <span class="eyebrow">Propuesta</span>
-                  <strong id="director-proposal-title">Propuesta del video</strong>
-                  <span id="director-proposal" class="muted">Lista para revisar y ajustar</span>
+                  <strong>Revisar y ajustar</strong>
                 </span>
               </summary>
               <section class="project-editor" id="project-editor" aria-label="Propuesta editable del Director" hidden>
@@ -109,12 +108,18 @@
                     <button id="project-undo" type="button" disabled title="Deshacer (Ctrl+Z)">Deshacer</button>
                     <button id="project-redo" type="button" disabled title="Rehacer (Ctrl+Y)">Rehacer</button>
                     <button id="project-validate" type="button">Validar</button>
-                    <button id="project-export" type="button">JSON</button>
                   </div>
                 </header>
                 <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
                 <div class="scene-strip" id="scene-strip" aria-label="Escenas de la propuesta"></div>
-                <div class="scene-inspector" id="scene-inspector"></div>
+                <div class="proposal-tabs" role="tablist" aria-label="Secciones de la propuesta">
+                  <button class="proposal-tab is-active" data-proposal-tab="scene" type="button" role="tab" aria-selected="true">Escena</button>
+                  <button class="proposal-tab" data-proposal-tab="dialogue" type="button" role="tab" aria-selected="false">Diálogos</button>
+                  <button class="proposal-tab" data-proposal-tab="elements" type="button" role="tab" aria-selected="false">Personajes</button>
+                  <button class="proposal-tab" data-proposal-tab="background" type="button" role="tab" aria-selected="false">Fondo</button>
+                  <button class="proposal-tab" data-proposal-tab="transition" type="button" role="tab" aria-selected="false">Transición</button>
+                </div>
+                <div class="scene-inspector" id="scene-inspector" role="tabpanel"></div>
               </section>
             </details>
           </section>

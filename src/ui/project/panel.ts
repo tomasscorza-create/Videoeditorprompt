@@ -5,6 +5,8 @@ import type { ElementView, SceneView, TurnView } from './types.js';
 const GESTURES = ['neutral', 'point'];
 const TRANSITIONS = ['cut', 'fade'];
 const MAX_SCENES_PER_REORDER = 8;
+const PROPOSAL_TABS = ['scene', 'dialogue', 'elements', 'background', 'transition'] as const;
+type ProposalTab = typeof PROPOSAL_TABS[number];
 
 export function initProjectEditor(store: ProjectStore): void {
   const root = optional<HTMLElement>('#project-editor');
@@ -12,8 +14,6 @@ export function initProjectEditor(store: ProjectStore): void {
   const inspector = optional<HTMLElement>('#scene-inspector');
   const status = optional<HTMLElement>('#project-status');
   const proposalDetails = optional<HTMLDetailsElement>('#director-proposal-details');
-  const proposalTitle = optional<HTMLElement>('#director-proposal-title');
-  const proposalMeta = optional<HTMLElement>('#director-proposal');
   if (!root || !strip || !inspector) return;
   root.hidden = false;
   if (proposalDetails) {
@@ -27,7 +27,8 @@ export function initProjectEditor(store: ProjectStore): void {
   const toolUndo = optional<HTMLButtonElement>('#tool-undo');
   const toolRedo = optional<HTMLButtonElement>('#tool-redo');
   const validateBtn = optional<HTMLButtonElement>('#project-validate');
-  const exportBtn = optional<HTMLButtonElement>('#project-export');
+  const proposalTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-proposal-tab]'));
+  let activeProposalTab: ProposalTab = 'scene';
 
   function report(message: string | null, ok = false): void {
     if (!status) return;
@@ -77,16 +78,25 @@ export function initProjectEditor(store: ProjectStore): void {
     report(error ?? 'Proyecto válido.', error === null);
   });
 
-  exportBtn?.addEventListener('click', () => {
-    const blob = new Blob([store.exportJson()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${store.project().id}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    report('Proyecto exportado como JSON.', true);
-  });
+  for (const tab of proposalTabs) {
+    tab.addEventListener('click', () => {
+      const requested = tab.dataset.proposalTab;
+      if (!isProposalTab(requested)) return;
+      selectProposalTab(requested);
+    });
+    tab.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const currentIndex = PROPOSAL_TABS.indexOf(activeProposalTab);
+      const nextIndex = event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? PROPOSAL_TABS.length - 1
+          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + PROPOSAL_TABS.length) % PROPOSAL_TABS.length;
+      selectProposalTab(PROPOSAL_TABS[nextIndex]);
+      proposalTabs.find((candidate) => candidate.dataset.proposalTab === activeProposalTab)?.focus();
+    });
+  }
 
   function moveScene(sceneId: string, delta: number): void {
     const ids = store.project().scenes.map((scene) => scene.id);
@@ -119,11 +129,7 @@ export function initProjectEditor(store: ProjectStore): void {
       const name = document.createElement('span');
       name.className = 'scene-chip-title';
       name.textContent = scene.title;
-      // La duración real la produce el motor tras el render; nunca se estima acá.
-      const pending = document.createElement('span');
-      pending.className = 'scene-chip-duration';
-      pending.textContent = 'duración pendiente';
-      select.append(name, pending);
+      select.append(name);
       select.addEventListener('click', () => send({ type: 'select-scene', sceneId: scene.id }));
 
       const move = document.createElement('span');
@@ -153,17 +159,33 @@ export function initProjectEditor(store: ProjectStore): void {
   function renderInspector(): void {
     const project = store.project();
     const scene = project.scenes.find((item) => item.id === store.selectedSceneId());
+    syncProposalTabs();
     if (!scene) {
       inspector!.replaceChildren(note('No hay escena seleccionada.'));
       return;
     }
-    inspector!.replaceChildren(
-      sceneSection(scene),
-      backgroundSection(scene),
-      transitionSection(scene),
-      elementsSection(scene),
-      dialogueSection(scene),
-    );
+    const sectionFactories: Record<ProposalTab, () => HTMLElement> = {
+      scene: () => sceneSection(scene),
+      dialogue: () => dialogueSection(scene),
+      elements: () => elementsSection(scene),
+      background: () => backgroundSection(scene),
+      transition: () => transitionSection(scene),
+    };
+    inspector!.replaceChildren(sectionFactories[activeProposalTab]());
+  }
+
+  function syncProposalTabs(): void {
+    for (const tab of proposalTabs) {
+      const selected = tab.dataset.proposalTab === activeProposalTab;
+      tab.classList.toggle('is-active', selected);
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+    }
+  }
+
+  function selectProposalTab(tab: ProposalTab): void {
+    activeProposalTab = tab;
+    renderInspector();
   }
 
   function sceneSection(scene: SceneView): HTMLElement {
@@ -201,7 +223,10 @@ export function initProjectEditor(store: ProjectStore): void {
 
   function transitionSection(scene: SceneView): HTMLElement {
     const isLast = store.project().scenes.at(-1)?.id === scene.id;
-    const preset = select(TRANSITIONS.map((value) => ({ value, label: value })), scene.transitionToNext?.preset ?? 'cut');
+    const preset = select(TRANSITIONS.map((value) => ({
+      value,
+      label: value === 'cut' ? 'Corte' : 'Fundido',
+    })), scene.transitionToNext?.preset ?? 'cut');
     const duration = document.createElement('input');
     duration.type = 'number';
     duration.min = '0';
@@ -242,15 +267,14 @@ export function initProjectEditor(store: ProjectStore): void {
   function elementsSection(scene: SceneView): HTMLElement {
     const characters = store.resources('character');
     const fields: HTMLElement[] = [];
+    let characterNumber = 0;
 
     for (const element of scene.elements) {
       if (element.type !== 'character') {
-        // Decisión de contrato: texto e imagen quedan fuera de alcance hasta que
-        // el compilador pueda renderizarlos. No se agregan comandos que
-        // produzcan proyectos imposibles de renderizar.
-        fields.push(note(`«${element.id}» (${element.type}): fuera de alcance — el compilador todavía no representa texto ni imágenes.`));
+        fields.push(note(`«${element.id}» todavía no tiene ajustes disponibles.`));
         continue;
       }
+      characterNumber += 1;
       const resource = select(
         characters.map((entry) => ({ value: entry.id, label: entry.label })),
         element.resourceId ?? '',
@@ -262,19 +286,14 @@ export function initProjectEditor(store: ProjectStore): void {
         resourceId: resource.value,
       }));
 
-      fields.push(subheading(element.id));
+      fields.push(subheading(`Personaje ${characterNumber}`));
       fields.push(field('Personaje', resource));
       fields.push(transformField(scene, element, 'x', 'X', -1080, 2160, 1));
       fields.push(transformField(scene, element, 'y', 'Y', -1920, 3840, 1));
       fields.push(transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01));
-      fields.push(transformField(scene, element, 'zIndex', 'zIndex', -1000, 1000, 1));
-      if (element.poseId) {
-        // La pose inicial queda fuera de alcance mientras el compilador solo admita «neutral».
-        // Los gestos por turno (neutral/point) sí son editables desde el diálogo.
-        fields.push(note(`Pose «${element.poseId}»: fuera de alcance mientras el compilador solo admita «neutral». El gesto por turno sí es editable.`));
-      }
+      fields.push(transformField(scene, element, 'zIndex', 'Orden de capa', -1000, 1000, 1));
     }
-    return group('Elementos', fields);
+    return group('Personajes y elementos', fields);
   }
 
   function transformField(
@@ -305,8 +324,10 @@ export function initProjectEditor(store: ProjectStore): void {
     const voices = store.resources('voice');
     const fields: HTMLElement[] = [];
 
-    for (const turn of scene.dialogue) {
-      fields.push(subheading(`${turn.id} · ${turn.speakerElementId}`));
+    for (const [index, turn] of scene.dialogue.entries()) {
+      const speakerIndex = scene.elements.findIndex((element) => element.id === turn.speakerElementId);
+      const speakerLabel = speakerIndex >= 0 ? ` · Personaje ${speakerIndex + 1}` : '';
+      fields.push(subheading(`Intervención ${index + 1}${speakerLabel}`));
       fields.push(field('Texto', dialogueText(scene, turn)));
 
       const voice = select(voices.map((entry) => ({ value: entry.id, label: entry.label })), turn.voiceId);
@@ -315,7 +336,10 @@ export function initProjectEditor(store: ProjectStore): void {
       }));
       fields.push(field('Voz', voice));
 
-      const gesture = select(GESTURES.map((value) => ({ value, label: value })), turn.gestureId);
+      const gesture = select(GESTURES.map((value) => ({
+        value,
+        label: value === 'point' ? 'Señalar' : 'Neutral',
+      })), turn.gestureId);
       gesture.addEventListener('change', () => send({
         type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, gestureId: gesture.value,
       }));
@@ -332,9 +356,7 @@ export function initProjectEditor(store: ProjectStore): void {
       }));
       fields.push(field('Pausa después (s)', gap));
     }
-
-    fields.push(note('La duración hablada la mide el motor con Piper/FFprobe al renderizar.'));
-    return group('Diálogo', fields);
+    return group('Diálogos', fields);
   }
 
   function dialogueText(scene: SceneView, turn: TurnView): HTMLTextAreaElement {
@@ -352,10 +374,6 @@ export function initProjectEditor(store: ProjectStore): void {
   function render(): void {
     const project = store.project();
     if (titleInput && document.activeElement !== titleInput) titleInput.value = project.title;
-    if (proposalTitle) proposalTitle.textContent = project.title;
-    if (proposalMeta && (!proposalMeta.textContent?.trim() || proposalMeta.textContent === 'Lista para revisar y ajustar')) {
-      proposalMeta.textContent = `${project.scenes.length} escena(s) · propuesta editable`;
-    }
     const canUndo = store.canUndo();
     const canRedo = store.canRedo();
     for (const button of [undoBtn, toolUndo]) if (button) button.disabled = !canUndo;
@@ -366,6 +384,10 @@ export function initProjectEditor(store: ProjectStore): void {
 
   store.subscribe(render);
   render();
+}
+
+function isProposalTab(value: string | undefined): value is ProposalTab {
+  return PROPOSAL_TABS.some((tab) => tab === value);
 }
 
 function moveButton(label: string, title: string, disabled: boolean, onClick: () => void): HTMLButtonElement {

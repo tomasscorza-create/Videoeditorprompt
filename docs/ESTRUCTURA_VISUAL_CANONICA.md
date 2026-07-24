@@ -80,6 +80,8 @@ Es el punto de entrada y comando del flujo creativo.
 - Cambiar de proyecto actualiza el visor, el inspector y la timeline.
 - El contenido puede organizarse mediante pestañas o secciones como `Crear` y `Proyectos`.
 - La propuesta se abre automáticamente después de generarse y puede plegarse sin perder sus cambios.
+- La edición interna de la propuesta se separa en pestañas de nombres directos —escena, diálogos, personajes, fondo y transición— para evitar un formulario vertical único.
+- La propuesta prioriza decisiones creativas; no muestra descargas técnicas ni explicaciones internas del pipeline.
 - La biblioteca persistente de videos terminados pertenece a `Archivos > Videos creados` en el encabezado, no al panel del Director.
 - Su scroll es independiente.
 - Las acciones primarias deben ser claras y estar cerca del contexto que las origina.
