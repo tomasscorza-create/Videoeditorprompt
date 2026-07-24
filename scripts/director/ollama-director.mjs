@@ -10,9 +10,10 @@ import {
   normalizeDirectorPlan,
 } from './director-plan.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
+import { resolveDirectorProvider } from './providers/index.mjs';
+import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './providers/ollama.mjs';
 
-export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
-export const DEFAULT_DIRECTOR_MODEL = 'qwen3:8b';
+export { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL };
 const MAX_PROMPT_LENGTH = 2000;
 const MAX_REPAIR_ATTEMPTS = 2;
 const DIRECTOR_TONES = new Set(['educational', 'ironic', 'serious', 'energetic', 'inspirational']);
@@ -22,7 +23,12 @@ export async function createDirectorProposal(options) {
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
   const catalog = options.catalog || loadAuthoringCatalog(assetsRoot);
   const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
-  const baseUrl = normalizeLoopbackUrl(options.baseUrl || DEFAULT_OLLAMA_URL);
+  // El proveedor concentra toda la especificidad de la IA (D1/D2). La clave de
+  // caché incorpora su nombre para no mezclar resultados entre proveedores.
+  const provider = resolveDirectorProvider(options.provider, {
+    fetchImpl: options.fetchImpl,
+    baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
+  });
   const temperature = numberOption(options.temperature, 0.35, 0, 1);
   const variant = integerOption(options.variant, 0, 0, 1_000_000);
   // Modo «calidad máxima» (C3): con think:true qwen3 razona antes de responder
@@ -32,6 +38,7 @@ export async function createDirectorProposal(options) {
   const schema = buildOllamaPlanSchema(catalog, constraints);
   const cacheKey = hashJson({
     version: DIRECTOR_PIPELINE_VERSION,
+    provider: provider.name,
     prompt,
     model,
     temperature,
@@ -61,8 +68,6 @@ export async function createDirectorProposal(options) {
     };
   }
 
-  const fetchImpl = options.fetchImpl || globalThis.fetch;
-  if (typeof fetchImpl !== 'function') directorError('OLLAMA_FETCH_UNAVAILABLE', 'El runtime no ofrece un cliente HTTP para Ollama.');
   const timeoutMs = integerOption(options.timeoutMs, think ? 300_000 : 240_000, 1_000, 300_000);
 
   // Bucle de reparación por presupuesto (C1): el modo de fallo más frecuente es
@@ -72,43 +77,36 @@ export async function createDirectorProposal(options) {
   // el resultado final válido.
   let plan;
   let normalized;
-  let response;
+  let usage = null;
   let repairAttempts = 0;
   let feedback = null;
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
-    response = await requestOllama({
-      fetchImpl,
-      baseUrl,
-      timeoutMs,
+    const result = await provider.generatePlan({
+      schema,
       signal: options.signal,
-      body: {
+      messages: [
+        { role: 'system', content: buildSystemPrompt(catalog) },
+        { role: 'user', content: buildUserPrompt(prompt, variant, constraints, feedback) },
+      ],
+      options: {
         model,
-        stream: false,
+        temperature,
         think,
-        keep_alive: 0,
-        format: schema,
-        messages: [
-          { role: 'system', content: buildSystemPrompt(catalog) },
-          { role: 'user', content: buildUserPrompt(prompt, variant, constraints, feedback) },
-        ],
-        options: {
-          temperature,
-          seed: seedFrom(cacheKey) + attempt,
-          num_predict: 4000,
-        },
+        seed: seedFrom(cacheKey) + attempt,
+        maxOutputTokens: 4000,
+        timeoutMs,
       },
     });
-    const content = response?.message?.content;
-    if (typeof content !== 'string' || content.trim() === '') {
-      directorError('OLLAMA_RESPONSE_EMPTY', 'Ollama no devolvió un plan utilizable.');
+    if (typeof result.content !== 'string' || result.content.trim() === '') {
+      directorError('OLLAMA_RESPONSE_EMPTY', 'El proveedor de IA no devolvió un plan utilizable.');
     }
     try {
-      plan = JSON.parse(content);
+      plan = JSON.parse(result.content);
     } catch (error) {
       throw new PipelineError({
         code: 'OLLAMA_RESPONSE_JSON_INVALID',
         stage: 'directing',
-        message: 'Ollama devolvió contenido que no es JSON válido.',
+        message: 'El proveedor de IA devolvió contenido que no es JSON válido.',
         technicalDetail: error instanceof Error ? error.message : String(error),
         suggestedAction: 'Reintentá la propuesta o verificá el soporte de salidas estructuradas del modelo.',
       });
@@ -119,6 +117,7 @@ export async function createDirectorProposal(options) {
         promptHash: cacheKey,
         resourceCatalog: options.resourceCatalog,
       });
+      usage = result.usage || null;
       break;
     } catch (error) {
       const budgetExceeded = error instanceof PipelineError && error.code === 'DIRECTOR_DURATION_BUDGET_EXCEEDED';
@@ -131,6 +130,7 @@ export async function createDirectorProposal(options) {
   const cached = {
     version: 1,
     directorVersion: DIRECTOR_PIPELINE_VERSION,
+    provider: provider.name,
     model,
     plan,
     project: normalized.project,
@@ -139,9 +139,9 @@ export async function createDirectorProposal(options) {
     repairAttempts,
     usage: {
       think,
-      promptEvalCount: response.prompt_eval_count ?? null,
-      evalCount: response.eval_count ?? null,
-      totalDurationNanoseconds: response.total_duration ?? null,
+      promptEvalCount: usage?.promptEvalCount ?? null,
+      evalCount: usage?.evalCount ?? null,
+      totalDurationNanoseconds: usage?.totalDurationNanoseconds ?? null,
     },
   };
   writeJson(cachePath, cached);
@@ -149,20 +149,12 @@ export async function createDirectorProposal(options) {
 }
 
 export async function inspectOllama(options = {}) {
-  const baseUrl = normalizeLoopbackUrl(options.baseUrl || DEFAULT_OLLAMA_URL);
-  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const provider = resolveDirectorProvider(options.provider, {
+    fetchImpl: options.fetchImpl,
+    baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
+  });
   const timeoutMs = integerOption(options.timeoutMs, 5000, 500, 30_000);
-  const [version, tags] = await Promise.all([
-    requestJson(fetchImpl, `${baseUrl}/api/version`, { timeoutMs, errorCode: 'OLLAMA_UNAVAILABLE' }),
-    requestJson(fetchImpl, `${baseUrl}/api/tags`, { timeoutMs, errorCode: 'OLLAMA_UNAVAILABLE' }),
-  ]);
-  const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
-  return {
-    available: true,
-    version: version.version || null,
-    model,
-    modelInstalled: Array.isArray(tags.models) && tags.models.some((entry) => entry.name === model || entry.model === model),
-  };
+  return provider.inspect({ model: options.model, timeoutMs });
 }
 
 export function buildOllamaPlanSchema(catalog, constraints = {}) {
@@ -200,66 +192,6 @@ export function buildOllamaPlanSchema(catalog, constraints = {}) {
     schema.properties.scenes.maxItems = constraints.sceneCount;
   }
   return schema;
-}
-
-async function requestOllama({ fetchImpl, baseUrl, timeoutMs, body, signal }) {
-  return requestJson(fetchImpl, `${baseUrl}/api/chat`, {
-    timeoutMs,
-    method: 'POST',
-    body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
-    errorCode: 'OLLAMA_DIRECTOR_REQUEST_FAILED',
-    signal,
-  });
-}
-
-async function requestJson(fetchImpl, url, options) {
-  const controller = new AbortController();
-  const abortFromCaller = () => controller.abort();
-  options.signal?.addEventListener('abort', abortFromCaller, { once: true });
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
-  try {
-    const response = await fetchImpl(url, {
-      method: options.method || 'GET',
-      headers: options.headers,
-      body: options.body,
-      signal: controller.signal,
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new PipelineError({
-        code: options.errorCode,
-        stage: 'directing',
-        message: 'Ollama rechazó la solicitud del Director IA.',
-        technicalDetail: `HTTP ${response.status}: ${text.slice(0, 1000)}`,
-        suggestedAction: 'Verificá que Ollama esté iniciado y que qwen3:8b esté instalado.',
-      });
-    }
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      throw new PipelineError({
-        code: 'OLLAMA_HTTP_JSON_INVALID',
-        stage: 'directing',
-        message: 'Ollama devolvió una respuesta HTTP inválida.',
-        technicalDetail: error instanceof Error ? error.message : String(error),
-        suggestedAction: 'Reiniciá Ollama y volvé a intentar.',
-      });
-    }
-  } catch (error) {
-    if (error instanceof PipelineError) throw error;
-    const timedOut = error?.name === 'AbortError';
-    throw new PipelineError({
-      code: timedOut ? 'OLLAMA_TIMEOUT' : options.errorCode,
-      stage: 'directing',
-      message: timedOut ? 'Ollama agotó el tiempo permitido.' : 'No se pudo conectar con Ollama.',
-      cause: error,
-      suggestedAction: 'Iniciá Ollama, verificá qwen3:8b y volvé a intentar.',
-    });
-  } finally {
-    clearTimeout(timeout);
-    options.signal?.removeEventListener('abort', abortFromCaller);
-  }
 }
 
 function buildSystemPrompt(catalog) {
@@ -363,19 +295,6 @@ function validatePrompt(value) {
     directorError('DIRECTOR_PROMPT_INVALID', `El prompt debe tener entre 3 y ${MAX_PROMPT_LENGTH} caracteres.`);
   }
   return prompt;
-}
-
-function normalizeLoopbackUrl(value) {
-  let url;
-  try {
-    url = new URL(String(value));
-  } catch {
-    directorError('OLLAMA_URL_INVALID', 'La URL de Ollama no es válida.');
-  }
-  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
-    directorError('OLLAMA_URL_INVALID', 'Ollama debe ejecutarse mediante HTTP en la máquina local.');
-  }
-  return url.origin;
 }
 
 function numberOption(value, fallback, minimum, maximum) {

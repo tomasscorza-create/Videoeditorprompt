@@ -13,6 +13,7 @@ const commands = [
   'director:test-plan',
   'director:test-ollama',
   'director:test-editor',
+  'director:test-provider-contract',
   'local:test-library',
   'local:test-projects',
   'local:test-server',

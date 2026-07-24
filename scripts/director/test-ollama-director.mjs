@@ -102,6 +102,11 @@ await assert.rejects(
   () => createDirectorProposal({ prompt: 'Una idea válida', constraints: { sceneCount: 5 }, fetchImpl: fakeFetch, cacheRoot }),
   (error) => error.code === 'DIRECTOR_OPTION_INVALID',
 );
+// D2: un proveedor no registrado da un error legible.
+await assert.rejects(
+  () => createDirectorProposal({ prompt: 'Una idea válida', provider: 'proveedor-x', fetchImpl: fakeFetch, cacheRoot }),
+  (error) => error.code === 'DIRECTOR_PROVIDER_UNKNOWN',
+);
 
 // C3: modo think. Se propaga a la petición, entra en la clave de caché y aparece en usage.
 let thinkRequest;
@@ -171,7 +176,7 @@ assert.equal(failCalls, 3);
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 31,
+  passed: 32,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

@@ -4,7 +4,8 @@ import path from 'node:path';
 import { applyProjectEditorCommand, createProjectEditor } from '../../shared/project-editor.js';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
-import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './ollama-director.mjs';
+import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './providers/ollama.mjs';
+import { resolveDirectorProvider } from './providers/index.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 
 const MAX_REQUEST_LENGTH = 1200;
@@ -17,7 +18,20 @@ export async function editProjectWithDirector(options) {
   const state = createProjectEditor(options.project, options.catalog);
   const schema = commandBatchSchema(state.project, state.catalog);
   const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
-  const cacheKey = hashJson({ version: DIRECTOR_PIPELINE_VERSION, instruction, project: state.project, catalog: hashJson(state.catalog), model });
+  // El proveedor concentra la especificidad de la IA (D1/D2); su nombre entra en
+  // la clave de caché.
+  const provider = resolveDirectorProvider(options.provider, {
+    fetchImpl: options.fetchImpl,
+    baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
+  });
+  const cacheKey = hashJson({
+    version: DIRECTOR_PIPELINE_VERSION,
+    provider: provider.name,
+    instruction,
+    project: state.project,
+    catalog: hashJson(state.catalog),
+    model,
+  });
   const cacheRoot = ensureDirectory(path.resolve(options.cacheRoot || path.join(projectRoot, '.local-video', 'director-edit-cache')));
   const cachePath = path.join(cacheRoot, `${cacheKey}.json`);
   let commands;
@@ -26,12 +40,9 @@ export async function editProjectWithDirector(options) {
     commands = readJson(cachePath).commands;
     cacheHit = true;
   } else {
-    const response = await requestOllama({
-      baseUrl: normalizeLoopbackUrl(options.baseUrl || DEFAULT_OLLAMA_URL),
-      model,
+    const result = await provider.generateCommands({
       schema,
       signal: options.signal,
-      fetchImpl: options.fetchImpl || globalThis.fetch,
       messages: [
         {
           role: 'system',
@@ -50,10 +61,11 @@ export async function editProjectWithDirector(options) {
         },
         { role: 'user', content: instruction },
       ],
+      options: { model, temperature: 0.1, seed: 17, maxOutputTokens: 1600, think: false, timeoutMs: 240_000 },
     });
     let parsed;
     try {
-      parsed = JSON.parse(response?.message?.content || '');
+      parsed = JSON.parse(result.content || '');
     } catch {
       throw directorEditError('DIRECTOR_EDIT_JSON_INVALID', 'La IA no devolvió comandos JSON válidos.');
     }
@@ -205,46 +217,11 @@ function text(maxLength) {
   return { type: 'string', minLength: 1, maxLength };
 }
 
-async function requestOllama({ baseUrl, model, schema, signal, fetchImpl, messages }) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 240_000);
-  const abort = () => controller.abort();
-  signal?.addEventListener('abort', abort, { once: true });
-  try {
-    const response = await fetchImpl(`${baseUrl}/api/chat`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model, stream: false, think: false, keep_alive: 0, format: schema, messages,
-        options: { temperature: 0.1, seed: 17, num_predict: 1600 },
-      }),
-    });
-    const textValue = await response.text();
-    if (!response.ok) throw directorEditError('OLLAMA_DIRECTOR_EDIT_FAILED', `Ollama rechazó la edición (HTTP ${response.status}).`);
-    return JSON.parse(textValue);
-  } catch (error) {
-    if (error instanceof PipelineError) throw error;
-    throw directorEditError(error?.name === 'AbortError' ? 'OLLAMA_TIMEOUT' : 'OLLAMA_DIRECTOR_EDIT_FAILED', 'No se pudo completar la edición con IA.');
-  } finally {
-    clearTimeout(timeout);
-    signal?.removeEventListener('abort', abort);
-  }
-}
-
 function validateInstruction(value) {
   if (typeof value !== 'string') throw directorEditError('DIRECTOR_EDIT_PROMPT_INVALID', 'La petición debe ser texto.');
   const instruction = value.trim();
   if (instruction.length < 3 || instruction.length > MAX_REQUEST_LENGTH) throw directorEditError('DIRECTOR_EDIT_PROMPT_INVALID', 'La petición debe tener entre 3 y 1200 caracteres.');
   return instruction;
-}
-
-function normalizeLoopbackUrl(value) {
-  const url = new URL(String(value));
-  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
-    throw directorEditError('OLLAMA_URL_INVALID', 'Ollama debe ejecutarse en loopback.');
-  }
-  return url.origin;
 }
 
 function hashJson(value) {

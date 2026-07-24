@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createDirectorProposal, inspectOllama } from '../director/ollama-director.mjs';
 import { editProjectWithDirector } from '../director/project-editor-director.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
+import { listProviderNames } from '../director/providers/index.mjs';
 import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
@@ -83,6 +84,11 @@ export function createLocalAppServer(options = {}) {
           version: 1,
           ready: ollama.available && ollama.modelInstalled && existsSync(ttsRoot),
           ollama,
+          // Estado por proveedor registrado (D2). Hoy solo `ollama` está registrado;
+          // su salud sale del inspector inyectable. `registeredProviders` anuncia qué
+          // proveedores acepta el servidor en `provider`.
+          providers: { ollama },
+          registeredProviders: listProviderNames(),
           tts: { available: existsSync(ttsRoot) },
           renderBusy: Boolean(manager.activeJobId),
         });
@@ -180,6 +186,8 @@ export function createLocalAppServer(options = {}) {
             prompt: body.prompt,
             variant: body.variant,
             constraints: body.constraints,
+            provider: body.provider,
+            think: body.think,
             assetsRoot,
             catalog: currentCatalog(),
             resourceCatalog: library.catalogRelative,
@@ -216,6 +224,7 @@ export function createLocalAppServer(options = {}) {
           const result = await projectDirector({
             instruction: body.instruction,
             project: body.project,
+            provider: body.provider,
             catalog: currentCatalog(),
             signal: directorController.signal,
           });
@@ -272,7 +281,7 @@ export function createLocalAppServer(options = {}) {
     } catch (error) {
       const serialized = serializeError(error, 'local_app');
       const status = ['RENDER_BUSY', 'DIRECTOR_BUSY', 'LIBRARY_RESOURCE_ID_CONFLICT'].includes(error?.code) ? 409
-        : String(error?.code || '').includes('INVALID') ? 400
+        : String(error?.code || '').includes('INVALID') || error?.code === 'DIRECTOR_PROVIDER_UNKNOWN' ? 400
           : error?.code === 'REQUEST_BODY_TOO_LARGE' ? 413
             : 500;
       sendJson(response, status, { version: 1, error: serialized });
