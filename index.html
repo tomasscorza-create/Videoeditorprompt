@@ -89,8 +89,34 @@
             </div>
             <div class="status-block">
               <p id="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
-              <p id="director-proposal" class="muted"></p>
             </div>
+
+            <details id="director-proposal-details" class="director-proposal-details" hidden>
+              <summary>
+                <span class="proposal-summary-copy">
+                  <span class="eyebrow">Propuesta</span>
+                  <strong id="director-proposal-title">Propuesta del video</strong>
+                  <span id="director-proposal" class="muted">Lista para revisar y ajustar</span>
+                </span>
+              </summary>
+              <section class="project-editor" id="project-editor" aria-label="Propuesta editable del Director" hidden>
+                <header class="project-editor-header">
+                  <label class="field project-title-field" for="project-title">
+                    <span>Título del proyecto</span>
+                    <input id="project-title" type="text" maxlength="120" />
+                  </label>
+                  <div class="project-actions">
+                    <button id="project-undo" type="button" disabled title="Deshacer (Ctrl+Z)">Deshacer</button>
+                    <button id="project-redo" type="button" disabled title="Rehacer (Ctrl+Y)">Rehacer</button>
+                    <button id="project-validate" type="button">Validar</button>
+                    <button id="project-export" type="button">JSON</button>
+                  </div>
+                </header>
+                <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
+                <div class="scene-strip" id="scene-strip" aria-label="Escenas de la propuesta"></div>
+                <div class="scene-inspector" id="scene-inspector"></div>
+              </section>
+            </details>
           </section>
 
           <section class="render-section" aria-labelledby="render-title">
@@ -180,23 +206,6 @@
             <div id="resource-list" class="resource-list"><p class="empty-state">Abrí un proyecto para explorar recursos.</p></div>
           </section>
 
-          <section class="project-editor" id="project-editor" aria-label="Editor del proyecto" hidden>
-            <header class="project-editor-header">
-              <label class="field project-title-field" for="project-title">
-                <span>Proyecto</span>
-                <input id="project-title" type="text" maxlength="120" />
-              </label>
-              <div class="project-actions">
-                <button id="project-undo" type="button" disabled title="Deshacer (Ctrl+Z)">Deshacer</button>
-                <button id="project-redo" type="button" disabled title="Rehacer (Ctrl+Y)">Rehacer</button>
-                <button id="project-validate" type="button">Validar</button>
-                <button id="project-export" type="button">JSON</button>
-              </div>
-            </header>
-            <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
-            <div class="scene-strip" id="scene-strip" aria-label="Escenas del proyecto"></div>
-            <div class="scene-inspector" id="scene-inspector"></div>
-          </section>
         </aside>
       </main>
 

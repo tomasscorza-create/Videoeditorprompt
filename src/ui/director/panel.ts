@@ -30,6 +30,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const cancel = required<HTMLButtonElement>('#director-cancel');
   const status = required<HTMLElement>('#director-status');
   const proposal = required<HTMLElement>('#director-proposal');
+  const proposalDetails = required<HTMLDetailsElement>('#director-proposal-details');
   const healthBadge = required<HTMLElement>('#director-health-badge');
   const progressRoot = required<HTMLElement>('#render-progress');
   const progressBar = required<HTMLElement>('#render-progress-bar');
@@ -96,6 +97,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         `objetivo ${result.plan.targetDurationSeconds} s`,
         result.cacheHit ? 'caché local' : result.model,
       ].join(' · ');
+      proposalDetails.hidden = false;
+      proposalDetails.open = true;
       report('Propuesta creada. Podés corregirla antes de renderizar.', true);
     } catch (error) {
       reportError(error);

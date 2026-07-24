@@ -11,8 +11,15 @@ export function initProjectEditor(store: ProjectStore): void {
   const strip = optional<HTMLElement>('#scene-strip');
   const inspector = optional<HTMLElement>('#scene-inspector');
   const status = optional<HTMLElement>('#project-status');
+  const proposalDetails = optional<HTMLDetailsElement>('#director-proposal-details');
+  const proposalTitle = optional<HTMLElement>('#director-proposal-title');
+  const proposalMeta = optional<HTMLElement>('#director-proposal');
   if (!root || !strip || !inspector) return;
   root.hidden = false;
+  if (proposalDetails) {
+    proposalDetails.hidden = false;
+    proposalDetails.open = true;
+  }
 
   const titleInput = optional<HTMLInputElement>('#project-title');
   const undoBtn = optional<HTMLButtonElement>('#project-undo');
@@ -345,6 +352,10 @@ export function initProjectEditor(store: ProjectStore): void {
   function render(): void {
     const project = store.project();
     if (titleInput && document.activeElement !== titleInput) titleInput.value = project.title;
+    if (proposalTitle) proposalTitle.textContent = project.title;
+    if (proposalMeta && (!proposalMeta.textContent?.trim() || proposalMeta.textContent === 'Lista para revisar y ajustar')) {
+      proposalMeta.textContent = `${project.scenes.length} escena(s) · propuesta editable`;
+    }
     const canUndo = store.canUndo();
     const canRedo = store.canRedo();
     for (const button of [undoBtn, toolUndo]) if (button) button.disabled = !canUndo;

@@ -216,6 +216,45 @@ h1, h2 { font-size: .98rem; }
 .status-block .error, .project-status.error { color: var(--danger); }
 .status-block .ok, .project-status.ok { color: var(--ok); }
 
+.director-proposal-details {
+  margin-top: .35rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+}
+.director-proposal-details > summary {
+  position: relative;
+  min-height: 3.65rem;
+  padding: .7rem 2.2rem .7rem .75rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.director-proposal-details > summary::-webkit-details-marker { display: none; }
+.director-proposal-details > summary::after {
+  content: "⌄";
+  position: absolute;
+  top: 50%;
+  right: .8rem;
+  color: var(--muted);
+  transform: translateY(-50%);
+}
+.director-proposal-details[open] > summary {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.director-proposal-details[open] > summary::after { content: "⌃"; }
+.proposal-summary-copy { display: grid; gap: .15rem; min-width: 0; }
+.proposal-summary-copy strong,
+.proposal-summary-copy .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proposal-summary-copy strong { font-size: .8rem; }
+.director-proposal-details .project-editor { padding: .75rem; }
+
 .health-badge {
   border: 1px solid var(--border);
   border-radius: 999px;

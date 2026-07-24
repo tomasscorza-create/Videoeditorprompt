@@ -70,6 +70,8 @@ Es el punto de entrada y comando del flujo creativo.
 - Escribir instrucciones para el Director IA.
 - Seleccionar tono, duración, escenas y futuros parámetros de dirección.
 - Generar, cancelar o regenerar propuestas.
+- Mostrar debajo del comando la propuesta resultante en un bloque desplegable, ordenado y editable.
+- Permitir revisar escenas, diálogo y ajustes básicos de la propuesta antes del render.
 - Seleccionar el proyecto o contexto de autoría en el que se trabajará.
 - Iniciar el render cuando corresponda.
 
@@ -77,6 +79,7 @@ Es el punto de entrada y comando del flujo creativo.
 
 - Cambiar de proyecto actualiza el visor, el inspector y la timeline.
 - El contenido puede organizarse mediante pestañas o secciones como `Crear` y `Proyectos`.
+- La propuesta se abre automáticamente después de generarse y puede plegarse sin perder sus cambios.
 - La biblioteca persistente de videos terminados pertenece a `Archivos > Videos creados` en el encabezado, no al panel del Director.
 - Su scroll es independiente.
 - Las acciones primarias deben ser claras y estar cerca del contexto que las origina.
