@@ -13,6 +13,7 @@ import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_DIRECTOR_MODEL = 'qwen3:8b';
 const MAX_PROMPT_LENGTH = 2000;
+const MAX_REPAIR_ATTEMPTS = 2;
 const DIRECTOR_TONES = new Set(['educational', 'ironic', 'serious', 'energetic', 'inspirational']);
 
 export async function createDirectorProposal(options) {
@@ -48,6 +49,7 @@ export async function createDirectorProposal(options) {
       ...cached,
       project: normalized.project,
       semanticHash: normalized.semanticHash,
+      repairAttempts: cached.repairAttempts ?? 0,
       cacheKey,
       cacheHit: true,
       cachePath,
@@ -57,49 +59,70 @@ export async function createDirectorProposal(options) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   if (typeof fetchImpl !== 'function') directorError('OLLAMA_FETCH_UNAVAILABLE', 'El runtime no ofrece un cliente HTTP para Ollama.');
   const timeoutMs = integerOption(options.timeoutMs, 240_000, 1_000, 300_000);
-  const response = await requestOllama({
-    fetchImpl,
-    baseUrl,
-    timeoutMs,
-    signal: options.signal,
-    body: {
-      model,
-      stream: false,
-      think: false,
-      keep_alive: 0,
-      format: schema,
-      messages: [
-        { role: 'system', content: buildSystemPrompt(catalog) },
-        { role: 'user', content: buildUserPrompt(prompt, variant, constraints) },
-      ],
-      options: {
-        temperature,
-        seed: seedFrom(cacheKey),
-        num_predict: 4000,
-      },
-    },
-  });
-  const content = response?.message?.content;
-  if (typeof content !== 'string' || content.trim() === '') {
-    directorError('OLLAMA_RESPONSE_EMPTY', 'Ollama no devolvió un plan utilizable.');
-  }
+
+  // Bucle de reparación por presupuesto (C1): el modo de fallo más frecuente es
+  // DIRECTOR_DURATION_BUDGET_EXCEEDED (guion más largo que el presupuesto de
+  // palabras). Ante ese error, reintentamos reinyectando el error como feedback en
+  // el prompt de usuario. Cualquier otro error corta de inmediato. Solo se cachea
+  // el resultado final válido.
   let plan;
-  try {
-    plan = JSON.parse(content);
-  } catch (error) {
-    throw new PipelineError({
-      code: 'OLLAMA_RESPONSE_JSON_INVALID',
-      stage: 'directing',
-      message: 'Ollama devolvió contenido que no es JSON válido.',
-      technicalDetail: error instanceof Error ? error.message : String(error),
-      suggestedAction: 'Reintentá la propuesta o verificá el soporte de salidas estructuradas del modelo.',
+  let normalized;
+  let response;
+  let repairAttempts = 0;
+  let feedback = null;
+  for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
+    response = await requestOllama({
+      fetchImpl,
+      baseUrl,
+      timeoutMs,
+      signal: options.signal,
+      body: {
+        model,
+        stream: false,
+        think: false,
+        keep_alive: 0,
+        format: schema,
+        messages: [
+          { role: 'system', content: buildSystemPrompt(catalog) },
+          { role: 'user', content: buildUserPrompt(prompt, variant, constraints, feedback) },
+        ],
+        options: {
+          temperature,
+          seed: seedFrom(cacheKey) + attempt,
+          num_predict: 4000,
+        },
+      },
     });
+    const content = response?.message?.content;
+    if (typeof content !== 'string' || content.trim() === '') {
+      directorError('OLLAMA_RESPONSE_EMPTY', 'Ollama no devolvió un plan utilizable.');
+    }
+    try {
+      plan = JSON.parse(content);
+    } catch (error) {
+      throw new PipelineError({
+        code: 'OLLAMA_RESPONSE_JSON_INVALID',
+        stage: 'directing',
+        message: 'Ollama devolvió contenido que no es JSON válido.',
+        technicalDetail: error instanceof Error ? error.message : String(error),
+        suggestedAction: 'Reintentá la propuesta o verificá el soporte de salidas estructuradas del modelo.',
+      });
+    }
+    try {
+      normalized = normalizeDirectorPlan(plan, catalog, {
+        assetsRoot,
+        promptHash: cacheKey,
+        resourceCatalog: options.resourceCatalog,
+      });
+      break;
+    } catch (error) {
+      const budgetExceeded = error instanceof PipelineError && error.code === 'DIRECTOR_DURATION_BUDGET_EXCEEDED';
+      if (!budgetExceeded || attempt === MAX_REPAIR_ATTEMPTS) throw error;
+      repairAttempts += 1;
+      feedback = budgetRepairFeedback(error);
+    }
   }
-  const normalized = normalizeDirectorPlan(plan, catalog, {
-    assetsRoot,
-    promptHash: cacheKey,
-    resourceCatalog: options.resourceCatalog,
-  });
+
   const cached = {
     version: 1,
     directorVersion: DIRECTOR_PIPELINE_VERSION,
@@ -108,6 +131,7 @@ export async function createDirectorProposal(options) {
     project: normalized.project,
     semanticHash: normalized.semanticHash,
     budget: normalized.budget,
+    repairAttempts,
     usage: {
       promptEvalCount: response.prompt_eval_count ?? null,
       evalCount: response.eval_count ?? null,
@@ -253,7 +277,7 @@ function buildSystemPrompt(catalog) {
   ].join('\n');
 }
 
-function buildUserPrompt(prompt, variant, constraints) {
+function buildUserPrompt(prompt, variant, constraints, feedback = null) {
   const requested = [
     constraints.tone ? `tono=${constraints.tone}` : null,
     constraints.targetDurationSeconds ? `duración objetivo=${constraints.targetDurationSeconds} segundos` : null,
@@ -264,7 +288,19 @@ function buildUserPrompt(prompt, variant, constraints) {
     `Variante solicitada: ${variant}.`,
     requested ? `Parámetros editoriales obligatorios: ${requested}.` : null,
     'Creá un gancho claro, desarrollo breve y cierre útil o memorable.',
+    feedback ? `Corrección obligatoria: ${feedback}` : null,
   ].filter(Boolean).join('\n');
+}
+
+function budgetRepairFeedback(error) {
+  const detail = String(error?.technicalDetail || '');
+  const words = Number(/words=(\d+)/.exec(detail)?.[1]);
+  const maximum = Number(/maximum=(\d+)/.exec(detail)?.[1]);
+  if (Number.isFinite(words) && Number.isFinite(maximum) && maximum > 0) {
+    const overflow = Math.max(1, words - maximum);
+    return `el guion anterior tenía ${words} palabras y el máximo es ${maximum}: recortá al menos ${overflow} palabras manteniendo el gancho inicial y el cierre.`;
+  }
+  return 'el guion anterior excedió el presupuesto de palabras: recortá el diálogo manteniendo el gancho inicial y el cierre.';
 }
 
 function validateDirectorConstraints(value) {

@@ -101,9 +101,45 @@ await assert.rejects(
   (error) => error.code === 'DIRECTOR_OPTION_INVALID',
 );
 
+// C1: bucle de reparación por presupuesto. overBudgetPlan excede el presupuesto
+// de palabras para 8 s (máximo 40); el modelo lo corrige en el segundo intento.
+const overBudgetPlan = structuredClone(plan);
+overBudgetPlan.targetDurationSeconds = 8;
+overBudgetPlan.scenes[0].dialogue[0].text = 'La inteligencia artificial hoy puede ayudarnos a redactar textos, resumir documentos, ordenar tareas, revisar código y también acompañar decisiones difíciles cuando revisamos con mucho cuidado cada una de sus respuestas.';
+overBudgetPlan.scenes[0].dialogue[1].text = 'Sí, pero siempre necesitamos mantener el criterio humano, comparar fuentes, cuestionar los resultados y decidir con calma qué construir antes de confiar del todo en cualquier respuesta automática.';
+
+let repairCalls = 0;
+const repairFetch = async (url, options = {}) => {
+  if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+  repairCalls += 1;
+  return response({ message: { content: JSON.stringify(repairCalls === 1 ? overBudgetPlan : plan) } });
+};
+const repaired = await createDirectorProposal({
+  prompt: 'Explicá con humor breve cómo colaborar con inteligencia artificial.',
+  fetchImpl: repairFetch, cacheRoot, useCache: false,
+});
+assert.equal(repairCalls, 2);
+assert.equal(repaired.repairAttempts, 1);
+assert.equal(repaired.cacheHit, false);
+
+let failCalls = 0;
+const failFetch = async (url, options = {}) => {
+  if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+  failCalls += 1;
+  return response({ message: { content: JSON.stringify(overBudgetPlan) } });
+};
+await assert.rejects(
+  () => createDirectorProposal({
+    prompt: 'Otra idea que siempre se pasa del presupuesto de palabras.',
+    fetchImpl: failFetch, cacheRoot, useCache: false,
+  }),
+  (error) => error.code === 'DIRECTOR_DURATION_BUDGET_EXCEEDED',
+);
+assert.equal(failCalls, 3);
+
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 20,
+  passed: 25,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,
