@@ -101,6 +101,36 @@ await assert.rejects(
   (error) => error.code === 'DIRECTOR_OPTION_INVALID',
 );
 
+// C3: modo think. Se propaga a la petición, entra en la clave de caché y aparece en usage.
+let thinkRequest;
+const thinkResult = await createDirectorProposal({
+  prompt: 'Explicá con calma cómo colaborar con inteligencia artificial.',
+  think: true,
+  fetchImpl: async (url, options = {}) => {
+    if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+    thinkRequest = JSON.parse(options.body);
+    return response({ message: { content: JSON.stringify(plan) } });
+  },
+  cacheRoot, useCache: false,
+});
+assert.equal(thinkRequest.think, true);
+assert.equal(thinkResult.usage.think, true);
+
+const noThinkResult = await createDirectorProposal({
+  prompt: 'Explicá con calma cómo colaborar con inteligencia artificial.',
+  think: false,
+  fetchImpl: async (url, options = {}) => (url.endsWith('/api/chat')
+    ? response({ message: { content: JSON.stringify(plan) } })
+    : fakeFetch(url, options)),
+  cacheRoot, useCache: false,
+});
+assert.notEqual(thinkResult.cacheKey, noThinkResult.cacheKey);
+
+await assert.rejects(
+  () => createDirectorProposal({ prompt: 'Idea válida', think: 'sí', fetchImpl: fakeFetch, cacheRoot }),
+  (error) => error.code === 'DIRECTOR_OPTION_INVALID',
+);
+
 // C1: bucle de reparación por presupuesto. overBudgetPlan excede el presupuesto
 // de palabras para 8 s (máximo 40); el modelo lo corrige en el segundo intento.
 const overBudgetPlan = structuredClone(plan);
@@ -139,7 +169,7 @@ assert.equal(failCalls, 3);
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 25,
+  passed: 29,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

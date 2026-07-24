@@ -1,1 +1,1 @@
-export const DIRECTOR_PIPELINE_VERSION = 4;
+export const DIRECTOR_PIPELINE_VERSION = 5;

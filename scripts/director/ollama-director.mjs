@@ -24,6 +24,9 @@ export async function createDirectorProposal(options) {
   const baseUrl = normalizeLoopbackUrl(options.baseUrl || DEFAULT_OLLAMA_URL);
   const temperature = numberOption(options.temperature, 0.35, 0, 1);
   const variant = integerOption(options.variant, 0, 0, 1_000_000);
+  // Modo «calidad máxima» (C3): con think:true qwen3 razona antes de responder
+  // (mejor plan, más lento en CPU). Default false. Forma parte de la clave de caché.
+  const think = booleanOption(options.think, false);
   const constraints = validateDirectorConstraints(options.constraints);
   const schema = buildOllamaPlanSchema(catalog, constraints);
   const cacheKey = hashJson({
@@ -32,6 +35,7 @@ export async function createDirectorProposal(options) {
     model,
     temperature,
     variant,
+    think,
     constraints,
     catalog: hashJson(catalog),
     schema: hashJson(schema),
@@ -58,7 +62,7 @@ export async function createDirectorProposal(options) {
 
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   if (typeof fetchImpl !== 'function') directorError('OLLAMA_FETCH_UNAVAILABLE', 'El runtime no ofrece un cliente HTTP para Ollama.');
-  const timeoutMs = integerOption(options.timeoutMs, 240_000, 1_000, 300_000);
+  const timeoutMs = integerOption(options.timeoutMs, think ? 300_000 : 240_000, 1_000, 300_000);
 
   // Bucle de reparación por presupuesto (C1): el modo de fallo más frecuente es
   // DIRECTOR_DURATION_BUDGET_EXCEEDED (guion más largo que el presupuesto de
@@ -79,7 +83,7 @@ export async function createDirectorProposal(options) {
       body: {
         model,
         stream: false,
-        think: false,
+        think,
         keep_alive: 0,
         format: schema,
         messages: [
@@ -133,6 +137,7 @@ export async function createDirectorProposal(options) {
     budget: normalized.budget,
     repairAttempts,
     usage: {
+      think,
       promptEvalCount: response.prompt_eval_count ?? null,
       evalCount: response.eval_count ?? null,
       totalDurationNanoseconds: response.total_duration ?? null,
@@ -266,12 +271,33 @@ function buildSystemPrompt(catalog) {
     'Sos el Director IA de una herramienta local de videos animados verticales.',
     'Transformá la idea del usuario en un plan breve, claro, entretenido y renderizable.',
     'Cumplí exactamente el JSON Schema solicitado.',
+    '',
+    'ESTRUCTURA. Todo video sigue tres momentos:',
+    '- Gancho: la primera línea plantea una tensión, pregunta o afirmación que engancha.',
+    '- Desarrollo: uno o dos intercambios que avanzan la idea, sin repetir el gancho.',
+    '- Cierre: la última línea deja una conclusión útil o memorable.',
+    '',
+    'TONO. Ajustá el registro al tono pedido:',
+    '- educational: claro y ordenado, enseña un concepto sin tecnicismos.',
+    '- ironic: contrasta expectativa y realidad con humor seco; nunca agresivo.',
+    '- serious: sobrio y directo, sin chistes, con una conclusión firme.',
+    '- energetic: frases cortas y entusiastas, ritmo rápido.',
+    '- inspirational: cálido y esperanzador, cierra con un llamado a la acción.',
+    '',
+    'RITMO PARA VOZ (TTS). Frases cortas, una idea por turno. Evitá enumeraciones',
+    'largas, incisos, siglas deletreadas y números complejos: se leen mal en voz.',
+    '',
+    'EJEMPLO (tono ironic, dos turnos):',
+    '  a: "Dicen que la inteligencia artificial va a reemplazar a los programadores."',
+    '  b: "Genial. Ahora alguien tiene que explicarle por qué se cayó producción."',
+    '',
+    'REGLAS:',
     'Usá solamente IDs presentes en el catálogo.',
     'Elegí para cada personaje una pose y una animación entre las que declara su catálogo (capabilities).',
     'transitionDurationSeconds solo importa cuando transitionPreset es «fade»: usá entre 0.15 y 1.0 segundos; con «cut» dejá 0.',
     'Cada escena debe tener de 2 a 6 turnos e incluir a ambos personajes.',
     'Escribí español natural para voz, sin markdown, acotaciones, emojis ni instrucciones técnicas.',
-    'La duración es un objetivo editorial: mantené el guion conciso.',
+    'La duración es un objetivo editorial: mantené el guion conciso para no pasarte del presupuesto de palabras.',
     'No generes rutas, código, comandos, frames, tiempos absolutos ni propiedades adicionales.',
     `Catálogo permitido: ${JSON.stringify(entries)}`,
   ].join('\n');
@@ -364,6 +390,12 @@ function integerOption(value, fallback, minimum, maximum) {
     directorError('DIRECTOR_OPTION_INVALID', `La opción debe ser un entero entre ${minimum} y ${maximum}.`);
   }
   return result;
+}
+
+function booleanOption(value, fallback) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value !== 'boolean') directorError('DIRECTOR_OPTION_INVALID', 'La opción debe ser verdadero o falso.');
+  return value;
 }
 
 function seedFrom(hash) {
