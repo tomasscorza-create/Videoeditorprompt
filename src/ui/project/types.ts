@@ -8,7 +8,11 @@ export interface ResourceEntry {
   id: string;
   type: ResourceType;
   label: string;
+  tags?: string[];
   capabilities?: Record<string, unknown>;
+  characterRef?: { catalog: string; entryId: string };
+  backgroundManifest?: string;
+  provenance?: { source?: string; license?: string };
 }
 
 export interface TransformView {

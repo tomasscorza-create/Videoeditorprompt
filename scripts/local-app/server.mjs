@@ -75,6 +75,7 @@ export function createLocalAppServer(options = {}) {
           proposal = await director({
             prompt: body.prompt,
             variant: body.variant,
+            constraints: body.constraints,
             assetsRoot,
             signal: directorController.signal,
           });

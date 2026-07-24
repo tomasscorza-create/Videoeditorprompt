@@ -18,8 +18,11 @@ El repositorio incluye actualmente:
 - proyectos editables de hasta ocho escenas;
 - compilación de cada escena al contrato runtime v2;
 - render headless por escena y ensamblado multiescena con cortes o fundidos;
-- editor local con preview, timeline medida, inspector, undo/redo y exportación JSON;
+- estudio local de tres columnas con composición estática, preview medido y MP4 final;
+- biblioteca con miniaturas, tags y licencias, inspector plegable, timeline estructural, undo/redo y exportación JSON;
+- sesión editable y último render guardados localmente con revisión del catálogo;
 - Director IA local con Ollama y `qwen3:8b`, plan JSON cerrado, validación y caché;
+- parámetros rígidos de tono, duración objetivo y cantidad de escenas incorporados al esquema enviado a Ollama;
 - creación por prompt, corrección en el mismo editor y lanzamiento del render desde la interfaz;
 - servicio HTTP local limitado a loopback, progreso, cancelación y reproducción/descarga del MP4 final;
 - publicación local versionada de previews y proyectos compatibles.
@@ -54,7 +57,9 @@ npm run dev
 
 Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localhost:5173).
 
-`npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. Desde el panel **Director IA local**, escribir la idea, crear la propuesta, corregirla en el editor si hace falta y pulsar **Renderizar video**.
+`npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, crear la propuesta, corregirla y pulsar **Renderizar video**. La galería **Videos creados** usa los jobs persistidos de la API local; no depende de copiar renders a `public/generated`.
+
+El viewer central distingue tres fuentes: **Composición** proyecta el proyecto editable sin inventar tiempos; **Preview medido** reproduce una escena publicada; **MP4 final** muestra un render terminado. El proyecto actual se restaura desde `localStorage` solo si la revisión del catálogo sigue siendo compatible.
 
 `stage3b:publish-project` genera `public/projects/`, necesario para que la interfaz encuentre proyectos editables existentes. Los previews de video aparecen después de publicar al menos un trabajo del pipeline.
 

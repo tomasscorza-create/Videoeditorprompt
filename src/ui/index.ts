@@ -2,12 +2,16 @@ import type { PreviewHandle } from '../preview/types.js';
 import { optional } from './dom.js';
 import { initPlaybackUi } from './playback.js';
 import { initDirectorUi } from './director/panel.js';
+import { initCompositionPreview } from './project/composition.js';
+import { initResourceLibrary } from './project/library.js';
 import { initProjectEditor } from './project/panel.js';
+import { persistStore, restoreSession } from './project/persistence.js';
+import { initProjectTimeline } from './project/project-timeline.js';
 import { loadProjectStore, type ProjectStore } from './project/store.js';
 import { initShortcuts } from './shortcuts.js';
 import { initSettingsModal, initTheme } from './theme.js';
 import { initTimeline } from './timeline.js';
-import { initToolbarPrototype } from './toolbar.js';
+import { initViewerSources } from './viewer.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -15,7 +19,7 @@ export { renderJobGallery } from './gallery.js';
 export function initShellUi(): void {
   initTheme();
   initSettingsModal();
-  initToolbarPrototype();
+  initViewerSources();
 }
 
 // Interfaz que consume la reproducción ya iniciada por el preview.
@@ -31,8 +35,9 @@ export async function initProjectUi(): Promise<void> {
   let store: ProjectStore | null = null;
   try {
     const requestedProjectId = new URLSearchParams(window.location.search).get('project');
-    store = await loadProjectStore(requestedProjectId);
-    initProjectEditor(store);
+    const restored = requestedProjectId ? null : await restoreSession();
+    store = restored?.store ?? await loadProjectStore(requestedProjectId);
+    attachProjectUi(store);
   } catch (error) {
     const root = optional<HTMLElement>('#project-editor');
     const status = optional<HTMLElement>('#project-status');
@@ -45,6 +50,19 @@ export async function initProjectUi(): Promise<void> {
   }
   initDirectorUi(store, (createdStore) => {
     store = createdStore;
-    initProjectEditor(createdStore);
+    attachProjectUi(createdStore);
+  });
+}
+
+function attachProjectUi(store: ProjectStore): void {
+  initProjectEditor(store);
+  initProjectTimeline(store);
+  void initCompositionPreview(store);
+  void initResourceLibrary(store);
+  persistStore(store);
+  store.subscribe(() => {
+    persistStore(store);
+    const status = optional<HTMLElement>('#save-status');
+    if (status) status.textContent = `Guardado ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   });
 }

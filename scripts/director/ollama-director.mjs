@@ -13,6 +13,7 @@ import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_DIRECTOR_MODEL = 'qwen3:8b';
 const MAX_PROMPT_LENGTH = 2000;
+const DIRECTOR_TONES = new Set(['educational', 'ironic', 'serious', 'energetic', 'inspirational']);
 
 export async function createDirectorProposal(options) {
   const prompt = validatePrompt(options.prompt);
@@ -22,13 +23,15 @@ export async function createDirectorProposal(options) {
   const baseUrl = normalizeLoopbackUrl(options.baseUrl || DEFAULT_OLLAMA_URL);
   const temperature = numberOption(options.temperature, 0.35, 0, 1);
   const variant = integerOption(options.variant, 0, 0, 1_000_000);
-  const schema = buildOllamaPlanSchema(catalog);
+  const constraints = validateDirectorConstraints(options.constraints);
+  const schema = buildOllamaPlanSchema(catalog, constraints);
   const cacheKey = hashJson({
     version: DIRECTOR_PIPELINE_VERSION,
     prompt,
     model,
     temperature,
     variant,
+    constraints,
     catalog: hashJson(catalog),
     schema: hashJson(schema),
   });
@@ -63,7 +66,7 @@ export async function createDirectorProposal(options) {
       format: schema,
       messages: [
         { role: 'system', content: buildSystemPrompt(catalog) },
-        { role: 'user', content: buildUserPrompt(prompt, variant) },
+        { role: 'user', content: buildUserPrompt(prompt, variant, constraints) },
       ],
       options: {
         temperature,
@@ -124,7 +127,7 @@ export async function inspectOllama(options = {}) {
   };
 }
 
-export function buildOllamaPlanSchema(catalog) {
+export function buildOllamaPlanSchema(catalog, constraints = {}) {
   const schema = getDirectorPlanSchema();
   const characters = catalog.entries.filter((entry) => entry.type === 'character').map((entry) => entry.id);
   const voices = catalog.entries.filter((entry) => entry.type === 'voice').map((entry) => entry.id);
@@ -140,6 +143,14 @@ export function buildOllamaPlanSchema(catalog) {
     .flatMap((entry) => entry.capabilities.cameraPresets))]
     .filter((preset) => preset !== 'static');
   schema.$defs.scene.properties.cameraPreset = { type: 'string', enum: cameraPresets };
+  if (constraints.tone) schema.properties.tone = { const: constraints.tone };
+  if (constraints.targetDurationSeconds) {
+    schema.properties.targetDurationSeconds = { const: constraints.targetDurationSeconds };
+  }
+  if (constraints.sceneCount) {
+    schema.properties.scenes.minItems = constraints.sceneCount;
+    schema.properties.scenes.maxItems = constraints.sceneCount;
+  }
   return schema;
 }
 
@@ -223,12 +234,43 @@ function buildSystemPrompt(catalog) {
   ].join('\n');
 }
 
-function buildUserPrompt(prompt, variant) {
+function buildUserPrompt(prompt, variant, constraints) {
+  const requested = [
+    constraints.tone ? `tono=${constraints.tone}` : null,
+    constraints.targetDurationSeconds ? `duración objetivo=${constraints.targetDurationSeconds} segundos` : null,
+    constraints.sceneCount ? `escenas=${constraints.sceneCount}` : null,
+  ].filter(Boolean).join(', ');
   return [
     `Idea del video: ${prompt}`,
     `Variante solicitada: ${variant}.`,
+    requested ? `Parámetros editoriales obligatorios: ${requested}.` : null,
     'Creá un gancho claro, desarrollo breve y cierre útil o memorable.',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
+}
+
+function validateDirectorConstraints(value) {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    directorError('DIRECTOR_OPTION_INVALID', 'Los parámetros editoriales deben ser un objeto.');
+  }
+  const allowed = new Set(['tone', 'targetDurationSeconds', 'sceneCount']);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) directorError('DIRECTOR_OPTION_INVALID', `El parámetro editorial «${key}» no está permitido.`);
+  }
+  const result = {};
+  if (value.tone !== undefined) {
+    if (typeof value.tone !== 'string' || !DIRECTOR_TONES.has(value.tone)) {
+      directorError('DIRECTOR_OPTION_INVALID', 'El tono solicitado no es compatible.');
+    }
+    result.tone = value.tone;
+  }
+  if (value.targetDurationSeconds !== undefined) {
+    result.targetDurationSeconds = integerOption(value.targetDurationSeconds, 30, 8, 90);
+  }
+  if (value.sceneCount !== undefined) {
+    result.sceneCount = integerOption(value.sceneCount, 2, 1, 4);
+  }
+  return result;
 }
 
 function validatePrompt(value) {

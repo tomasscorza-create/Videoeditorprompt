@@ -66,6 +66,24 @@ assert.equal(second.cacheHit, true);
 assert.equal(chatRequests, 1);
 assert.deepEqual(first.project, second.project);
 
+const constrainedPlan = structuredClone(plan);
+constrainedPlan.tone = 'serious';
+let constrainedRequest;
+await createDirectorProposal({
+  prompt: 'Explicá un riesgo técnico con una conclusión práctica.',
+  constraints: { tone: 'serious', targetDurationSeconds: 20, sceneCount: 1 },
+  fetchImpl: async (url, options = {}) => {
+    if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+    constrainedRequest = JSON.parse(options.body);
+    return response({ message: { content: JSON.stringify(constrainedPlan) } });
+  },
+  cacheRoot,
+});
+assert.equal(constrainedRequest.format.properties.tone.const, 'serious');
+assert.equal(constrainedRequest.format.properties.targetDurationSeconds.const, 20);
+assert.equal(constrainedRequest.format.properties.scenes.minItems, 1);
+assert.equal(constrainedRequest.format.properties.scenes.maxItems, 1);
+
 await assert.rejects(
   () => createDirectorProposal({ prompt: 'no', fetchImpl: fakeFetch, cacheRoot }),
   (error) => error.code === 'DIRECTOR_PROMPT_INVALID',
@@ -74,10 +92,14 @@ await assert.rejects(
   () => inspectOllama({ baseUrl: 'https://example.com', fetchImpl: fakeFetch }),
   (error) => error.code === 'OLLAMA_URL_INVALID',
 );
+await assert.rejects(
+  () => createDirectorProposal({ prompt: 'Una idea válida', constraints: { sceneCount: 5 }, fetchImpl: fakeFetch, cacheRoot }),
+  (error) => error.code === 'DIRECTOR_OPTION_INVALID',
+);
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 11,
+  passed: 17,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

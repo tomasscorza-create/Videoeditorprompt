@@ -3,222 +3,225 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Etapa 1 · Escena animada</title>
+    <title>Estudio de video local</title>
   </head>
   <body>
-    <div class="editor-container">
-      <header class="editor-topbar">
-        <div class="editor-brand">
-          <span class="editor-brand-title">Editor de video local</span>
-          <span class="editor-brand-stage">Preview y edición determinista</span>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">◆</span>
+          <div>
+            <strong>Estudio de video local</strong>
+            <span>IA local + render determinista</span>
+          </div>
         </div>
-        <button id="settings-open" class="button-icon settings-button" aria-label="Configuración" title="Configuración">⚙️</button>
+        <div class="topbar-actions">
+          <span id="save-status" class="save-status">Guardado local automático</span>
+          <button id="settings-open" class="icon-button" type="button" aria-label="Configuración" title="Configuración">⚙</button>
+        </div>
       </header>
 
-      <main class="layout editor-workspace">
-      <section class="panel">
-        <label class="job-picker" for="job-select">
-          <span>Trabajo publicado</span>
-          <select id="job-select" disabled>
-            <option>Cargando trabajos…</option>
-          </select>
-        </label>
-        <p id="job-meta" class="job-meta" aria-live="polite">Leyendo índice local…</p>
-        <div class="controls">
-          <button id="play" type="button" class="button-primary" disabled>Reproducir</button>
-          <button id="pause" type="button" disabled>Pausar</button>
-          <button id="restart" type="button" disabled>Reiniciar</button>
-          <a id="download" class="button-link" href="#" download hidden>Descargar MP4</a>
-        </div>
-        <details class="diagnostics">
-          <summary>Detalles técnicos</summary>
-          <dl class="technical-status">
-            <div><dt>Trabajo</dt><dd id="job-status">Pendiente</dd></div>
-            <div><dt>Estado</dt><dd id="status" aria-live="polite">Inicializando…</dd></div>
-            <div><dt>Renderer</dt><dd id="renderer">Pendiente</dd></div>
-            <div class="live"><dt>Tiempo</dt><dd id="time">0.00 s</dd></div>
-            <div class="live"><dt>Audio</dt><dd id="audio-status">Detenido</dd></div>
-            <div class="live"><dt>Boca</dt><dd id="mouth-status">closed</dd></div>
-            <div class="live"><dt>Ojos</dt><dd id="eyes-status">open</dd></div>
-            <div class="live"><dt>Gesto</dt><dd id="gesture-status">neutral</dd></div>
-          </dl>
-        </details>
-      </section>
-      <section class="canvas-shell" aria-label="Vista previa vertical 1080 por 1920" aria-busy="true">
-        <div class="viewer">
-          <div id="stage"></div>
-          <div id="canvas-loading" class="canvas-loading" role="status">Cargando escena…</div>
-          <div class="viewer-bar">
-            <button id="viewer-play-btn" class="viewer-control-btn" title="Reproducir/Pausar" disabled>
-              <svg id="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              <svg id="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-            </button>
-            <span class="viewer-time" id="viewer-current">0:00</span>
-            <input type="range" id="seek" class="seek" min="0" max="1000" value="0" step="1" aria-label="Progreso del video" disabled />
-            <span class="viewer-time" id="viewer-duration">0:00</span>
-            <button id="speed-btn" class="viewer-control-btn" title="Velocidad: 1x">1x</button>
-            <button id="loop-btn" class="viewer-control-btn" title="Bucle automático">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-            </button>
-          </div>
-        </div>
-      </section>
-      <aside class="sidebar-right">
-        <section class="director-panel" id="director-panel" aria-label="Director IA local" hidden>
-          <header class="director-header">
-            <div>
-              <h2>Director IA local</h2>
-              <p>qwen3:8b · Ollama</p>
-            </div>
-          </header>
-          <label class="director-prompt-field" for="director-prompt">
-            <span>Describí el video</span>
-            <textarea
-              id="director-prompt"
-              rows="4"
-              maxlength="2000"
-              placeholder="Ejemplo: Dos personajes debaten con humor si la inteligencia artificial reemplazará a los programadores y terminan con una conclusión optimista."
-            ></textarea>
-          </label>
-          <div class="director-actions">
-            <button id="director-generate" class="button-primary" type="button">Crear propuesta</button>
-            <button id="director-render" type="button" disabled>Renderizar video</button>
-            <button id="director-cancel" type="button" disabled>Cancelar</button>
-          </div>
-          <p id="director-status" class="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
-          <p id="director-proposal" class="director-proposal"></p>
-          <div class="director-result">
-            <video id="director-result-video" controls preload="metadata" hidden></video>
-            <a id="director-result-download" class="button-link" href="#" download hidden>Descargar video final</a>
-          </div>
-        </section>
+      <main class="workspace">
+        <aside class="workspace-panel director-column" aria-label="Creación y renders">
+          <section class="director-panel" id="director-panel" aria-label="Director IA local" hidden>
+            <header class="section-header">
+              <div>
+                <span class="eyebrow">Crear</span>
+                <h1>Director IA</h1>
+              </div>
+              <span id="director-health-badge" class="health-badge is-checking">Comprobando</span>
+            </header>
 
-        <div class="scene-picker">
-          <div class="scene-picker-label">Trabajos renderizados</div>
-          
-          <div class="scene-picker-container">
-            <button id="scroll-left" class="scroll-arrow" aria-label="Desplazar a la izquierda" title="Ver anteriores">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-            </button>
-
-            <div class="scene-gallery" id="scene-gallery">
-              <!-- Las tarjetas de trabajos publicados se inyectan desde src/ui/gallery.ts -->
-              <p class="scene-gallery-empty">Cargando trabajos locales…</p>
-            </div>
-
-            <button id="scroll-right" class="scroll-arrow" aria-label="Desplazar a la derecha" title="Ver siguientes">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-          </div>
-        </div>
-
-        <section class="project-editor" id="project-editor" aria-label="Editor del proyecto" hidden>
-          <header class="project-editor-header">
-            <label class="project-title-field" for="project-title">
-              <span>Proyecto</span>
-              <input id="project-title" type="text" maxlength="120" />
+            <label class="field" for="director-prompt">
+              <span>Idea del video</span>
+              <textarea id="director-prompt" rows="6" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
             </label>
-            <div class="project-editor-actions">
-              <button id="project-undo" type="button" disabled>Deshacer</button>
-              <button id="project-redo" type="button" disabled>Rehacer</button>
-              <button id="project-validate" type="button">Validar</button>
-              <button id="project-export" type="button">Exportar JSON</button>
+
+            <div class="director-constraints" aria-label="Parámetros editoriales">
+              <label class="field" for="director-tone">
+                <span>Tono</span>
+                <select id="director-tone">
+                  <option value="educational">Educativo</option>
+                  <option value="ironic">Irónico</option>
+                  <option value="serious">Serio</option>
+                  <option value="energetic">Enérgico</option>
+                  <option value="inspirational">Inspirador</option>
+                </select>
+              </label>
+              <label class="field" for="director-duration">
+                <span>Duración objetivo</span>
+                <select id="director-duration">
+                  <option value="15">15 s</option>
+                  <option value="30" selected>30 s</option>
+                  <option value="45">45 s</option>
+                  <option value="60">60 s</option>
+                </select>
+              </label>
+              <label class="field" for="director-scenes">
+                <span>Escenas</span>
+                <select id="director-scenes">
+                  <option value="1">1</option>
+                  <option value="2" selected>2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="action-row">
+              <button id="director-generate" class="primary-button" type="button">Crear propuesta</button>
+              <button id="director-cancel" type="button" disabled>Cancelar</button>
+            </div>
+            <div class="status-block">
+              <p id="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
+              <p id="director-proposal" class="muted"></p>
+            </div>
+          </section>
+
+          <section class="render-section" aria-labelledby="render-title">
+            <header class="section-header compact">
+              <div>
+                <span class="eyebrow">Exportar</span>
+                <h2 id="render-title">Render local</h2>
+              </div>
+            </header>
+            <button id="director-render" class="primary-button full-button" type="button" disabled>Renderizar video</button>
+            <div class="render-progress" id="render-progress" hidden>
+              <div class="progress-track"><span id="render-progress-bar"></span></div>
+              <span id="render-progress-label">Preparando…</span>
+            </div>
+          </section>
+
+          <section class="jobs-section" aria-labelledby="jobs-title">
+            <header class="section-header compact">
+              <h2 id="jobs-title">Videos creados</h2>
+              <button id="jobs-refresh" class="text-button" type="button">Actualizar</button>
+            </header>
+            <div id="render-job-gallery" class="render-job-gallery" role="list">
+              <p class="empty-state">Buscando renders locales…</p>
+            </div>
+          </section>
+        </aside>
+
+        <section class="viewer-column" aria-label="Visor del proyecto">
+          <header class="viewer-header">
+            <div>
+              <span class="eyebrow">Vista</span>
+              <h2 id="viewer-title">Composición editable</h2>
+            </div>
+            <div class="source-tabs" role="tablist" aria-label="Fuente del visor">
+              <button id="source-composition" class="source-tab is-active" type="button" role="tab" aria-selected="true">Composición</button>
+              <button id="source-preview" class="source-tab" type="button" role="tab" aria-selected="false" disabled>Preview medido</button>
+              <button id="source-final" class="source-tab" type="button" role="tab" aria-selected="false" disabled>MP4 final</button>
             </div>
           </header>
-          <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
 
-          <div class="scene-strip" id="scene-strip" aria-label="Escenas del proyecto"></div>
+          <div class="viewer-stage-wrap">
+            <div id="composition-view" class="vertical-stage composition-view" role="tabpanel">
+              <div id="composition-canvas" class="composition-canvas">
+                <p class="viewer-empty">Creá o abrí un proyecto para ver su composición.</p>
+              </div>
+            </div>
+            <div id="preview-view" class="vertical-stage" role="tabpanel" hidden>
+              <div id="stage"></div>
+              <div id="canvas-loading" class="canvas-loading" role="status">Cargando preview medido…</div>
+            </div>
+            <div id="final-view" class="vertical-stage final-view" role="tabpanel" hidden>
+              <video id="director-result-video" controls preload="metadata"></video>
+            </div>
+          </div>
 
-          <div class="scene-inspector" id="scene-inspector"></div>
+          <div id="preview-controls" class="viewer-controls" hidden>
+            <button id="viewer-play-btn" class="icon-button" type="button" aria-label="Reproducir o pausar" disabled>▶</button>
+            <span id="viewer-current">0:00</span>
+            <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Progreso del preview" disabled />
+            <span id="viewer-duration">0:00</span>
+            <button id="speed-btn" class="text-button" type="button" title="Velocidad: 1x">1x</button>
+            <button id="loop-btn" class="icon-button" type="button" aria-label="Alternar bucle">↻</button>
+          </div>
 
-          <p class="inspector-note">El Director IA y la edición manual comparten este mismo proyecto validado.</p>
+          <div class="viewer-footer">
+            <p id="viewer-context">La composición es una proyección estática; voz, boca y tiempos se calculan al renderizar.</p>
+            <a id="director-result-download" class="download-link" href="#" download hidden>Descargar MP4</a>
+          </div>
+
+          <div class="legacy-controls" aria-hidden="true" hidden>
+            <button id="play" disabled>Reproducir</button>
+            <button id="pause" disabled>Pausar</button>
+            <button id="restart" disabled>Reiniciar</button>
+            <select id="job-select" disabled><option>Sin preview</option></select>
+            <a id="download" href="#" download hidden>Descargar</a>
+            <span id="job-meta"></span><span id="job-status">Pendiente</span><span id="status">Inicializando…</span>
+            <span id="renderer">Pendiente</span><span id="time">0.00 s</span><span id="audio-status">Detenido</span>
+            <span id="mouth-status">closed</span><span id="eyes-status">open</span><span id="gesture-status">neutral</span>
+            <div id="scene-gallery"></div><button id="scroll-left"></button><button id="scroll-right"></button>
+          </div>
         </section>
 
-      </aside>
-    </main>
+        <aside class="workspace-panel editor-column" aria-label="Recursos e inspector">
+          <section id="resource-library" class="resource-library" aria-labelledby="library-title">
+            <header class="section-header compact">
+              <div>
+                <span class="eyebrow">Catálogo local</span>
+                <h2 id="library-title">Recursos</h2>
+              </div>
+            </header>
+            <div class="resource-tabs" role="tablist">
+              <button class="resource-tab is-active" data-resource-type="character" type="button">Personajes</button>
+              <button class="resource-tab" data-resource-type="background" type="button">Fondos</button>
+              <button class="resource-tab" data-resource-type="voice" type="button">Voces</button>
+            </div>
+            <div id="resource-list" class="resource-list"><p class="empty-state">Abrí un proyecto para explorar recursos.</p></div>
+          </section>
 
-    <section class="timeline-panel">
-      <div class="editor-tools-section">
-        <div class="editor-toolbar">
-          <div class="tool-group">
-            <button id="tool-undo" class="tool-btn" title="Deshacer (Ctrl+Z)" disabled>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
-            </button>
-            <button id="tool-redo" class="tool-btn" title="Rehacer (Ctrl+Y)" disabled>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-            </button>
-          </div>
-          
-          <div class="tool-divider"></div>
-          
-          <div class="tool-group">
-            <button class="tool-btn active" title="Seleccionar (V)">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path></svg>
-            </button>
-            <button class="tool-btn" title="Cortar / Dividir (C)">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>
-            </button>
-          </div>
+          <section class="project-editor" id="project-editor" aria-label="Editor del proyecto" hidden>
+            <header class="project-editor-header">
+              <label class="field project-title-field" for="project-title">
+                <span>Proyecto</span>
+                <input id="project-title" type="text" maxlength="120" />
+              </label>
+              <div class="project-actions">
+                <button id="project-undo" type="button" disabled title="Deshacer (Ctrl+Z)">Deshacer</button>
+                <button id="project-redo" type="button" disabled title="Rehacer (Ctrl+Y)">Rehacer</button>
+                <button id="project-validate" type="button">Validar</button>
+                <button id="project-export" type="button">JSON</button>
+              </div>
+            </header>
+            <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
+            <div class="scene-strip" id="scene-strip" aria-label="Escenas del proyecto"></div>
+            <div class="scene-inspector" id="scene-inspector"></div>
+          </section>
+        </aside>
+      </main>
 
-          <div class="tool-divider"></div>
-          
-          <div class="tool-group">
-            <button class="tool-btn" title="Añadir Texto (T)">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
-            </button>
-            <button class="tool-btn" title="Añadir Audio (A)">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
-            </button>
+      <section class="project-timeline" aria-labelledby="timeline-title">
+        <header class="timeline-header">
+          <div>
+            <span class="eyebrow">Estructura</span>
+            <h2 id="timeline-title">Escenas y diálogo</h2>
           </div>
-
-          <div class="tool-divider"></div>
-          
-          <div class="tool-group">
-            <button class="tool-btn danger" title="Eliminar (Supr)">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-          </div>
+          <span id="timeline-summary" class="muted">Sin proyecto</span>
+        </header>
+        <div id="project-timeline-content" class="timeline-content">
+          <p class="empty-state">La línea de tiempo aparecerá cuando exista un proyecto editable.</p>
         </div>
-      </div>
-      
-      <div class="timeline-ruler">
-        <div class="ruler-marks"></div>
-      </div>
-      
-      <div class="timeline-tracks">
-        <div class="playhead" id="playhead"></div>
-        <div class="timeline-track timeline-track-v">
-          <div class="track-label">V1</div>
-          <div class="track-content">
-            <div class="clip-dummy video-clip">Escena actual</div>
-          </div>
+        <div class="legacy-timeline" aria-hidden="true" hidden>
+          <button id="tool-undo" disabled></button><button id="tool-redo" disabled></button>
+          <div class="ruler-marks"></div><div id="playhead"></div>
+          <div class="timeline-track-v"><div class="track-content"></div></div>
+          <div class="timeline-track-a"><div class="track-content"></div></div>
         </div>
-        <div class="timeline-track timeline-track-a">
-          <div class="track-label">A1</div>
-          <div class="track-content">
-            <div class="clip-dummy audio-clip">Voz (Audio generado)</div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
+      </section>
+    </div>
 
     <dialog id="settings-modal" class="modal">
       <div class="modal-content">
-        <header class="modal-header">
-          <h2>Configuración</h2>
-          <button id="settings-close" class="button-icon" aria-label="Cerrar modal">✖</button>
-        </header>
-        <div class="modal-body">
-          <div class="setting-item">
-            <label for="theme-select">Tema visual</label>
-            <select id="theme-select" class="select-input">
-              <option value="system">Sistema</option>
-              <option value="light">Claro</option>
-              <option value="dark">Oscuro</option>
-            </select>
-          </div>
-        </div>
+        <header class="section-header"><h2>Configuración</h2><button id="settings-close" class="icon-button" aria-label="Cerrar">×</button></header>
+        <label class="field" for="theme-select">
+          <span>Tema visual</span>
+          <select id="theme-select"><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option></select>
+        </label>
+        <p class="muted">Los proyectos se guardan automáticamente en este navegador.</p>
       </div>
     </dialog>
 

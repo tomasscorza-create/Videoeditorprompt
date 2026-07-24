@@ -28,6 +28,9 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] Recuperación de estados interrumpidos, cierre de conexiones y terminación del árbol de render.
 - [x] CI mínima, `npm test` agregado y corpus de compatibilidad de contratos.
 - [x] Render interactivo de una pasada; verificación completa preservada en CLI/pruebas.
+- [x] Workspace de tres columnas con viewer de composición/preview/MP4, biblioteca licenciada, inspector plegable y timeline de escenas/turnos.
+- [x] Proyecto y último job persistidos con versión y revisión de catálogo; galería alimentada por `/api/render-jobs`.
+- [x] Tono, duración objetivo y cantidad de escenas restringen el JSON Schema del Director, no solo su texto de prompt.
 - [ ] Próximo gate: producción personal real, métricas de planes válidos y mejoras de variantes/reparación y edición manual.
 
 Evidencia vigente: `ETAPA_2F_CALIDAD_RESULTADOS.md`, `ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.

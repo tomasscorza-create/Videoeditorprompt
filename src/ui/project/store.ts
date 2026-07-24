@@ -37,6 +37,7 @@ export interface ProjectStore {
   getState(): EditorState;
   project(): ProjectView;
   selectedSceneId(): string;
+  catalogRevision(): string;
   canUndo(): boolean;
   canRedo(): boolean;
   /** Devuelve null si el comando se aplicó, o un mensaje si el motor lo rechazó. */
@@ -60,7 +61,7 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function createStore(initial: EditorState): ProjectStore {
+export function createStore(initial: EditorState, revision = 'unknown'): ProjectStore {
   let current = initial;
   const listeners: Array<() => void> = [];
   const notify = (): void => { for (const listener of listeners) listener(); };
@@ -69,6 +70,7 @@ export function createStore(initial: EditorState): ProjectStore {
     getState: () => current,
     project: () => current.project as unknown as ProjectView,
     selectedSceneId: () => current.selectedSceneId,
+    catalogRevision: () => revision,
     canUndo: () => current.past.length > 0,
     canRedo: () => current.future.length > 0,
     dispatch(command) {
@@ -150,10 +152,25 @@ export async function loadProjectStore(requestedProjectId?: string | null): Prom
     fetchJson(`/projects/${entry.projectPath}?v=${cacheKey}`),
     fetchJson(`/${entry.resourceCatalog}?v=${cacheKey}`),
   ]);
-  return createStore(createProjectEditor(project, catalog));
+  return createStore(createProjectEditor(project, catalog), await hashJson(catalog));
 }
 
 export async function createProjectStore(project: unknown): Promise<ProjectStore> {
   const catalog = await fetchJson('/assets/catalog/authoring-resources.json');
-  return createStore(createProjectEditor(project, catalog));
+  return createStore(createProjectEditor(project, catalog), await hashJson(catalog));
+}
+
+export async function restoreProjectStore(project: unknown, expectedCatalogRevision: string): Promise<ProjectStore> {
+  const catalog = await fetchJson('/assets/catalog/authoring-resources.json');
+  const actualRevision = await hashJson(catalog);
+  if (actualRevision !== expectedCatalogRevision) {
+    throw new Error('El catálogo cambió desde la última sesión.');
+  }
+  return createStore(createProjectEditor(project, catalog), actualRevision);
+}
+
+async function hashJson(value: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }

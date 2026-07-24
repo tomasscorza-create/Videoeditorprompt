@@ -34,10 +34,19 @@ export function initProjectEditor(store: ProjectStore): void {
     report(store.dispatch(command));
   }
 
-  titleInput?.addEventListener('change', () => {
+  let titleCommitTimer: number | null = null;
+  const commitTitle = (): void => {
+    if (titleCommitTimer !== null) window.clearTimeout(titleCommitTimer);
+    titleCommitTimer = null;
+    if (!titleInput) return;
     const title = titleInput.value.trim();
     if (title) send({ type: 'set-project-title', title });
+  };
+  titleInput?.addEventListener('input', () => {
+    if (titleCommitTimer !== null) window.clearTimeout(titleCommitTimer);
+    titleCommitTimer = window.setTimeout(commitTitle, 300);
   });
+  titleInput?.addEventListener('change', commitTitle);
 
   const doUndo = (): void => { store.undo(); report(null); };
   const doRedo = (): void => { store.redo(); report(null); };
@@ -45,6 +54,16 @@ export function initProjectEditor(store: ProjectStore): void {
   redoBtn?.addEventListener('click', doRedo);
   toolUndo?.addEventListener('click', doUndo);
   toolRedo?.addEventListener('click', doRedo);
+  window.addEventListener('keydown', (event) => {
+    if (!event.ctrlKey || event.altKey || event.metaKey || isTyping(event.target)) return;
+    if (event.key.toLowerCase() === 'z') {
+      event.preventDefault();
+      event.shiftKey ? doRedo() : doUndo();
+    } else if (event.key.toLowerCase() === 'y') {
+      event.preventDefault();
+      doRedo();
+    }
+  });
 
   validateBtn?.addEventListener('click', () => {
     const error = store.validate();
@@ -355,8 +374,29 @@ function group(title: string, children: HTMLElement[]): HTMLElement {
   section.className = 'inspector-group';
   const heading = document.createElement('h3');
   heading.textContent = title;
+  heading.tabIndex = 0;
+  heading.setAttribute('role', 'button');
+  heading.setAttribute('aria-expanded', 'true');
+  const toggle = (): void => {
+    const collapsed = section.classList.toggle('is-collapsed');
+    heading.setAttribute('aria-expanded', String(!collapsed));
+  };
+  heading.addEventListener('click', toggle);
+  heading.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggle();
+    }
+  });
   section.append(heading, ...children);
   return section;
+}
+
+function isTyping(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+    || (target instanceof HTMLElement && target.isContentEditable);
 }
 
 function subheading(text: string): HTMLElement {

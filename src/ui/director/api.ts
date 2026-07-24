@@ -52,15 +52,26 @@ export interface ApiError {
   technicalDetail?: string;
 }
 
+export interface DirectorConstraints {
+  tone: 'educational' | 'ironic' | 'serious' | 'energetic' | 'inspirational';
+  targetDurationSeconds: number;
+  sceneCount: number;
+}
+
 export async function getHealth(): Promise<LocalHealth> {
   return apiRequest<LocalHealth>('/api/health');
 }
 
-export async function createProposal(prompt: string, variant: number, signal?: AbortSignal): Promise<DirectorProposal> {
+export async function createProposal(
+  prompt: string,
+  variant: number,
+  constraints: DirectorConstraints,
+  signal?: AbortSignal,
+): Promise<DirectorProposal> {
   return apiRequest<DirectorProposal>('/api/director/proposals', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, variant }),
+    body: JSON.stringify({ prompt, variant, constraints }),
     signal,
   });
 }
@@ -75,6 +86,11 @@ export async function startRender(project: unknown): Promise<RenderJob> {
 
 export async function getRenderJob(jobId: string): Promise<RenderJob> {
   return apiRequest<RenderJob>(`/api/render-jobs/${encodeURIComponent(jobId)}`);
+}
+
+export async function listRenderJobs(): Promise<RenderJob[]> {
+  const response = await apiRequest<{ version: number; jobs: RenderJob[] }>('/api/render-jobs');
+  return response.jobs;
 }
 
 export async function cancelRenderJob(jobId: string): Promise<RenderJob> {

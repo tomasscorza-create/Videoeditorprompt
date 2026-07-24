@@ -35,7 +35,9 @@ const manager = {
   cancel: (id) => id === completedJob.jobId ? { ...completedJob, state: 'cancelled' } : null,
   video: () => null,
 };
-const director = async ({ prompt, signal }) => {
+let receivedConstraints = null;
+const director = async ({ prompt, signal, constraints }) => {
+  receivedConstraints = constraints;
   if (prompt === 'slow') {
     await new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })), { once: true });
@@ -77,6 +79,17 @@ const proposalResponse = await request('/api/director/proposals', {
 });
 assert.equal(proposalResponse.status, 200);
 assert.equal((await proposalResponse.json()).project.id, project.id);
+
+const constrainedProposalResponse = await request('/api/director/proposals', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    prompt: 'Una propuesta seria.',
+    constraints: { tone: 'serious', targetDurationSeconds: 30, sceneCount: 2 },
+  }),
+});
+assert.equal(constrainedProposalResponse.status, 200);
+assert.deepEqual(receivedConstraints, { tone: 'serious', targetDurationSeconds: 30, sceneCount: 2 });
 
 const validationResponse = await request('/api/projects/validate', {
   method: 'POST',
@@ -166,4 +179,4 @@ const missing = await request('/api/render-jobs/render-missing');
 assert.equal(missing.status, 404);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 24, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 26, failed: 0, url: listening.url })}\n`);
