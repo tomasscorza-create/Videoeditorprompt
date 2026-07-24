@@ -20,6 +20,7 @@ El repositorio incluye actualmente:
 - render headless por escena y ensamblado multiescena con cortes o fundidos;
 - estudio local de tres columnas con composición estática, preview medido y MP4 final;
 - biblioteca durable con miniaturas, tags, licencias, registro validado y catálogo unificado para Director/editor/render;
+- creador local de personajes por capas y presets, con compilación al rig animable y persistencia fuera del repositorio;
 - pistas V1/A1, regla, playhead, timecode, zoom, snap, transporte, navegación y atajos conectados al preview y MP4;
 - sesión editable y último render guardados localmente con revisión del catálogo;
 - Director IA local con Ollama y `qwen3:8b`, plan JSON cerrado, validación y caché;
@@ -60,7 +61,7 @@ Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localh
 
 `npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, y crear la propuesta. La propuesta editable se abre debajo del comando para revisar sus escenas y ajustes antes de pulsar **Renderizar video**. La galería **Videos creados** se abre desde **Archivos** en el encabezado y usa los jobs persistidos de la API local; no depende de copiar renders a `public/generated`.
 
-El viewer central distingue tres fuentes: **Composición** proyecta el proyecto editable sin inventar tiempos; **Preview medido** reproduce una escena publicada; **MP4 final** muestra un render terminado. El proyecto actual se restaura desde `localStorage` y vuelve a validarse cuando la biblioteca agrega recursos.
+El viewer central distingue **Composición**, **Preview medido** y **MP4 final**. **CREAR → Personajes** abre temporalmente una cuarta vista de autoría para personalizar una plantilla por capas y guardar un rig animable en la biblioteca. El proyecto actual se restaura desde `localStorage` y vuelve a validarse cuando la biblioteca agrega recursos.
 
 El panel **Recursos** permite importar fondos JPG o PNG mediante **Agregar fondo**. La imagen queda normalizada al lienzo vertical y guardada fuera del repositorio: en Windows, bajo `%LOCALAPPDATA%\DisenadorVideosLocal\library`, o en `LOCAL_VIDEO_LIBRARY_ROOT` si se configura. `public/assets/library/` es únicamente una publicación reconstruible para que Director, editor y render usen exactamente los mismos IDs. Véase [Biblioteca local](docs/BIBLIOTECA_LOCAL.md).
 
@@ -219,6 +220,7 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [Roadmap](docs/ROADMAP.md) | Dirección de producto, fases y criterios de avance. |
 | [Checklist de desarrollo](docs/DEVELOPMENT_CHECKLIST.md) | Control operativo antes y después de cada cambio. |
 | [Estructura visual canónica](docs/ESTRUCTURA_VISUAL_CANONICA.md) | Distribución aprobada: encabezado, Director, visor, edición/recursos y timeline. |
+| [Creador local de personajes V1](docs/CREADOR_PERSONAJES_V1.md) | Contrato, persistencia, flujo visual y límites del diseñador por capas. |
 | [Biblioteca local](docs/BIBLIOTECA_LOCAL.md) | Registro durable, publicación del catálogo, API, seguridad y límites. |
 | [Operación local](docs/OPERACION_LOCAL.md) | Seguridad de sesión, recuperación, render interactivo y retención. |
 | [Dependencias de IA](docs/DEPENDENCIAS_IA_LOCAL.md) | Procedencia y licencias declaradas de Ollama y Qwen. |

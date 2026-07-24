@@ -80,6 +80,22 @@ export interface RegisteredResource {
   origin: 'builtin' | 'local';
 }
 
+export interface CharacterDesign {
+  version: 1;
+  preset: 'mono-parametrico-v1';
+  name: string;
+  accessory: 'none' | 'glasses' | 'badge';
+  headwear: 'none' | 'cap';
+  palette: Record<string, string>;
+}
+
+export interface SavedCharacterDesign {
+  id: string;
+  name: string;
+  design: CharacterDesign;
+  thumbnail: string;
+}
+
 export async function getHealth(): Promise<LocalHealth> {
   return apiRequest<LocalHealth>('/api/health');
 }
@@ -150,6 +166,23 @@ export async function importBackgroundResource(file: File): Promise<{
       'x-resource-file-name': encodeURIComponent(file.name),
     },
     body: file,
+  });
+}
+
+export async function listCharacterDesigns(): Promise<SavedCharacterDesign[]> {
+  const response = await apiRequest<{ version: number; designs: SavedCharacterDesign[] }>('/api/library/character-designs');
+  return response.designs;
+}
+
+export async function saveCharacterDesign(design: CharacterDesign): Promise<{
+  version: number;
+  created: boolean;
+  resource: RegisteredResource;
+}> {
+  return apiRequest('/api/library/characters', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ design }),
   });
 }
 

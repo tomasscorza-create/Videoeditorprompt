@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/local-character-design-v1.json",
+  "title": "Diseño local de personaje basado en plantilla",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "preset", "name", "accessory", "headwear", "palette"],
+  "properties": {
+    "version": { "const": 1 },
+    "preset": { "const": "mono-parametrico-v1" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "accessory": { "enum": ["none", "glasses", "badge"] },
+    "headwear": { "enum": ["none", "cap"] },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outline", "fur", "lightFur", "suit", "shirt", "accent", "white", "mouthDark", "tongue", "shadow"],
+      "properties": {
+        "outline": { "$ref": "#/$defs/color" },
+        "fur": { "$ref": "#/$defs/color" },
+        "lightFur": { "$ref": "#/$defs/color" },
+        "suit": { "$ref": "#/$defs/color" },
+        "shirt": { "$ref": "#/$defs/color" },
+        "accent": { "$ref": "#/$defs/color" },
+        "white": { "$ref": "#/$defs/color" },
+        "mouthDark": { "$ref": "#/$defs/color" },
+        "tongue": { "$ref": "#/$defs/color" },
+        "shadow": { "$ref": "#/$defs/color" }
+      }
+    }
+  },
+  "$defs": {
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+    }
+  }
+}

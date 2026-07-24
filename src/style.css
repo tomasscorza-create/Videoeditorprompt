@@ -241,6 +241,26 @@ h1, h2 { font-size: .98rem; }
   background: var(--panel-gradient);
   box-shadow: var(--shadow);
 }
+.create-popover {
+  position: absolute;
+  top: calc(100% + .65rem);
+  left: 0;
+  display: grid;
+  gap: .35rem;
+  width: min(18rem, calc(100vw - 2rem));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: .65rem;
+  background: var(--panel-gradient);
+  box-shadow: var(--shadow);
+}
+.create-popover button {
+  display: grid;
+  gap: .15rem;
+  width: 100%;
+  text-align: left;
+}
+.create-popover button span { color: var(--muted); font-size: .67rem; }
 
 .workspace {
   display: grid;
@@ -477,6 +497,61 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 
 .composition-canvas { position: absolute; inset: 0; overflow: hidden; background: #101827; }
+.character-creator-view {
+  background:
+    radial-gradient(circle at 50% 38%, rgb(114 223 188 / .16), transparent 34%),
+    linear-gradient(180deg, #18242c, #101720);
+}
+#character-creator-canvas { display: block; width: 100%; height: 100%; }
+.character-creator-panel { display: grid; gap: .8rem; }
+.character-creator-panel .section-header,
+.character-creator-panel .field + .field { margin: 0; }
+.character-control-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .6rem;
+}
+.character-colors {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .65rem;
+  background: color-mix(in srgb, var(--surface-2) 65%, transparent);
+}
+.character-colors > summary { color: var(--text); cursor: pointer; font-size: .76rem; font-weight: 700; }
+.character-color-controls {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .5rem .7rem;
+  margin-top: .7rem;
+}
+.character-color-field {
+  display: grid;
+  grid-template-columns: 1fr 2.25rem;
+  align-items: center;
+  gap: .4rem;
+  color: var(--muted);
+  font-size: .68rem;
+}
+.character-color-field input {
+  width: 2.25rem;
+  height: 1.8rem;
+  border: 0;
+  padding: .1rem;
+}
+.character-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem .7rem;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .65rem;
+  color: var(--muted);
+  font-size: .7rem;
+}
+.character-layers legend { padding: 0 .25rem; color: var(--text); }
+.character-layers label { display: flex; align-items: center; gap: .3rem; }
+.character-layers input { width: auto; }
 .composition-layer, .composition-character { position: absolute; pointer-events: none; user-select: none; }
 .composition-layer { inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .composition-character { width: 100%; height: 100%; object-fit: contain; transform-origin: center; }

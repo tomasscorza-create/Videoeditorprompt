@@ -60,6 +60,21 @@ const library = {
       image: { width: 1080, height: 1920, mimeType, bytes: bytes.length },
     };
   },
+  characterDesigns: () => [{
+    id: 'personaje-local-prueba',
+    name: 'Personaje prueba',
+    design: { version: 1, preset: 'mono-parametrico-v1' },
+    thumbnail: '/assets/library/characters/personaje-local-prueba/pose_neutral.png',
+  }],
+  saveCharacterDesign: (design) => ({
+    created: true,
+    resource: {
+      id: 'personaje-local-prueba',
+      type: 'character',
+      label: design.name,
+      origin: 'local',
+    },
+  }),
 };
 let receivedConstraints = null;
 const director = async ({ prompt, signal, constraints }) => {
@@ -107,6 +122,10 @@ const catalogResponse = await request('/api/library/catalog');
 assert.equal(catalogResponse.status, 200);
 assert.equal((await catalogResponse.json()).catalog.entries.length, catalog.entries.length);
 
+const designsResponse = await request('/api/library/character-designs');
+assert.equal(designsResponse.status, 200);
+assert.equal((await designsResponse.json()).designs[0].id, 'personaje-local-prueba');
+
 const libraryEntry = {
   id: 'voz-servidor-prueba',
   type: 'voice',
@@ -137,6 +156,14 @@ const unsupportedBackgroundResponse = await request('/api/library/backgrounds', 
   body: Buffer.from('GIF89a'),
 });
 assert.equal(unsupportedBackgroundResponse.status, 400);
+
+const characterResponse = await request('/api/library/characters', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ design: { name: 'Personaje prueba' } }),
+});
+assert.equal(characterResponse.status, 201);
+assert.equal((await characterResponse.json()).resource.type, 'character');
 
 const proposalResponse = await request('/api/director/proposals', {
   method: 'POST',

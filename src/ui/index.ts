@@ -12,6 +12,7 @@ import { loadProjectStore, type ProjectStore } from './project/store.js';
 import { initSettingsModal, initTheme } from './theme.js';
 import { attachPreviewTimeline, initTimelineShell } from './timeline.js';
 import { initViewerSources } from './viewer.js';
+import { initCharacterCreator } from './character-creator.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -21,6 +22,7 @@ export function initShellUi(): void {
   initSettingsModal();
   initWorkspaceResize();
   initViewerSources();
+  initCharacterCreator();
   initTimelineShell();
 }
 

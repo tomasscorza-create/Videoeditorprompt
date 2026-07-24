@@ -90,6 +90,13 @@ export function createLocalAppServer(options = {}) {
         });
         return;
       }
+      if (request.method === 'GET' && url.pathname === '/api/library/character-designs') {
+        sendJson(response, 200, {
+          version: 1,
+          designs: library.characterDesigns(),
+        });
+        return;
+      }
       if (request.method === 'POST' && url.pathname === '/api/library/resources') {
         assertJsonContentType(request);
         const body = await readJsonBody(request);
@@ -107,6 +114,13 @@ export function createLocalAppServer(options = {}) {
         const fileName = decodeHeaderValue(request.headers['x-resource-file-name'], 'fondo');
         const bytes = await readBody(request, MAX_BACKGROUND_BODY_BYTES);
         const result = library.importBackground({ bytes, mimeType, fileName });
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/library/characters') {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        const result = library.saveCharacterDesign(body.design);
         sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
         return;
       }

@@ -14,7 +14,13 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { ensureDirectory, projectRoot } from '../stage1/common.mjs';
+import {
+  compileParametricCharacter,
+  validateAssetCatalog,
+  validateCompiledCharacterManifest,
+} from '../stage2f/parametric-character.mjs';
 import { validateResourceCatalogSemantics } from '../stage3a/validate-video-project.mjs';
+import { applyCharacterDesign } from '../../shared/character-design-presets.js';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 ajv.addFormat('date-time', {
@@ -26,6 +32,9 @@ const validateLibrarySchema = ajv.compile(JSON.parse(
 ));
 const validateCatalogSchema = ajv.compile(JSON.parse(
   readFileSync(path.join(projectRoot, 'schema', 'authoring-resource-catalog.schema.json'), 'utf8'),
+));
+const validateCharacterDesignSchema = ajv.compile(JSON.parse(
+  readFileSync(path.join(projectRoot, 'schema', 'local-character-design.schema.json'), 'utf8'),
 ));
 const MAX_BACKGROUND_BYTES = 12 * 1024 * 1024;
 const MAX_BACKGROUND_PIXELS = 25_000_000;
@@ -210,6 +219,116 @@ export function createResourceLibrary(options = {}) {
         throw error;
       }
     },
+    characterDesigns() {
+      return registry.entries
+        .filter((record) => isManagedCharacter(record.entry, publishedAssetsRelative))
+        .map((record) => {
+          const designPath = path.join(storageAssetsRoot, 'characters', record.entry.characterRef.entryId, 'design.json');
+          if (!existsSync(designPath)) return null;
+          const design = JSON.parse(readFileSync(designPath, 'utf8'));
+          validateCharacterDesign(design);
+          return {
+            id: record.entry.id,
+            name: record.entry.label,
+            design,
+            thumbnail: `/${publishedAssetsRelative}/characters/${record.entry.id}/pose_neutral.png`,
+          };
+        })
+        .filter(Boolean);
+    },
+    saveCharacterDesign(input) {
+      const design = clone(input);
+      validateCharacterDesign(design);
+      const designHash = createHash('sha256')
+        .update(JSON.stringify(canonicalize(design)))
+        .digest('hex');
+      const id = `personaje-local-${designHash.slice(0, 12)}`;
+      const existing = findSummary(id);
+      if (existing) return { created: false, resource: existing };
+
+      const charactersRoot = ensureDirectory(path.join(storageAssetsRoot, 'characters'));
+      const targetDirectory = path.join(charactersRoot, id);
+      const publishedTargetDirectory = path.join(publishRoot, 'characters', id);
+      const workRoot = ensureDirectory(path.join(storageRoot, '.work'));
+      const temporaryDirectory = path.join(workRoot, `${id}.${process.pid}.${randomBytes(6).toString('hex')}`);
+      const temporaryAssetsRoot = path.join(temporaryDirectory, 'public');
+      ensureDirectory(temporaryAssetsRoot);
+      assertWithin(storageRoot, charactersRoot, 'raíz durable de personajes');
+      assertWithin(storageRoot, temporaryDirectory, 'trabajo temporal del personaje');
+      if (existsSync(targetDirectory)) {
+        throw libraryError('LIBRARY_RESOURCE_ID_CONFLICT', `Ya existe una carpeta administrada para «${id}».`);
+      }
+
+      const baseDefinition = JSON.parse(readFileSync(
+        path.join(assetsRoot, 'assets', 'character-definitions', 'mono-parametrico-v1.json'),
+        'utf8',
+      ));
+      const compiledDefinition = applyCharacterDesign(baseDefinition, design, id);
+      const definitionPath = path.join(temporaryAssetsRoot, 'definition.json');
+      atomicWriteJson(definitionPath, compiledDefinition);
+      const characterCatalogRelative = path.posix.join(publishedAssetsRelative, 'characters', 'index.json');
+      const entry = {
+        id,
+        type: 'character',
+        label: design.name,
+        tags: ['local', 'parametrico', 'personalizado'],
+        characterRef: { catalog: characterCatalogRelative, entryId: id },
+        capabilities: {
+          poses: ['neutral', 'point'],
+          animationPresets: ['idle', 'dialogue'],
+        },
+        provenance: {
+          source: 'Creado con el diseñador local de personajes.',
+          license: 'Creación local del usuario.',
+        },
+      };
+
+      try {
+        const compilation = compileParametricCharacter({
+          assetsRoot: temporaryAssetsRoot,
+          definitionPath,
+          outputBase: 'characters',
+          catalogRelative: 'characters/index.json',
+        });
+        const compiledDirectory = compilation.artifacts[0].root;
+        const manifestPath = path.join(compiledDirectory, 'character.manifest.json');
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        manifest.sourceDefinition = path.posix.join(
+          publishedAssetsRelative,
+          'characters',
+          id,
+          'definition.json',
+        );
+        validateCompiledCharacterManifest(manifest);
+        atomicWriteJson(manifestPath, manifest);
+        atomicWriteJson(path.join(compiledDirectory, 'definition.json'), compiledDefinition);
+        atomicWriteJson(path.join(compiledDirectory, 'design.json'), design);
+        syncDirectory(compiledDirectory, targetDirectory, {
+          sourceRoot: temporaryAssetsRoot,
+          targetRoot: storageAssetsRoot,
+        });
+        syncDirectory(targetDirectory, publishedTargetDirectory, {
+          sourceRoot: storageAssetsRoot,
+          targetRoot: publishRoot,
+        });
+        publishCharacterAssetCatalog([
+          ...registry.entries.map((record) => record.entry),
+          entry,
+        ]);
+        return this.register(entry);
+      } catch (error) {
+        // Si register() alcanzó a persistir el índice, el paquete ya pertenece a la
+        // biblioteca y debe conservarse para que el próximo arranque repare la publicación.
+        if (!findSummary(id)) {
+          removeManagedDirectory(targetDirectory, charactersRoot);
+          removeManagedDirectory(publishedTargetDirectory, publishRoot);
+          publish();
+        }
+        throw error;
+      } finally {
+        removeManagedDirectory(temporaryDirectory, workRoot);
+      }
+    },
   };
 
   function mergedCatalog() {
@@ -227,9 +346,45 @@ export function createResourceLibrary(options = {}) {
       publishRoot,
       publishedAssetsRelative,
     });
+    publishCharacterAssetCatalog(registry.entries.map((record) => record.entry));
     const catalog = mergedCatalog();
     validateCatalog(catalog, assetsRoot);
     atomicWriteJson(catalogPath, catalog);
+  }
+
+  function publishCharacterAssetCatalog(entries) {
+    const characters = entries.filter((entry) => isManagedCharacter(entry, publishedAssetsRelative));
+    if (characters.length === 0) return;
+    const generatedFrom = path.posix.join(publishedAssetsRelative, 'characters', 'generated-locally.json');
+    atomicWriteJson(path.join(publishRoot, 'characters', 'generated-locally.json'), {
+      version: 1,
+      source: 'Diseñador local de personajes',
+    });
+    const catalog = {
+      version: 1,
+      generatedFrom,
+      entries: characters.map((entry) => {
+        const characterRoot = path.join(storageAssetsRoot, 'characters', entry.id);
+        const manifest = JSON.parse(readFileSync(path.join(characterRoot, 'character.manifest.json'), 'utf8'));
+        validateCompiledCharacterManifest(manifest);
+        return {
+          id: entry.id,
+          type: 'character',
+          label: entry.label,
+          manifest: path.posix.join(publishedAssetsRelative, 'characters', entry.id, 'character.manifest.json'),
+          thumbnail: path.posix.join(publishedAssetsRelative, 'characters', entry.id, 'pose_neutral.png'),
+          tags: entry.tags,
+          capabilities: {
+            poses: manifest.poses.map((pose) => pose.id),
+            mouthStates: Object.keys(manifest.layers.mouth),
+            joints: manifest.joints.map((joint) => joint.id),
+          },
+          provenance: entry.provenance,
+        };
+      }),
+    };
+    validateAssetCatalog(catalog);
+    atomicWriteJson(path.join(publishRoot, 'characters', 'index.json'), catalog);
   }
 
   function findSummary(id) {
@@ -268,7 +423,11 @@ function materializeManagedAssets({
 }) {
   const managedPrefix = `${publishedAssetsRelative}/`;
   for (const record of registry.entries) {
-    const manifestRelative = record.entry?.type === 'background' ? record.entry.backgroundManifest : null;
+    const manifestRelative = record.entry?.type === 'background'
+      ? record.entry.backgroundManifest
+      : isManagedCharacter(record.entry, publishedAssetsRelative)
+        ? path.posix.join(publishedAssetsRelative, 'characters', record.entry.characterRef.entryId, 'character.manifest.json')
+        : null;
     if (typeof manifestRelative !== 'string' || !manifestRelative.startsWith(managedPrefix)) continue;
     const packageRelative = path.posix.dirname(manifestRelative.slice(managedPrefix.length));
     const sourceDirectory = resolveManagedRelative(storageAssetsRoot, packageRelative, 'paquete durable');
@@ -290,6 +449,23 @@ function materializeManagedAssets({
       targetRoot: publishRoot,
     });
   }
+}
+
+function isManagedCharacter(entry, publishedAssetsRelative) {
+  return entry?.type === 'character'
+    && entry.characterRef?.catalog === path.posix.join(publishedAssetsRelative, 'characters', 'index.json')
+    && entry.characterRef.entryId === entry.id;
+}
+
+function validateCharacterDesign(design) {
+  if (!validateCharacterDesignSchema(design)) {
+    const detail = (validateCharacterDesignSchema.errors || []).slice(0, 12)
+      .map((error) => `${error.instancePath || '/'} ${error.message}`).join('; ');
+    const error = libraryError('LIBRARY_CHARACTER_DESIGN_INVALID', 'El diseño del personaje no cumple el contrato permitido.');
+    error.technicalDetail = detail;
+    throw error;
+  }
+  return design;
 }
 
 function resolveManagedRelative(root, relativePath, label) {

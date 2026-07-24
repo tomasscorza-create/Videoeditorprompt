@@ -157,17 +157,64 @@ try {
   assert.equal(normalizedBackground.image.width, 1080);
   assert.equal(normalizedBackground.image.height, 1920);
 
+  const characterDesign = {
+    version: 1,
+    preset: 'mono-parametrico-v1',
+    name: 'Presentadora local',
+    accessory: 'glasses',
+    headwear: 'cap',
+    palette: {
+      outline: '#24150f',
+      fur: '#9a5636',
+      lightFur: '#d89a69',
+      suit: '#24385f',
+      shirt: '#f4e9d9',
+      accent: '#e35b55',
+      white: '#fffaf0',
+      mouthDark: '#3a1720',
+      tongue: '#ef7c78',
+      shadow: '#0a102059',
+    },
+  };
+  const savedCharacter = library.saveCharacterDesign(characterDesign);
+  assert.equal(savedCharacter.created, true);
+  assert.equal(savedCharacter.resource.entry.type, 'character');
+  assert.equal(library.characterDesigns()[0].design.accessory, 'glasses');
+  assert.equal(existsSync(path.join(
+    library.storageAssetsRoot,
+    'characters',
+    savedCharacter.resource.id,
+    'character.manifest.json',
+  )), true);
+  const localCharacterCatalog = JSON.parse(readFileSync(
+    path.join(publishRoot, 'characters', 'index.json'),
+    'utf8',
+  ));
+  assert.equal(localCharacterCatalog.entries[0].id, savedCharacter.resource.id);
+  assert.equal(library.saveCharacterDesign(characterDesign).created, false);
+  assert.throws(
+    () => library.saveCharacterDesign({ ...characterDesign, accessory: 'arbitrary-svg' }),
+    (error) => error.code === 'LIBRARY_CHARACTER_DESIGN_INVALID',
+  );
+
   rmSync(path.join(publishRoot, 'backgrounds'), { recursive: true, force: true });
+  rmSync(path.join(publishRoot, 'characters'), { recursive: true, force: true });
   const restored = createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
-  assert.equal(restored.list().length, 8);
-  assert.equal(restored.catalog().entries.at(-1).type, 'background');
-  assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 3);
-  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 8);
+  assert.equal(restored.list().length, 9);
+  assert.equal(restored.catalog().entries.at(-1).type, 'character');
+  assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 4);
+  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 9);
   assert.equal(existsSync(path.join(
     publishRoot,
     'backgrounds',
     importedBackground.resource.id,
     'background.png',
+  )), true);
+  assert.equal(existsSync(path.join(
+    publishRoot,
+    'characters',
+    savedCharacter.resource.id,
+    'pose_neutral.png',
   )), true);
 
   const migratedStorageRoot = path.join(root, 'migrated-durable');
@@ -178,7 +225,7 @@ try {
     builtinCatalog,
     legacyIndexPath: restored.indexPath,
   });
-  assert.equal(migrated.list().length, 8);
+  assert.equal(migrated.list().length, 9);
   assert.equal(existsSync(migrated.indexPath), true);
   assert.equal(existsSync(path.join(
     migrated.storageAssetsRoot,
@@ -195,7 +242,7 @@ try {
     (error) => error.code === 'LIBRARY_INDEX_INVALID',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 37, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 48, failed: 0 })}\n`);
 } finally {
   rmSync(root, { recursive: true, force: true });
   rmSync(publishRoot, { recursive: true, force: true });

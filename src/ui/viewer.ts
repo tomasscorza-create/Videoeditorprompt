@@ -1,16 +1,17 @@
 import { optional } from './dom.js';
 import { setTimelineSource } from './timeline.js';
 
-export type ViewerSource = 'composition' | 'preview' | 'final';
+export type ViewerSource = 'composition' | 'preview' | 'final' | 'character';
 
 const context: Record<ViewerSource, string> = {
   composition: 'La composición es una proyección estática; voz, boca y tiempos se calculan al renderizar.',
   preview: 'Preview medido de una escena publicada; usa el mismo evaluador temporal que la exportación.',
   final: 'MP4 final producido y verificado por el pipeline local.',
+  character: 'Vista de autoría. El guardado compila estas capas al rig animable local.',
 };
 
 export function initViewerSources(): void {
-  for (const source of ['composition', 'preview', 'final'] as ViewerSource[]) {
+  for (const source of ['composition', 'preview', 'final', 'character'] as ViewerSource[]) {
     optional<HTMLButtonElement>(`#source-${source}`)?.addEventListener('click', () => showViewerSource(source));
   }
 }
@@ -23,7 +24,7 @@ export function setViewerSourceAvailable(source: ViewerSource, available = true)
 export function showViewerSource(source: ViewerSource): void {
   const requested = optional<HTMLButtonElement>(`#source-${source}`);
   if (requested?.disabled) return;
-  for (const candidate of ['composition', 'preview', 'final'] as ViewerSource[]) {
+  for (const candidate of ['composition', 'preview', 'final', 'character'] as ViewerSource[]) {
     const active = candidate === source;
     const button = optional<HTMLButtonElement>(`#source-${candidate}`);
     const view = optional<HTMLElement>(`#${candidate}-view`);
@@ -35,11 +36,19 @@ export function showViewerSource(source: ViewerSource): void {
   if (controls) controls.hidden = source !== 'preview';
   const title = optional<HTMLElement>('#viewer-title');
   if (title) {
-    title.textContent = source === 'composition' ? 'Composición editable' : source === 'preview' ? 'Preview medido' : 'Video final';
+    title.textContent = source === 'composition'
+      ? 'Composición editable'
+      : source === 'preview'
+        ? 'Preview medido'
+        : source === 'final'
+          ? 'Video final'
+          : 'Diseñador de personaje';
   }
   const description = optional<HTMLElement>('#viewer-context');
   if (description) description.textContent = context[source];
-  setTimelineSource(source);
+  const download = optional<HTMLAnchorElement>('#director-result-download');
+  if (download) download.hidden = source !== 'final' || !download.href;
+  if (source !== 'character') setTimelineSource(source);
 }
 
 export function showFinalVideo(url: string, downloadName: string): void {
