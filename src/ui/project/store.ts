@@ -5,7 +5,7 @@ import {
   listEditorResources,
   redoProjectEditor,
   undoProjectEditor,
-  validateEditableProject,
+  validateRenderableProject,
   type EditorState,
 } from '../../../shared/project-editor.js';
 import type { ProjectView, ResourceEntry, ResourceType } from './types.js';
@@ -109,7 +109,7 @@ export function createStore(initial: EditorState, revision = 'unknown'): Project
     },
     validate() {
       try {
-        validateEditableProject(current.project, current.catalog);
+        validateRenderableProject(current.project, current.catalog);
         return null;
       } catch (error) {
         return describeError(error);
@@ -131,6 +131,33 @@ async function fetchJson<T = unknown>(url: string): Promise<T> {
 // debe construir URLs con rutas absolutas ni con salto de directorio.
 function isPortablePath(path: string): boolean {
   return path.length > 0 && !path.startsWith('/') && !path.split('/').includes('..');
+}
+
+export async function createBlankProjectStore(): Promise<ProjectStore> {
+  const activeCatalog = await loadActiveCatalog('assets/catalog/authoring-resources.json');
+  const catalog = activeCatalog.catalog as { entries?: Array<{ id: string; type: string; capabilities?: { cameraPresets?: string[] } }> };
+  const background = catalog.entries?.find((entry) => entry.type === 'background');
+  if (!background) throw new Error('La biblioteca necesita al menos un fondo para crear un proyecto.');
+  const projectId = `proyecto-${Date.now().toString(36)}`;
+  const project = {
+    version: 1,
+    id: projectId,
+    title: 'Proyecto sin título',
+    video: { width: 1080, height: 1920, fps: 30 },
+    seed: Math.floor(Date.now() % 4_294_967_295),
+    resourceCatalog: activeCatalog.path,
+    scenes: [{
+      id: 'escena-01',
+      title: 'Escena 1',
+      background: {
+        resourceId: background.id,
+        cameraPreset: background.capabilities?.cameraPresets?.[0] ?? 'static',
+      },
+      elements: [],
+      dialogue: [],
+    }],
+  };
+  return createStore(createProjectEditor(project, activeCatalog.catalog), await hashJson(activeCatalog.catalog));
 }
 
 async function loadActiveCatalog(fallbackPath: string, cacheKey?: string): Promise<{ catalog: unknown; path: string }> {

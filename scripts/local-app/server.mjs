@@ -9,6 +9,7 @@ import { serializeError } from '../stage1/errors.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
 import { createRenderJobManager, streamVideoResponse } from './render-job-manager.mjs';
 import { createResourceLibrary } from './resource-library.mjs';
+import { createProjectRepository } from './project-repository.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
@@ -33,6 +34,7 @@ export function createLocalAppServer(options = {}) {
     publishRoot: options.libraryPublishRoot,
   });
   const currentCatalog = () => library.catalog();
+  const projects = options.projects || createProjectRepository({ storageRoot: options.projectStorageRoot });
   const manager = options.manager || createRenderJobManager({
     ...options,
     assetsRoot,
@@ -95,6 +97,33 @@ export function createLocalAppServer(options = {}) {
           version: 1,
           designs: library.characterDesigns(),
         });
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/projects') {
+        sendJson(response, 200, { version: 1, projects: projects.list() });
+        return;
+      }
+      const projectMatch = /^\/api\/projects\/([a-zA-Z0-9_-]{2,64})$/u.exec(url.pathname);
+      if (request.method === 'GET' && projectMatch) {
+        sendJson(response, 200, { version: 1, project: projects.get(projectMatch[1]) });
+        return;
+      }
+      if (request.method === 'PUT' && projectMatch) {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        if (body.project?.id !== projectMatch[1]) {
+          const error = new Error('El ID de la ruta no coincide con el proyecto.');
+          error.code = 'PROJECT_ID_INVALID';
+          throw error;
+        }
+        const result = projects.save(body.project);
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
+      if (request.method === 'DELETE' && projectMatch) {
+        const removed = projects.remove(projectMatch[1]);
+        if (!removed) return sendNotFound(response);
+        sendJson(response, 200, { version: 1, removed: true });
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/library/resources') {
@@ -220,6 +249,7 @@ export function createLocalAppServer(options = {}) {
     server,
     manager,
     library,
+    projects,
     sessionToken,
     listen() {
       return new Promise((resolve, reject) => {

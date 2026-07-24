@@ -21,3 +21,4 @@ export function redoProjectEditor(state: EditorState): EditorState;
 export function listEditorResources(state: EditorState, type: 'character' | 'voice' | 'background' | 'image'): readonly any[];
 export function exportEditorProject(state: EditorState): string;
 export function validateEditableProject(project: unknown, catalog: unknown): true;
+export function validateRenderableProject(project: unknown, catalog: unknown): true;

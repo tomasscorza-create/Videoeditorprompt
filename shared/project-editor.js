@@ -115,13 +115,11 @@ export function validateEditableProject(project, catalog) {
     if (!background.capabilities.cameraPresets.includes(scene.background.cameraPreset)) fail('EDITOR_CAMERA_PRESET_INVALID', 'El fondo no soporta el preset de cámara seleccionado.', `${scenePath}/background/cameraPreset`);
     if (!Array.isArray(scene.elements)) fail('EDITOR_PROJECT_INVALID', 'La escena debe contener elementos.', `${scenePath}/elements`);
     const elements = new Map();
-    let characterCount = 0;
     for (const [elementIndex, element] of scene.elements.entries()) {
       const elementPath = `${scenePath}/elements/${elementIndex}`;
       if (!element || elements.has(element.id)) fail('EDITOR_PROJECT_INVALID', 'Los IDs de elemento deben existir y ser únicos en la escena.', `${elementPath}/id`);
       elements.set(element.id, element);
       if (element.type === 'character') {
-        characterCount += 1;
         const resource = requireResource(resources, element.resourceId, 'character', `${elementPath}/resourceId`);
         if (!resource.capabilities.poses.includes(element.poseId)) fail('EDITOR_POSE_INVALID', 'El personaje no soporta la pose seleccionada.', `${elementPath}/poseId`);
         if (!resource.capabilities.animationPresets.includes(element.animationPreset)) fail('EDITOR_ANIMATION_INVALID', 'El personaje no soporta la animación seleccionada.', `${elementPath}/animationPreset`);
@@ -130,8 +128,8 @@ export function validateEditableProject(project, catalog) {
         fail('EDITOR_ELEMENT_UNSUPPORTED', '3B.0 solo edita personajes porque el compilador vigente todavía no representa texto o imágenes.', `${elementPath}/type`);
       }
     }
-    if (characterCount !== 2) fail('EDITOR_SCENE_UNSUPPORTED', '3B.0 requiere exactamente dos personajes por escena.', `${scenePath}/elements`);
-    if (!Array.isArray(scene.dialogue) || scene.dialogue.length < 2) fail('EDITOR_SCENE_UNSUPPORTED', '3B.0 requiere al menos dos turnos por escena.', `${scenePath}/dialogue`);
+    if (scene.elements.length > 20) fail('EDITOR_PROJECT_INVALID', 'Una escena admite hasta 20 elementos.', `${scenePath}/elements`);
+    if (!Array.isArray(scene.dialogue) || scene.dialogue.length > 20) fail('EDITOR_PROJECT_INVALID', 'Una escena admite hasta 20 turnos.', `${scenePath}/dialogue`);
     const turnIds = new Set();
     for (const [turnIndex, turn] of (scene.dialogue || []).entries()) {
       const turnPath = `${scenePath}/dialogue/${turnIndex}`;
@@ -149,6 +147,26 @@ export function validateEditableProject(project, catalog) {
   return true;
 }
 
+export function validateRenderableProject(project, catalog) {
+  validateEditableProject(project, catalog);
+  for (const [sceneIndex, scene] of project.scenes.entries()) {
+    const characters = scene.elements.filter((element) => element.type === 'character');
+    if (characters.length !== 2) {
+      fail('EDITOR_SCENE_NOT_RENDERABLE', 'Para renderizar, cada escena necesita exactamente dos personajes.', `/scenes/${sceneIndex}/elements`);
+    }
+    if (scene.dialogue.length < 2) {
+      fail('EDITOR_SCENE_NOT_RENDERABLE', 'Para renderizar, cada escena necesita al menos dos turnos de diálogo.', `/scenes/${sceneIndex}/dialogue`);
+    }
+    for (const [elementIndex, element] of characters.entries()) {
+      const transform = element.transform;
+      if (transform.anchorX !== 0.5 || transform.anchorY !== 0.5 || transform.rotationDegrees !== 0 || transform.opacity !== 1) {
+        fail('EDITOR_SCENE_NOT_RENDERABLE', 'El render actual requiere ancla centrada, rotación 0 y opacidad 1.', `/scenes/${sceneIndex}/elements/${elementIndex}/transform`);
+      }
+    }
+  }
+  return true;
+}
+
 function applyMutation(project, catalog, command) {
   const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
   switch (command.type) {
@@ -159,6 +177,43 @@ function applyMutation(project, catalog, command) {
     case 'set-scene-title': {
       stringInRange(command.title, 1, 120, '/command/title');
       requireScene(project, command.sceneId).title = command.title;
+      return;
+    }
+    case 'add-scene': {
+      if (project.scenes.length >= 8) fail('EDITOR_PROJECT_INVALID', 'El proyecto admite hasta ocho escenas.', '/command');
+      if (project.scenes.some((scene) => scene.id === command.scene.id)) fail('EDITOR_PROJECT_INVALID', 'El ID de la escena ya existe.', '/command/scene/id');
+      const scene = cloneJson(command.scene);
+      const previousLast = project.scenes.at(-1);
+      if (previousLast) previousLast.transitionToNext = { preset: 'cut', durationSeconds: 0 };
+      delete scene.transitionToNext;
+      project.scenes.push(scene);
+      return;
+    }
+    case 'duplicate-scene': {
+      if (project.scenes.length >= 8) fail('EDITOR_PROJECT_INVALID', 'El proyecto admite hasta ocho escenas.', '/command');
+      const sourceIndex = project.scenes.findIndex((scene) => scene.id === command.sceneId);
+      if (sourceIndex < 0) fail('EDITOR_SCENE_NOT_FOUND', `No existe la escena ${command.sceneId}.`, '/command/sceneId');
+      if (project.scenes.some((scene) => scene.id === command.newSceneId)) fail('EDITOR_PROJECT_INVALID', 'El ID de la escena ya existe.', '/command/newSceneId');
+      const copy = cloneJson(project.scenes[sourceIndex]);
+      copy.id = command.newSceneId;
+      copy.title = command.title;
+      copy.elements = copy.elements.map((element, index) => ({ ...element, id: `${command.newSceneId}-e${index + 1}` }));
+      const elementIds = new Map(project.scenes[sourceIndex].elements.map((element, index) => [element.id, copy.elements[index].id]));
+      copy.dialogue = copy.dialogue.map((turn, index) => ({
+        ...turn,
+        id: `${command.newSceneId}-t${index + 1}`,
+        speakerElementId: elementIds.get(turn.speakerElementId),
+      }));
+      project.scenes.splice(sourceIndex + 1, 0, copy);
+      normalizeTransitions(project);
+      return;
+    }
+    case 'delete-scene': {
+      if (project.scenes.length === 1) fail('EDITOR_PROJECT_INVALID', 'El proyecto debe conservar al menos una escena.', '/command/sceneId');
+      const index = project.scenes.findIndex((scene) => scene.id === command.sceneId);
+      if (index < 0) fail('EDITOR_SCENE_NOT_FOUND', `No existe la escena ${command.sceneId}.`, '/command/sceneId');
+      project.scenes.splice(index, 1);
+      normalizeTransitions(project);
       return;
     }
     case 'set-scene-background': {
@@ -175,6 +230,34 @@ function applyMutation(project, catalog, command) {
         fail('EDITOR_CHARACTER_INCOMPATIBLE', 'El personaje seleccionado no soporta la pose o animación actuales.', '/command/resourceId');
       }
       element.resourceId = command.resourceId;
+      return;
+    }
+    case 'add-character': {
+      const scene = requireScene(project, command.sceneId);
+      if (scene.elements.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 elementos.', '/command');
+      if (scene.elements.some((element) => element.id === command.elementId)) fail('EDITOR_PROJECT_INVALID', 'El ID del elemento ya existe.', '/command/elementId');
+      const resource = requireResource(resources, command.resourceId, 'character', '/command/resourceId');
+      scene.elements.push({
+        id: command.elementId,
+        type: 'character',
+        resourceId: command.resourceId,
+        transform: {
+          x: command.x, y: command.y, anchorX: 0.5, anchorY: 0.5,
+          scale: command.scale, rotationDegrees: 0, opacity: 1, zIndex: command.zIndex,
+        },
+        poseId: resource.capabilities.poses.includes('neutral') ? 'neutral' : resource.capabilities.poses[0],
+        animationPreset: resource.capabilities.animationPresets[0],
+      });
+      return;
+    }
+    case 'delete-element': {
+      const scene = requireScene(project, command.sceneId);
+      const index = scene.elements.findIndex((element) => element.id === command.elementId);
+      if (index < 0) fail('EDITOR_ELEMENT_NOT_FOUND', `No existe el elemento ${command.elementId}.`, '/command/elementId');
+      if (scene.dialogue.some((turn) => turn.speakerElementId === command.elementId)) {
+        fail('EDITOR_ELEMENT_IN_USE', 'Eliminá o reasigná primero los diálogos de este personaje.', '/command/elementId');
+      }
+      scene.elements.splice(index, 1);
       return;
     }
     case 'place-character-resource': {
@@ -207,6 +290,42 @@ function applyMutation(project, catalog, command) {
       for (const key of keys) turn[key] = command[key];
       return;
     }
+    case 'add-dialogue-turn': {
+      const scene = requireScene(project, command.sceneId);
+      if (scene.dialogue.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 turnos.', '/command');
+      if (scene.dialogue.some((turn) => turn.id === command.turnId)) fail('EDITOR_PROJECT_INVALID', 'El ID del turno ya existe.', '/command/turnId');
+      requireElement(scene, command.speakerElementId, 'character');
+      requireResource(resources, command.voiceId, 'voice', '/command/voiceId');
+      const turn = {
+        id: command.turnId,
+        speakerElementId: command.speakerElementId,
+        text: command.text,
+        voiceId: command.voiceId,
+        gestureId: command.gestureId,
+        gapAfterSeconds: command.gapAfterSeconds,
+      };
+      const index = command.afterTurnId
+        ? scene.dialogue.findIndex((item) => item.id === command.afterTurnId) + 1
+        : scene.dialogue.length;
+      if (command.afterTurnId && index === 0) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.afterTurnId}.`, '/command/afterTurnId');
+      scene.dialogue.splice(index, 0, turn);
+      return;
+    }
+    case 'delete-dialogue-turn': {
+      const scene = requireScene(project, command.sceneId);
+      const index = scene.dialogue.findIndex((turn) => turn.id === command.turnId);
+      if (index < 0) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.turnId}.`, '/command/turnId');
+      scene.dialogue.splice(index, 1);
+      return;
+    }
+    case 'set-dialogue-speaker': {
+      const scene = requireScene(project, command.sceneId);
+      const turn = scene.dialogue.find((item) => item.id === command.turnId);
+      if (!turn) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.turnId}.`, '/command/turnId');
+      requireElement(scene, command.speakerElementId, 'character');
+      turn.speakerElementId = command.speakerElementId;
+      return;
+    }
     case 'set-transition': {
       const index = project.scenes.findIndex((scene) => scene.id === command.sceneId);
       if (index < 0) fail('EDITOR_SCENE_NOT_FOUND', `No existe la escena ${command.sceneId}.`, '/command/sceneId');
@@ -237,12 +356,14 @@ function applyMutation(project, catalog, command) {
 }
 
 function validateEditableTransform(transform, path) {
-  if (!transform || transform.anchorX !== 0.5 || transform.anchorY !== 0.5 || transform.rotationDegrees !== 0 || transform.opacity !== 1) {
-    fail('EDITOR_TRANSFORM_UNSUPPORTED', '3B.0 conserva ancla 0.5/0.5, rotación 0 y opacidad 1 para mantener compatibilidad con el compilador.', path);
-  }
+  if (!transform) fail('EDITOR_VALUE_INVALID', 'Falta el transform del elemento.', path);
   numberInRange(transform.x, -1080, 2160, `${path}/x`);
   numberInRange(transform.y, -1920, 3840, `${path}/y`);
+  numberInRange(transform.anchorX, 0, 1, `${path}/anchorX`);
+  numberInRange(transform.anchorY, 0, 1, `${path}/anchorY`);
   numberInRange(transform.scale, Number.MIN_VALUE, 10, `${path}/scale`);
+  numberInRange(transform.rotationDegrees, -180, 180, `${path}/rotationDegrees`);
+  numberInRange(transform.opacity, 0, 1, `${path}/opacity`);
   integerInRange(transform.zIndex, -1000, 1000, `${path}/zIndex`);
 }
 
@@ -282,11 +403,19 @@ function assertCommandShape(command) {
     'select-scene': { required: ['type', 'sceneId'], optional: [] },
     'set-project-title': { required: ['type', 'title'], optional: [] },
     'set-scene-title': { required: ['type', 'sceneId', 'title'], optional: [] },
+    'add-scene': { required: ['type', 'scene'], optional: [] },
+    'duplicate-scene': { required: ['type', 'sceneId', 'newSceneId', 'title'], optional: [] },
+    'delete-scene': { required: ['type', 'sceneId'], optional: [] },
     'set-scene-background': { required: ['type', 'sceneId', 'resourceId', 'cameraPreset'], optional: [] },
     'set-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId'], optional: [] },
+    'add-character': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], optional: [] },
+    'delete-element': { required: ['type', 'sceneId', 'elementId'], optional: [] },
     'place-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y'], optional: [] },
     'set-character-transform': { required: ['type', 'sceneId', 'elementId'], optional: ['x', 'y', 'scale', 'zIndex'] },
     'set-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: ['text', 'voiceId', 'gestureId', 'gapAfterSeconds'] },
+    'add-dialogue-turn': { required: ['type', 'sceneId', 'turnId', 'speakerElementId', 'text', 'voiceId', 'gestureId', 'gapAfterSeconds'], optional: ['afterTurnId'] },
+    'delete-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: [] },
+    'set-dialogue-speaker': { required: ['type', 'sceneId', 'turnId', 'speakerElementId'], optional: [] },
     'set-transition': { required: ['type', 'sceneId', 'preset', 'durationSeconds'], optional: [] },
     'reorder-scenes': { required: ['type', 'sceneIds'], optional: [] },
   };
@@ -297,6 +426,13 @@ function assertCommandShape(command) {
   if (unknown) fail('EDITOR_COMMAND_INVALID', `El comando contiene el campo no permitido ${unknown}.`, `/command/${unknown}`);
   const missing = shape.required.find((key) => !Object.hasOwn(command, key));
   if (missing) fail('EDITOR_COMMAND_INVALID', `Falta el campo obligatorio ${missing}.`, `/command/${missing}`);
+}
+
+function normalizeTransitions(project) {
+  for (const [index, scene] of project.scenes.entries()) {
+    if (index === project.scenes.length - 1) delete scene.transitionToNext;
+    else if (!scene.transitionToNext) scene.transitionToNext = { preset: 'cut', durationSeconds: 0 };
+  }
 }
 
 function stringInRange(value, min, max, path) {

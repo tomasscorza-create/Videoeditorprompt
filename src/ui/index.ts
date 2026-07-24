@@ -13,6 +13,7 @@ import { initSettingsModal, initTheme } from './theme.js';
 import { attachPreviewTimeline, initTimelineShell } from './timeline.js';
 import { initViewerSources } from './viewer.js';
 import { initCharacterCreator } from './character-creator.js';
+import { initProjectFiles } from './project/files.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -58,6 +59,7 @@ export async function initProjectUi(): Promise<void> {
 }
 
 function attachProjectUi(store: ProjectStore): void {
+  initProjectFiles(store);
   initProjectEditor(store);
   initProjectTimeline(store);
   void initCompositionPreview(store);

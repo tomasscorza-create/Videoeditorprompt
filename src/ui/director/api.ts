@@ -89,6 +89,36 @@ export interface SavedCharacterDesign {
   thumbnail: string;
 }
 
+export interface SavedProjectSummary {
+  id: string;
+  title: string;
+  scenes: number;
+  updatedAt: string;
+}
+
+export async function listSavedProjects(): Promise<SavedProjectSummary[]> {
+  const response = await apiRequest<{ version: number; projects: SavedProjectSummary[] }>('/api/projects');
+  return response.projects;
+}
+
+export async function loadSavedProject(id: string): Promise<unknown> {
+  const response = await apiRequest<{ version: number; project: unknown }>(`/api/projects/${encodeURIComponent(id)}`);
+  return response.project;
+}
+
+export async function saveEditableProject(project: { id: string }): Promise<SavedProjectSummary> {
+  const response = await apiRequest<{ version: number; summary: SavedProjectSummary }>(`/api/projects/${encodeURIComponent(project.id)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project }),
+  });
+  return response.summary;
+}
+
+export async function deleteSavedProject(id: string): Promise<void> {
+  await apiRequest(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export async function getHealth(): Promise<LocalHealth> {
   return apiRequest<LocalHealth>('/api/health');
 }

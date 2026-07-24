@@ -16,7 +16,11 @@
           </div>
           <details id="files-menu" class="files-menu">
             <summary>Archivos</summary>
-            <section class="files-popover" aria-labelledby="files-videos-title">
+            <section class="files-popover" aria-label="Archivos del estudio">
+              <div class="file-primary-actions">
+                <button id="project-new" class="primary-button" type="button"><strong>Nuevo +</strong><span>Empezar con un lienzo vacío</span></button>
+                <button id="projects-open" type="button"><strong>Mis proyectos</strong><span>Abrir y continuar editando</span></button>
+              </div>
               <header class="section-header compact">
                 <div>
                   <span class="eyebrow">Biblioteca local</span>
@@ -423,6 +427,17 @@
         <p id="timeline-summary" class="timeline-summary">Abrí un proyecto para ver sus escenas y diálogos.</p>
       </section>
     </div>
+
+    <dialog id="projects-modal" class="modal projects-modal">
+      <div class="modal-content">
+        <header class="section-header">
+          <div><span class="eyebrow">Archivos</span><h2>Mis proyectos editables</h2></div>
+          <button id="projects-close" class="icon-button" type="button" aria-label="Cerrar">×</button>
+        </header>
+        <p class="muted">Estos proyectos se guardan de forma durable en el equipo y pueden seguir editándose después del render.</p>
+        <div id="saved-project-list" class="saved-project-list"></div>
+      </div>
+    </dialog>
 
     <dialog id="settings-modal" class="modal">
       <div class="modal-content">

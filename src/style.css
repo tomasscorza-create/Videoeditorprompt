@@ -331,6 +331,15 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 
 .director-column > section, .editor-column > section { padding: 1rem; }
+.file-primary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; padding-bottom: .75rem; margin-bottom: .75rem; border-bottom: 1px solid var(--border); }
+.file-primary-actions button { display: grid; gap: .15rem; text-align: left; padding: .65rem; }
+.file-primary-actions button span { color: var(--muted); font-size: .68rem; }
+.projects-modal .modal-content { width: min(44rem, calc(100vw - 2rem)); }
+.saved-project-list { display: grid; gap: .55rem; max-height: min(60vh, 36rem); overflow: auto; margin-top: .85rem; }
+.saved-project-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--surface-2); }
+.saved-project-card > div { display: grid; gap: .2rem; }
+.saved-project-card span { color: var(--muted); font-size: .72rem; }
+.saved-project-card > div:last-child { display: flex; grid-auto-flow: column; }
 .director-column > section + section, .editor-column > section + section { border-top: 1px solid var(--border); }
 
 .section-header { justify-content: space-between; gap: .75rem; margin-bottom: .9rem; }
