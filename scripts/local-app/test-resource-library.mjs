@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { projectRoot } from '../stage1/common.mjs';
-import { createResourceLibrary } from './resource-library.mjs';
+import { createResourceLibrary, defaultLibraryStorageRoot } from './resource-library.mjs';
 
 const root = mkdtempSync(path.join(tmpdir(), 'local-video-library-test-'));
 const assetsRoot = path.join(projectRoot, 'public');
@@ -18,6 +18,14 @@ const builtinCatalog = JSON.parse(readFileSync(
 ));
 
 try {
+  assert.equal(
+    defaultLibraryStorageRoot({
+      environment: { LOCALAPPDATA: 'C:\\datos-locales' },
+      platform: 'win32',
+      homeDirectory: 'C:\\usuario',
+    }),
+    path.join('C:\\datos-locales', 'DisenadorVideosLocal', 'library'),
+  );
   const library = createResourceLibrary({
     assetsRoot,
     storageRoot,
@@ -101,6 +109,12 @@ try {
   ));
   assert.equal(importedManifest.layers.far, 'background.png');
   assert.equal(importedManifest.layers.mid, 'transparent.png');
+  assert.equal(existsSync(path.join(
+    library.storageAssetsRoot,
+    'backgrounds',
+    importedBackground.resource.id,
+    'background.png',
+  )), true);
   assert.equal(library.importBackground({
     bytes: backgroundBytes,
     mimeType: 'image/png',
@@ -143,11 +157,35 @@ try {
   assert.equal(normalizedBackground.image.width, 1080);
   assert.equal(normalizedBackground.image.height, 1920);
 
+  rmSync(path.join(publishRoot, 'backgrounds'), { recursive: true, force: true });
   const restored = createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
   assert.equal(restored.list().length, 8);
   assert.equal(restored.catalog().entries.at(-1).type, 'background');
   assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 3);
   assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 8);
+  assert.equal(existsSync(path.join(
+    publishRoot,
+    'backgrounds',
+    importedBackground.resource.id,
+    'background.png',
+  )), true);
+
+  const migratedStorageRoot = path.join(root, 'migrated-durable');
+  const migrated = createResourceLibrary({
+    assetsRoot,
+    storageRoot: migratedStorageRoot,
+    publishRoot,
+    builtinCatalog,
+    legacyIndexPath: restored.indexPath,
+  });
+  assert.equal(migrated.list().length, 8);
+  assert.equal(existsSync(migrated.indexPath), true);
+  assert.equal(existsSync(path.join(
+    migrated.storageAssetsRoot,
+    'backgrounds',
+    importedBackground.resource.id,
+    'background.png',
+  )), true);
 
   const inconsistent = JSON.parse(readFileSync(restored.indexPath, 'utf8'));
   inconsistent.entries[0].contentHash = '0'.repeat(64);
@@ -157,7 +195,7 @@ try {
     (error) => error.code === 'LIBRARY_INDEX_INVALID',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 30, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 37, failed: 0 })}\n`);
 } finally {
   rmSync(root, { recursive: true, force: true });
   rmSync(publishRoot, { recursive: true, force: true });

@@ -6,8 +6,18 @@ La biblioteca local versión 1 permite registrar recursos compatibles y usarlos 
 
 Hay dos capas separadas:
 
-- `.local-video-library/library-index.json` es el registro durable. Conserva el descriptor, su fecha de alta y un hash del contenido.
-- `public/assets/library/authoring-resources.json` es una publicación regenerable que combina los recursos incluidos con los registrados por el usuario. El proyecto editable referencia esta ruta para que el compilador y el render consuman exactamente el mismo catálogo que la interfaz.
+- La carpeta de datos externa es la fuente durable. Conserva `library-index.json` y los paquetes bajo `assets/backgrounds/`.
+- `public/assets/library/` es solo una publicación regenerable que combina los recursos incluidos con los registrados por el usuario. El proyecto editable referencia esta copia para que el compilador y el render consuman exactamente el mismo catálogo que la interfaz.
+
+Ubicación predeterminada en Windows:
+
+```text
+%LOCALAPPDATA%\DisenadorVideosLocal\library
+├── library-index.json
+└── assets\backgrounds\<id-del-fondo>\
+```
+
+En macOS se usa `~/Library/Application Support/DisenadorVideosLocal/library`; en Linux, `$XDG_DATA_HOME/disenador-videos-local/library` o `~/.local/share/disenador-videos-local/library`.
 
 La raíz durable puede cambiarse antes de iniciar la aplicación:
 
@@ -16,13 +26,15 @@ $env:LOCAL_VIDEO_LIBRARY_ROOT = "D:\Mi biblioteca de video"
 npm run dev
 ```
 
-La publicación bajo `public/assets/library/` y la raíz predeterminada son datos locales ignorados por Git.
+`LOCAL_VIDEO_LIBRARY_ROOT` cambia tanto el índice como el almacenamiento durable de imágenes. La publicación bajo `public/assets/library/` sigue siendo una copia local ignorada por Git y puede reconstruirse al iniciar.
+
+Al actualizar desde la versión anterior, el servicio copia automáticamente el índice de `.local-video-library/` y los fondos administrados que encuentre en `public/assets/library/`. No borra el origen durante la migración.
 
 ## Agregar un fondo JPG o PNG
 
 En el panel derecho, pulsar **Agregar fondo** y seleccionar una imagen `.jpg`, `.jpeg` o `.png`. El límite es 12 MB; se verifican la firma real del archivo, sus dimensiones y un máximo de 25 megapíxeles.
 
-La imagen se copia a una carpeta administrada bajo `public/assets/library/backgrounds/`. Si no mide 1080 × 1920, FFmpeg la escala y recorta desde el centro para cubrir el lienzo vertical sin deformarla. El sistema genera automáticamente el manifiesto de tres capas requerido por el runtime: la imagen ocupa la capa lejana y las otras dos son transparentes. Así puede usarse de inmediato como fondo estático y conserva compatibilidad con los movimientos de cámara disponibles.
+La imagen se guarda en la carpeta durable externa. Después se publica una copia administrada bajo `public/assets/library/backgrounds/`. FFmpeg la escala y recorta desde el centro para cubrir el lienzo vertical 1080 × 1920 sin deformarla. El sistema genera automáticamente el manifiesto de tres capas requerido por el runtime: la imagen ocupa la capa lejana y las otras dos son transparentes. Así puede usarse de inmediato como fondo estático y conserva compatibilidad con los movimientos de cámara disponibles.
 
 El nombre visible se obtiene del archivo. Como la interfaz todavía no pide licencia, el recurso queda marcado como **Licencia no declarada; uso local**. Esa información debe completarse antes de distribuir o monetizar el video.
 

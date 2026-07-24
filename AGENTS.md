@@ -162,7 +162,7 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 - Los contratos de runtime v1 y v2 siguen limitados a una escena. 3A.2 los ejecuta como subtrabajos aislados y ensambla el resultado; no existe todavía un runtime ni preview PixiJS multiescena continuo.
 - 3B.0 edita desde la interfaz proyectos existentes o creados por prompt del subconjunto compilable, pero todavía no crea/elimina escenas, elementos o turnos.
 - El Director inicial usa un único modelo y un catálogo de tipos/capacidades cerrados, ahora ampliable mediante fichas locales validadas; todavía no formula preguntas aclaratorias, compara variantes ni repara automáticamente un plan rechazado.
-- La biblioteca V1 registra descriptores e importa fondos estáticos JPG/PNG a almacenamiento administrado, normalizándolos a 1080 × 1920 con FFmpeg; todavía no importa personajes animables, elimina recursos ni genera assets con IA.
+- La biblioteca V1 registra descriptores e importa fondos estáticos JPG/PNG a una raíz durable externa al repositorio, normalizándolos a 1080 × 1920 con FFmpeg. `public/assets/library` es solo su publicación regenerable y el arranque migra sin borrar la ubicación legacy; todavía no importa personajes animables, elimina recursos ni genera assets con IA.
 - El Director acepta tono, duración objetivo y cantidad de escenas como restricciones del JSON Schema; siguen siendo objetivos editoriales y la duración real solo existe después de Piper/FFprobe.
 - El servicio local acepta un solo render activo, recupera estados interrumpidos y no es un backend multiusuario ni una cola durable.
 - La UI usa verificación interactiva de una pasada; la CLI conserva la verificación completa de dos pasadas por defecto.

@@ -1,6 +1,16 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { ensureDirectory, projectRoot } from '../stage1/common.mjs';
@@ -26,18 +36,27 @@ const TRANSPARENT_PNG = Buffer.from(
 
 export function createResourceLibrary(options = {}) {
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
+  const usesDefaultStorage = !options.storageRoot && !process.env.LOCAL_VIDEO_LIBRARY_ROOT;
   const storageRoot = ensureDirectory(path.resolve(
     options.storageRoot
       || process.env.LOCAL_VIDEO_LIBRARY_ROOT
-      || path.join(projectRoot, '.local-video-library'),
+      || defaultLibraryStorageRoot(),
   ));
+  const storageAssetsRoot = ensureDirectory(path.join(storageRoot, 'assets'));
   const publishRoot = ensureDirectory(path.resolve(
     options.publishRoot || path.join(assetsRoot, 'assets', 'library'),
   ));
   assertWithin(assetsRoot, publishRoot, 'publicación de biblioteca');
   const indexPath = path.join(storageRoot, 'library-index.json');
+  if (usesDefaultStorage || options.legacyIndexPath) {
+    migrateLegacyIndex({
+      indexPath,
+      legacyIndexPath: options.legacyIndexPath || path.join(projectRoot, '.local-video-library', 'library-index.json'),
+    });
+  }
   const catalogPath = path.join(publishRoot, 'authoring-resources.json');
   const catalogRelative = portable(path.relative(assetsRoot, catalogPath));
+  const publishedAssetsRelative = portable(path.relative(assetsRoot, publishRoot));
   const builtinCatalog = clone(options.builtinCatalog || JSON.parse(
     readFileSync(path.join(assetsRoot, 'assets', 'catalog', 'authoring-resources.json'), 'utf8'),
   ));
@@ -48,6 +67,7 @@ export function createResourceLibrary(options = {}) {
 
   return {
     storageRoot,
+    storageAssetsRoot,
     publishRoot,
     indexPath,
     catalogPath,
@@ -116,12 +136,13 @@ export function createResourceLibrary(options = {}) {
       const existing = findSummary(id);
       if (existing) return { created: false, resource: existing };
 
-      const backgroundRoot = ensureDirectory(path.join(publishRoot, 'backgrounds'));
+      const backgroundRoot = ensureDirectory(path.join(storageAssetsRoot, 'backgrounds'));
       const targetDirectory = path.join(backgroundRoot, id);
-      assertWithin(publishRoot, backgroundRoot, 'carpeta de fondos');
+      assertWithin(storageRoot, backgroundRoot, 'carpeta durable de fondos');
       if (existsSync(targetDirectory)) {
         throw libraryError('LIBRARY_RESOURCE_ID_CONFLICT', `Ya existe una carpeta administrada para «${id}».`);
       }
+      const publishedTargetDirectory = path.join(publishRoot, 'backgrounds', id);
 
       const temporaryDirectory = path.join(backgroundRoot, `.${id}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`);
       ensureDirectory(temporaryDirectory);
@@ -157,7 +178,11 @@ export function createResourceLibrary(options = {}) {
         atomicWriteBuffer(path.join(temporaryDirectory, 'transparent.png'), TRANSPARENT_PNG);
         atomicWriteJson(path.join(temporaryDirectory, manifestName), manifest);
         renameSync(temporaryDirectory, targetDirectory);
-        const manifestRelative = portable(path.relative(assetsRoot, path.join(targetDirectory, manifestName)));
+        syncDirectory(targetDirectory, publishedTargetDirectory, {
+          sourceRoot: storageAssetsRoot,
+          targetRoot: publishRoot,
+        });
+        const manifestRelative = path.posix.join(publishedAssetsRelative, 'backgrounds', id, manifestName);
         const result = this.register({
           id,
           type: 'background',
@@ -181,6 +206,7 @@ export function createResourceLibrary(options = {}) {
       } catch (error) {
         removeManagedDirectory(temporaryDirectory, backgroundRoot);
         removeManagedDirectory(targetDirectory, backgroundRoot);
+        removeManagedDirectory(publishedTargetDirectory, publishRoot);
         throw error;
       }
     },
@@ -194,6 +220,13 @@ export function createResourceLibrary(options = {}) {
   }
 
   function publish() {
+    materializeManagedAssets({
+      registry,
+      assetsRoot,
+      storageAssetsRoot,
+      publishRoot,
+      publishedAssetsRelative,
+    });
     const catalog = mergedCatalog();
     validateCatalog(catalog, assetsRoot);
     atomicWriteJson(catalogPath, catalog);
@@ -204,6 +237,96 @@ export function createResourceLibrary(options = {}) {
       ...builtinCatalog.entries.map((entry) => summary(entry, 'builtin', null)),
       ...registry.entries.map((record) => summary(record.entry, 'local', record)),
     ].find((resource) => resource.id === id);
+  }
+}
+
+export function defaultLibraryStorageRoot({
+  environment = process.env,
+  platform = process.platform,
+  homeDirectory = homedir(),
+} = {}) {
+  if (platform === 'win32') {
+    return path.join(environment.LOCALAPPDATA || path.join(homeDirectory, 'AppData', 'Local'), 'DisenadorVideosLocal', 'library');
+  }
+  if (platform === 'darwin') {
+    return path.join(homeDirectory, 'Library', 'Application Support', 'DisenadorVideosLocal', 'library');
+  }
+  return path.join(environment.XDG_DATA_HOME || path.join(homeDirectory, '.local', 'share'), 'disenador-videos-local', 'library');
+}
+
+function migrateLegacyIndex({ indexPath, legacyIndexPath }) {
+  if (existsSync(indexPath) || !existsSync(legacyIndexPath) || path.resolve(indexPath) === path.resolve(legacyIndexPath)) return;
+  atomicWriteBuffer(indexPath, readFileSync(legacyIndexPath));
+}
+
+function materializeManagedAssets({
+  registry,
+  assetsRoot,
+  storageAssetsRoot,
+  publishRoot,
+  publishedAssetsRelative,
+}) {
+  const managedPrefix = `${publishedAssetsRelative}/`;
+  for (const record of registry.entries) {
+    const manifestRelative = record.entry?.type === 'background' ? record.entry.backgroundManifest : null;
+    if (typeof manifestRelative !== 'string' || !manifestRelative.startsWith(managedPrefix)) continue;
+    const packageRelative = path.posix.dirname(manifestRelative.slice(managedPrefix.length));
+    const sourceDirectory = resolveManagedRelative(storageAssetsRoot, packageRelative, 'paquete durable');
+    const publishedDirectory = resolveManagedRelative(publishRoot, packageRelative, 'paquete publicado');
+    if (!existsSync(sourceDirectory)) {
+      const legacyManifest = resolveManagedRelative(assetsRoot, manifestRelative, 'manifest publicado anterior');
+      if (existsSync(legacyManifest)) {
+        syncDirectory(path.dirname(legacyManifest), sourceDirectory, {
+          sourceRoot: assetsRoot,
+          targetRoot: storageAssetsRoot,
+        });
+      }
+    }
+    if (!existsSync(sourceDirectory)) {
+      throw libraryError('LIBRARY_ASSET_MISSING', `Falta el paquete durable del recurso «${record.id}».`);
+    }
+    syncDirectory(sourceDirectory, publishedDirectory, {
+      sourceRoot: storageAssetsRoot,
+      targetRoot: publishRoot,
+    });
+  }
+}
+
+function resolveManagedRelative(root, relativePath, label) {
+  const segments = String(relativePath).split('/');
+  if (!relativePath || segments.includes('..') || segments.includes('.') || path.isAbsolute(relativePath)) {
+    throw libraryError('LIBRARY_PATH_INVALID', `La ruta del ${label} no es portable.`);
+  }
+  const resolved = path.resolve(root, ...segments);
+  const relative = path.relative(path.resolve(root), resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw libraryError('LIBRARY_PATH_INVALID', `La ruta del ${label} sale de la raíz controlada.`);
+  }
+  return resolved;
+}
+
+function syncDirectory(source, target, roots) {
+  assertWithin(roots.sourceRoot, source, 'fuente de copia');
+  const sourceStats = lstatSync(source);
+  if (sourceStats.isSymbolicLink() || !sourceStats.isDirectory()) {
+    throw libraryError('LIBRARY_PATH_INVALID', 'El paquete durable debe ser una carpeta real.');
+  }
+  ensureDirectory(target);
+  assertWithin(roots.targetRoot, target, 'destino de copia');
+  for (const name of readdirSync(source)) {
+    const sourceItem = path.join(source, name);
+    const targetItem = path.join(target, name);
+    const stats = lstatSync(sourceItem);
+    if (stats.isSymbolicLink()) {
+      throw libraryError('LIBRARY_PATH_INVALID', 'Los paquetes de recursos no admiten enlaces simbólicos.');
+    }
+    if (stats.isDirectory()) {
+      syncDirectory(sourceItem, targetItem, roots);
+    } else if (stats.isFile()) {
+      atomicWriteBuffer(targetItem, readFileSync(sourceItem));
+    } else {
+      throw libraryError('LIBRARY_PATH_INVALID', 'El paquete contiene un tipo de archivo no permitido.');
+    }
   }
 }
 
@@ -410,7 +533,7 @@ function safeDisplayName(value, maximumLength) {
 function assertWithin(root, target, label) {
   const relative = path.relative(realpathSync(root), realpathSync(target));
   if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) return;
-  throw libraryError('LIBRARY_PATH_INVALID', `La ${label} debe permanecer dentro de la raíz de assets.`);
+  throw libraryError('LIBRARY_PATH_INVALID', `La ${label} debe permanecer dentro de su raíz controlada.`);
 }
 
 function portable(value) {
