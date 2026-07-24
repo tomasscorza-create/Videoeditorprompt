@@ -50,6 +50,16 @@ const library = {
     created: true,
     resource: { id: entry.id, type: entry.type, label: entry.label, origin: 'local', entry },
   }),
+  importBackground: ({ bytes, mimeType, fileName }) => {
+    assert.ok(bytes.length > 0);
+    assert.equal(mimeType, 'image/png');
+    assert.equal(fileName, 'fondo prueba.png');
+    return {
+      created: true,
+      resource: { id: 'fondo-local-prueba', type: 'background', label: 'fondo prueba', origin: 'local' },
+      image: { width: 1080, height: 1920, mimeType, bytes: bytes.length },
+    };
+  },
 };
 let receivedConstraints = null;
 const director = async ({ prompt, signal, constraints }) => {
@@ -109,6 +119,24 @@ const registerResponse = await request('/api/library/resources', {
 });
 assert.equal(registerResponse.status, 201);
 assert.equal((await registerResponse.json()).resource.id, libraryEntry.id);
+
+const backgroundResponse = await request('/api/library/backgrounds', {
+  method: 'POST',
+  headers: {
+    'content-type': 'image/png',
+    'x-resource-file-name': encodeURIComponent('fondo prueba.png'),
+  },
+  body: Buffer.from([137, 80, 78, 71]),
+});
+assert.equal(backgroundResponse.status, 201);
+assert.equal((await backgroundResponse.json()).resource.type, 'background');
+
+const unsupportedBackgroundResponse = await request('/api/library/backgrounds', {
+  method: 'POST',
+  headers: { 'content-type': 'image/gif' },
+  body: Buffer.from('GIF89a'),
+});
+assert.equal(unsupportedBackgroundResponse.status, 400);
 
 const proposalResponse = await request('/api/director/proposals', {
   method: 'POST',
@@ -217,4 +245,4 @@ const missing = await request('/api/render-jobs/render-missing');
 assert.equal(missing.status, 404);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 32, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 36, failed: 0, url: listening.url })}\n`);

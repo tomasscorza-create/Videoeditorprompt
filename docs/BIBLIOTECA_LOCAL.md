@@ -18,18 +18,23 @@ npm run dev
 
 La publicación bajo `public/assets/library/` y la raíz predeterminada son datos locales ignorados por Git.
 
-## Registrar un recurso
+## Agregar un fondo JPG o PNG
 
-En el panel derecho, pulsar **Agregar recurso** y seleccionar una ficha JSON que cumpla `schema/authoring-resource-catalog.schema.json`. Puede ser la entrada directamente o un objeto `{ "entry": ... }`.
+En el panel derecho, pulsar **Agregar fondo** y seleccionar una imagen `.jpg`, `.jpeg` o `.png`. El límite es 12 MB; se verifican la firma real del archivo, sus dimensiones y un máximo de 25 megapíxeles.
 
-La versión 1 registra fichas compatibles de personajes, fondos, voces e imágenes. Para personajes, fondos e imágenes, los archivos referenciados deben estar instalados previamente bajo `public/` y usar rutas relativas portables. Las voces deben corresponder a un modelo Piper disponible en el runtime local. Registrar una ficha no descarga, copia ni genera esos archivos.
+La imagen se copia a una carpeta administrada bajo `public/assets/library/backgrounds/`. Si no mide 1080 × 1920, FFmpeg la escala y recorta desde el centro para cubrir el lienzo vertical sin deformarla. El sistema genera automáticamente el manifiesto de tres capas requerido por el runtime: la imagen ocupa la capa lejana y las otras dos son transparentes. Así puede usarse de inmediato como fondo estático y conserva compatibilidad con los movimientos de cámara disponibles.
+
+El nombre visible se obtiene del archivo. Como la interfaz todavía no pide licencia, el recurso queda marcado como **Licencia no declarada; uso local**. Esa información debe completarse antes de distribuir o monetizar el video.
+
+La API técnica sigue permitiendo registrar fichas JSON compatibles de personajes, fondos, voces e imágenes cuando sus archivos ya están instalados bajo `public/`; la interfaz no expone ese flujo avanzado.
 
 Antes de persistir, el servicio:
 
 1. valida el contrato y las referencias bajo la raíz permitida;
-2. rechaza conflictos de ID;
-3. evita duplicados mediante un hash de la identidad del recurso;
-4. escribe el índice y el catálogo publicado de forma atómica.
+2. inspecciona el contenido JPG/PNG y normaliza el lienzo cuando corresponde;
+3. rechaza conflictos de ID;
+4. evita duplicados mediante el hash del archivo;
+5. escribe el índice y el catálogo publicado de forma atómica.
 
 Después del alta, la interfaz se recarga y vuelve a validar la sesión contra el catálogo ampliado.
 
@@ -38,13 +43,15 @@ Después del alta, la interfaz se recarga y vuelve a validar la sesión contra e
 - `GET /api/library/resources`: lista recursos incluidos y locales con procedencia y hash.
 - `GET /api/library/catalog`: devuelve la ruta publicada y el catálogo activo.
 - `POST /api/library/resources`: registra `{ "entry": recurso }`; requiere origen permitido y token de sesión local.
+- `POST /api/library/backgrounds`: recibe bytes `image/png` o `image/jpeg` y crea un fondo administrado.
 
 La API conserva los límites y defensas del servicio local. No es un backend remoto ni multiusuario.
 
 ## Límites actuales
 
 - No hay eliminación o modificación desde la interfaz.
-- No hay importación de paquetes binarios ni generación de recursos con IA.
+- Solo se importan imágenes estáticas como fondos. Los personajes animables continúan usando rigs y manifiestos compilados.
+- No hay importación general de paquetes ni generación de recursos con IA.
 - No hay base de datos, sincronización remota, cuentas ni almacenamiento compartido.
 - El runtime actual solo puede renderizar el subconjunto de personajes, fondos, voces y capacidades ya soportado por los contratos vigentes.
 

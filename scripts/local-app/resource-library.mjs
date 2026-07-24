@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
@@ -16,6 +17,12 @@ const validateLibrarySchema = ajv.compile(JSON.parse(
 const validateCatalogSchema = ajv.compile(JSON.parse(
   readFileSync(path.join(projectRoot, 'schema', 'authoring-resource-catalog.schema.json'), 'utf8'),
 ));
+const MAX_BACKGROUND_BYTES = 12 * 1024 * 1024;
+const MAX_BACKGROUND_PIXELS = 25_000_000;
+const TRANSPARENT_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=',
+  'base64',
+);
 
 export function createResourceLibrary(options = {}) {
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
@@ -98,6 +105,84 @@ export function createResourceLibrary(options = {}) {
       registry = next;
       publish();
       return { created: true, resource: summary(entry, 'local', record) };
+    },
+    importBackground(input) {
+      const bytes = Buffer.isBuffer(input?.bytes) ? input.bytes : Buffer.from(input?.bytes || []);
+      const image = inspectBackgroundImage(bytes, input?.mimeType);
+      const sourceName = safeDisplayName(input?.fileName || `fondo.${image.extension}`, 180);
+      const label = safeDisplayName(input?.label || path.parse(sourceName).name || 'Fondo local', 100);
+      const imageHash = createHash('sha256').update(bytes).digest('hex');
+      const id = `fondo-local-${imageHash.slice(0, 12)}`;
+      const existing = findSummary(id);
+      if (existing) return { created: false, resource: existing };
+
+      const backgroundRoot = ensureDirectory(path.join(publishRoot, 'backgrounds'));
+      const targetDirectory = path.join(backgroundRoot, id);
+      assertWithin(publishRoot, backgroundRoot, 'carpeta de fondos');
+      if (existsSync(targetDirectory)) {
+        throw libraryError('LIBRARY_RESOURCE_ID_CONFLICT', `Ya existe una carpeta administrada para «${id}».`);
+      }
+
+      const temporaryDirectory = path.join(backgroundRoot, `.${id}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`);
+      ensureDirectory(temporaryDirectory);
+      const imageName = `background.${image.extension}`;
+      const manifestName = 'background.manifest.json';
+      const source = safeDisplayName(
+        input?.source || `Archivo local importado: ${sourceName}`,
+        300,
+      );
+      const license = safeDisplayName(
+        input?.license || 'Licencia no declarada; uso local.',
+        160,
+      );
+      const manifest = {
+        version: 1,
+        id,
+        canvas: { width: 1080, height: 1920 },
+        layers: {
+          far: imageName,
+          mid: 'transparent.png',
+          front: 'transparent.png',
+        },
+        provenance: { source, license },
+      };
+      try {
+        normalizeBackgroundImage({
+          bytes,
+          image,
+          directory: temporaryDirectory,
+          outputName: imageName,
+          ffmpegExecutable: options.ffmpegExecutable || 'ffmpeg',
+        });
+        atomicWriteBuffer(path.join(temporaryDirectory, 'transparent.png'), TRANSPARENT_PNG);
+        atomicWriteJson(path.join(temporaryDirectory, manifestName), manifest);
+        renameSync(temporaryDirectory, targetDirectory);
+        const manifestRelative = portable(path.relative(assetsRoot, path.join(targetDirectory, manifestName)));
+        const result = this.register({
+          id,
+          type: 'background',
+          label,
+          tags: ['local', 'importado', 'fondo-estatico'],
+          backgroundManifest: manifestRelative,
+          capabilities: { cameraPresets: ['static', 'slow-pan', 'slow-zoom'] },
+          provenance: { source, license },
+        });
+        return {
+          ...result,
+          image: {
+            width: 1080,
+            height: 1920,
+            sourceWidth: image.width,
+            sourceHeight: image.height,
+            mimeType: image.mimeType,
+            bytes: bytes.length,
+          },
+        };
+      } catch (error) {
+        removeManagedDirectory(temporaryDirectory, backgroundRoot);
+        removeManagedDirectory(targetDirectory, backgroundRoot);
+        throw error;
+      }
     },
   };
 
@@ -182,6 +267,102 @@ function resourceFingerprint(entry) {
   return createHash('sha256').update(JSON.stringify(canonicalize(identity))).digest('hex');
 }
 
+function inspectBackgroundImage(bytes, declaredMimeType) {
+  if (bytes.length === 0 || bytes.length > MAX_BACKGROUND_BYTES) {
+    throw libraryError('LIBRARY_BACKGROUND_SIZE_INVALID', 'El fondo debe pesar entre 1 byte y 12 MB.');
+  }
+  let image;
+  if (bytes.length >= 24 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+    image = {
+      extension: 'png',
+      mimeType: 'image/png',
+      width: bytes.readUInt32BE(16),
+      height: bytes.readUInt32BE(20),
+    };
+  } else if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    const dimensions = readJpegDimensions(bytes);
+    image = { extension: 'jpg', mimeType: 'image/jpeg', ...dimensions };
+  } else {
+    throw libraryError('LIBRARY_BACKGROUND_FORMAT_INVALID', 'El archivo no es un PNG o JPG válido.');
+  }
+  if (declaredMimeType && String(declaredMimeType).split(';', 1)[0].trim().toLowerCase() !== image.mimeType) {
+    throw libraryError('LIBRARY_BACKGROUND_FORMAT_INVALID', 'El contenido del archivo no coincide con su tipo declarado.');
+  }
+  if (
+    image.width < 64
+    || image.height < 64
+    || image.width > 8192
+    || image.height > 8192
+    || image.width * image.height > MAX_BACKGROUND_PIXELS
+  ) {
+    throw libraryError(
+      'LIBRARY_BACKGROUND_DIMENSIONS_INVALID',
+      'El fondo debe medir entre 64 y 8192 píxeles por lado y no superar 25 megapíxeles.',
+    );
+  }
+  return image;
+}
+
+function readJpegDimensions(bytes) {
+  let offset = 2;
+  while (offset + 8 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    const marker = bytes[offset + 1];
+    offset += 2;
+    if (marker === 0xd8 || marker === 0xd9) continue;
+    if (marker === 0xda) break;
+    if (offset + 2 > bytes.length) break;
+    const length = bytes.readUInt16BE(offset);
+    if (length < 2 || offset + length > bytes.length) break;
+    if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {
+      return {
+        height: bytes.readUInt16BE(offset + 3),
+        width: bytes.readUInt16BE(offset + 5),
+      };
+    }
+    offset += length;
+  }
+  throw libraryError('LIBRARY_BACKGROUND_FORMAT_INVALID', 'No se pudieron leer las dimensiones del JPG.');
+}
+
+function normalizeBackgroundImage({ bytes, image, directory, outputName, ffmpegExecutable }) {
+  const outputFile = path.join(directory, outputName);
+  const sourceFile = path.join(directory, `source.${image.extension}`);
+  atomicWriteBuffer(sourceFile, bytes);
+  const args = [
+    '-hide_banner',
+    '-loglevel', 'error',
+    '-y',
+    '-i', sourceFile,
+    '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920',
+    '-frames:v', '1',
+    ...(image.extension === 'jpg' ? ['-q:v', '2'] : []),
+    outputFile,
+  ];
+  const result = spawnSync(ffmpegExecutable, args, {
+    shell: false,
+    windowsHide: true,
+    timeout: 30_000,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+  });
+  rmSync(sourceFile, { force: true });
+  if (result.error || result.status !== 0 || !existsSync(outputFile)) {
+    const error = libraryError('LIBRARY_BACKGROUND_PROCESSING_FAILED', 'No se pudo adaptar el fondo al formato vertical 1080 × 1920.');
+    error.technicalDetail = result.error?.code
+      ? `FFmpeg no disponible o interrumpido (${result.error.code}).`
+      : `FFmpeg finalizó con código ${result.status ?? 'desconocido'}.`;
+    throw error;
+  }
+  const normalized = inspectBackgroundImage(readFileSync(outputFile), image.mimeType);
+  if (normalized.width !== 1080 || normalized.height !== 1920) {
+    throw libraryError('LIBRARY_BACKGROUND_PROCESSING_FAILED', 'FFmpeg no produjo un fondo con dimensiones válidas.');
+  }
+}
+
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (!value || typeof value !== 'object') return value;
@@ -199,6 +380,31 @@ function atomicWriteJson(file, value) {
   } finally {
     if (existsSync(temporary)) rmSync(temporary, { force: true });
   }
+}
+
+function atomicWriteBuffer(file, value) {
+  ensureDirectory(path.dirname(file));
+  const temporary = `${file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+  try {
+    writeFileSync(temporary, value, { flag: 'wx' });
+    renameSync(temporary, file);
+  } finally {
+    if (existsSync(temporary)) rmSync(temporary, { force: true });
+  }
+}
+
+function removeManagedDirectory(target, allowedRoot) {
+  if (!existsSync(target)) return;
+  const relative = path.relative(realpathSync(allowedRoot), realpathSync(target));
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw libraryError('LIBRARY_PATH_INVALID', 'La limpieza intentó salir de la carpeta administrada.');
+  }
+  rmSync(target, { recursive: true, force: true });
+}
+
+function safeDisplayName(value, maximumLength) {
+  const normalized = String(value || '').replace(/[\u0000-\u001f\u007f]/gu, '').trim();
+  return (normalized || 'Recurso local').slice(0, maximumLength);
 }
 
 function assertWithin(root, target, label) {

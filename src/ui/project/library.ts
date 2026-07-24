@@ -1,9 +1,10 @@
 import { optional } from '../dom.js';
-import { registerLibraryResource } from '../director/api.js';
+import { importBackgroundResource } from '../director/api.js';
 import type { ProjectStore } from './store.js';
 import type { ResourceEntry, ResourceType } from './types.js';
 
 type LibraryType = Extract<ResourceType, 'character' | 'background' | 'voice'>;
+const ACTIVE_LIBRARY_TAB_KEY = 'local-video.library-active-tab';
 
 export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   const root = optional<HTMLElement>('#resource-list');
@@ -11,7 +12,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   const registerButton = optional<HTMLButtonElement>('#resource-register');
   const registerFile = optional<HTMLInputElement>('#resource-register-file');
   const libraryStatus = optional<HTMLElement>('#resource-library-status');
-  let activeType: LibraryType = 'character';
+  let activeType: LibraryType = sessionStorage.getItem(ACTIVE_LIBRARY_TAB_KEY) === 'background' ? 'background' : 'character';
   let thumbnails = new Map<string, string>();
   try {
     const response = await fetch('/assets/catalog/index.json', { cache: 'no-store' });
@@ -20,11 +21,26 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   } catch {
     // La biblioteca conserva etiquetas, tags y licencias sin miniaturas.
   }
+  await Promise.all(store.resources('background').map(async (resource) => {
+    if (!resource.backgroundManifest) return;
+    try {
+      const response = await fetch(`/${resource.backgroundManifest}`, { cache: 'no-store' });
+      if (!response.ok) return;
+      const manifest = await response.json() as { layers?: { far?: string } };
+      if (!manifest.layers?.far) return;
+      const base = resource.backgroundManifest.slice(0, resource.backgroundManifest.lastIndexOf('/') + 1);
+      thumbnails.set(resource.id, `${base}${manifest.layers.far}`);
+    } catch {
+      // El recurso sigue disponible aunque su miniatura no pueda cargarse.
+    }
+  }));
 
   for (const tab of document.querySelectorAll<HTMLButtonElement>('.resource-tab')) {
+    tab.classList.toggle('is-active', tab.dataset.resourceType === activeType);
     tab.addEventListener('click', () => {
       const type = tab.dataset.resourceType as LibraryType;
       activeType = type;
+      sessionStorage.setItem(ACTIVE_LIBRARY_TAB_KEY, type);
       for (const item of document.querySelectorAll('.resource-tab')) item.classList.toggle('is-active', item === tab);
       render();
     });
@@ -35,24 +51,25 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     const file = registerFile.files?.[0];
     registerFile.value = '';
     if (!file) return;
-    if (file.size > 256 * 1024) {
-      setLibraryStatus('La ficha supera el límite de 256 KB.', true);
+    if (!/\.(png|jpe?g)$/iu.test(file.name) && !['image/png', 'image/jpeg'].includes(file.type)) {
+      setLibraryStatus('Elegí un fondo en formato PNG o JPG.', true);
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      setLibraryStatus('El fondo supera el límite de 12 MB.', true);
       return;
     }
     registerButton!.disabled = true;
     setLibraryStatus('Validando y registrando el recurso…', false);
     try {
-      const parsed = JSON.parse(await file.text()) as unknown;
-      const entry = parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'entry' in parsed
-        ? (parsed as { entry: unknown }).entry
-        : parsed;
-      const result = await registerLibraryResource(entry);
+      const result = await importBackgroundResource(file);
       setLibraryStatus(
         result.created
-          ? `${result.resource.label} quedó registrado. Actualizando la biblioteca…`
-          : `${result.resource.label} ya estaba en la biblioteca. Actualizando…`,
+          ? `${result.resource.label} quedó guardado. Actualizando la biblioteca…`
+          : `${result.resource.label} ya estaba guardado. Actualizando…`,
         false,
       );
+      sessionStorage.setItem(ACTIVE_LIBRARY_TAB_KEY, 'background');
       window.location.reload();
     } catch (error) {
       setLibraryStatus(error instanceof Error ? error.message : 'No se pudo registrar el recurso.', true);
@@ -75,7 +92,9 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     card.type = 'button';
     card.className = 'resource-card';
     card.title = `Aplicar ${resource.label} a la escena seleccionada`;
-    const thumbnail = resource.characterRef ? thumbnails.get(resource.characterRef.entryId) : null;
+    const thumbnail = resource.characterRef
+      ? thumbnails.get(resource.characterRef.entryId)
+      : resource.type === 'background' ? thumbnails.get(resource.id) : null;
     if (thumbnail) {
       const image = document.createElement('img');
       image.src = `/${thumbnail}`;

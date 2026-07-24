@@ -11,6 +11,7 @@ import { createRenderJobManager, streamVideoResponse } from './render-job-manage
 import { createResourceLibrary } from './resource-library.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
+const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
 const BODY_TIMEOUT_MS = 15_000;
 const ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:5173',
@@ -93,6 +94,19 @@ export function createLocalAppServer(options = {}) {
         assertJsonContentType(request);
         const body = await readJsonBody(request);
         const result = library.register(body.entry);
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/library/backgrounds') {
+        const mimeType = String(request.headers['content-type'] || '').split(';', 1)[0].trim().toLowerCase();
+        if (!['image/png', 'image/jpeg'].includes(mimeType)) {
+          const error = new Error('El fondo debe enviarse como PNG o JPG.');
+          error.code = 'LIBRARY_BACKGROUND_FORMAT_INVALID';
+          throw error;
+        }
+        const fileName = decodeHeaderValue(request.headers['x-resource-file-name'], 'fondo');
+        const bytes = await readBody(request, MAX_BACKGROUND_BODY_BYTES);
+        const result = library.importBackground({ bytes, mimeType, fileName });
         sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
         return;
       }
@@ -213,6 +227,17 @@ export function createLocalAppServer(options = {}) {
 }
 
 async function readJsonBody(request) {
+  const body = (await readBody(request, MAX_BODY_BYTES)).toString('utf8');
+  try {
+    return JSON.parse(body || '{}');
+  } catch {
+    const error = new Error('El cuerpo de la solicitud no contiene JSON válido.');
+    error.code = 'REQUEST_JSON_INVALID';
+    throw error;
+  }
+}
+
+async function readBody(request, maximumBytes) {
   const chunks = [];
   let receivedBytes = 0;
   request.setTimeout(BODY_TIMEOUT_MS);
@@ -220,9 +245,9 @@ async function readJsonBody(request) {
     for await (const value of request) {
       const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
       receivedBytes += chunk.length;
-      if (receivedBytes > MAX_BODY_BYTES) {
+      if (receivedBytes > maximumBytes) {
         request.resume();
-        const error = new Error('El cuerpo de la solicitud supera 1 MB.');
+        const error = new Error(`El cuerpo de la solicitud supera ${Math.round(maximumBytes / (1024 * 1024))} MB.`);
         error.code = 'REQUEST_BODY_TOO_LARGE';
         throw error;
       }
@@ -236,13 +261,15 @@ async function readJsonBody(request) {
   } finally {
     request.setTimeout(0);
   }
-  const body = Buffer.concat(chunks, receivedBytes).toString('utf8');
+  return Buffer.concat(chunks, receivedBytes);
+}
+
+function decodeHeaderValue(value, fallback) {
+  if (typeof value !== 'string' || value.length > 600) return fallback;
   try {
-    return JSON.parse(body || '{}');
+    return decodeURIComponent(value);
   } catch {
-    const error = new Error('El cuerpo de la solicitud no contiene JSON válido.');
-    error.code = 'REQUEST_JSON_INVALID';
-    throw error;
+    return fallback;
   }
 }
 

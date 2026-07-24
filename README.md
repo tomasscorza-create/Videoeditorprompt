@@ -62,7 +62,7 @@ Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localh
 
 El viewer central distingue tres fuentes: **Composición** proyecta el proyecto editable sin inventar tiempos; **Preview medido** reproduce una escena publicada; **MP4 final** muestra un render terminado. El proyecto actual se restaura desde `localStorage` y vuelve a validarse cuando la biblioteca agrega recursos.
 
-El panel **Recursos** permite registrar una ficha JSON compatible mediante **Agregar recurso**. El registro durable se guarda en `.local-video-library/` (o en `LOCAL_VIDEO_LIBRARY_ROOT`) y publica un catálogo combinado para que Director, editor y render usen exactamente los mismos IDs. Véase [Biblioteca local](docs/BIBLIOTECA_LOCAL.md).
+El panel **Recursos** permite importar fondos JPG o PNG mediante **Agregar fondo**. La imagen queda normalizada al lienzo vertical, registrada en `.local-video-library/` (o en `LOCAL_VIDEO_LIBRARY_ROOT`) y publicada en el catálogo combinado para que Director, editor y render usen exactamente los mismos IDs. Véase [Biblioteca local](docs/BIBLIOTECA_LOCAL.md).
 
 En escritorio, los separadores entre Director, visor, panel derecho y timeline permiten ajustar el espacio de trabajo. Las proporciones se conservan localmente; doble clic sobre un separador restaura el tamaño inicial.
 

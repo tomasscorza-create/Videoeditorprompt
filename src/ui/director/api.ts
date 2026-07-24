@@ -133,6 +133,26 @@ export async function registerLibraryResource(entry: unknown): Promise<{ version
   });
 }
 
+export async function importBackgroundResource(file: File): Promise<{
+  version: number;
+  created: boolean;
+  resource: RegisteredResource;
+  image?: { width: number; height: number; mimeType: string; bytes: number };
+}> {
+  const lowerName = file.name.toLowerCase();
+  const mimeType = file.type === 'image/png' || lowerName.endsWith('.png') ? 'image/png'
+    : file.type === 'image/jpeg' || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') ? 'image/jpeg'
+      : file.type;
+  return apiRequest('/api/library/backgrounds', {
+    method: 'POST',
+    headers: {
+      'content-type': mimeType,
+      'x-resource-file-name': encodeURIComponent(file.name),
+    },
+    body: file,
+  });
+}
+
 async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
   let response: Response;
   try {

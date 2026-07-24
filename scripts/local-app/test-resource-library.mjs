@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -78,11 +79,75 @@ try {
     (error) => error.code === 'LIBRARY_RESOURCE_INVALID',
   );
 
+  const backgroundBytes = readFileSync(path.join(
+    assetsRoot,
+    'assets',
+    'backgrounds',
+    'studio-parallax-v1',
+    'far.png',
+  ));
+  const importedBackground = library.importBackground({
+    bytes: backgroundBytes,
+    mimeType: 'image/png',
+    fileName: 'Fondo de prueba.png',
+  });
+  assert.equal(importedBackground.created, true);
+  assert.equal(importedBackground.resource.entry.type, 'background');
+  assert.equal(importedBackground.image.mimeType, 'image/png');
+  assert.equal(library.catalog().entries.length, 7);
+  const importedManifest = JSON.parse(readFileSync(
+    path.join(assetsRoot, importedBackground.resource.entry.backgroundManifest),
+    'utf8',
+  ));
+  assert.equal(importedManifest.layers.far, 'background.png');
+  assert.equal(importedManifest.layers.mid, 'transparent.png');
+  assert.equal(library.importBackground({
+    bytes: backgroundBytes,
+    mimeType: 'image/png',
+    fileName: 'El mismo fondo.png',
+  }).created, false);
+  assert.throws(
+    () => library.importBackground({
+      bytes: Buffer.from('no-es-una-imagen'),
+      mimeType: 'image/png',
+      fileName: 'invalido.png',
+    }),
+    (error) => error.code === 'LIBRARY_BACKGROUND_FORMAT_INVALID',
+  );
+  assert.throws(
+    () => library.importBackground({
+      bytes: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=',
+        'base64',
+      ),
+      mimeType: 'image/png',
+      fileName: 'demasiado-pequeno.png',
+    }),
+    (error) => error.code === 'LIBRARY_BACKGROUND_DIMENSIONS_INVALID',
+  );
+  const landscapeJpg = path.join(root, 'landscape.jpg');
+  const jpegFixture = spawnSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', 'color=c=0x315f73:s=320x180',
+    '-frames:v', '1', landscapeJpg,
+  ], { shell: false, windowsHide: true, timeout: 30_000 });
+  assert.equal(jpegFixture.status, 0);
+  const normalizedBackground = library.importBackground({
+    bytes: readFileSync(landscapeJpg),
+    mimeType: 'image/jpeg',
+    fileName: 'Paisaje horizontal.jpg',
+  });
+  assert.equal(normalizedBackground.created, true);
+  assert.equal(normalizedBackground.image.sourceWidth, 320);
+  assert.equal(normalizedBackground.image.sourceHeight, 180);
+  assert.equal(normalizedBackground.image.width, 1080);
+  assert.equal(normalizedBackground.image.height, 1920);
+
   const restored = createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
-  assert.equal(restored.list().length, 6);
-  assert.equal(restored.catalog().entries.at(-1).id, voice.id);
-  assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 1);
-  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 6);
+  assert.equal(restored.list().length, 8);
+  assert.equal(restored.catalog().entries.at(-1).type, 'background');
+  assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 3);
+  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 8);
 
   const inconsistent = JSON.parse(readFileSync(restored.indexPath, 'utf8'));
   inconsistent.entries[0].contentHash = '0'.repeat(64);
@@ -92,7 +157,7 @@ try {
     (error) => error.code === 'LIBRARY_INDEX_INVALID',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 13, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 30, failed: 0 })}\n`);
 } finally {
   rmSync(root, { recursive: true, force: true });
   rmSync(publishRoot, { recursive: true, force: true });
