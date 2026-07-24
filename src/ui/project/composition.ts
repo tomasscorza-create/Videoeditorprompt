@@ -114,8 +114,26 @@ function bindElementInteraction(
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       selectProjectItem({ kind: 'element', sceneId, elementId });
+      return;
+    }
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+      event.preventDefault();
+      const element = store.project().scenes.find((scene) => scene.id === sceneId)?.elements.find((candidate) => candidate.id === elementId);
+      if (!element) return;
+      const step = event.shiftKey ? 1 : 10;
+      const x = element.transform.x + (event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0);
+      const y = element.transform.y + (event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0);
+      store.dispatch({ type: 'set-character-transform', sceneId, elementId, x, y });
     }
   });
+  image.addEventListener('wheel', (event) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    const element = store.project().scenes.find((scene) => scene.id === sceneId)?.elements.find((candidate) => candidate.id === elementId);
+    if (!element) return;
+    const scale = Math.max(0.05, Math.min(10, Math.round((element.transform.scale + (event.deltaY < 0 ? 0.05 : -0.05)) * 100) / 100));
+    store.dispatch({ type: 'set-character-transform', sceneId, elementId, scale });
+  }, { passive: false });
   image.addEventListener('pointerdown', (event) => {
     if (currentCharacterPlacement() || event.button !== 0) return;
     event.preventDefault();

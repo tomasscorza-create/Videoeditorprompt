@@ -3,7 +3,11 @@ import { optional } from './dom.js';
 import type { ProjectStore } from './project/store.js';
 import type { SceneView } from './project/types.js';
 import type { ViewerSource } from './viewer.js';
-import { selectProjectItem } from './project/selection.js';
+import {
+  PROJECT_SELECTION_EVENT,
+  projectSelection,
+  selectProjectItem,
+} from './project/selection.js';
 
 const MIN_PIXELS_PER_SECOND = 20;
 const MAX_PIXELS_PER_SECOND = 220;
@@ -59,6 +63,8 @@ export function initTimelineShell(): void {
   optional<HTMLButtonElement>('#timeline-fit')?.addEventListener('click', fitTimeline);
   optional<HTMLButtonElement>('#timeline-snap')?.addEventListener('click', toggleSnap);
   optional<HTMLButtonElement>('#timeline-mute')?.addEventListener('click', toggleMute);
+  optional<HTMLButtonElement>('#timeline-duplicate')?.addEventListener('click', duplicateSelection);
+  optional<HTMLButtonElement>('#timeline-delete')?.addEventListener('click', deleteSelection);
   const shortcutsDialog = optional<HTMLDialogElement>('#timeline-shortcuts-dialog');
   optional<HTMLButtonElement>('#timeline-shortcuts')?.addEventListener('click', () => shortcutsDialog?.showModal());
   optional<HTMLButtonElement>('#timeline-shortcuts-close')?.addEventListener('click', () => shortcutsDialog?.close());
@@ -66,6 +72,10 @@ export function initTimelineShell(): void {
   optional<HTMLElement>('#timeline-video-track')?.addEventListener('click', seekFromPointer);
   optional<HTMLElement>('#timeline-audio-track')?.addEventListener('click', seekFromPointer);
   window.addEventListener('keydown', handleShortcut);
+  window.addEventListener(PROJECT_SELECTION_EVENT, () => {
+    render();
+    updateToolbar();
+  });
   render();
 }
 
@@ -127,20 +137,12 @@ function render(): void {
 function renderProject(): void {
   setTimelineMode(false);
   const project = store?.project();
-  const videoTrack = optional<HTMLElement>('#timeline-video-track');
-  const audioTrack = optional<HTMLElement>('#timeline-audio-track');
-  const ruler = optional<HTMLElement>('#timeline-ruler');
-  if (!videoTrack || !audioTrack || !ruler) return;
+  optional<HTMLElement>('.professional-timeline')?.classList.add('is-authoring');
   if (!project) {
-    videoTrack.replaceChildren();
-    audioTrack.replaceChildren();
-    ruler.replaceChildren();
-    setSurfaceWidth(600);
     setSummary('Abrí un proyecto para ver sus escenas y diálogos.');
-    renderLayerStack(null);
+    renderLayerStack(null, [], []);
     return;
   }
-
   const scale = pixelsPerSecond / DEFAULT_PIXELS_PER_SECOND;
   const sceneWidths = project.scenes.map((scene) => Math.max(EDITORIAL_SCENE_WIDTH, wordsInScene(scene) * 8) * scale);
   const positions: number[] = [];
@@ -149,122 +151,201 @@ function renderProject(): void {
     positions.push(cursor);
     cursor += width + 4;
   }
-  setSurfaceWidth(Math.max(600, cursor));
-  const sceneNodes = project.scenes.map((scene, index) => {
-    const clip = createClip({
-      id: `project-scene:${scene.id}`,
-      kind: 'video',
-      title: scene.title,
-      detail: `${scene.dialogue.length} turnos · sin medir`,
-      left: positions[index],
-      width: sceneWidths[index],
-      unmeasured: true,
-      selected: scene.id === store?.selectedSceneId(),
-    });
-    clip.addEventListener('click', () => {
-      selectedClipId = `project-scene:${scene.id}`;
-      store?.dispatch({ type: 'select-scene', sceneId: scene.id });
-    });
-    return clip;
-  });
-
-  const turnNodes: HTMLElement[] = [];
-  project.scenes.forEach((scene, sceneIndex) => {
-    const totalWords = Math.max(1, wordsInScene(scene));
-    let turnCursor = positions[sceneIndex];
-    for (const turn of scene.dialogue) {
-      const width = Math.max(42, sceneWidths[sceneIndex] * (wordCount(turn.text) / totalWords));
-      const speaker = scene.elements.find((element) => element.id === turn.speakerElementId)?.resourceId ?? turn.speakerElementId;
-      const clip = createClip({
-        id: `project-turn:${scene.id}:${turn.id}`,
-        kind: 'audio',
-        title: speaker,
-        detail: turn.text,
-        left: turnCursor,
-        width,
-        unmeasured: true,
-        selected: selectedClipId === `project-turn:${scene.id}:${turn.id}`,
-      });
-      clip.addEventListener('click', () => {
-        selectedClipId = `project-turn:${scene.id}:${turn.id}`;
-        store?.dispatch({ type: 'select-scene', sceneId: scene.id });
-        render();
-      });
-      turnNodes.push(clip);
-      turnCursor += width;
-    }
-  });
-
-  const rulerNodes = positions.map((left, index) => rulerMark(left, `E${index + 1}`, true));
-  ruler.replaceChildren(...rulerNodes);
-  videoTrack.replaceChildren(...sceneNodes);
-  audioTrack.replaceChildren(...turnNodes);
-  renderLayerStack(project.scenes.find((scene) => scene.id === store?.selectedSceneId()) ?? project.scenes[0]);
-  setSummary(`${project.scenes.length} escena(s) · estructura editable sin tiempos. Renderizá para obtener escala real de FFprobe.`);
+  renderLayerStack(project, positions, sceneWidths);
+  setSummary(`${project.scenes.length} escena(s) · visual arriba, audio abajo · arrastrá escenas para reordenar · tiempos reales después de medir.`);
 }
 
-function renderLayerStack(scene: SceneView | null): void {
+function renderLayerStack(
+  project: ReturnType<ProjectStore['project']> | null,
+  positions: number[] = [],
+  sceneWidths: number[] = [],
+): void {
   const root = optional<HTMLElement>('#timeline-layer-stack');
   if (!root) return;
-  root.hidden = !scene;
-  if (!scene) {
+  root.hidden = !project;
+  if (!project) {
     root.replaceChildren();
+    optional<HTMLElement>('.professional-timeline')?.classList.remove('is-authoring');
     return;
   }
-  const rows: HTMLElement[] = [];
-  rows.push(layerRow('BG', 'Fondo', scene.background.resourceId, () => {
-    selectProjectItem({ kind: 'scene', sceneId: scene.id });
-  }));
-  const characters = scene.elements.filter((element) => element.type === 'character');
-  characters.forEach((element, index) => {
-    rows.push(layerRow(`V${index + 1}`, `Personaje ${index + 1}`, element.resourceId ?? element.id, () => {
-      selectedClipId = `project-element:${scene.id}:${element.id}`;
-      selectProjectItem({ kind: 'element', sceneId: scene.id, elementId: element.id });
-    }));
-  });
-  const bySpeaker = new Map<string, typeof scene.dialogue>();
-  for (const turn of scene.dialogue) {
-    const turns = bySpeaker.get(turn.speakerElementId) ?? [];
-    turns.push(turn);
-    bySpeaker.set(turn.speakerElementId, turns);
+  root.style.setProperty('--timeline-grid-size', `${pixelsPerSecond}px`);
+  const totalWidth = Math.max(640, (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0));
+  const rows: HTMLElement[] = [
+    authoringRuler(project, positions, totalWidth),
+    trackDivider('VISUAL', 'Capas que forman la imagen'),
+  ];
+  rows.push(authoringTrack('BG', 'Fondos', totalWidth, project.scenes.map((scene, index) => {
+    const clip = authoringClip(scene.title, `${scene.background.resourceId} · escena completa · sin medir`, positions[index], sceneWidths[index], 'background');
+    bindSceneClip(clip, scene.id);
+    return clip;
+  })));
+  const maximumCharacters = Math.max(1, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'character').length));
+  for (let slot = 0; slot < maximumCharacters; slot += 1) {
+    const clips = project.scenes.flatMap((scene, sceneIndex) => {
+      const element = scene.elements.filter((candidate) => candidate.type === 'character')[slot];
+      if (!element) return [];
+      const selection = projectSelection();
+      const clip = authoringClip(
+        element.resourceId ?? element.id,
+        `Escala ${element.transform.scale.toFixed(2)} · ${element.animationPreset ?? 'movimiento base'}`,
+        positions[sceneIndex],
+        sceneWidths[sceneIndex],
+        'character',
+        selection?.kind === 'element' && selection.elementId === element.id,
+      );
+      clip.addEventListener('click', () => selectElement(scene.id, element.id));
+      clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
+      return [clip];
+    });
+    rows.push(authoringTrack(`V${slot + 1}`, `Personaje ${slot + 1}`, totalWidth, clips));
   }
-  let audioIndex = 0;
-  for (const [speakerId, turns] of bySpeaker) {
-    audioIndex += 1;
-    rows.push(layerRow(
-      `A${audioIndex}`,
-      `Voz · ${speakerId}`,
-      turns.map((turn) => turn.text).join('  |  '),
-      () => selectProjectItem({ kind: 'dialogue', sceneId: scene.id, turnId: turns[0].id }),
-    ));
+  rows.push(trackDivider('AUDIO', 'Voces debajo de las capas visuales'));
+  for (let slot = 0; slot < maximumCharacters; slot += 1) {
+    const clips: HTMLElement[] = [];
+    project.scenes.forEach((scene, sceneIndex) => {
+      const speaker = scene.elements.filter((element) => element.type === 'character')[slot];
+      if (!speaker) return;
+      const totalWords = Math.max(1, wordsInScene(scene));
+      let cursor = positions[sceneIndex];
+      for (const turn of scene.dialogue) {
+        const width = Math.max(38, sceneWidths[sceneIndex] * (wordCount(turn.text) / totalWords));
+        if (turn.speakerElementId === speaker.id) {
+          const selection = projectSelection();
+          const clip = authoringClip(
+            turn.text,
+            `${turn.voiceId} · duración pendiente de voz`,
+            cursor,
+            width,
+            'dialogue',
+            selection?.kind === 'dialogue' && selection.turnId === turn.id,
+          );
+          clip.addEventListener('click', () => selectDialogue(scene.id, turn.id));
+          clip.addEventListener('dblclick', () => selectDialogue(scene.id, turn.id));
+          clips.push(clip);
+        }
+        cursor += width;
+      }
+    });
+    rows.push(authoringTrack(`A${slot + 1}`, `Voz ${slot + 1}`, totalWidth, clips));
   }
-  if (characters.length === 0) rows.push(layerPlaceholder('V1', 'Personajes', 'Arrastrá un personaje desde Recursos al visor.'));
-  if (scene.dialogue.length === 0) rows.push(layerPlaceholder('A1', 'Diálogo', 'Agregá diálogos desde la pestaña Escena.'));
-  rows.push(layerPlaceholder('M1', 'Música', 'Pista reservada; el motor todavía no mezcla música.'));
-  rows.push(layerPlaceholder('S1', 'SFX', 'Pista reservada; el motor todavía no mezcla efectos de sonido.'));
   root.replaceChildren(...rows);
 }
 
-function layerRow(code: string, label: string, detail: string, onSelect: () => void): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'timeline-layer-row';
-  const badge = document.createElement('strong');
-  badge.textContent = code;
-  const name = document.createElement('span');
-  name.textContent = label;
-  const content = document.createElement('small');
-  content.textContent = detail;
-  button.append(badge, name, content);
-  button.addEventListener('click', onSelect);
-  return button;
+function authoringTrack(code: string, label: string, width: number, clips: HTMLElement[]): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'authoring-track-row';
+  const heading = document.createElement('div');
+  heading.className = 'authoring-track-label';
+  heading.innerHTML = `<strong>${code}</strong><span>${label}</span>`;
+  const lane = document.createElement('div');
+  lane.className = 'authoring-track-lane';
+  lane.style.width = `${Math.ceil(width)}px`;
+  lane.append(...clips);
+  row.append(heading, lane);
+  return row;
 }
 
-function layerPlaceholder(code: string, label: string, detail: string): HTMLButtonElement {
-  const row = layerRow(code, label, detail, () => {});
-  row.classList.add('is-placeholder');
-  row.disabled = true;
+function authoringRuler(project: ReturnType<ProjectStore['project']>, positions: number[], width: number): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'authoring-track-row authoring-ruler-row';
+  const label = document.createElement('div');
+  label.className = 'authoring-track-label';
+  label.innerHTML = '<strong>TIEMPO</strong><span>sin medir</span>';
+  const ruler = document.createElement('div');
+  ruler.className = 'authoring-track-ruler';
+  ruler.style.width = `${Math.ceil(width)}px`;
+  positions.forEach((left, index) => {
+    const mark = document.createElement('span');
+    mark.style.left = `${left}px`;
+    mark.textContent = `E${index + 1} · ${project.scenes[index].title}`;
+    ruler.append(mark);
+  });
+  row.append(label, ruler);
   return row;
+}
+
+function trackDivider(title: string, detail: string): HTMLElement {
+  const divider = document.createElement('div');
+  divider.className = `authoring-track-divider ${title === 'AUDIO' ? 'is-audio' : 'is-visual'}`;
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  const span = document.createElement('span');
+  span.textContent = detail;
+  divider.append(strong, span);
+  return divider;
+}
+
+function authoringClip(
+  title: string,
+  detail: string,
+  left: number,
+  width: number,
+  kind: 'background' | 'character' | 'dialogue',
+  selected = false,
+): HTMLButtonElement {
+  const clip = document.createElement('button');
+  clip.type = 'button';
+  clip.className = `authoring-clip ${kind}`;
+  clip.classList.toggle('is-selected', selected);
+  clip.style.left = `${left}px`;
+  clip.style.width = `${Math.max(MIN_CLIP_WIDTH, width)}px`;
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  const small = document.createElement('small');
+  small.textContent = detail;
+  clip.append(strong, small);
+  return clip;
+}
+
+function bindSceneClip(clip: HTMLButtonElement, sceneId: string): void {
+  clip.draggable = true;
+  clip.classList.toggle('is-selected', store?.selectedSceneId() === sceneId);
+  clip.addEventListener('click', () => selectScene(sceneId));
+  clip.addEventListener('dblclick', () => selectScene(sceneId));
+  clip.addEventListener('dragstart', (event) => {
+    event.dataTransfer?.setData('application/x-local-video-scene', sceneId);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    clip.classList.add('is-dragging');
+  });
+  clip.addEventListener('dragend', () => clip.classList.remove('is-dragging'));
+  clip.addEventListener('dragover', (event) => {
+    if (!event.dataTransfer?.types.includes('application/x-local-video-scene')) return;
+    event.preventDefault();
+    clip.classList.add('is-drop-target');
+  });
+  clip.addEventListener('dragleave', () => clip.classList.remove('is-drop-target'));
+  clip.addEventListener('drop', (event) => {
+    event.preventDefault();
+    clip.classList.remove('is-drop-target');
+    const sourceId = event.dataTransfer?.getData('application/x-local-video-scene');
+    if (!sourceId || sourceId === sceneId || !store) return;
+    const ids = store.project().scenes.map((scene) => scene.id);
+    const sourceIndex = ids.indexOf(sourceId);
+    const targetIndex = ids.indexOf(sceneId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    ids.splice(sourceIndex, 1);
+    ids.splice(targetIndex, 0, sourceId);
+    store.dispatch({ type: 'reorder-scenes', sceneIds: ids });
+    selectScene(sourceId);
+  });
+}
+
+function selectScene(sceneId: string): void {
+  selectedClipId = `project-scene:${sceneId}`;
+  selectProjectItem({ kind: 'scene', sceneId });
+  store?.dispatch({ type: 'select-scene', sceneId });
+}
+
+function selectElement(sceneId: string, elementId: string): void {
+  selectedClipId = `project-element:${sceneId}:${elementId}`;
+  selectProjectItem({ kind: 'element', sceneId, elementId });
+  store?.dispatch({ type: 'select-scene', sceneId });
+}
+
+function selectDialogue(sceneId: string, turnId: string): void {
+  selectedClipId = `project-turn:${sceneId}:${turnId}`;
+  selectProjectItem({ kind: 'dialogue', sceneId, turnId });
+  store?.dispatch({ type: 'select-scene', sceneId });
 }
 
 function renderPreview(): void {
@@ -476,6 +557,39 @@ function toggleMute(): void {
   syncMuteButton();
 }
 
+function duplicateSelection(): void {
+  if (!store) return;
+  const selection = projectSelection();
+  if (selection?.kind !== 'scene') return;
+  const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
+  if (!scene) return;
+  const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
+  const error = store.dispatch({
+    type: 'duplicate-scene',
+    sceneId: scene.id,
+    newSceneId,
+    title: `${scene.title} copia`,
+  });
+  if (!error) selectScene(newSceneId);
+}
+
+function deleteSelection(): void {
+  if (!store) return;
+  const selection = projectSelection();
+  if (!selection) return;
+  const project = store.project();
+  if (selection.kind === 'scene') {
+    const scene = project.scenes.find((item) => item.id === selection.sceneId);
+    if (!scene || project.scenes.length === 1 || !window.confirm(`¿Eliminar «${scene.title}»?`)) return;
+    store.dispatch({ type: 'delete-scene', sceneId: scene.id });
+  } else if (selection.kind === 'element') {
+    const error = store.dispatch({ type: 'delete-element', sceneId: selection.sceneId, elementId: selection.elementId });
+    if (error) window.alert(error);
+  } else {
+    store.dispatch({ type: 'delete-dialogue-turn', sceneId: selection.sceneId, turnId: selection.turnId });
+  }
+}
+
 function syncMuteButton(): void {
   const button = optional<HTMLButtonElement>('#timeline-mute');
   const media = activeMedia();
@@ -600,6 +714,9 @@ function handleShortcut(event: KeyboardEvent): void {
   } else if (event.code === 'Minus' || event.code === 'NumpadSubtract') {
     event.preventDefault();
     zoomBy(0.8);
+  } else if (event.code === 'Delete' && !isMeasured()) {
+    event.preventDefault();
+    deleteSelection();
   }
 }
 
@@ -612,14 +729,30 @@ function updateToolbar(): void {
   const play = optional<HTMLButtonElement>('#timeline-play');
   const previous = optional<HTMLButtonElement>('#timeline-previous');
   const next = optional<HTMLButtonElement>('#timeline-next');
+  const duplicate = optional<HTMLButtonElement>('#timeline-duplicate');
+  const remove = optional<HTMLButtonElement>('#timeline-delete');
   if (undo) undo.disabled = !store?.canUndo();
   if (redo) redo.disabled = !store?.canRedo();
   if (play) play.disabled = !measured;
   if (previous) previous.disabled = !hasNavigation;
   if (next) next.disabled = !hasNavigation;
+  const selection = projectSelection();
+  if (duplicate) duplicate.disabled = measured || selection?.kind !== 'scene' || (store?.project().scenes.length ?? 0) >= 8;
+  if (remove) {
+    remove.disabled = measured || !selection || (selection.kind === 'scene' && (store?.project().scenes.length ?? 0) <= 1);
+  }
   optional<HTMLButtonElement>('#timeline-fit')?.toggleAttribute('disabled', !hasProject && !measured);
   syncPlayButton();
   syncMuteButton();
+}
+
+function nextSceneId(existing: string[]): string {
+  const used = new Set(existing);
+  for (let index = 1; index <= 99; index += 1) {
+    const id = `escena-${String(index).padStart(2, '0')}`;
+    if (!used.has(id)) return id;
+  }
+  return `escena-${Date.now().toString(36)}`;
 }
 
 function updateTimecode(): void {

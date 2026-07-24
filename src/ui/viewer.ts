@@ -4,7 +4,7 @@ import { setTimelineSource } from './timeline.js';
 export type ViewerSource = 'composition' | 'preview' | 'final' | 'character';
 
 const context: Record<ViewerSource, string> = {
-  composition: 'La composición es una proyección estática; voz, boca y tiempos se calculan al renderizar.',
+  composition: 'Seleccioná y arrastrá personajes. Flechas ajustan posición; Ctrl + rueda cambia escala. Voz, boca y tiempos se miden al renderizar.',
   preview: 'Preview medido de una escena publicada; usa el mismo evaluador temporal que la exportación.',
   final: 'MP4 final producido y verificado por el pipeline local.',
   character: 'Vista de autoría. El guardado compila estas capas al rig animable local.',

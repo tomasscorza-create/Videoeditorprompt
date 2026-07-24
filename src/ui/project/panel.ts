@@ -1,6 +1,7 @@
 import { optional } from '../dom.js';
 import type { ProjectStore } from './store.js';
 import type { ElementView, SceneView, TurnView } from './types.js';
+import { PROJECT_SELECTION_EVENT, projectSelection, type ProjectSelection } from './selection.js';
 
 const TRANSITIONS = ['cut', 'fade'];
 const PROPOSAL_TABS = ['scene', 'elements', 'background', 'transition'] as const;
@@ -69,10 +70,22 @@ export function initProjectEditor(store: ProjectStore): void {
       proposalTabs.find((candidate) => candidate.dataset.proposalTab === activeProposalTab)?.focus();
     });
   }
+  window.addEventListener(PROJECT_SELECTION_EVENT, (event) => {
+    const selection = (event as CustomEvent<ProjectSelection>).detail;
+    if (!selection) return;
+    if (store.selectedSceneId() !== selection.sceneId) {
+      send({ type: 'select-scene', sceneId: selection.sceneId });
+    }
+    selectProposalTab(selection.kind === 'element' ? 'elements' : 'scene');
+  });
 
   function renderInspector(): void {
     const project = store.project();
     const scene = project.scenes.find((item) => item.id === store.selectedSceneId());
+    const selection = projectSelection();
+    if (selection && selection.sceneId === scene?.id) {
+      activeProposalTab = selection.kind === 'element' ? 'elements' : 'scene';
+    }
     syncProposalTabs();
     if (!scene) {
       inspector!.replaceChildren(note('No hay escena seleccionada.'));

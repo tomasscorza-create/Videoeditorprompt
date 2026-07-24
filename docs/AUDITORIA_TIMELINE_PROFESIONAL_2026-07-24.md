@@ -12,7 +12,9 @@ Conclusión: la sustitución fue incorrecta. La estructura editorial debía alim
 
 ## Correcciones implementadas
 
-- Superficie permanente con pistas `V1 Video` y `A1 Diálogo`.
+- En autoría, una única superficie alineada divide **VISUAL** arriba y **AUDIO** abajo.
+- Pistas visuales separadas para fondo y cada personaje; pistas de audio separadas por voz.
+- Los clips de una misma escena comparten inicio y ancho editorial, de modo que fondo, personajes y diálogos se leen verticalmente como una composición.
 - Regla temporal y timecode con milisegundos cuando existe duración medida.
 - Playhead sincronizado con el audio del preview y el `<video>` del MP4.
 - Seek mediante regla, pista o selección de clips.
@@ -22,6 +24,10 @@ Conclusión: la sustitución fue incorrecta. La estructura editorial debía alim
 - Transporte y mute desde la timeline.
 - Seguimiento automático del playhead durante reproducción.
 - Undo/redo conectado al mismo `ProjectStore`.
+- Selección sincronizada entre timeline, visor e inspector.
+- Arrastre horizontal de escenas para reordenarlas mediante `reorder-scenes`.
+- Duplicación y eliminación contextual de escenas, personajes o diálogos mediante comandos cerrados.
+- Tecla Supr para eliminar la selección compatible.
 - Atajos visibles: Espacio, J/K/L, flechas, Inicio/Fin, S, M, F, +/− y Ctrl+Z/Y.
 - Clips de video, audio y overlays de transición para el MP4 multiescena.
 - Recuperación de timeline desde manifiestos de renders históricos cuando están disponibles.
@@ -38,12 +44,11 @@ La UI no convierte conteo de palabras en una duración falsa.
 ## Herramientas deliberadamente no implementadas
 
 - Cortar/dividir clips.
-- Eliminar escenas o turnos.
 - Estirar duración.
 - Arrastrar clips para cambiar tiempos.
 - Crear pistas o medios nuevos.
 
-El núcleo actual no ofrece comandos semánticos seguros para esas acciones. Mostrar esos botones como si funcionaran produciría proyectos inválidos o una segunda fuente de verdad.
+El núcleo ya permite eliminar y reordenar estructura. Los recortes temporales y cambios de duración continúan bloqueados porque todavía no tienen representación compartida en preview y exportación.
 
 ## Verificación automática
 
@@ -53,8 +58,9 @@ El núcleo actual no ofrece comandos semánticos seguros para esas acciones. Mos
 
 ## Pruebas manuales sugeridas al usuario
 
-1. Abrir **Composición** y seleccionar escenas/turnos desde V1/A1.
-2. Abrir **Preview medido**, reproducir y hacer seek sobre un turno.
-3. Abrir un **MP4 final**, comprobar escenas, audio, fundidos y seguimiento del playhead.
-4. Probar Espacio, J/K/L, flechas, S, M, F y zoom.
-5. Cambiar de escena, deshacer y rehacer desde la barra inferior.
+1. Abrir **Editar video** y comprobar que las capas visuales están arriba y las voces abajo.
+2. Seleccionar personajes y diálogos; comprobar el cambio coordinado en visor e inspector.
+3. Arrastrar una escena sobre otra para reordenar y probar Duplicar/Eliminar.
+4. Abrir **Preview medido**, reproducir y hacer seek sobre un turno.
+5. Abrir un **MP4 final**, comprobar escenas, audio, fundidos y seguimiento del playhead.
+6. Probar Espacio, J/K/L, flechas, S, M, F y zoom.

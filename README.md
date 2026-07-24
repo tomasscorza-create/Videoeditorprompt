@@ -69,7 +69,7 @@ El panel **Recursos** permite importar fondos JPG o PNG mediante **Agregar fondo
 
 En escritorio, los separadores entre Director, visor, panel derecho y timeline permiten ajustar el espacio de trabajo. Las proporciones se conservan localmente; doble clic sobre un separador restaura el tamaño inicial.
 
-La timeline inferior también distingue esos estados. Antes de renderizar muestra escenas y turnos como estructura editorial **sin medir**, más capas separadas para fondo, personajes y voces de la escena activa. Música y SFX aparecen únicamente como pistas reservadas y deshabilitadas: todavía no se presentan como capacidades de render. En Preview y MP4 usa segundos reales: el preview aporta turnos medidos y el manifiesto final aporta inicio/fin de escenas, audio y fundidos.
+La timeline inferior también distingue esos estados. Antes de renderizar presenta una sola superficie alineada: capas visuales (fondos y personajes) arriba y voces abajo. Permite seleccionar, reordenar escenas por arrastre, duplicar y eliminar estructura; visor e inspector siguen la misma selección. Los anchos son editoriales y se rotulan **sin medir**. En Preview y MP4 cambian a segundos reales aportados por Piper, FFprobe y el ensamblador.
 
 `stage3b:publish-project` genera `public/projects/`, necesario para que la interfaz encuentre proyectos editables existentes. Los previews de video aparecen después de publicar al menos un trabajo del pipeline.
 
