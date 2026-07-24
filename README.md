@@ -245,6 +245,6 @@ Cuando un documento histórico contradiga el código vigente, prevalecen `AGENTS
 
 ## Licencias
 
-El repositorio todavía no contiene una licencia general. No debe asumirse permiso de redistribución o uso comercial del código.
+El código de este repositorio es propietario: «todos los derechos reservados». Ver [LICENSE](LICENSE). No se concede permiso de uso, redistribución ni uso comercial sin autorización previa y por escrito del titular.
 
 Los modelos, voces, fuentes y otros recursos de terceros conservan sus propias licencias y procedencia. El catálogo registra la información disponible, pero es obligatorio completar la revisión de licencias antes de distribuir o monetizar el producto.
