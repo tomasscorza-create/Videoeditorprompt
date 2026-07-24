@@ -2,9 +2,8 @@ import { optional } from '../dom.js';
 import type { ProjectStore } from './store.js';
 import type { ElementView, SceneView, TurnView } from './types.js';
 
-const GESTURES = ['neutral', 'point'];
 const TRANSITIONS = ['cut', 'fade'];
-const PROPOSAL_TABS = ['scene', 'dialogue', 'elements', 'background', 'transition'] as const;
+const PROPOSAL_TABS = ['scene', 'elements', 'background', 'transition'] as const;
 type ProposalTab = typeof PROPOSAL_TABS[number];
 
 export function initProjectEditor(store: ProjectStore): void {
@@ -81,7 +80,6 @@ export function initProjectEditor(store: ProjectStore): void {
     }
     const sectionFactories: Record<ProposalTab, () => HTMLElement> = {
       scene: () => sceneSection(scene),
-      dialogue: () => dialogueSection(scene),
       elements: () => elementsSection(scene),
       background: () => backgroundSection(scene),
       transition: () => transitionSection(scene),
@@ -132,7 +130,24 @@ export function initProjectEditor(store: ProjectStore): void {
       field('Título del proyecto', projectTitle),
       field('Escena a editar', sceneSelector),
       field('Título de la escena', sceneTitle),
+      ...dialogueScriptFields(scene),
     ]);
+  }
+
+  function dialogueScriptFields(scene: SceneView): HTMLElement[] {
+    const characters = store.resources('character');
+    const fields: HTMLElement[] = [subheading('Guion y diálogos')];
+
+    for (const [index, turn] of scene.dialogue.entries()) {
+      const speaker = scene.elements.find((element) => element.id === turn.speakerElementId);
+      const character = characters.find((resource) => resource.id === speaker?.resourceId);
+      const speakerIndex = scene.elements.findIndex((element) => element.id === turn.speakerElementId);
+      const fallbackName = speakerIndex >= 0 ? `Personaje ${speakerIndex + 1}` : `Personaje ${index + 1}`;
+      fields.push(subheading(character?.label ?? fallbackName));
+      fields.push(field('Diálogo', dialogueText(scene, turn)));
+    }
+
+    return fields;
   }
 
   function backgroundSection(scene: SceneView): HTMLElement {
@@ -253,45 +268,6 @@ export function initProjectEditor(store: ProjectStore): void {
       [key]: Number(input.value),
     }));
     return field(label, input);
-  }
-
-  function dialogueSection(scene: SceneView): HTMLElement {
-    const voices = store.resources('voice');
-    const fields: HTMLElement[] = [];
-
-    for (const [index, turn] of scene.dialogue.entries()) {
-      const speakerIndex = scene.elements.findIndex((element) => element.id === turn.speakerElementId);
-      const speakerLabel = speakerIndex >= 0 ? ` · Personaje ${speakerIndex + 1}` : '';
-      fields.push(subheading(`Intervención ${index + 1}${speakerLabel}`));
-      fields.push(field('Texto', dialogueText(scene, turn)));
-
-      const voice = select(voices.map((entry) => ({ value: entry.id, label: entry.label })), turn.voiceId);
-      voice.addEventListener('change', () => send({
-        type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, voiceId: voice.value,
-      }));
-      fields.push(field('Voz', voice));
-
-      const gesture = select(GESTURES.map((value) => ({
-        value,
-        label: value === 'point' ? 'Señalar' : 'Neutral',
-      })), turn.gestureId);
-      gesture.addEventListener('change', () => send({
-        type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, gestureId: gesture.value,
-      }));
-      fields.push(field('Gesto', gesture));
-
-      const gap = document.createElement('input');
-      gap.type = 'number';
-      gap.min = '0';
-      gap.max = '5';
-      gap.step = '0.05';
-      gap.value = String(turn.gapAfterSeconds);
-      gap.addEventListener('change', () => send({
-        type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, gapAfterSeconds: Number(gap.value),
-      }));
-      fields.push(field('Pausa después (s)', gap));
-    }
-    return group('Diálogos', fields);
   }
 
   function dialogueText(scene: SceneView, turn: TurnView): HTMLTextAreaElement {
