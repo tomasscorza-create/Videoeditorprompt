@@ -81,6 +81,8 @@ Es el punto de entrada y comando del flujo creativo.
 - El contenido puede organizarse mediante pestañas o secciones como `Crear` y `Proyectos`.
 - La propuesta se abre automáticamente después de generarse y puede plegarse sin perder sus cambios.
 - La edición interna de la propuesta se separa en pestañas de nombres directos —escena, diálogos, personajes, fondo y transición— para evitar un formulario vertical único.
+- Las pestañas forman una única fila compacta inmediatamente debajo de `Revisar y ajustar`; todo el contenido inferior pertenece a la pestaña activa.
+- El título del proyecto y la selección de escena viven dentro de `Escena`; la propuesta no mantiene una cabecera paralela de acciones o reordenamiento.
 - La propuesta prioriza decisiones creativas; no muestra descargas técnicas ni explicaciones internas del pipeline.
 - La biblioteca persistente de videos terminados pertenece a `Archivos > Videos creados` en el encabezado, no al panel del Director.
 - Su scroll es independiente.

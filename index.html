@@ -99,19 +99,6 @@
                 </span>
               </summary>
               <section class="project-editor" id="project-editor" aria-label="Propuesta editable del Director" hidden>
-                <header class="project-editor-header">
-                  <label class="field project-title-field" for="project-title">
-                    <span>Título del proyecto</span>
-                    <input id="project-title" type="text" maxlength="120" />
-                  </label>
-                  <div class="project-actions">
-                    <button id="project-undo" type="button" disabled title="Deshacer (Ctrl+Z)">Deshacer</button>
-                    <button id="project-redo" type="button" disabled title="Rehacer (Ctrl+Y)">Rehacer</button>
-                    <button id="project-validate" type="button">Validar</button>
-                  </div>
-                </header>
-                <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
-                <div class="scene-strip" id="scene-strip" aria-label="Escenas de la propuesta"></div>
                 <div class="proposal-tabs" role="tablist" aria-label="Secciones de la propuesta">
                   <button class="proposal-tab is-active" data-proposal-tab="scene" type="button" role="tab" aria-selected="true">Escena</button>
                   <button class="proposal-tab" data-proposal-tab="dialogue" type="button" role="tab" aria-selected="false">Diálogos</button>
@@ -119,7 +106,9 @@
                   <button class="proposal-tab" data-proposal-tab="background" type="button" role="tab" aria-selected="false">Fondo</button>
                   <button class="proposal-tab" data-proposal-tab="transition" type="button" role="tab" aria-selected="false">Transición</button>
                 </div>
-                <div class="scene-inspector" id="scene-inspector" role="tabpanel"></div>
+                <div class="scene-inspector" id="scene-inspector" role="tabpanel">
+                  <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
+                </div>
               </section>
             </details>
           </section>

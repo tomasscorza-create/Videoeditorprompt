@@ -4,29 +4,23 @@ import type { ElementView, SceneView, TurnView } from './types.js';
 
 const GESTURES = ['neutral', 'point'];
 const TRANSITIONS = ['cut', 'fade'];
-const MAX_SCENES_PER_REORDER = 8;
 const PROPOSAL_TABS = ['scene', 'dialogue', 'elements', 'background', 'transition'] as const;
 type ProposalTab = typeof PROPOSAL_TABS[number];
 
 export function initProjectEditor(store: ProjectStore): void {
   const root = optional<HTMLElement>('#project-editor');
-  const strip = optional<HTMLElement>('#scene-strip');
   const inspector = optional<HTMLElement>('#scene-inspector');
   const status = optional<HTMLElement>('#project-status');
   const proposalDetails = optional<HTMLDetailsElement>('#director-proposal-details');
-  if (!root || !strip || !inspector) return;
+  if (!root || !inspector) return;
   root.hidden = false;
   if (proposalDetails) {
     proposalDetails.hidden = false;
     proposalDetails.open = true;
   }
 
-  const titleInput = optional<HTMLInputElement>('#project-title');
-  const undoBtn = optional<HTMLButtonElement>('#project-undo');
-  const redoBtn = optional<HTMLButtonElement>('#project-redo');
   const toolUndo = optional<HTMLButtonElement>('#tool-undo');
   const toolRedo = optional<HTMLButtonElement>('#tool-redo');
-  const validateBtn = optional<HTMLButtonElement>('#project-validate');
   const proposalTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-proposal-tab]'));
   let activeProposalTab: ProposalTab = 'scene';
 
@@ -42,24 +36,8 @@ export function initProjectEditor(store: ProjectStore): void {
     report(store.dispatch(command));
   }
 
-  let titleCommitTimer: number | null = null;
-  const commitTitle = (): void => {
-    if (titleCommitTimer !== null) window.clearTimeout(titleCommitTimer);
-    titleCommitTimer = null;
-    if (!titleInput) return;
-    const title = titleInput.value.trim();
-    if (title) send({ type: 'set-project-title', title });
-  };
-  titleInput?.addEventListener('input', () => {
-    if (titleCommitTimer !== null) window.clearTimeout(titleCommitTimer);
-    titleCommitTimer = window.setTimeout(commitTitle, 300);
-  });
-  titleInput?.addEventListener('change', commitTitle);
-
   const doUndo = (): void => { store.undo(); report(null); };
   const doRedo = (): void => { store.redo(); report(null); };
-  undoBtn?.addEventListener('click', doUndo);
-  redoBtn?.addEventListener('click', doRedo);
   toolUndo?.addEventListener('click', doUndo);
   toolRedo?.addEventListener('click', doRedo);
   window.addEventListener('keydown', (event) => {
@@ -71,11 +49,6 @@ export function initProjectEditor(store: ProjectStore): void {
       event.preventDefault();
       doRedo();
     }
-  });
-
-  validateBtn?.addEventListener('click', () => {
-    const error = store.validate();
-    report(error ?? 'Proyecto válido.', error === null);
   });
 
   for (const tab of proposalTabs) {
@@ -98,64 +71,6 @@ export function initProjectEditor(store: ProjectStore): void {
     });
   }
 
-  function moveScene(sceneId: string, delta: number): void {
-    const ids = store.project().scenes.map((scene) => scene.id);
-    const from = ids.indexOf(sceneId);
-    const to = from + delta;
-    if (from < 0 || to < 0 || to >= ids.length) return;
-    if (ids.length > MAX_SCENES_PER_REORDER) {
-      report(`El motor admite reordenar hasta ${MAX_SCENES_PER_REORDER} escenas.`);
-      return;
-    }
-    const [moved] = ids.splice(from, 1);
-    ids.splice(to, 0, moved);
-    send({ type: 'reorder-scenes', sceneIds: ids });
-  }
-
-  function renderStrip(): void {
-    const project = store.project();
-    const selectedId = store.selectedSceneId();
-    const nodes: HTMLElement[] = [];
-
-    project.scenes.forEach((scene, index) => {
-      const chip = document.createElement('div');
-      chip.className = 'scene-chip';
-      chip.classList.toggle('is-selected', scene.id === selectedId);
-
-      const select = document.createElement('button');
-      select.type = 'button';
-      select.className = 'scene-chip-select';
-      select.setAttribute('aria-pressed', String(scene.id === selectedId));
-      const name = document.createElement('span');
-      name.className = 'scene-chip-title';
-      name.textContent = scene.title;
-      select.append(name);
-      select.addEventListener('click', () => send({ type: 'select-scene', sceneId: scene.id }));
-
-      const move = document.createElement('span');
-      move.className = 'scene-chip-move';
-      move.append(
-        moveButton('◀', 'Mover antes', index === 0, () => moveScene(scene.id, -1)),
-        moveButton('▶', 'Mover después', index === project.scenes.length - 1, () => moveScene(scene.id, 1)),
-      );
-
-      chip.append(select, move);
-      nodes.push(chip);
-
-      if (index < project.scenes.length - 1) {
-        const badge = document.createElement('span');
-        const preset = scene.transitionToNext?.preset ?? 'cut';
-        badge.className = `transition-badge transition-${preset}`;
-        badge.textContent = preset === 'fade'
-          ? `fade ${scene.transitionToNext?.durationSeconds ?? 0}s`
-          : 'cut';
-        nodes.push(badge);
-      }
-    });
-
-    strip!.replaceChildren(...nodes);
-  }
-
   function renderInspector(): void {
     const project = store.project();
     const scene = project.scenes.find((item) => item.id === store.selectedSceneId());
@@ -171,7 +86,7 @@ export function initProjectEditor(store: ProjectStore): void {
       background: () => backgroundSection(scene),
       transition: () => transitionSection(scene),
     };
-    inspector!.replaceChildren(sectionFactories[activeProposalTab]());
+    inspector!.replaceChildren(...(status ? [status] : []), sectionFactories[activeProposalTab]());
   }
 
   function syncProposalTabs(): void {
@@ -189,15 +104,35 @@ export function initProjectEditor(store: ProjectStore): void {
   }
 
   function sceneSection(scene: SceneView): HTMLElement {
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = scene.title;
-    input.maxLength = 120;
-    input.addEventListener('change', () => {
-      const title = input.value.trim();
+    const project = store.project();
+    const projectTitle = document.createElement('input');
+    projectTitle.type = 'text';
+    projectTitle.value = project.title;
+    projectTitle.maxLength = 120;
+    projectTitle.addEventListener('change', () => {
+      const title = projectTitle.value.trim();
+      if (title) send({ type: 'set-project-title', title });
+    });
+
+    const sceneSelector = select(
+      project.scenes.map((item, index) => ({ value: item.id, label: `Escena ${index + 1} · ${item.title}` })),
+      scene.id,
+    );
+    sceneSelector.addEventListener('change', () => send({ type: 'select-scene', sceneId: sceneSelector.value }));
+
+    const sceneTitle = document.createElement('input');
+    sceneTitle.type = 'text';
+    sceneTitle.value = scene.title;
+    sceneTitle.maxLength = 120;
+    sceneTitle.addEventListener('change', () => {
+      const title = sceneTitle.value.trim();
       if (title) send({ type: 'set-scene-title', sceneId: scene.id, title });
     });
-    return group('Escena', [field('Título', input)]);
+    return group('Escena', [
+      field('Título del proyecto', projectTitle),
+      field('Escena a editar', sceneSelector),
+      field('Título de la escena', sceneTitle),
+    ]);
   }
 
   function backgroundSection(scene: SceneView): HTMLElement {
@@ -372,13 +307,10 @@ export function initProjectEditor(store: ProjectStore): void {
   }
 
   function render(): void {
-    const project = store.project();
-    if (titleInput && document.activeElement !== titleInput) titleInput.value = project.title;
     const canUndo = store.canUndo();
     const canRedo = store.canRedo();
-    for (const button of [undoBtn, toolUndo]) if (button) button.disabled = !canUndo;
-    for (const button of [redoBtn, toolRedo]) if (button) button.disabled = !canRedo;
-    renderStrip();
+    if (toolUndo) toolUndo.disabled = !canUndo;
+    if (toolRedo) toolRedo.disabled = !canRedo;
     renderInspector();
   }
 
@@ -388,18 +320,6 @@ export function initProjectEditor(store: ProjectStore): void {
 
 function isProposalTab(value: string | undefined): value is ProposalTab {
   return PROPOSAL_TABS.some((tab) => tab === value);
-}
-
-function moveButton(label: string, title: string, disabled: boolean, onClick: () => void): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'scene-chip-move-btn';
-  button.textContent = label;
-  button.title = title;
-  button.setAttribute('aria-label', title);
-  button.disabled = disabled;
-  button.addEventListener('click', onClick);
-  return button;
 }
 
 function group(title: string, children: HTMLElement[]): HTMLElement {
