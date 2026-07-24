@@ -194,23 +194,59 @@
         </aside>
       </main>
 
-      <section class="project-timeline" aria-labelledby="timeline-title">
-        <header class="timeline-header">
-          <div>
-            <span class="eyebrow">Estructura</span>
-            <h2 id="timeline-title">Escenas y diálogo</h2>
+      <section class="professional-timeline" aria-labelledby="timeline-title">
+        <header class="timeline-toolbar">
+          <div class="timeline-title-block">
+            <span class="eyebrow">Timeline</span>
+            <h2 id="timeline-title">Video y audio</h2>
           </div>
-          <span id="timeline-summary" class="muted">Sin proyecto</span>
+          <div class="timeline-tool-group" aria-label="Historial">
+            <button id="timeline-undo" class="timeline-tool" type="button" disabled title="Deshacer (Ctrl+Z)" aria-label="Deshacer">↶</button>
+            <button id="timeline-redo" class="timeline-tool" type="button" disabled title="Rehacer (Ctrl+Y)" aria-label="Rehacer">↷</button>
+          </div>
+          <div class="timeline-tool-group transport-tools" aria-label="Transporte">
+            <button id="timeline-previous" class="timeline-tool" type="button" disabled title="Clip anterior (↑)" aria-label="Clip anterior">◀</button>
+            <button id="timeline-play" class="timeline-play" type="button" disabled title="Reproducir o pausar (Espacio)" aria-label="Reproducir o pausar">▶</button>
+            <button id="timeline-next" class="timeline-tool" type="button" disabled title="Clip siguiente (↓)" aria-label="Clip siguiente">▶</button>
+          </div>
+          <div class="timeline-tool-group" aria-label="Ayudas de edición">
+            <button id="timeline-select-tool" class="timeline-tool is-active" type="button" aria-pressed="true" title="Herramienta de selección (V)" aria-label="Herramienta de selección">⌁</button>
+            <button id="timeline-snap" class="timeline-tool is-active" type="button" aria-pressed="true" title="Ajuste magnético (S)" aria-label="Ajuste magnético">⌑</button>
+          </div>
+          <div class="timeline-spacer"></div>
+          <output id="timeline-timecode" class="timeline-timecode">00:00.000 / --:--.---</output>
+          <span id="timeline-mode" class="timeline-mode">Sin medir</span>
+          <div class="timeline-tool-group" aria-label="Zoom">
+            <button id="timeline-zoom-out" class="timeline-tool" type="button" title="Alejar (-)" aria-label="Alejar timeline">−</button>
+            <button id="timeline-fit" class="timeline-tool" type="button" title="Ajustar al ancho (F)" aria-label="Ajustar timeline al ancho">Ajustar</button>
+            <button id="timeline-zoom-in" class="timeline-tool" type="button" title="Acercar (+)" aria-label="Acercar timeline">+</button>
+          </div>
         </header>
-        <div id="project-timeline-content" class="timeline-content">
-          <p class="empty-state">La línea de tiempo aparecerá cuando exista un proyecto editable.</p>
+
+        <div class="timeline-editor">
+          <div class="timeline-track-labels" aria-hidden="true">
+            <div class="timeline-label-ruler"></div>
+            <div class="timeline-track-label">
+              <strong>V1</strong>
+              <span>Video</span>
+            </div>
+            <div class="timeline-track-label">
+              <strong>A1</strong>
+              <span>Diálogo</span>
+            </div>
+          </div>
+          <div id="timeline-scroll" class="timeline-scroll">
+            <div id="timeline-surface" class="timeline-surface">
+              <div id="timeline-ruler" class="timeline-ruler" aria-label="Regla temporal"></div>
+              <div id="timeline-video-track" class="timeline-track video-track" aria-label="Pista de video"></div>
+              <div id="timeline-audio-track" class="timeline-track audio-track" aria-label="Pista de audio"></div>
+              <div id="timeline-playhead" class="timeline-playhead" hidden>
+                <span class="timeline-playhead-handle"></span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="legacy-timeline" aria-hidden="true" hidden>
-          <button id="tool-undo" disabled></button><button id="tool-redo" disabled></button>
-          <div class="ruler-marks"></div><div id="playhead"></div>
-          <div class="timeline-track-v"><div class="track-content"></div></div>
-          <div class="timeline-track-a"><div class="track-content"></div></div>
-        </div>
+        <p id="timeline-summary" class="timeline-summary">Abrí un proyecto para ver sus escenas y diálogos.</p>
       </section>
     </div>
 

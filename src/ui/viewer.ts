@@ -1,4 +1,5 @@
 import { optional } from './dom.js';
+import { setTimelineSource } from './timeline.js';
 
 export type ViewerSource = 'composition' | 'preview' | 'final';
 
@@ -38,6 +39,7 @@ export function showViewerSource(source: ViewerSource): void {
   }
   const description = optional<HTMLElement>('#viewer-context');
   if (description) description.textContent = context[source];
+  setTimelineSource(source);
 }
 
 export function showFinalVideo(url: string, downloadName: string): void {

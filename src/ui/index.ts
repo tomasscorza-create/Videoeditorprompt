@@ -8,9 +8,8 @@ import { initProjectEditor } from './project/panel.js';
 import { persistStore, restoreSession } from './project/persistence.js';
 import { initProjectTimeline } from './project/project-timeline.js';
 import { loadProjectStore, type ProjectStore } from './project/store.js';
-import { initShortcuts } from './shortcuts.js';
 import { initSettingsModal, initTheme } from './theme.js';
-import { initTimeline } from './timeline.js';
+import { attachPreviewTimeline, initTimelineShell } from './timeline.js';
 import { initViewerSources } from './viewer.js';
 
 export { renderJobGallery } from './gallery.js';
@@ -20,13 +19,13 @@ export function initShellUi(): void {
   initTheme();
   initSettingsModal();
   initViewerSources();
+  initTimelineShell();
 }
 
 // Interfaz que consume la reproducción ya iniciada por el preview.
 export function initEditorUi(handle: PreviewHandle): void {
-  const timeline = initTimeline(handle);
-  initPlaybackUi(handle, { onTime: (timeSeconds) => timeline.setPlayhead(timeSeconds) });
-  initShortcuts(handle);
+  attachPreviewTimeline(handle);
+  initPlaybackUi(handle);
 }
 
 // Editor del proyecto de autoría. Es independiente del preview: si el proyecto no
