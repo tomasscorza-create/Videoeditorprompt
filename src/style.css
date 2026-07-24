@@ -1,19 +1,22 @@
 :root {
   color-scheme: dark;
-  --bg: #070b12;
-  --surface: #0e1522;
-  --surface-2: #151f30;
-  --surface-3: #1b293d;
-  --border: #26364e;
-  --border-strong: #3a5275;
-  --text: #edf4ff;
-  --muted: #91a3bd;
-  --accent: #65e1d1;
-  --accent-ink: #05241f;
+  --bg: #141817;
+  --surface: #18241f;
+  --surface-2: #20322b;
+  --surface-3: #2a4138;
+  --border: #33483f;
+  --border-strong: #4c695c;
+  --text: #edf5f1;
+  --muted: #9aafa5;
+  --accent: #72dfbc;
+  --accent-ink: #06251c;
   --danger: #ff7c86;
   --warning: #f2c879;
   --ok: #75d6a5;
   --shadow: 0 1.5rem 4rem rgb(0 0 0 / .38);
+  --input-bg: #111a16;
+  --panel-gradient: linear-gradient(145deg, #1d2c26 0%, #17221e 54%, #202c28 100%);
+  --panel-gradient-soft: linear-gradient(145deg, #23362e 0%, #1b2a24 58%, #26342f 100%);
   --radius: .75rem;
   --radius-sm: .5rem;
   --director-width: 24rem;
@@ -26,20 +29,23 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #e8edf4;
-  --surface: #f9fbfe;
-  --surface-2: #eef3f8;
-  --surface-3: #e0e9f3;
-  --border: #c9d5e3;
-  --border-strong: #9cafc5;
-  --text: #142033;
-  --muted: #556981;
-  --accent: #0b8f82;
+  --bg: #dadddc;
+  --surface: #f3faf6;
+  --surface-2: #e6f3ec;
+  --surface-3: #d7e9df;
+  --border: #bed0c6;
+  --border-strong: #8daa9a;
+  --text: #1b2a23;
+  --muted: #5e7469;
+  --accent: #15856d;
   --accent-ink: #fff;
   --danger: #bd3341;
   --warning: #8c620e;
   --ok: #19764a;
   --shadow: 0 1.2rem 3rem rgb(34 51 76 / .14);
+  --input-bg: #f8fcfa;
+  --panel-gradient: linear-gradient(145deg, #fbfefc 0%, #edf8f1 52%, #e4f2eb 100%);
+  --panel-gradient-soft: linear-gradient(145deg, #f5fbf7 0%, #e5f3eb 56%, #dcece4 100%);
 }
 
 * { box-sizing: border-box; }
@@ -50,7 +56,9 @@ html, body { margin: 0; min-width: 320px; height: 100%; }
 body {
   overflow: hidden;
   color: var(--text);
-  background: radial-gradient(circle at 35% 0, color-mix(in srgb, var(--accent) 9%, transparent), transparent 34rem), var(--bg);
+  background:
+    radial-gradient(circle at 35% 0, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34rem),
+    linear-gradient(135deg, color-mix(in srgb, var(--bg) 94%, white), var(--bg));
 }
 
 button, input, textarea, select { font: inherit; }
@@ -75,7 +83,7 @@ input, textarea, select {
   border-radius: var(--radius-sm);
   padding: .62rem .68rem;
   color: var(--text);
-  background: var(--bg);
+  background: var(--input-bg);
 }
 
 textarea { resize: vertical; line-height: 1.45; }
@@ -97,7 +105,7 @@ h1, h2 { font-size: .98rem; }
   gap: 1rem;
   padding: .55rem 1rem;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  background: var(--panel-gradient);
 }
 
 .side-banner {
@@ -108,7 +116,7 @@ h1, h2 { font-size: .98rem; }
   width: var(--side-banner-width);
   border-color: color-mix(in srgb, var(--border) 65%, transparent);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 72%, transparent), color-mix(in srgb, var(--bg) 92%, transparent)),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 62%, var(--bg)), color-mix(in srgb, var(--bg) 94%, var(--surface))),
     var(--bg);
   pointer-events: none;
 }
@@ -170,7 +178,7 @@ h1, h2 { font-size: .98rem; }
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   padding: .85rem;
-  background: var(--surface);
+  background: var(--panel-gradient);
   box-shadow: var(--shadow);
 }
 
@@ -233,7 +241,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   min-height: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  background: var(--panel-gradient);
 }
 
 .workspace-panel {
@@ -290,7 +298,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+  background: var(--panel-gradient-soft);
 }
 .director-proposal-details > summary {
   position: relative;
@@ -496,7 +504,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--surface);
+  background: var(--panel-gradient);
 }
 
 .timeline-toolbar {
@@ -683,7 +691,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .shortcut-list dt { color: var(--accent); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .72rem; }
 .shortcut-list dd { margin: 0; color: var(--muted); font-size: .72rem; }
 
-.modal { max-width: 24rem; border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0; color: var(--text); background: var(--surface); }
+.modal { max-width: 24rem; border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0; color: var(--text); background: var(--panel-gradient); }
 .modal::backdrop { background: rgb(0 0 0 / .65); }
 .modal-content { display: grid; gap: 1rem; padding: 1rem; }
 

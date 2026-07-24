@@ -7,6 +7,8 @@ Referencia visual: capturas anotadas por el usuario el 24 de julio de 2026.
 
 Este documento no congela colores, tamaños exactos ni el contenido disponible hoy. Define la lógica espacial que debe mantenerse mientras la herramienta crece.
 
+La dirección cromática vigente conserva un fondo gris neutro y paneles superpuestos con matiz verde y degradados suaves. En modo claro las superficies son menta muy pálidas; en modo oscuro pasan a verdes profundos y desaturados, manteniendo contraste equivalente. El visor de video conserva un fondo oscuro propio para no alterar la percepción del contenido.
+
 ## Estructura principal
 
 ```text
