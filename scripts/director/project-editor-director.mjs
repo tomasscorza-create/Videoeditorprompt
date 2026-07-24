@@ -5,15 +5,19 @@ import { applyProjectEditorCommand, createProjectEditor } from '../../shared/pro
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
 import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './ollama-director.mjs';
+import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 
 const MAX_REQUEST_LENGTH = 1200;
+// Unificado con la propuesta (ai-video-plan): el texto de diálogo se limita a 300
+// caracteres en ambos caminos de IA (B2). El editor y el proyecto admiten hasta 500.
+const DIRECTOR_TEXT_MAX_LENGTH = 300;
 
 export async function editProjectWithDirector(options) {
   const instruction = validateInstruction(options.instruction);
   const state = createProjectEditor(options.project, options.catalog);
   const schema = commandBatchSchema(state.project, state.catalog);
   const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
-  const cacheKey = hashJson({ version: 1, instruction, project: state.project, catalog: hashJson(state.catalog), model });
+  const cacheKey = hashJson({ version: DIRECTOR_PIPELINE_VERSION, instruction, project: state.project, catalog: hashJson(state.catalog), model });
   const cacheRoot = ensureDirectory(path.resolve(options.cacheRoot || path.join(projectRoot, '.local-video', 'director-edit-cache')));
   const cachePath = path.join(cacheRoot, `${cacheKey}.json`);
   let commands;
@@ -34,7 +38,12 @@ export async function editProjectWithDirector(options) {
           content: [
             'Sos el editor semántico de un video local.',
             'Convertí la petición en la menor cantidad de comandos del esquema.',
-            'No inventes IDs ni propiedades. No escribas explicaciones.',
+            'Podés editar textos, voces, gestos, pausas, posición, escala y profundidad,',
+            'cambiar fondo o cámara y transición, y modificar la estructura:',
+            'agregar/duplicar/borrar escenas, agregar/borrar turnos, reordenar escenas y reasignar el hablante.',
+            'Para una escena nueva con personajes, duplicá una existente (duplicate-scene) y ajustá sus textos.',
+            'Usá IDs nuevos y portables (letras, números, guiones) para escenas y turnos que crees.',
+            'No inventes IDs de recursos ni propiedades. No escribas explicaciones.',
             'Si la petición no se puede representar, devolvé commands vacío.',
             `Proyecto actual: ${JSON.stringify(summarizeProject(state.project))}`,
           ].join('\n'),
@@ -64,29 +73,78 @@ function commandBatchSchema(project, catalog) {
   const backgrounds = catalog.entries.filter((entry) => entry.type === 'background').map((entry) => entry.id);
   const characters = catalog.entries.filter((entry) => entry.type === 'character').map((entry) => entry.id);
   const voices = catalog.entries.filter((entry) => entry.type === 'voice').map((entry) => entry.id);
+  const cameraPresets = [...new Set(catalog.entries
+    .filter((entry) => entry.type === 'background')
+    .flatMap((entry) => entry.capabilities.cameraPresets))];
+  const animationPresets = [...new Set(catalog.entries
+    .filter((entry) => entry.type === 'character')
+    .flatMap((entry) => entry.capabilities.animationPresets))];
+  const gestures = [...new Set(catalog.entries
+    .filter((entry) => entry.type === 'character')
+    .flatMap((entry) => entry.capabilities.poses))];
   const id = (values) => ({ type: 'string', enum: values.length ? values : ['none'] });
   const command = {
     oneOf: [
       object(['type', 'title'], { type: { const: 'set-project-title' }, title: text(120) }),
       object(['type', 'sceneId', 'title'], { type: { const: 'set-scene-title' }, sceneId: id(sceneIds), title: text(120) }),
-      object(['type', 'sceneId', 'turnId', 'text'], { type: { const: 'set-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds), text: text(500) }),
-      object(['type', 'sceneId', 'turnId', 'voiceId'], { type: { const: 'set-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds), voiceId: id(voices) }),
+      // set-dialogue-turn: cualquier combinación de texto, voz, gesto o pausa (B2).
+      object(['type', 'sceneId', 'turnId'], {
+        type: { const: 'set-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds),
+        text: text(DIRECTOR_TEXT_MAX_LENGTH), voiceId: id(voices), gestureId: enumOf(gestures),
+        gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 },
+      }),
       object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-character-resource' }, sceneId: id(sceneIds), elementId: id(elementIds), resourceId: id(characters) }),
       object(['type', 'sceneId', 'elementId', 'animationPreset'], {
         type: { const: 'set-character-animation' }, sceneId: id(sceneIds), elementId: id(elementIds),
-        animationPreset: { type: 'string', enum: ['idle-calm', 'talk-calm'] },
+        animationPreset: enumOf(animationPresets),
       }),
       object(['type', 'sceneId', 'resourceId', 'cameraPreset'], {
         type: { const: 'set-scene-background' }, sceneId: id(sceneIds), resourceId: id(backgrounds),
-        cameraPreset: { type: 'string', enum: ['static', 'slow-pan-left', 'slow-pan-right', 'slow-zoom'] },
+        cameraPreset: enumOf(cameraPresets),
       }),
-      object(['type', 'sceneId', 'elementId', 'x', 'y'], {
+      // set-character-transform: posición, escala y/o profundidad (B2).
+      object(['type', 'sceneId', 'elementId'], {
         type: { const: 'set-character-transform' }, sceneId: id(sceneIds), elementId: id(elementIds),
         x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
+        scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
       }),
       object(['type', 'sceneId', 'preset', 'durationSeconds'], {
         type: { const: 'set-transition' }, sceneId: id(sceneIds), preset: { enum: ['cut', 'fade'] },
         durationSeconds: { type: 'number', minimum: 0, maximum: 2 },
+      }),
+      // Comandos estructurales (B1).
+      object(['type', 'scene'], {
+        type: { const: 'add-scene' },
+        scene: {
+          type: 'object', additionalProperties: false,
+          required: ['id', 'title', 'background', 'elements', 'dialogue'],
+          properties: {
+            id: newId(), title: text(120),
+            background: {
+              type: 'object', additionalProperties: false, required: ['resourceId', 'cameraPreset'],
+              properties: { resourceId: id(backgrounds), cameraPreset: enumOf(cameraPresets) },
+            },
+            elements: { type: 'array', maxItems: 0 },
+            dialogue: { type: 'array', maxItems: 0 },
+          },
+        },
+      }),
+      object(['type', 'sceneId', 'newSceneId', 'title'], {
+        type: { const: 'duplicate-scene' }, sceneId: id(sceneIds), newSceneId: newId(), title: text(120),
+      }),
+      object(['type', 'sceneId'], { type: { const: 'delete-scene' }, sceneId: id(sceneIds) }),
+      object(['type', 'sceneId', 'turnId', 'speakerElementId', 'text', 'voiceId', 'gestureId', 'gapAfterSeconds'], {
+        type: { const: 'add-dialogue-turn' }, sceneId: id(sceneIds), turnId: newId(), speakerElementId: id(elementIds),
+        text: text(DIRECTOR_TEXT_MAX_LENGTH), voiceId: id(voices), gestureId: enumOf(gestures),
+        gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 }, afterTurnId: id(turnIds),
+      }),
+      object(['type', 'sceneId', 'turnId'], { type: { const: 'delete-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds) }),
+      object(['type', 'sceneId', 'turnId', 'speakerElementId'], {
+        type: { const: 'set-dialogue-speaker' }, sceneId: id(sceneIds), turnId: id(turnIds), speakerElementId: id(elementIds),
+      }),
+      object(['type', 'sceneIds'], {
+        type: { const: 'reorder-scenes' },
+        sceneIds: { type: 'array', items: id(sceneIds), minItems: sceneIds.length || 1, maxItems: sceneIds.length || 1 },
       }),
     ],
   };
@@ -107,11 +165,25 @@ function summarizeProject(project) {
       id: scene.id,
       title: scene.title,
       background: scene.background,
+      transitionToNext: scene.transitionToNext || null,
       characters: scene.elements.filter((element) => element.type === 'character').map((element) => ({
-        id: element.id, resourceId: element.resourceId, x: element.transform.x, y: element.transform.y,
+        id: element.id,
+        resourceId: element.resourceId,
+        poseId: element.poseId,
+        animationPreset: element.animationPreset,
+        x: element.transform.x,
+        y: element.transform.y,
+        scale: element.transform.scale,
+        zIndex: element.transform.zIndex,
       })),
       dialogue: scene.dialogue.map((turn, turnIndex) => ({
-        number: turnIndex + 1, id: turn.id, speakerElementId: turn.speakerElementId, text: turn.text, voiceId: turn.voiceId,
+        number: turnIndex + 1,
+        id: turn.id,
+        speakerElementId: turn.speakerElementId,
+        text: turn.text,
+        voiceId: turn.voiceId,
+        gestureId: turn.gestureId,
+        gapAfterSeconds: turn.gapAfterSeconds,
       })),
     })),
   };
@@ -119,6 +191,14 @@ function summarizeProject(project) {
 
 function object(required, properties) {
   return { type: 'object', additionalProperties: false, required, properties };
+}
+
+function enumOf(values) {
+  return { type: 'string', enum: values.length ? values : ['none'] };
+}
+
+function newId() {
+  return { type: 'string', pattern: '^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$' };
 }
 
 function text(maxLength) {
