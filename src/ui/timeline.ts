@@ -17,6 +17,12 @@ import {
   projectSelection,
   selectProjectItem,
 } from './project/selection.js';
+import {
+  pauseLabel,
+  rulerTicks,
+  transitionGlyph,
+  transitionLabel,
+} from './timeline-geometry.js';
 
 const MIN_PIXELS_PER_SECOND = 20;
 const MAX_PIXELS_PER_SECOND = 220;
@@ -155,8 +161,11 @@ function renderLayerStack(
   const totalWidth = Math.max(640, (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0));
   const rows: HTMLElement[] = [
     authoringRuler(project, positions, totalWidth, measured),
-    trackDivider('VISUAL', 'Capas que forman la imagen'),
   ];
+  if (project.scenes.length >= 2) {
+    rows.push(transitionsRow(project, positions, sceneWidths, totalWidth, measured));
+  }
+  rows.push(trackDivider('VISUAL', 'Capas que forman la imagen'));
   rows.push(authoringTrack('BG', 'Fondos', totalWidth, project.scenes.map((scene, index) => {
     const duration = measured?.scenes[index] ? measured.scenes[index].endSeconds - measured.scenes[index].startSeconds : null;
     const clip = authoringClip(
@@ -212,6 +221,9 @@ function renderLayerStack(
           clip.addEventListener('click', () => selectDialogue(scene.id, turn.id));
           clip.addEventListener('dblclick', () => selectDialogue(scene.id, turn.id));
           clips.push(clip);
+          if (turn.gapAfterSeconds > 0) {
+            clips.push(pauseMarker(cursor + width, turn.gapAfterSeconds));
+          }
         }
         cursor += width;
       }
@@ -271,6 +283,48 @@ function authoringRuler(
   });
   row.append(label, ruler);
   return row;
+}
+
+function transitionsRow(
+  project: ReturnType<ProjectStore['project']>,
+  positions: number[],
+  sceneWidths: number[],
+  width: number,
+  measured: MeasuredProjectTimeline | null,
+): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'authoring-track-row authoring-junction-row';
+  const label = document.createElement('div');
+  label.className = 'authoring-track-label';
+  label.innerHTML = '<strong>UNIÓN</strong><span>Transiciones</span>';
+  const lane = document.createElement('div');
+  lane.className = 'authoring-junction-lane';
+  lane.style.width = `${Math.ceil(width)}px`;
+  for (let index = 0; index < project.scenes.length - 1; index += 1) {
+    const transition = project.scenes[index].transitionToNext ?? { preset: 'cut', durationSeconds: 0 };
+    const boundary = measured?.scenes[index]
+      ? measured.scenes[index].endSeconds * pixelsPerSecond
+      : positions[index] + sceneWidths[index];
+    const chip = document.createElement('span');
+    chip.className = `transition-chip is-${transition.preset}`;
+    chip.style.left = `${boundary}px`;
+    chip.textContent = transitionGlyph(transition.preset, transition.durationSeconds);
+    chip.title = `${transitionLabel(transition.preset, transition.durationSeconds)} · entre ${project.scenes[index].title} y ${project.scenes[index + 1].title}`;
+    lane.append(chip);
+  }
+  row.append(label, lane);
+  return row;
+}
+
+function pauseMarker(left: number, seconds: number): HTMLElement {
+  const marker = document.createElement('span');
+  marker.className = 'dialogue-pause';
+  marker.style.left = `${left}px`;
+  marker.title = `Pausa ${pauseLabel(seconds)}`;
+  const badge = document.createElement('small');
+  badge.textContent = pauseLabel(seconds);
+  marker.append(badge);
+  return marker;
 }
 
 function trackDivider(title: string, detail: string): HTMLElement {

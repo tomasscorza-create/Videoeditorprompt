@@ -12,7 +12,7 @@ import { projectRoot, readJson } from '../stage1/common.mjs';
 // Se elige compilar (en vez de refactorizar) para no cambiar la superficie del código.
 const outDir = mkdtempSync(path.join(os.tmpdir(), 'local-video-ui-modules-'));
 const tsc = path.join(projectRoot, 'node_modules', 'typescript', 'bin', 'tsc');
-const sources = ['src/ui/editor-workspace.ts', 'src/ui/project/store.ts'];
+const sources = ['src/ui/editor-workspace.ts', 'src/ui/project/store.ts', 'src/ui/timeline-geometry.ts'];
 const compile = spawnSync(process.execPath, [
   tsc,
   ...sources,
@@ -66,8 +66,12 @@ function fakeVideo() {
   };
 }
 
+const geometryPath = path.join(outDir, 'src', 'ui', 'timeline-geometry.js');
+assert.equal(existsSync(geometryPath), true, 'timeline-geometry.js no se compiló');
+
 const workspace = await import(pathToFileURL(workspacePath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
+const geometry = await import(pathToFileURL(geometryPath).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 
 let passed = 0;
@@ -149,5 +153,13 @@ check('rehacer reaplica el cambio', store.canRedo() === false);
 check('el JSON exportado refleja el título aplicado', JSON.parse(store.exportJson()).title === 'Título de prueba');
 const catalogCharacters = catalog.entries.filter((entry) => entry.type === 'character').length;
 check('los recursos provienen del catálogo del motor', store.resources('character').length === catalogCharacters);
+
+// ---- timeline-geometry.ts: glifos de transición y rótulo de pausa (A3) ----
+check('el corte se muestra con tijera', geometry.transitionGlyph('cut', 0) === '✂');
+check('el fundido muestra rombo con duración', geometry.transitionGlyph('fade', 0.35) === '◇ 0.35 s');
+check('el fundido sin duración muestra solo el rombo', geometry.transitionGlyph('fade', 0) === '◇');
+check('el rótulo del corte es descriptivo', geometry.transitionLabel('cut', 0) === 'Corte directo');
+check('el rótulo del fundido incluye la duración', geometry.transitionLabel('fade', 0.5) === 'Fundido 0.5 s');
+check('el rótulo de pausa formatea segundos', geometry.pauseLabel(0.4) === '0.4 s');
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);
