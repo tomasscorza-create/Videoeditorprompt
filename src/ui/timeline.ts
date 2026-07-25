@@ -192,7 +192,7 @@ function renderLayerStack(
       sceneWidths[index],
       'background',
     );
-    bindSceneClip(clip, scene.id);
+    bindSceneClip(clip, scene.id, measured?.scenes[index]?.startSeconds ?? 0);
     if (measured && output) {
       attachFilmstripCanvas(clip, measured.scenes[index].startSeconds, measured.scenes[index].endSeconds);
     }
@@ -213,7 +213,8 @@ function renderLayerStack(
         'character',
         selection?.kind === 'element' && selection.elementId === element.id,
       );
-      clip.addEventListener('click', () => selectElement(scene.id, element.id));
+      const characterStart = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
+      clip.addEventListener('click', () => clipSingleClick(characterStart, () => selectElement(scene.id, element.id), () => selectElementCore(scene.id, element.id)));
       clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
       clip.addEventListener('contextmenu', (event) => {
         event.preventDefault();
@@ -244,7 +245,8 @@ function renderLayerStack(
             'dialogue',
             selection?.kind === 'dialogue' && selection.turnId === turn.id,
           );
-          clip.addEventListener('click', () => selectDialogue(scene.id, turn.id));
+          const turnStart = cursor / pixelsPerSecond;
+          clip.addEventListener('click', () => clipSingleClick(turnStart, () => selectDialogue(scene.id, turn.id), () => selectDialogueCore(scene.id, turn.id)));
           clip.addEventListener('dblclick', () => selectDialogue(scene.id, turn.id));
           clip.addEventListener('contextmenu', (event) => {
             event.preventDefault();
@@ -886,10 +888,10 @@ function authoringClip(
   return clip;
 }
 
-function bindSceneClip(clip: HTMLButtonElement, sceneId: string): void {
+function bindSceneClip(clip: HTMLButtonElement, sceneId: string, startSeconds: number): void {
   clip.draggable = true;
   clip.classList.toggle('is-selected', store?.selectedSceneId() === sceneId);
-  clip.addEventListener('click', () => selectScene(sceneId));
+  clip.addEventListener('click', () => clipSingleClick(startSeconds, () => selectScene(sceneId), () => selectSceneCore(sceneId)));
   clip.addEventListener('dblclick', () => selectScene(sceneId));
   clip.addEventListener('contextmenu', (event) => {
     event.preventDefault();
@@ -924,22 +926,50 @@ function bindSceneClip(clip: HTMLButtonElement, sceneId: string): void {
   });
 }
 
-function selectScene(sceneId: string): void {
-  showEditorCanvas();
+// El "core" aplica la selección (inspector + escena activa) SIN cambiar de superficie.
+// selectX = core + volver al lienzo (comportamiento de doble clic / edición).
+function selectSceneCore(sceneId: string): void {
   selectProjectItem({ kind: 'scene', sceneId });
   store?.dispatch({ type: 'select-scene', sceneId });
 }
 
-function selectElement(sceneId: string, elementId: string): void {
-  showEditorCanvas();
+function selectElementCore(sceneId: string, elementId: string): void {
   selectProjectItem({ kind: 'element', sceneId, elementId });
   store?.dispatch({ type: 'select-scene', sceneId });
 }
 
-function selectDialogue(sceneId: string, turnId: string): void {
-  showEditorCanvas();
+function selectDialogueCore(sceneId: string, turnId: string): void {
   selectProjectItem({ kind: 'dialogue', sceneId, turnId });
   store?.dispatch({ type: 'select-scene', sceneId });
+}
+
+function selectScene(sceneId: string): void {
+  showEditorCanvas();
+  selectSceneCore(sceneId);
+}
+
+function selectElement(sceneId: string, elementId: string): void {
+  showEditorCanvas();
+  selectElementCore(sceneId, elementId);
+}
+
+function selectDialogue(sceneId: string, turnId: string): void {
+  showEditorCanvas();
+  selectDialogueCore(sceneId, turnId);
+}
+
+// B7: un clic simple mientras se reproduce (modo medido) navega a un tiempo y selecciona
+// sin salir de playback; en cualquier otro caso (pausado o editorial) mantiene el
+// comportamiento actual (vuelve al lienzo). El doble clic siempre vuelve al lienzo.
+function clipSingleClick(startSeconds: number, selectWithCanvas: () => void, selectCore: () => void): void {
+  if (isMeasured() && editorWorkspace().playing) {
+    const target = clamp(startSeconds, 0, activeDuration());
+    seekEditorPlayback(target);
+    updateTimelineTime(target);
+    selectCore();
+  } else {
+    selectWithCanvas();
+  }
 }
 
 function seekTo(time: number): void {
