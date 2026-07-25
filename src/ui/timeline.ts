@@ -272,12 +272,22 @@ function authoringRuler(
       const bounds = ruler.getBoundingClientRect();
       seekTo(snapTime((event.clientX - bounds.left) / pixelsPerSecond));
     });
+    // Subdivisiones de segundos/medios/cuartos según el zoom (solo con medición).
+    for (const tick of rulerTicks(measured.durationSeconds, pixelsPerSecond)) {
+      const mark = document.createElement('span');
+      mark.className = `ruler-tick ${tick.major ? 'is-major' : 'is-minor'}`;
+      mark.style.left = `${tick.position}px`;
+      if (tick.major) mark.textContent = formatRulerTime(tick.seconds);
+      ruler.append(mark);
+    }
   }
+  // Fronteras de escena, siempre presentes y por encima de las subdivisiones.
   positions.forEach((left, index) => {
     const mark = document.createElement('span');
+    mark.className = 'ruler-scene';
     mark.style.left = `${left}px`;
     mark.textContent = measured
-      ? `${formatRulerTime(measured.scenes[index]?.startSeconds ?? 0)} · E${index + 1}`
+      ? `E${index + 1}`
       : `E${index + 1} · ${project.scenes[index].title}`;
     ruler.append(mark);
   });

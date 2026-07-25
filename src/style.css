@@ -889,6 +889,10 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .authoring-ruler-row { min-height: 1.55rem; }
 .authoring-track-ruler { position: relative; background: var(--bg); }
 .authoring-track-ruler span { position: absolute; bottom: 0; height: .65rem; border-left: 1px solid var(--border-strong); padding-left: .25rem; color: var(--muted); font: .52rem ui-monospace, monospace; white-space: nowrap; }
+.authoring-track-ruler .ruler-scene { z-index: 2; height: 1rem; border-left-color: var(--accent); color: var(--text); }
+.authoring-track-ruler .ruler-tick { z-index: 1; padding-left: .18rem; color: color-mix(in srgb, var(--muted) 80%, transparent); }
+.authoring-track-ruler .ruler-tick.is-major { height: .6rem; border-left-color: color-mix(in srgb, var(--border-strong) 80%, transparent); }
+.authoring-track-ruler .ruler-tick.is-minor { height: .3rem; border-left-color: color-mix(in srgb, var(--border-strong) 45%, transparent); }
 .authoring-track-divider { position: sticky; left: 0; z-index: 5; display: flex; align-items: center; gap: .5rem; min-height: 1.55rem; padding: .2rem .55rem; border-bottom: 1px solid var(--border-strong); background: var(--surface-3); }
 .authoring-track-divider strong { color: var(--accent); font-size: .6rem; letter-spacing: .08em; }
 .authoring-track-divider span { color: var(--muted); font-size: .54rem; }

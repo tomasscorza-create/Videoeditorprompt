@@ -162,4 +162,15 @@ check('el rótulo del corte es descriptivo', geometry.transitionLabel('cut', 0) 
 check('el rótulo del fundido incluye la duración', geometry.transitionLabel('fade', 0.5) === 'Fundido 0.5 s');
 check('el rótulo de pausa formatea segundos', geometry.pauseLabel(0.4) === '0.4 s');
 
+// ---- timeline-geometry.ts: subdivisiones de la regla (A4) ----
+check('sin duración no hay marcas de tiempo', geometry.rulerTicks(0, 60).length === 0);
+check('sin escala no hay marcas de tiempo', geometry.rulerTicks(10, 0).length === 0);
+const ticks = geometry.rulerTicks(10, 60);
+check('la regla arranca en cero', ticks[0].seconds === 0 && ticks[0].major === true);
+check('cada marca mayor cae sobre una marca real', ticks.filter((tick) => tick.major).every((tick) => ticks.includes(tick)));
+check('la posición es segundos por pixelsPerSecond', ticks.every((tick) => Math.abs(tick.position - tick.seconds * 60) < 1e-6));
+check('a más zoom, más marcas', geometry.rulerTicks(10, 200).length > geometry.rulerTicks(10, 30).length);
+check('el paso mayor crece cuando el zoom baja', geometry.chooseTickStep(20, 64) > geometry.chooseTickStep(120, 64));
+check('las marcas no superan la duración', geometry.rulerTicks(10, 60).every((tick) => tick.seconds <= 10 + 1e-6));
+
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);
