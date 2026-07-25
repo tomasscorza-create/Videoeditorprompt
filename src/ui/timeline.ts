@@ -253,6 +253,7 @@ function renderLayerStack(
             event.preventDefault();
             openContextMenu(clip, dialogueMenuItems(scene.id, turn.id, clip));
           });
+          bindDialogueDrag(clip, scene.id, turn.id);
           if (waveform) attachWaveformCanvas(clip, cursor / pixelsPerSecond, (cursor + width) / pixelsPerSecond);
           clips.push(clip);
           clips.push(gapHandle(scene.id, turn.id, cursor + width, turn.gapAfterSeconds));
@@ -1063,6 +1064,50 @@ function selectElementCore(sceneId: string, elementId: string): void {
 function selectDialogueCore(sceneId: string, turnId: string): void {
   selectProjectItem({ kind: 'dialogue', sceneId, turnId });
   store?.dispatch({ type: 'select-scene', sceneId });
+}
+
+const DIALOGUE_DRAG_TYPE = 'application/x-local-video-dialogue-turn';
+
+// C3: arrastrar un clip de diálogo sobre otro de la MISMA escena reordena los turnos.
+function bindDialogueDrag(clip: HTMLElement, sceneId: string, turnId: string): void {
+  clip.draggable = true;
+  clip.dataset.scene = sceneId;
+  clip.dataset.turn = turnId;
+  clip.addEventListener('dragstart', (event) => {
+    event.dataTransfer?.setData(DIALOGUE_DRAG_TYPE, JSON.stringify({ sceneId, turnId }));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    clip.classList.add('is-dragging');
+  });
+  clip.addEventListener('dragend', () => clip.classList.remove('is-dragging'));
+  clip.addEventListener('dragover', (event) => {
+    if (!event.dataTransfer?.types.includes(DIALOGUE_DRAG_TYPE)) return;
+    event.preventDefault();
+    clip.classList.add('is-drop-target');
+  });
+  clip.addEventListener('dragleave', () => clip.classList.remove('is-drop-target'));
+  clip.addEventListener('drop', (event) => {
+    if (!event.dataTransfer?.types.includes(DIALOGUE_DRAG_TYPE)) return;
+    event.preventDefault();
+    clip.classList.remove('is-drop-target');
+    try {
+      const data = JSON.parse(event.dataTransfer.getData(DIALOGUE_DRAG_TYPE)) as { sceneId: string; turnId: string };
+      if (data.sceneId === sceneId && data.turnId !== turnId) reorderTurns(sceneId, data.turnId, turnId);
+    } catch { /* payload inválido: ignorar */ }
+  });
+}
+
+function reorderTurns(sceneId: string, sourceTurnId: string, targetTurnId: string): void {
+  if (!store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  if (!scene) return;
+  const ids = scene.dialogue.map((turn) => turn.id);
+  const from = ids.indexOf(sourceTurnId);
+  const to = ids.indexOf(targetTurnId);
+  if (from < 0 || to < 0 || from === to) return;
+  ids.splice(from, 1);
+  ids.splice(to, 0, sourceTurnId);
+  store.dispatch({ type: 'reorder-dialogue-turns', sceneId, turnIds: ids });
+  selectDialogue(sceneId, sourceTurnId);
 }
 
 function selectScene(sceneId: string): void {
