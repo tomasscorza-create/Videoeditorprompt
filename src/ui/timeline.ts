@@ -208,6 +208,10 @@ function renderLayerStack(
       );
       clip.addEventListener('click', () => selectElement(scene.id, element.id));
       clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
+      clip.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        openContextMenu(clip, characterMenuItems(scene.id, element.id, clip));
+      });
       return [clip];
     });
     rows.push(authoringTrack(`V${slot + 1}`, `Personaje ${slot + 1}`, totalWidth, clips));
@@ -234,6 +238,10 @@ function renderLayerStack(
           );
           clip.addEventListener('click', () => selectDialogue(scene.id, turn.id));
           clip.addEventListener('dblclick', () => selectDialogue(scene.id, turn.id));
+          clip.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            openContextMenu(clip, dialogueMenuItems(scene.id, turn.id, clip));
+          });
           if (waveform) attachWaveformCanvas(clip, cursor / pixelsPerSecond, (cursor + width) / pixelsPerSecond);
           clips.push(clip);
           clips.push(gapHandle(scene.id, turn.id, cursor + width, turn.gapAfterSeconds));
@@ -497,6 +505,213 @@ function popoverPointerdown(event: PointerEvent): void {
   if (activePopover && !activePopover.contains(event.target as Node)) closeTimelinePopover();
 }
 
+// ---- B3: menú contextual por clip ----
+
+interface MenuItem {
+  label?: string;
+  action?: () => void;
+  disabled?: boolean;
+  separator?: boolean;
+}
+
+function openContextMenu(anchor: HTMLElement, items: MenuItem[]): void {
+  closeTimelinePopover();
+  const menu = document.createElement('div');
+  menu.className = 'timeline-popover context-menu';
+  menu.setAttribute('role', 'menu');
+  for (const item of items) {
+    if (item.separator) {
+      const separator = document.createElement('div');
+      separator.className = 'timeline-popover-separator';
+      menu.append(separator);
+      continue;
+    }
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'timeline-popover-item';
+    button.setAttribute('role', 'menuitem');
+    button.textContent = item.label ?? '';
+    if (item.disabled) button.disabled = true;
+    else button.addEventListener('click', () => { closeTimelinePopover(); item.action?.(); });
+    menu.append(button);
+  }
+  menu.addEventListener('keydown', menuKeydown);
+  positionPopover(menu, anchor);
+}
+
+// Navegación por teclado dentro del menú (flechas mueven el foco entre ítems activos).
+function menuKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  event.preventDefault();
+  const menu = event.currentTarget as HTMLElement;
+  const options = [...menu.querySelectorAll<HTMLButtonElement>('button:not([disabled])')];
+  if (options.length === 0) return;
+  const current = options.indexOf(document.activeElement as HTMLButtonElement);
+  const delta = event.key === 'ArrowDown' ? 1 : -1;
+  const next = (current + delta + options.length) % options.length;
+  options[next].focus();
+}
+
+function sceneMenuItems(sceneId: string, anchor: HTMLElement): MenuItem[] {
+  const scenes = store?.project().scenes ?? [];
+  const index = scenes.findIndex((scene) => scene.id === sceneId);
+  const canAdd = scenes.length < 8;
+  const isLast = index === scenes.length - 1;
+  return [
+    { label: 'Duplicar escena', disabled: !canAdd, action: () => duplicateSceneById(sceneId) },
+    { label: 'Insertar escena antes', disabled: !canAdd, action: () => insertSceneAt(sceneId, index) },
+    { label: 'Insertar escena después', disabled: !canAdd, action: () => insertSceneAt(sceneId, index + 1) },
+    { separator: true },
+    { label: '← Mover a la izquierda', disabled: index <= 0, action: () => moveScene(index, -1) },
+    { label: 'Mover a la derecha →', disabled: index < 0 || index >= scenes.length - 1, action: () => moveScene(index, 1) },
+    { separator: true },
+    { label: isLast ? 'Transición (no hay escena siguiente)' : 'Editar transición…', disabled: isLast, action: () => openTransitionPopoverForScene(sceneId, anchor) },
+    { separator: true },
+    { label: 'Eliminar escena', disabled: scenes.length <= 1, action: () => deleteSceneById(sceneId) },
+  ];
+}
+
+function characterMenuItems(sceneId: string, elementId: string, anchor: HTMLElement): MenuItem[] {
+  return [
+    { label: 'Cambiar recurso…', action: () => openResourcePicker(anchor, 'Personajes', 'character', (resourceId) => {
+      const error = store?.dispatch({ type: 'set-character-resource', sceneId, elementId, resourceId });
+      if (error) window.alert(error);
+    }) },
+    { separator: true },
+    { label: 'Quitar personaje', action: () => {
+      const error = store?.dispatch({ type: 'delete-element', sceneId, elementId });
+      if (error) window.alert(error);
+    } },
+  ];
+}
+
+function dialogueMenuItems(sceneId: string, turnId: string, anchor: HTMLElement): MenuItem[] {
+  const scene = store?.project().scenes.find((item) => item.id === sceneId);
+  const turnIndex = scene?.dialogue.findIndex((turn) => turn.id === turnId) ?? -1;
+  const turn = scene?.dialogue[turnIndex];
+  const previous = turnIndex > 0 ? scene?.dialogue[turnIndex - 1] : undefined;
+  const speakers = scene?.elements.filter((element) => element.type === 'character') ?? [];
+  const canAdd = (scene?.dialogue.length ?? 20) < 20;
+  const items: MenuItem[] = [
+    { label: 'Insertar turno antes', disabled: !canAdd || !turn || turnIndex === 0, action: () => turn && insertTurn(sceneId, turn, previous?.id) },
+    { label: 'Insertar turno después', disabled: !canAdd || !turn, action: () => turn && insertTurn(sceneId, turn, turn.id) },
+    { separator: true },
+  ];
+  if (speakers.length > 1) {
+    items.push({ label: 'Cambiar hablante…', action: () => openResourcePicker(
+      anchor,
+      'Hablante',
+      null,
+      (speakerElementId) => {
+        const error = store?.dispatch({ type: 'set-dialogue-speaker', sceneId, turnId, speakerElementId });
+        if (error) window.alert(error);
+      },
+      speakers.map((element) => ({ id: element.id, label: element.resourceId ?? element.id })),
+    ) });
+    items.push({ separator: true });
+  }
+  items.push({ label: 'Eliminar turno', action: () => store?.dispatch({ type: 'delete-dialogue-turn', sceneId, turnId }) });
+  return items;
+}
+
+// Lista de opciones (recursos del catálogo o hablantes) como un popover de selección.
+function openResourcePicker(
+  anchor: HTMLElement,
+  title: string,
+  resourceType: 'character' | null,
+  onPick: (id: string) => void,
+  explicit?: Array<{ id: string; label: string }>,
+): void {
+  const options = explicit ?? (resourceType ? store?.resources(resourceType).map((resource) => ({ id: resource.id, label: resource.label })) ?? [] : []);
+  const items: MenuItem[] = options.length > 0
+    ? options.map((option) => ({ label: option.label, action: () => onPick(option.id) }))
+    : [{ label: 'Sin opciones disponibles', disabled: true }];
+  openContextMenu(anchor, [{ label: title, disabled: true }, { separator: true }, ...items]);
+}
+
+function duplicateSceneById(sceneId: string): void {
+  if (!store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  if (!scene) return;
+  const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
+  const error = store.dispatch({ type: 'duplicate-scene', sceneId, newSceneId, title: `${scene.title} copia` });
+  if (!error) selectScene(newSceneId);
+}
+
+// Inserta una escena en blanco en `targetIndex` (add-scene appende + reorder la ubica).
+function insertSceneAt(referenceSceneId: string, targetIndex: number): void {
+  if (!store) return;
+  const reference = store.project().scenes.find((item) => item.id === referenceSceneId);
+  if (!reference) return;
+  const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
+  const error = store.dispatch({
+    type: 'add-scene',
+    scene: {
+      id: newSceneId,
+      title: 'Escena nueva',
+      background: { resourceId: reference.background.resourceId, cameraPreset: reference.background.cameraPreset },
+      elements: [],
+      dialogue: [],
+    },
+  });
+  if (error) { window.alert(error); return; }
+  const ids = store.project().scenes.map((item) => item.id).filter((id) => id !== newSceneId);
+  ids.splice(clamp(targetIndex, 0, ids.length), 0, newSceneId);
+  store.dispatch({ type: 'reorder-scenes', sceneIds: ids });
+  selectScene(newSceneId);
+}
+
+function moveScene(index: number, direction: -1 | 1): void {
+  if (!store) return;
+  const ids = store.project().scenes.map((item) => item.id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= ids.length) return;
+  [ids[index], ids[target]] = [ids[target], ids[index]];
+  store.dispatch({ type: 'reorder-scenes', sceneIds: ids });
+}
+
+function deleteSceneById(sceneId: string): void {
+  if (!store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  if (!scene || store.project().scenes.length <= 1 || !window.confirm(`¿Eliminar «${scene.title}»?`)) return;
+  store.dispatch({ type: 'delete-scene', sceneId });
+}
+
+function insertTurn(sceneId: string, reference: { speakerElementId: string; voiceId: string }, afterTurnId?: string): void {
+  if (!store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  if (!scene) return;
+  const turnId = nextTurnId(scene.dialogue.map((turn) => turn.id));
+  const command = {
+    type: 'add-dialogue-turn' as const,
+    sceneId,
+    turnId,
+    speakerElementId: reference.speakerElementId,
+    text: 'Nuevo diálogo',
+    voiceId: reference.voiceId,
+    gestureId: 'neutral' as const,
+    gapAfterSeconds: 0,
+    ...(afterTurnId ? { afterTurnId } : {}),
+  };
+  const error = store.dispatch(command);
+  if (error) window.alert(error);
+  else selectDialogue(sceneId, turnId);
+}
+
+function nextTurnId(existing: string[]): string {
+  const used = new Set(existing);
+  for (let index = 1; index <= 99; index += 1) {
+    const id = `turno-${String(index).padStart(2, '0')}`;
+    if (!used.has(id)) return id;
+  }
+  return `turno-${Date.now().toString(36)}`;
+}
+
+function openTransitionPopoverForScene(sceneId: string, anchor: HTMLElement): void {
+  const transition = store?.project().scenes.find((item) => item.id === sceneId)?.transitionToNext ?? { preset: 'cut' as const, durationSeconds: 0 };
+  openTransitionPopover(anchor, sceneId, transition.preset, transition.durationSeconds);
+}
+
 const GAP_MAX_SECONDS = 2;
 const GAP_SNAP_SECONDS = 0.1;
 
@@ -591,6 +806,10 @@ function bindSceneClip(clip: HTMLButtonElement, sceneId: string): void {
   clip.classList.toggle('is-selected', store?.selectedSceneId() === sceneId);
   clip.addEventListener('click', () => selectScene(sceneId));
   clip.addEventListener('dblclick', () => selectScene(sceneId));
+  clip.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    openContextMenu(clip, sceneMenuItems(sceneId, clip));
+  });
   clip.addEventListener('dragstart', (event) => {
     event.dataTransfer?.setData('application/x-local-video-scene', sceneId);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
