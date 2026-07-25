@@ -953,6 +953,29 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .timeline-popover-range input[type="range"] { width: 100%; }
 .timeline-popover-separator { height: 1px; margin: .1rem 0; background: var(--border); }
 .timeline-popover.context-menu { max-height: min(60vh, 22rem); overflow-y: auto; }
+.timeline-insert {
+  position: absolute;
+  top: 50%;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  background: var(--surface-2);
+  font-size: .7rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.authoring-track-row:hover .timeline-insert, .timeline-insert:focus-visible { opacity: 1; }
+.timeline-insert:hover { background: var(--accent); color: var(--surface); }
+.timeline-insert[disabled] { border-color: var(--border-strong); color: var(--muted); cursor: not-allowed; }
+.authoring-track-row:hover .timeline-insert[disabled] { opacity: .5; }
 .dialogue-gap {
   position: absolute;
   top: .22rem;

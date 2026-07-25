@@ -177,7 +177,7 @@ function renderLayerStack(
     rows.push(transitionsRow(project, positions, sceneWidths, totalWidth, measured));
   }
   rows.push(trackDivider('VISUAL', 'Capas que forman la imagen'));
-  rows.push(authoringTrack('BG', 'Fondos', totalWidth, project.scenes.map((scene, index) => {
+  const backgroundClips = project.scenes.map((scene, index) => {
     const duration = measured?.scenes[index] ? measured.scenes[index].endSeconds - measured.scenes[index].startSeconds : null;
     const clip = authoringClip(
       scene.title,
@@ -191,7 +191,8 @@ function renderLayerStack(
       attachFilmstripCanvas(clip, measured.scenes[index].startSeconds, measured.scenes[index].endSeconds);
     }
     return clip;
-  })));
+  });
+  rows.push(authoringTrack('BG', 'Fondos', totalWidth, [...backgroundClips, ...sceneInsertButtons(project, positions, sceneWidths)]));
   const maximumCharacters = Math.max(1, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'character').length));
   for (let slot = 0; slot < maximumCharacters; slot += 1) {
     const clips = project.scenes.flatMap((scene, sceneIndex) => {
@@ -245,6 +246,11 @@ function renderLayerStack(
           if (waveform) attachWaveformCanvas(clip, cursor / pixelsPerSecond, (cursor + width) / pixelsPerSecond);
           clips.push(clip);
           clips.push(gapHandle(scene.id, turn.id, cursor + width, turn.gapAfterSeconds));
+          const turnIndex = scene.dialogue.indexOf(turn);
+          if (turnIndex > 0 && scene.dialogue.length < 20) {
+            const previous = scene.dialogue[turnIndex - 1];
+            clips.push(insertButton(cursor, 'Insertar turno aquí', false, () => insertTurn(scene.id, turn, previous.id)));
+          }
         }
         cursor += width;
       }
@@ -710,6 +716,39 @@ function nextTurnId(existing: string[]): string {
 function openTransitionPopoverForScene(sceneId: string, anchor: HTMLElement): void {
   const transition = store?.project().scenes.find((item) => item.id === sceneId)?.transitionToNext ?? { preset: 'cut' as const, durationSeconds: 0 };
   openTransitionPopover(anchor, sceneId, transition.preset, transition.durationSeconds);
+}
+
+// ---- B4: insertar desde la timeline (botón + entre clips, visible al hover/foco) ----
+
+function insertButton(left: number, title: string, disabled: boolean, onClick: () => void): HTMLElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'timeline-insert';
+  button.textContent = '+';
+  button.style.left = `${left}px`;
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  if (disabled) button.disabled = true;
+  else button.addEventListener('click', (event) => { event.stopPropagation(); onClick(); });
+  return button;
+}
+
+function sceneInsertButtons(
+  project: ReturnType<ProjectStore['project']>,
+  positions: number[],
+  sceneWidths: number[],
+): HTMLElement[] {
+  const scenes = project.scenes;
+  const canAdd = scenes.length < 8;
+  const title = canAdd ? 'Insertar escena aquí' : 'Máximo de 8 escenas';
+  const buttons: HTMLElement[] = [
+    insertButton(positions[0] ?? 0, canAdd ? 'Insertar escena al inicio' : title, !canAdd, () => insertSceneAt(scenes[0].id, 0)),
+  ];
+  scenes.forEach((scene, index) => {
+    const boundary = (positions[index] ?? 0) + (sceneWidths[index] ?? 0);
+    buttons.push(insertButton(boundary, title, !canAdd, () => insertSceneAt(scene.id, index + 1)));
+  });
+  return buttons;
 }
 
 const GAP_MAX_SECONDS = 2;
