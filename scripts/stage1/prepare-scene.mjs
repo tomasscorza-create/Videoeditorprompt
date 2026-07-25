@@ -109,14 +109,14 @@ export function prepareJob(context, report = createProgressReporter(context)) {
     preparation: { cacheHit, ttsSeconds, analysisSeconds },
     voice: {
       model: config.voice.model,
-      locale: 'es_AR',
+      locale: 'es_MX',
       modelSampleRate: modelConfig.audio.sample_rate,
       quality: 'high',
-      source: 'https://huggingface.co/rhasspy/piper-voices/tree/main/es/es_AR/daniela/high',
-      dataset: 'OpenSLR 61',
-      datasetLicense: 'CC BY-SA 4.0',
+      source: 'https://huggingface.co/rhasspy/piper-voices/tree/main/es/es_MX/claude/high',
+      dataset: 'HirCoir Piper-TTS-Spanish',
+      datasetLicense: 'Apache-2.0',
       engine: 'piper-tts 1.5.0',
-      engineLicense: 'GPL-3.0-or-later',
+      engineLicense: 'MIT',
     },
   };
   const runtimePath = path.join(context.runtimeRoot, 'scene-runtime.json');

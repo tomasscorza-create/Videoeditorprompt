@@ -33,7 +33,7 @@
           "id": "turno-presentacion-01",
           "speakerElementId": "presentadora",
           "text": "Esta es la primera escena de un proyecto editable.",
-          "voiceId": "voz-daniela-ar-v1",
+          "voiceId": "voz-claude-mx-v1",
           "gestureId": "point",
           "gapAfterSeconds": 0.3
         },
@@ -83,7 +83,7 @@
           "id": "turno-cierre-02",
           "speakerElementId": "presentadora",
           "text": "El siguiente paso será medirlas y unirlas en un solo video.",
-          "voiceId": "voz-daniela-ar-v1",
+          "voiceId": "voz-claude-mx-v1",
           "gestureId": "neutral",
           "gapAfterSeconds": 0
         }

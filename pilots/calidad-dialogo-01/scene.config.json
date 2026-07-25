@@ -86,7 +86,7 @@
       "id": "turno-01",
       "speakerId": "presentadora",
       "text": "Probemos una conversación breve. Yo hablo con calma, hago una pausa y dejo que la otra persona responda.",
-      "voice": { "model": "es_AR-daniela-high", "lengthScale": 1.08, "volume": 1 },
+      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.08, "volume": 1 },
       "gesture": "point",
       "gapAfterSeconds": 0.35
     },
@@ -102,7 +102,7 @@
       "id": "turno-03",
       "speakerId": "presentadora",
       "text": "La boca debe cerrarse en cada silencio y evitar esos saltos rápidos que distraen.",
-      "voice": { "model": "es_AR-daniela-high", "lengthScale": 1.08, "volume": 1 },
+      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.08, "volume": 1 },
       "gesture": "neutral",
       "gapAfterSeconds": 0.35
     },

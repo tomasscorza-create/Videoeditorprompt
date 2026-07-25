@@ -11,7 +11,7 @@
     "mouthOpen": "assets/stage1/mouth_open.png"
   },
   "voice": {
-    "model": "es_AR-daniela-high",
+    "model": "es_MX-claude-high",
     "text": "Esta es una prueba de voz generada localmente para nuestro sistema de animación.",
     "lengthScale": 1.55,
     "volume": 1

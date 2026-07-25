@@ -55,7 +55,7 @@ assert.equal(firstConfig.characters[0].characterAssetId, 'mono-parametrico-azul-
 results.push({ name: 'canvas-transforms-and-character-ids-compile-to-v2', passed: true });
 
 assert.equal(firstConfig.dialogue[0].speakerId, 'presentadora');
-assert.equal(firstConfig.dialogue[0].voice.model, 'es_AR-daniela-high');
+assert.equal(firstConfig.dialogue[0].voice.model, 'es_MX-claude-high');
 assert.equal(firstConfig.dialogue[1].voice.model, 'es_ES-davefx-medium');
 results.push({ name: 'speaker-and-voice-ids-resolve-to-runtime-values', passed: true });
 

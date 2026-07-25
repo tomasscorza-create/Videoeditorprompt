@@ -50,7 +50,7 @@ export function prepareDialogueJob(context, config, report) {
       ttsText,
       mouthCues: analysis.cues,
       gesture: turn.gesture ?? 'neutral',
-      voice: { model: turn.voice.model, lengthScale: turn.voice.lengthScale, volume: turn.voice.volume },
+      voice: { model: turn.voice.model, ...(turn.voice.speaker !== undefined ? { speaker: turn.voice.speaker } : {}), lengthScale: turn.voice.lengthScale, volume: turn.voice.volume },
       cacheKey: generated.voiceKey,
       cacheHit: generated.cacheHit,
     });

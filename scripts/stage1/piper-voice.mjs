@@ -22,9 +22,9 @@ export function resolvePiperSupport(context, modelName) {
   };
 }
 
-export function generatePiperVoice(context, { text, model, lengthScale, volume }, report, detail = {}) {
+export function generatePiperVoice(context, { text, model, lengthScale, volume, speaker }, report, detail = {}) {
   const support = resolvePiperSupport(context, model);
-  const voiceKey = sha256(JSON.stringify({ model, text, lengthScale, volume }));
+  const voiceKey = sha256(JSON.stringify({ model, text, lengthScale, volume, speaker }));
   const cacheRoot = ensureDirectory(path.join(context.ttsRoot, 'cache'));
   const cacheWav = path.join(cacheRoot, `${voiceKey}.wav`);
   const voiceTempRoot = ensureDirectory(path.join(context.tempRoot, 'voice', detail.turnId || 'scene'));
@@ -40,10 +40,13 @@ export function generatePiperVoice(context, { text, model, lengthScale, volume }
   if (!cacheHit) {
     writeFileSync(inputText, `${text}\n`, 'utf8');
     const started = performance.now();
-    run(support.pythonPath, [
+    const piperArgs = [
       '-m', 'piper', '-m', support.modelPath, '-f', generatedVoice,
-      '--length-scale', String(lengthScale), '--volume', String(volume), '--input-file', inputText,
-    ], { stage: 'generating_voice', errorCode: 'PIPER_EXIT_NONZERO' });
+      '--length-scale', String(lengthScale), '--volume', String(volume),
+    ];
+    if (speaker !== undefined && speaker !== null) piperArgs.push('--speaker', String(speaker));
+    piperArgs.push('--input-file', inputText);
+    run(support.pythonPath, piperArgs, { stage: 'generating_voice', errorCode: 'PIPER_EXIT_NONZERO' });
     ttsSeconds = (performance.now() - started) / 1000;
     copyFileSync(generatedVoice, cacheWav);
   }

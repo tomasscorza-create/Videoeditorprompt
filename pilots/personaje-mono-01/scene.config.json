@@ -6,7 +6,7 @@
   },
   "characterManifest": "assets/characters/mono-presentador-v1/character.manifest.json",
   "voice": {
-    "model": "es_AR-daniela-high",
+    "model": "es_MX-claude-high",
     "text": "Ahora sí, este mono puede hablar, parpadear y señalar una idea sin que cada fotograma dependa de inteligencia artificial.",
     "lengthScale": 1.5,
     "volume": 1

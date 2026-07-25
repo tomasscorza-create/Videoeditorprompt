@@ -197,7 +197,7 @@ test('supports-incomplete-drafts-and-structural-authoring-commands', () => {
   });
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-vacia', turnId: 'turno-01',
-    speakerElementId: 'personaje-01', text: 'Primer turno.', voiceId: 'voz-daniela-ar-v1',
+    speakerElementId: 'personaje-01', text: 'Primer turno.', voiceId: 'voz-claude-mx-v1',
     gestureId: 'neutral', gapAfterSeconds: 0.2,
   });
   state = command(state, {
@@ -241,11 +241,11 @@ test('splits-a-scene-at-a-turn-boundary', () => {
   // renderizable necesita >= 2 turnos).
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-03',
-    speakerElementId: 'presentadora', text: 'Tercer turno.', voiceId: 'voz-daniela-ar-v1', gestureId: 'neutral', gapAfterSeconds: 0,
+    speakerElementId: 'presentadora', text: 'Tercer turno.', voiceId: 'voz-claude-mx-v1', gestureId: 'neutral', gapAfterSeconds: 0,
   });
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-04',
-    speakerElementId: 'analista', text: 'Cuarto turno.', voiceId: 'voz-daniela-ar-v1', gestureId: 'neutral', gapAfterSeconds: 0,
+    speakerElementId: 'analista', text: 'Cuarto turno.', voiceId: 'voz-claude-mx-v1', gestureId: 'neutral', gapAfterSeconds: 0,
   });
   state = command(state, { type: 'split-scene', sceneId: 'escena-presentacion', atTurnId: 'turno-presentacion-03', newSceneId: 'escena-partida' });
   assert.equal(state.project.scenes.length, 3);
