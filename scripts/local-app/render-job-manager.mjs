@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { PipelineError, serializeError } from '../stage1/errors.mjs';
@@ -24,7 +24,8 @@ export async function createRenderJobManager(options = {}) {
   const pipelineScript = path.join(root, 'scripts', 'stage3a', 'project-pipeline.mjs');
   const spawnImpl = options.spawnImpl || spawn;
   const terminateTree = options.terminateProcessTreeImpl || terminateProcessTree;
-  const repository = options.repository || createFileRenderJobRepository({ storageRoot: appJobsRoot });
+  const repositoryFactory = options.repositoryFactory || createFileRenderJobRepository;
+  const repository = options.repository || await repositoryFactory({ storageRoot: appJobsRoot });
   const jobs = new Map();
   let activeJobId = null;
   await recoverPersistedJobs();
@@ -212,7 +213,7 @@ export async function createRenderJobManager(options = {}) {
   }
 
   async function list() {
-    return repository.list();
+    return (await repository.list()).slice(0, MAX_IN_MEMORY_JOBS);
   }
 
   async function cancelActive() {

@@ -9,6 +9,17 @@ en archivos ni logs. Las operaciones mutantes exigen token, `Origin` y `Host` lo
 El build `dist/` no es una aplicación autónoma: debe servirse junto con la API local y
 su token de sesión. Para desarrollo y uso personal, usar siempre `npm run dev`.
 
+El backend de persistencia predeterminado es `filesystem`. Puede fijarse de forma
+explícita:
+
+```powershell
+$env:LOCAL_VIDEO_PERSISTENCE = "filesystem"
+npm run dev
+```
+
+No hay backend remoto instalado. Cualquier otro valor detiene el arranque con
+`PERSISTENCE_BACKEND_UNSUPPORTED`; nunca se degrada silenciosamente a filesystem.
+
 ## Render y recuperación
 
 La interfaz usa verificación `interactive`: produce una pasada por escena y valida

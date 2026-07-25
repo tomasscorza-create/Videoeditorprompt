@@ -10,9 +10,13 @@ import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
 import { createRenderJobManager, streamVideoResponse } from './render-job-manager.mjs';
-import { createResourceLibrary } from './resource-library.mjs';
+import {
+  createResourceLibrary,
+  createResourceLibraryRepository,
+} from './resource-library.mjs';
 import { createProjectRepository } from './project-repository.mjs';
 import { runStartupRetention } from './retention.mjs';
+import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
@@ -30,21 +34,36 @@ export async function createLocalAppServer(options = {}) {
   const sessionToken = String(options.sessionToken || randomBytes(32).toString('hex'));
   const root = path.resolve(options.root || projectRoot);
   const assetsRoot = path.resolve(options.assetsRoot || path.join(root, 'public'));
+  const persistence = String(
+    options.persistence || process.env.LOCAL_VIDEO_PERSISTENCE || 'filesystem',
+  );
+  if (persistence !== 'filesystem') {
+    const error = new Error(`Backend de persistencia no soportado: ${persistence}.`);
+    error.code = 'PERSISTENCE_BACKEND_UNSUPPORTED';
+    throw error;
+  }
   const builtinCatalog = options.catalog || loadAuthoringCatalog(assetsRoot);
   const library = options.library || await createResourceLibrary({
     assetsRoot,
     builtinCatalog,
     storageRoot: options.libraryStorageRoot,
     publishRoot: options.libraryPublishRoot,
+    repository: options.resourceRepository,
+    repositoryFactory: options.resourceRepositoryFactory || createResourceLibraryRepository,
   });
   const currentCatalog = () => library.catalog();
-  const projects = options.projects || createProjectRepository({ storageRoot: options.projectStorageRoot });
+  const projectRepositoryFactory = options.projectRepositoryFactory || createProjectRepository;
+  const projects = options.projects || projectRepositoryFactory({
+    storageRoot: options.projectStorageRoot,
+  });
   const ownsManager = !options.manager;
   const manager = options.manager || await createRenderJobManager({
     ...options,
     root,
     assetsRoot,
     catalogProvider: currentCatalog,
+    repository: options.renderJobRepository,
+    repositoryFactory: options.renderJobRepositoryFactory || createFileRenderJobRepository,
   });
   // Retención automática al arrancar: solo cuando este servicio administra su propio
   // ciclo de vida de jobs (producción). Si el manager viene inyectado (tests), no se
@@ -301,6 +320,7 @@ export async function createLocalAppServer(options = {}) {
     manager,
     library,
     projects,
+    persistence,
     sessionToken,
     listen() {
       return new Promise((resolve, reject) => {

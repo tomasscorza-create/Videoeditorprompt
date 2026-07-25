@@ -93,15 +93,37 @@ const director = async ({ prompt, signal, constraints }) => {
   };
 };
 let savedProject = project;
+let savedRevision = 'a'.repeat(64);
 const projects = {
-  list: () => [{ id: savedProject.id, title: savedProject.title, scenes: savedProject.scenes.length, updatedAt: new Date(0).toISOString() }],
+  list: () => [{
+    id: savedProject.id,
+    title: savedProject.title,
+    scenes: savedProject.scenes.length,
+    revision: savedRevision,
+    updatedAt: new Date(0).toISOString(),
+  }],
   get: (id) => {
     if (id !== savedProject.id) throw Object.assign(new Error('No existe.'), { code: 'PROJECT_NOT_FOUND' });
-    return { project: savedProject, revision: 'a'.repeat(64) };
+    return { project: savedProject, revision: savedRevision };
   },
-  save: (value) => {
+  save: (value, expectedRevision) => {
+    if (expectedRevision && expectedRevision !== savedRevision) {
+      throw Object.assign(new Error('Conflicto de revisión.'), { code: 'PROJECT_REVISION_CONFLICT' });
+    }
     savedProject = value;
-    return { created: false, project: value, summary: { id: value.id, title: value.title, scenes: value.scenes.length, updatedAt: new Date(0).toISOString() } };
+    savedRevision = 'b'.repeat(64);
+    return {
+      created: false,
+      project: value,
+      revision: savedRevision,
+      summary: {
+        id: value.id,
+        title: value.title,
+        scenes: value.scenes.length,
+        revision: savedRevision,
+        updatedAt: new Date(0).toISOString(),
+      },
+    };
   },
   remove: (id) => id === savedProject.id,
 };
@@ -120,6 +142,11 @@ const app = await createLocalAppServer({
   projects,
   ollamaInspector: async () => ({ available: true, modelInstalled: true, model: 'qwen3:8b', version: 'test' }),
 });
+assert.equal(app.persistence, 'filesystem');
+await assert.rejects(
+  () => createLocalAppServer({ persistence: 'postgres-s3' }),
+  (error) => error.code === 'PERSISTENCE_BACKEND_UNSUPPORTED',
+);
 const listening = await app.listen();
 const request = (pathname, options = {}) => fetch(`${listening.url}${pathname}`, {
   ...options,
@@ -229,6 +256,13 @@ const saveProjectResponse = await request(`/api/projects/${project.id}`, {
 assert.equal(saveProjectResponse.status, 200);
 assert.equal((await saveProjectResponse.json()).summary.title, 'Guardado durable');
 
+const staleProjectResponse = await request(`/api/projects/${project.id}`, {
+  method: 'PUT',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ project, expectedRevision: 'a'.repeat(64) }),
+});
+assert.equal(staleProjectResponse.status, 409);
+
 const validationResponse = await request('/api/projects/validate', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
@@ -317,4 +351,4 @@ const missing = await request('/api/render-jobs/render-missing');
 assert.equal(missing.status, 404);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 44, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 47, failed: 0, url: listening.url })}\n`);

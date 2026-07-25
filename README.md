@@ -137,6 +137,7 @@ npm run local:test-library
 npm run local:test-server
 npm run local:test-render-manager
 npm run local:test-retention
+npm run storage:test-filesystem
 npm run stage3b:test-contracts
 npm test
 ```
@@ -225,6 +226,7 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [Creador local de personajes](docs/CREADOR_PERSONAJES.md) | Plantillas, construcción geométrica semántica, persistencia y límites. |
 | [Biblioteca local](docs/BIBLIOTECA_LOCAL.md) | Registro durable, publicación del catálogo, API, seguridad y límites. |
 | [Operación local](docs/OPERACION_LOCAL.md) | Seguridad de sesión, recuperación, render interactivo y retención. |
+| [Persistencia filesystem P1](docs/PERSISTENCIA_FILESYSTEM_P1.md) | Contratos async, adaptadores filesystem, revisiones, jobs y blobs. |
 | [Dependencias de IA](docs/DEPENDENCIAS_IA_LOCAL.md) | Procedencia y licencias declaradas de Ollama y Qwen. |
 | [Visión de producto y Etapa 2F](docs/VISION_PRODUCTO_Y_ETAPA_2F.md) | Flujo creativo y dirección del producto. |
 | [Flujo de colaboración](docs/FLUJO_COLABORACION_CODEX_CLAUDE.md) | Reglas usadas para integrar motor y UX/UI. |

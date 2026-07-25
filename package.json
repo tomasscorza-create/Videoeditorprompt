@@ -52,6 +52,7 @@
     "local:test-projects": "node scripts/local-app/test-project-repository.mjs",
     "local:test-render-manager": "node scripts/local-app/test-render-job-manager.mjs",
     "local:test-retention": "node scripts/local-app/test-retention.mjs",
+    "storage:test-filesystem": "node scripts/storage/test-filesystem-adapters.mjs",
     "ui:test-modules": "node scripts/ui/test-ui-modules.mjs",
     "local:clean": "node scripts/local-app/retention.mjs"
   },

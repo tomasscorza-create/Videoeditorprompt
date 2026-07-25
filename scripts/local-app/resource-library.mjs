@@ -74,13 +74,10 @@ export async function createResourceLibrary(options = {}) {
     readFileSync(path.join(assetsRoot, 'assets', 'catalog', 'authoring-resources.json'), 'utf8'),
   ));
   validateCatalog(builtinCatalog, assetsRoot);
-  const repository = options.repository || await createFileResourceRepository({
+  const repositoryFactory = options.repositoryFactory || createResourceLibraryRepository;
+  const repository = options.repository || await repositoryFactory({
     indexPath,
-    validateRegistry,
-    normalizeRegistry: (value) => upgradeManagedCharacterCapabilities(
-      value,
-      publishedAssetsRelative,
-    ),
+    publishedAssetsRelative,
   });
   let registry = { version: 1, entries: await repository.list() };
   validateRegistry(registry);
@@ -409,6 +406,17 @@ export async function createResourceLibrary(options = {}) {
       ...registry.entries.map((record) => summary(record.entry, 'local', record)),
     ].find((resource) => resource.id === id);
   }
+}
+
+export async function createResourceLibraryRepository(options) {
+  return createFileResourceRepository({
+    indexPath: options.indexPath,
+    validateRegistry,
+    normalizeRegistry: (value) => upgradeManagedCharacterCapabilities(
+      value,
+      options.publishedAssetsRelative,
+    ),
+  });
 }
 
 function upgradeManagedCharacterCapabilities(registry, publishedAssetsRelative) {
