@@ -14,7 +14,7 @@ const validPlan = {
       role: 'presentadora optimista',
       characterResourceId: 'mono-azul-v1',
       voiceId: 'voz-daniela-ar-v1',
-      poseId: 'point',
+      poseId: 'neutral',
       animationPreset: 'talk-calm',
     },
     b: {
@@ -107,8 +107,8 @@ assert.throws(
   (error) => error.code === 'DIRECTOR_RESOURCE_UNSUPPORTED',
 );
 
-// A1/A2: pose y animación elegidas por el plan llegan al proyecto normalizado.
-assert.equal(normalizedA.project.scenes[0].elements[0].poseId, 'point');
+// La pose inicial compilable y la animación elegida llegan al proyecto normalizado.
+assert.equal(normalizedA.project.scenes[0].elements[0].poseId, 'neutral');
 assert.equal(normalizedA.project.scenes[0].elements[0].animationPreset, 'talk-calm');
 assert.equal(normalizedA.project.scenes[0].elements[1].poseId, 'neutral');
 assert.equal(normalizedA.project.scenes[0].elements[1].animationPreset, 'idle-calm');
@@ -116,13 +116,13 @@ assert.equal(normalizedA.project.scenes[0].elements[1].animationPreset, 'idle-ca
 // A3: la duración de fundido pedida por la IA sobrevive hasta el proyecto validado.
 assert.equal(normalizedA.project.scenes[0].transitionToNext.durationSeconds, 0.6);
 
-// A1/A2: una pose no soportada por ese personaje se rechaza con recurso no soportado.
+// `point` sigue siendo gesto de diálogo, pero el contrato lo rechaza como pose inicial.
 assert.throws(
   () => validateDirectorPlan({
     ...validPlan,
-    cast: { ...validPlan.cast, a: { ...validPlan.cast.a, poseId: 'inexistente' } },
+    cast: { ...validPlan.cast, a: { ...validPlan.cast.a, poseId: 'point' } },
   }, catalog),
-  (error) => error.code === 'DIRECTOR_RESOURCE_UNSUPPORTED',
+  (error) => error.code === 'DIRECTOR_PLAN_SCHEMA_INVALID',
 );
 assert.throws(
   () => validateDirectorPlan({

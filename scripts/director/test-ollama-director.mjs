@@ -10,7 +10,7 @@ const plan = {
   tone: 'educational',
   targetDurationSeconds: 20,
   cast: {
-    a: { role: 'optimista', characterResourceId: 'mono-azul-v1', voiceId: 'voz-daniela-ar-v1', poseId: 'point', animationPreset: 'talk-calm' },
+    a: { role: 'optimista', characterResourceId: 'mono-azul-v1', voiceId: 'voz-daniela-ar-v1', poseId: 'neutral', animationPreset: 'talk-calm' },
     b: { role: 'escéptico', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-davefx-es-v1', poseId: 'neutral', animationPreset: 'idle-calm' },
   },
   scenes: [{
@@ -38,7 +38,7 @@ const fakeFetch = async (url, options = {}) => {
     assert.equal(request.model, 'qwen3:8b');
     assert.equal(request.stream, false);
     assert.equal(request.format.$defs.castMember.properties.characterResourceId.enum.length, 7);
-    assert.ok(request.format.$defs.castMember.properties.poseId.enum.includes('point'));
+    assert.equal(request.format.$defs.castMember.properties.poseId.const, 'neutral');
     assert.ok(request.format.$defs.castMember.properties.animationPreset.enum.includes('talk-calm'));
     assert.equal(request.format.$defs.scene.properties.transitionDurationSeconds.maximum, 1);
     assert.ok(request.format.$defs.scene.properties.layoutPreset.enum.includes('stacked'));

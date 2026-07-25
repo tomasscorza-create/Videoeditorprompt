@@ -46,7 +46,7 @@
         "role": { "type": "string", "minLength": 1, "maxLength": 60 },
         "characterResourceId": { "$ref": "#/$defs/id" },
         "voiceId": { "$ref": "#/$defs/id" },
-        "poseId": { "$ref": "#/$defs/id" },
+        "poseId": { "const": "neutral" },
         "animationPreset": { "$ref": "#/$defs/id" }
       }
     },
