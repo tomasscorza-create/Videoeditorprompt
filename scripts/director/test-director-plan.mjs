@@ -13,7 +13,7 @@ const validPlan = {
     a: {
       role: 'presentadora optimista',
       characterResourceId: 'mono-azul-v1',
-      voiceId: 'voz-daniela-ar-v1',
+      voiceId: 'voz-claude-mx-v1',
       poseId: 'point',
       animationPreset: 'talk-calm',
     },

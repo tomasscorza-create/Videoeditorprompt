@@ -15,7 +15,7 @@
     "mouthOpen": "assets/pilots/monos-mundial-01/overlay-transparent.png"
   },
   "voice": {
-    "model": "es_AR-daniela-high",
+    "model": "es_MX-claude-high",
     "text": "Este Mundial lo gana mi selección caminando. Sí, claro: como los últimos cuatro que ganaste en Twitter. El fútbol no entiende de estadísticas. Exacto. Por eso todos somos técnicos cuando empieza el Mundial.",
     "lengthScale": 1.25,
     "volume": 1

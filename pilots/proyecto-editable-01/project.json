@@ -43,7 +43,7 @@
           "id": "turno-intro-01",
           "speakerElementId": "presentadora",
           "text": "La inteligencia artificial puede proponer una primera versión del video.",
-          "voiceId": "voz-daniela-ar-v1",
+          "voiceId": "voz-claude-mx-v1",
           "gestureId": "point",
           "gapAfterSeconds": 0.3
         },
@@ -87,7 +87,7 @@
           "id": "turno-cierre-01",
           "speakerElementId": "presentadora",
           "text": "El mismo proyecto sirve para generar, editar y exportar sin perder el control.",
-          "voiceId": "voz-daniela-ar-v1",
+          "voiceId": "voz-claude-mx-v1",
           "gestureId": "point",
           "gapAfterSeconds": 0
         }

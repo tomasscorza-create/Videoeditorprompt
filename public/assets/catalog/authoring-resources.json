@@ -128,20 +128,55 @@
       }
     },
     {
-      "id": "voz-daniela-ar-v1",
+      "id": "voz-ald-mx-v1",
       "type": "voice",
-      "label": "Daniela — español de Argentina",
-      "tags": ["argentina", "espanol", "piper"],
+      "label": "ALd — español de México (masculina)",
+      "tags": ["espanol", "latino", "masculina", "mexico", "piper"],
       "voice": {
         "provider": "piper",
-        "model": "es_AR-daniela-high",
-        "locale": "es_AR",
-        "lengthScale": 1.08,
+        "model": "es_MX-ald-medium",
+        "locale": "es_MX",
+        "lengthScale": 1.05,
         "volume": 1
       },
       "provenance": {
-        "source": "Piper Voices, modelo es_AR-daniela-high; dataset OpenSLR 61.",
-        "license": "Motor GPL-3.0-or-later; dataset CC BY-SA 4.0."
+        "source": "Piper Voices, modelo es_MX-ald-medium; dataset Ald Mexican Spanish (rmcpantoja).",
+        "license": "Motor MIT; dataset Unlicense (dominio público)."
+      }
+    },
+    {
+      "id": "voz-claude-mx-v1",
+      "type": "voice",
+      "label": "Claude — español de México (femenina)",
+      "tags": ["espanol", "femenina", "latino", "mexico", "piper"],
+      "voice": {
+        "provider": "piper",
+        "model": "es_MX-claude-high",
+        "locale": "es_MX",
+        "lengthScale": 1,
+        "volume": 1
+      },
+      "provenance": {
+        "source": "Piper Voices, modelo es_MX-claude-high; dataset HirCoir Piper-TTS-Spanish.",
+        "license": "Motor MIT; dataset Apache-2.0. REVISAR procedencia del audio base antes de vender."
+      }
+    },
+    {
+      "id": "voz-sharvard-es-v1",
+      "type": "voice",
+      "label": "sHarvard — español de España (femenina)",
+      "tags": ["espana", "espanol", "femenina", "piper"],
+      "voice": {
+        "provider": "piper",
+        "model": "es_ES-sharvard-medium",
+        "locale": "es_ES",
+        "speaker": 1,
+        "lengthScale": 1,
+        "volume": 1
+      },
+      "provenance": {
+        "source": "Piper Voices, modelo es_ES-sharvard-medium (hablante F, id 1); dataset Univ. Edimburgo datashare 10283/574.",
+        "license": "Motor MIT; dataset CC BY 3.0 (requiere atribución)."
       }
     },
     {

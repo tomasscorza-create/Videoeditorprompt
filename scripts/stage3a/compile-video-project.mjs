@@ -182,6 +182,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
       text: turn.text,
       voice: {
         model: voiceResource.voice.model,
+        ...(voiceResource.voice.speaker !== undefined ? { speaker: voiceResource.voice.speaker } : {}),
         lengthScale: voiceResource.voice.lengthScale,
         volume: voiceResource.voice.volume,
       },

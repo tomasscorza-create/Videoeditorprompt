@@ -10,7 +10,7 @@ const plan = {
   tone: 'educational',
   targetDurationSeconds: 20,
   cast: {
-    a: { role: 'optimista', characterResourceId: 'mono-azul-v1', voiceId: 'voz-daniela-ar-v1', poseId: 'point', animationPreset: 'talk-calm' },
+    a: { role: 'optimista', characterResourceId: 'mono-azul-v1', voiceId: 'voz-claude-mx-v1', poseId: 'point', animationPreset: 'talk-calm' },
     b: { role: 'escéptico', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-davefx-es-v1', poseId: 'neutral', animationPreset: 'idle-calm' },
   },
   scenes: [{

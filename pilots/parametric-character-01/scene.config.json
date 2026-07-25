@@ -30,7 +30,7 @@
       "id": "turno-01",
       "speakerId": "presentadora",
       "text": "Probemos una conversación breve. Yo hablo con calma, hago una pausa y dejo que la otra persona responda.",
-      "voice": { "model": "es_AR-daniela-high", "lengthScale": 1.08, "volume": 1 },
+      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.08, "volume": 1 },
       "gesture": "point",
       "gapAfterSeconds": 0.35
     },
