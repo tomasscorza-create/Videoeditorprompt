@@ -200,4 +200,10 @@ check('sin turnos la estimación es cero', geometry.estimateDurationSeconds([], 
 check('borrar un turno reduce la estimación', geometry.estimateDurationSeconds([5], [0], 2.5) < geometry.estimateDurationSeconds([5, 5], [0], 2.5));
 check('reducir la pausa reduce la estimación', geometry.estimateDurationSeconds([4], [0.2], 2.5) < geometry.estimateDurationSeconds([4], [1], 2.5));
 
+// ---- timeline-geometry.ts: geometría de clip por tiempos medidos (D1 consumo UI) ----
+const rect = geometry.turnClipRect(2, 1.5, 60, 4);
+check('el clip medido arranca en start * pps', rect.left === 120);
+check('el ancho del clip medido es duración * pps', rect.width === 90);
+check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.01, 60, 4).width === 4);
+
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);

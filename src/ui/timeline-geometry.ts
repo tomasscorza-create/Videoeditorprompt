@@ -72,6 +72,20 @@ export function pauseLabel(seconds: number): string {
   return `${roundTo(seconds, 2)} s`;
 }
 
+export interface ClipRect {
+  left: number;
+  width: number;
+}
+
+// Rectángulo de un clip a partir de tiempos MEDIDOS (inicio + duración reales por turno,
+// D1). Puro y testeable: reemplaza el prorrateo por palabras cuando hay medición.
+export function turnClipRect(startSeconds: number, durationSeconds: number, pixelsPerSecond: number, minWidth: number): ClipRect {
+  return {
+    left: startSeconds * pixelsPerSecond,
+    width: Math.max(minWidth, durationSeconds * pixelsPerSecond),
+  };
+}
+
 // Estimación APROXIMADA de la duración de una escena a partir del conteo de palabras y
 // las pausas, para el panel de "Acortar escena" (C1). NO es una medición: el motor mide
 // con Piper/FFprobe. Solo sirve para orientar el recorte y siempre se rotula aproximada.
