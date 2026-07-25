@@ -42,9 +42,10 @@ test('creates-frozen-state-with-real-resources', () => {
   const state = createProjectEditor(project, catalog);
   assert.equal(state.selectedSceneId, 'escena-presentacion');
   assert.equal(Object.isFrozen(state.project), true);
-  assert.equal(listEditorResources(state, 'character').length, 2);
-  assert.equal(listEditorResources(state, 'voice').length, 2);
-  assert.equal(listEditorResources(state, 'background').length, 1);
+  const catalogCount = (type) => catalog.entries.filter((entry) => entry.type === type).length;
+  assert.equal(listEditorResources(state, 'character').length, catalogCount('character'));
+  assert.equal(listEditorResources(state, 'voice').length, catalogCount('voice'));
+  assert.equal(listEditorResources(state, 'background').length, catalogCount('background'));
 });
 
 test('selection-does-not-create-project-history', () => {
