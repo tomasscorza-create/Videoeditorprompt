@@ -369,6 +369,48 @@ function applyMutation(project, catalog, command) {
       });
       return;
     }
+    case 'split-scene': {
+      if (project.scenes.length >= 8) fail('EDITOR_PROJECT_INVALID', 'El proyecto admite hasta ocho escenas.', '/command');
+      portableId(command.newSceneId, '/command/newSceneId');
+      if (project.scenes.some((scene) => scene.id === command.newSceneId)) fail('EDITOR_PROJECT_INVALID', 'El ID de la escena ya existe.', '/command/newSceneId');
+      const index = project.scenes.findIndex((scene) => scene.id === command.sceneId);
+      if (index < 0) fail('EDITOR_SCENE_NOT_FOUND', `No existe la escena ${command.sceneId}.`, '/command/sceneId');
+      const scene = project.scenes[index];
+      const turnIndex = scene.dialogue.findIndex((turn) => turn.id === command.atTurnId);
+      // Cada escena necesita al menos dos turnos para poder renderizarse, así que el corte
+      // (el turno indicado inicia la segunda escena) debe dejar >= 2 turnos a cada lado.
+      if (turnIndex < 2 || turnIndex > scene.dialogue.length - 2) {
+        fail('EDITOR_SPLIT_INVALID', 'El corte debe dejar al menos dos turnos a cada lado.', '/command/atTurnId');
+      }
+      const moved = scene.dialogue.slice(turnIndex);
+      const copy = cloneJson(scene);
+      copy.id = command.newSceneId;
+      copy.title = `${`${scene.title}`.slice(0, 112).trim()} · 2`;
+      copy.elements = copy.elements.map((element, position) => ({ ...element, id: `${command.newSceneId}-e${position + 1}` }));
+      const elementIds = new Map(scene.elements.map((element, position) => [element.id, copy.elements[position].id]));
+      copy.dialogue = moved.map((turn, position) => ({
+        ...cloneJson(turn),
+        id: `${command.newSceneId}-t${position + 1}`,
+        speakerElementId: elementIds.get(turn.speakerElementId) ?? turn.speakerElementId,
+      }));
+      // La escena original conserva sus primeros turnos; la nueva hereda la transición de
+      // salida (copy ya la clonó) y el corte entre ambas es un cut.
+      scene.dialogue = scene.dialogue.slice(0, turnIndex);
+      scene.transitionToNext = { preset: 'cut', durationSeconds: 0 };
+      project.scenes.splice(index + 1, 0, copy);
+      normalizeTransitions(project);
+      return;
+    }
+    case 'reorder-dialogue-turns': {
+      const scene = requireScene(project, command.sceneId);
+      if (!Array.isArray(command.turnIds) || command.turnIds.length !== scene.dialogue.length || new Set(command.turnIds).size !== scene.dialogue.length) {
+        fail('EDITOR_TURN_ORDER_INVALID', 'El orden debe contener cada turno exactamente una vez.', '/command/turnIds');
+      }
+      const byId = new Map(scene.dialogue.map((turn) => [turn.id, turn]));
+      if (command.turnIds.some((id) => !byId.has(id))) fail('EDITOR_TURN_ORDER_INVALID', 'El orden contiene un turno desconocido.', '/command/turnIds');
+      scene.dialogue = command.turnIds.map((id) => byId.get(id));
+      return;
+    }
     default:
       fail('EDITOR_COMMAND_UNSUPPORTED', `Comando no soportado: ${String(command.type)}.`, '/command/type');
   }
@@ -438,6 +480,8 @@ function assertCommandShape(command) {
     'set-dialogue-speaker': { required: ['type', 'sceneId', 'turnId', 'speakerElementId'], optional: [] },
     'set-transition': { required: ['type', 'sceneId', 'preset', 'durationSeconds'], optional: [] },
     'reorder-scenes': { required: ['type', 'sceneIds'], optional: [] },
+    'split-scene': { required: ['type', 'sceneId', 'atTurnId', 'newSceneId'], optional: [] },
+    'reorder-dialogue-turns': { required: ['type', 'sceneId', 'turnIds'], optional: [] },
   };
   const shape = shapes[command.type];
   if (!shape) fail('EDITOR_COMMAND_UNSUPPORTED', `Comando no soportado: ${String(command.type)}.`, '/command/type');

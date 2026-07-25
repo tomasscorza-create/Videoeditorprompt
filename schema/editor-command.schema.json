@@ -21,7 +21,9 @@
     { "$ref": "#/$defs/deleteDialogueTurn" },
     { "$ref": "#/$defs/setDialogueSpeaker" },
     { "$ref": "#/$defs/setTransition" },
-    { "$ref": "#/$defs/reorderScenes" }
+    { "$ref": "#/$defs/reorderScenes" },
+    { "$ref": "#/$defs/splitScene" },
+    { "$ref": "#/$defs/reorderDialogueTurns" }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
@@ -175,6 +177,16 @@
       "type": "object", "additionalProperties": false,
       "required": ["type", "sceneIds"],
       "properties": { "type": { "const": "reorder-scenes" }, "sceneIds": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } } }
+    },
+    "splitScene": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "atTurnId", "newSceneId"],
+      "properties": { "type": { "const": "split-scene" }, "sceneId": { "$ref": "#/$defs/id" }, "atTurnId": { "$ref": "#/$defs/id" }, "newSceneId": { "$ref": "#/$defs/id" } }
+    },
+    "reorderDialogueTurns": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "sceneId", "turnIds"],
+      "properties": { "type": { "const": "reorder-dialogue-turns" }, "sceneId": { "$ref": "#/$defs/id" }, "turnIds": { "type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } } }
     }
   }
 }

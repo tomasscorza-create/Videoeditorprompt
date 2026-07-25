@@ -235,6 +235,50 @@ test('export-is-portable-and-passes-authoritative-validator', () => {
   assert.equal(validated.project.scenes[0].title, 'Escena editada');
 });
 
+test('splits-a-scene-at-a-turn-boundary', () => {
+  let state = createProjectEditor(project, catalog);
+  // La escena arranca con 2 turnos; se lleva a 4 para poder partir 2+2 (cada escena
+  // renderizable necesita >= 2 turnos).
+  state = command(state, {
+    type: 'add-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-03',
+    speakerElementId: 'presentadora', text: 'Tercer turno.', voiceId: 'voz-daniela-ar-v1', gestureId: 'neutral', gapAfterSeconds: 0,
+  });
+  state = command(state, {
+    type: 'add-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-04',
+    speakerElementId: 'analista', text: 'Cuarto turno.', voiceId: 'voz-daniela-ar-v1', gestureId: 'neutral', gapAfterSeconds: 0,
+  });
+  state = command(state, { type: 'split-scene', sceneId: 'escena-presentacion', atTurnId: 'turno-presentacion-03', newSceneId: 'escena-partida' });
+  assert.equal(state.project.scenes.length, 3);
+  const [primera, nueva, cierre] = state.project.scenes;
+  assert.equal(primera.id, 'escena-presentacion');
+  assert.deepEqual(primera.dialogue.map((turn) => turn.id), ['turno-presentacion-01', 'turno-presentacion-02']);
+  assert.deepEqual(primera.transitionToNext, { preset: 'cut', durationSeconds: 0 });
+  assert.equal(nueva.id, 'escena-partida');
+  assert.equal(nueva.dialogue.length, 2);
+  // la nueva hereda la transición de salida original (fade) y el hablante remapeado
+  assert.deepEqual(nueva.transitionToNext, { preset: 'fade', durationSeconds: 0.35 });
+  assert.equal(nueva.elements.every((element) => element.id.startsWith('escena-partida-e')), true);
+  assert.equal(nueva.dialogue.every((turn) => nueva.elements.some((element) => element.id === turn.speakerElementId)), true);
+  assert.equal(cierre.id, 'escena-cierre');
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+});
+
+test('rejects-invalid-scene-splits', () => {
+  const state = createProjectEditor(project, catalog);
+  rejects('EDITOR_SPLIT_INVALID', () => command(state, { type: 'split-scene', sceneId: 'escena-presentacion', atTurnId: 'turno-presentacion-01', newSceneId: 'parte-a' }));
+  rejects('EDITOR_SPLIT_INVALID', () => command(state, { type: 'split-scene', sceneId: 'escena-presentacion', atTurnId: 'turno-fantasma', newSceneId: 'parte-b' }));
+  rejects('EDITOR_PROJECT_INVALID', () => command(state, { type: 'split-scene', sceneId: 'escena-presentacion', atTurnId: 'turno-presentacion-02', newSceneId: 'escena-cierre' }));
+});
+
+test('reorders-dialogue-turns-within-a-scene', () => {
+  let state = createProjectEditor(project, catalog);
+  state = command(state, { type: 'reorder-dialogue-turns', sceneId: 'escena-presentacion', turnIds: ['turno-presentacion-02', 'turno-presentacion-01'] });
+  assert.deepEqual(state.project.scenes[0].dialogue.map((turn) => turn.id), ['turno-presentacion-02', 'turno-presentacion-01']);
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+  rejects('EDITOR_TURN_ORDER_INVALID', () => command(state, { type: 'reorder-dialogue-turns', sceneId: 'escena-presentacion', turnIds: ['turno-presentacion-02'] }));
+  rejects('EDITOR_TURN_ORDER_INVALID', () => command(state, { type: 'reorder-dialogue-turns', sceneId: 'escena-presentacion', turnIds: ['turno-presentacion-02', 'turno-fantasma'] }));
+});
+
 const summary = {
   version: 1,
   executedAt: new Date().toISOString(),
