@@ -20,6 +20,20 @@ npm run dev
 No hay backend remoto instalado. Cualquier otro valor detiene el arranque con
 `PERSISTENCE_BACKEND_UNSUPPORTED`; nunca se degrada silenciosamente a filesystem.
 
+## Bundle portable
+
+El estado durable puede inventariarse y copiarse sin modificar el origen:
+
+```powershell
+npm run storage:inventory
+npm run storage:export -- --output=<directorio-nuevo>
+npm run storage:verify -- --bundle=<directorio>
+```
+
+La salida debe ser una carpeta nueva y externa a las raíces durables. La
+política exacta de inclusión, exclusión y verificación está documentada en
+`docs/PERSISTENCIA_BUNDLE_P2.md`.
+
 ## Render y recuperación
 
 La interfaz usa verificación `interactive`: produce una pasada por escena y valida

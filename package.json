@@ -53,6 +53,10 @@
     "local:test-render-manager": "node scripts/local-app/test-render-job-manager.mjs",
     "local:test-retention": "node scripts/local-app/test-retention.mjs",
     "storage:test-filesystem": "node scripts/storage/test-filesystem-adapters.mjs",
+    "storage:test-bundle": "node scripts/storage/test-local-data-bundle.mjs",
+    "storage:inventory": "node scripts/storage/local-data-bundle-cli.mjs inventory",
+    "storage:export": "node scripts/storage/local-data-bundle-cli.mjs export",
+    "storage:verify": "node scripts/storage/local-data-bundle-cli.mjs verify",
     "ui:test-modules": "node scripts/ui/test-ui-modules.mjs",
     "local:clean": "node scripts/local-app/retention.mjs"
   },

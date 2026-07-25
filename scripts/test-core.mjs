@@ -20,6 +20,7 @@ const commands = [
   'local:test-render-manager',
   'local:test-retention',
   'storage:test-filesystem',
+  'storage:test-bundle',
   'ui:test-modules',
 ];
 
