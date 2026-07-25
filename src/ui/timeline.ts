@@ -609,9 +609,12 @@ function dialogueMenuItems(sceneId: string, turnId: string, anchor: HTMLElement)
   const previous = turnIndex > 0 ? scene?.dialogue[turnIndex - 1] : undefined;
   const speakers = scene?.elements.filter((element) => element.type === 'character') ?? [];
   const canAdd = (scene?.dialogue.length ?? 20) < 20;
+  const canSplit = canSplitAtIndex(scene?.dialogue.length ?? 0, turnIndex) && (store?.project().scenes.length ?? 8) < 8;
   const items: MenuItem[] = [
     { label: 'Insertar turno antes', disabled: !canAdd || !turn || turnIndex === 0, action: () => turn && insertTurn(sceneId, turn, previous?.id) },
     { label: 'Insertar turno después', disabled: !canAdd || !turn, action: () => turn && insertTurn(sceneId, turn, turn.id) },
+    { separator: true },
+    { label: canSplit ? 'Dividir escena aquí' : 'Dividir aquí (necesita 2 turnos por lado)', disabled: !canSplit, action: () => splitSceneAtTurn(sceneId, turnId) },
     { separator: true },
   ];
   if (speakers.length > 1) {
@@ -713,6 +716,29 @@ function insertTurn(sceneId: string, reference: { speakerElementId: string; voic
   const error = store.dispatch(command);
   if (error) window.alert(error);
   else selectDialogue(sceneId, turnId);
+}
+
+// C2: el corte es válido solo si deja al menos dos turnos a cada lado (el motor exige
+// >= 2 turnos por escena renderizable).
+function canSplitAtIndex(dialogueLength: number, turnIndex: number): boolean {
+  return turnIndex >= 2 && turnIndex <= dialogueLength - 2;
+}
+
+function splitSceneAtTurn(sceneId: string, turnId: string): void {
+  if (!store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  if (!scene) return;
+  const turnIndex = scene.dialogue.findIndex((turn) => turn.id === turnId);
+  if (!canSplitAtIndex(scene.dialogue.length, turnIndex) || store.project().scenes.length >= 8) return;
+  const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
+  const error = store.dispatch({ type: 'split-scene', sceneId, atTurnId: turnId, newSceneId });
+  if (error) window.alert(error);
+  else selectScene(newSceneId);
+}
+
+function splitSelectedTurn(): void {
+  const selection = projectSelection();
+  if (selection?.kind === 'dialogue') splitSceneAtTurn(selection.sceneId, selection.turnId);
 }
 
 function nextTurnId(existing: string[]): string {
@@ -1210,6 +1236,11 @@ function handleShortcut(event: KeyboardEvent): void {
       if (store?.canRedo()) store.redo();
       return;
     }
+    if (key === 'b') {
+      event.preventDefault();
+      splitSelectedTurn();
+      return;
+    }
   }
   if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
   const hasOutput = Boolean(editorWorkspace().output);
@@ -1259,6 +1290,9 @@ function handleShortcut(event: KeyboardEvent): void {
   } else if (event.code === 'Minus' || event.code === 'NumpadSubtract') {
     event.preventDefault();
     zoomBy(0.8);
+  } else if (event.code === 'KeyB') {
+    event.preventDefault();
+    splitSelectedTurn();
   } else if (event.code === 'Delete') {
     event.preventDefault();
     deleteSelection();
