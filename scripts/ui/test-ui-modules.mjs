@@ -194,4 +194,10 @@ check('el snap sube al paso más cercano', geometry.snapSeconds(0.46, 0.1, 0, 2)
 check('el snap acota al mínimo', geometry.snapSeconds(-1, 0.1, 0, 2) === 0);
 check('el snap acota al máximo', geometry.snapSeconds(9, 0.1, 0, 2) === 2);
 
+// ---- timeline-geometry.ts: estimación aproximada de duración (C1) ----
+check('la estimación suma habla y pausas', geometry.estimateDurationSeconds([5, 5], [0.5], 2.5) === 4.5);
+check('sin turnos la estimación es cero', geometry.estimateDurationSeconds([], [], 2.5) === 0);
+check('borrar un turno reduce la estimación', geometry.estimateDurationSeconds([5], [0], 2.5) < geometry.estimateDurationSeconds([5, 5], [0], 2.5));
+check('reducir la pausa reduce la estimación', geometry.estimateDurationSeconds([4], [0.2], 2.5) < geometry.estimateDurationSeconds([4], [1], 2.5));
+
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);

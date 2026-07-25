@@ -72,6 +72,16 @@ export function pauseLabel(seconds: number): string {
   return `${roundTo(seconds, 2)} s`;
 }
 
+// Estimación APROXIMADA de la duración de una escena a partir del conteo de palabras y
+// las pausas, para el panel de "Acortar escena" (C1). NO es una medición: el motor mide
+// con Piper/FFprobe. Solo sirve para orientar el recorte y siempre se rotula aproximada.
+export function estimateDurationSeconds(wordsPerTurn: number[], gaps: number[], wordsPerSecond: number): number {
+  const words = wordsPerTurn.reduce((total, count) => total + Math.max(0, count), 0);
+  const speech = words / Math.max(0.1, wordsPerSecond);
+  const pauses = gaps.reduce((total, gap) => total + Math.max(0, gap), 0);
+  return roundTo(speech + pauses, 1);
+}
+
 // Ajusta un valor en segundos al paso `snap` y lo acota a [min, max]. Puro: lo usa el
 // arrastre de pausas (B2) para mapear píxeles a un gapAfterSeconds válido del contrato.
 export function snapSeconds(value: number, snap: number, min: number, max: number): number {

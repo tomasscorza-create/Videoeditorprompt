@@ -953,6 +953,19 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .timeline-popover-range input[type="range"] { width: 100%; }
 .timeline-popover-separator { height: 1px; margin: .1rem 0; background: var(--border); }
 .timeline-popover.context-menu { max-height: min(60vh, 22rem); overflow-y: auto; }
+.shorten-panel { min-width: 21rem; max-width: min(92vw, 27rem); gap: .5rem; }
+.shorten-hint { color: var(--muted); font-size: .55rem; }
+.shorten-list { display: grid; gap: .3rem; max-height: min(50vh, 18rem); overflow-y: auto; }
+.shorten-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: .4rem; padding: .25rem .3rem; border: 1px solid var(--border); border-radius: .35rem; }
+.shorten-words { color: var(--accent); font: .5rem ui-monospace, monospace; white-space: nowrap; }
+.shorten-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: .58rem; }
+.shorten-gap { display: grid; gap: .1rem; justify-items: end; }
+.shorten-gap > span { color: var(--muted); font: .48rem ui-monospace, monospace; white-space: nowrap; }
+.shorten-gap input[type="range"] { width: 5.5rem; }
+.shorten-delete { border: 1px solid transparent; border-radius: .3rem; background: none; cursor: pointer; font-size: .7rem; }
+.shorten-delete:hover { background: var(--surface-3); }
+.shorten-empty { color: var(--muted); font-size: .55rem; padding: .3rem; }
+.shorten-total { padding-top: .3rem; border-top: 1px solid var(--border); color: var(--text); font: .56rem ui-monospace, monospace; }
 .timeline-insert {
   position: absolute;
   top: 50%;

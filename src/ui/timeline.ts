@@ -24,6 +24,7 @@ import {
   readCharacterDrag,
 } from './project/character-placement.js';
 import {
+  estimateDurationSeconds,
   filmstripTimes,
   pauseLabel,
   rulerTicks,
@@ -582,6 +583,7 @@ function sceneMenuItems(sceneId: string, anchor: HTMLElement): MenuItem[] {
     { separator: true },
     { label: isLast ? 'Transición (no hay escena siguiente)' : 'Editar transición…', disabled: isLast, action: () => openTransitionPopoverForScene(sceneId, anchor) },
     { separator: true },
+    { label: 'Acortar escena…', action: () => openShortenPanel(anchor, sceneId) },
     { label: 'Eliminar escena', disabled: scenes.length <= 1, action: () => deleteSceneById(sceneId) },
   ];
 }
@@ -725,6 +727,100 @@ function nextTurnId(existing: string[]): string {
 function openTransitionPopoverForScene(sceneId: string, anchor: HTMLElement): void {
   const transition = store?.project().scenes.find((item) => item.id === sceneId)?.transitionToNext ?? { preset: 'cut' as const, durationSeconds: 0 };
   openTransitionPopover(anchor, sceneId, transition.preset, transition.durationSeconds);
+}
+
+// ---- C1: recorte por contenido guiado (panel "Acortar escena") ----
+
+const WORDS_PER_SECOND = 2.6; // ritmo nominal solo para la estimación aproximada
+
+function openShortenPanel(anchor: HTMLElement, sceneId: string): void {
+  closeTimelinePopover();
+  const panel = document.createElement('div');
+  panel.className = 'timeline-popover shorten-panel';
+  fillShortenPanel(panel, sceneId);
+  positionPopover(panel, anchor);
+}
+
+// Reconstruye el panel desde el estado actual del store. Borrar turnos y reducir pausas
+// se hace acá con los comandos existentes; el total SIEMPRE se rotula aproximado (o
+// medido si hay render vigente), nunca como una duración exacta inventada.
+function fillShortenPanel(panel: HTMLElement, sceneId: string): void {
+  const scene = store?.project().scenes.find((item) => item.id === sceneId);
+  if (!scene) { closeTimelinePopover(); return; }
+  const measuredScene = compatibleTimeline(store!.project().scenes)?.scenes.find((item) => item.id === sceneId);
+  panel.replaceChildren();
+
+  const heading = document.createElement('strong');
+  heading.textContent = `Acortar «${scene.title}»`;
+  const hint = document.createElement('span');
+  hint.className = 'shorten-hint';
+  hint.textContent = 'Borrá turnos o reducí pausas para acortar. La duración nace del TTS medido.';
+  panel.append(heading, hint);
+
+  const list = document.createElement('div');
+  list.className = 'shorten-list';
+  scene.dialogue.forEach((turn) => {
+    const row = document.createElement('div');
+    row.className = 'shorten-row';
+    const words = document.createElement('span');
+    words.className = 'shorten-words';
+    words.textContent = `${wordCount(turn.text)} pal.`;
+    const text = document.createElement('span');
+    text.className = 'shorten-text';
+    text.textContent = turn.text;
+    text.title = turn.text;
+    const gap = document.createElement('label');
+    gap.className = 'shorten-gap';
+    const gapValue = document.createElement('span');
+    const paintGap = (value: number) => { gapValue.textContent = value > 0 ? `pausa ${pauseLabel(value)}` : 'sin pausa'; };
+    paintGap(turn.gapAfterSeconds);
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = '0';
+    range.max = String(GAP_MAX_SECONDS);
+    range.step = '0.1';
+    range.value = String(turn.gapAfterSeconds);
+    range.title = 'Ajustar la pausa después de este turno';
+    range.addEventListener('input', () => paintGap(Number(range.value)));
+    range.addEventListener('change', () => {
+      store?.dispatch({ type: 'set-dialogue-turn', sceneId, turnId: turn.id, gapAfterSeconds: clampGap(Number(range.value)) });
+      fillShortenPanel(panel, sceneId);
+    });
+    gap.append(gapValue, range);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'shorten-delete';
+    remove.textContent = '🗑';
+    remove.title = 'Eliminar este turno';
+    remove.setAttribute('aria-label', 'Eliminar este turno');
+    remove.addEventListener('click', () => {
+      store?.dispatch({ type: 'delete-dialogue-turn', sceneId, turnId: turn.id });
+      fillShortenPanel(panel, sceneId);
+    });
+    row.append(words, text, gap, remove);
+    list.append(row);
+  });
+  if (scene.dialogue.length === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'shorten-empty';
+    empty.textContent = 'La escena quedó sin turnos.';
+    list.append(empty);
+  }
+  panel.append(list);
+
+  const total = document.createElement('div');
+  total.className = 'shorten-total';
+  if (measuredScene) {
+    total.textContent = `${(measuredScene.endSeconds - measuredScene.startSeconds).toFixed(2)} s medidos`;
+  } else {
+    const estimate = estimateDurationSeconds(
+      scene.dialogue.map((turn) => wordCount(turn.text)),
+      scene.dialogue.map((turn) => turn.gapAfterSeconds),
+      WORDS_PER_SECOND,
+    );
+    total.textContent = `≈ ${estimate.toFixed(1)} s · estimado por palabras (no medido)`;
+  }
+  panel.append(total);
 }
 
 // ---- B4: insertar desde la timeline (botón + entre clips, visible al hover/foco) ----
