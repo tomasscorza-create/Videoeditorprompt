@@ -21,9 +21,10 @@ procesos. Los resultados completados permanecen en `.local-video/output/<jobId>`
 
 ## Limpieza y retención
 
-Después de un render interactivo exitoso se eliminan automáticamente solo directorios
-regenerables llamados `frames` y `temp` dentro de su trabajo. Se conservan configuración,
-runtime, audio derivado, métricas, estados, manifiestos y MP4.
+Después de un render interactivo terminado se eliminan automáticamente solo directorios
+regenerables llamados `frames` y `temp` dentro de su trabajo. Al arrancar, el servicio
+también reconoce estados terminales escritos por pipelines CLI y limpia sus intermedios.
+Se conservan configuración, runtime, audio derivado, métricas, estados, manifiestos y MP4.
 
 Inspección sin borrar:
 

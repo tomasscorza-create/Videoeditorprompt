@@ -62,4 +62,22 @@ const missingStartup = runStartupRetention({ localRoot: path.join(startupRoot, '
 assert.equal(missingStartup.applied, true);
 assert.equal(missingStartup.expired.length, 0);
 
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 16, failed: 0 })}\n`);
+// Los pipelines CLI no tienen registro en app-jobs, pero sí un estado propio. La
+// retención limpia sus frames al terminar y preserva los que siguen renderizando.
+const cliCompleted = path.join(startupWork, 'cli-completed');
+const cliActive = path.join(startupWork, 'cli-active');
+mkdirSync(path.join(cliCompleted, 'results', 'frames'), { recursive: true });
+mkdirSync(path.join(cliCompleted, 'status'), { recursive: true });
+mkdirSync(path.join(cliActive, 'temp'), { recursive: true });
+mkdirSync(path.join(cliActive, 'status'), { recursive: true });
+writeFileSync(path.join(cliCompleted, 'results', 'frames', 'frame.png'), Buffer.alloc(70));
+writeFileSync(path.join(cliCompleted, 'status', 'job-status.json'), JSON.stringify({ jobId: 'cli-completed', state: 'completed' }));
+writeFileSync(path.join(cliActive, 'temp', 'active.bin'), Buffer.alloc(80));
+writeFileSync(path.join(cliActive, 'status', 'job-status.json'), JSON.stringify({ jobId: 'cli-active', state: 'rendering' }));
+const cliCleanup = runStartupRetention({ localRoot: startupLocal, maximumAgeDays: 30 });
+assert.equal(cliCleanup.cleaned.some((entry) => entry.jobId === 'cli-completed' && entry.removedBytes === 70), true);
+assert.equal(existsSync(path.join(cliCompleted, 'results', 'frames')), false);
+assert.equal(existsSync(path.join(cliCompleted, 'status', 'job-status.json')), true);
+assert.equal(existsSync(path.join(cliActive, 'temp', 'active.bin')), true);
+
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 20, failed: 0 })}\n`);

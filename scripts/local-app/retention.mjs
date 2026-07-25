@@ -5,6 +5,8 @@ import { PipelineError, serializeError } from '../stage1/errors.mjs';
 
 const JOB_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/;
 const DISPOSABLE_NAMES = new Set(['frames', 'temp']);
+const ACTIVE_STATES = new Set(['queued', 'rendering']);
+const TERMINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
 
 export function cleanupCompletedJob(options) {
   const workRoot = path.resolve(options.workRoot);
@@ -38,7 +40,7 @@ export function cleanLocalVideo(options = {}) {
       const status = readJson(path.join(jobsRoot, entry.name));
       if (status?.jobId && JOB_ID_PATTERN.test(status.jobId)) {
         statuses.set(status.jobId, status);
-        if (['queued', 'rendering'].includes(status.state)) activeIds.add(status.jobId);
+        if (ACTIVE_STATES.has(status.state)) activeIds.add(status.jobId);
       }
     }
   }
@@ -47,11 +49,14 @@ export function cleanLocalVideo(options = {}) {
   const candidates = [];
   if (existsSync(workRoot)) {
     for (const entry of readdirSync(workRoot, { withFileTypes: true })) {
-      if (!entry.isDirectory() || !JOB_ID_PATTERN.test(entry.name) || activeIds.has(entry.name)) continue;
-      const status = statuses.get(entry.name);
-      if (status?.state === 'completed') cleaned.push(cleanupCompletedJob({ workRoot, jobId: entry.name, apply }));
+      if (!entry.isDirectory() || !JOB_ID_PATTERN.test(entry.name)) continue;
       const target = resolveChild(workRoot, entry.name);
       const stats = statSync(target);
+      const status = statuses.get(entry.name) || readWorkStatus(target, entry.name);
+      if (activeIds.has(entry.name) || ACTIVE_STATES.has(status?.state)) continue;
+      if (TERMINAL_STATES.has(status?.state)) {
+        cleaned.push(cleanupCompletedJob({ workRoot, jobId: entry.name, apply }));
+      }
       candidates.push({
         jobId: entry.name,
         target,
@@ -121,6 +126,17 @@ function findDisposableDirectories(root) {
   };
   visit(root);
   return found;
+}
+
+function readWorkStatus(jobRoot, jobId) {
+  const statusFile = path.join(jobRoot, 'status', 'job-status.json');
+  if (!existsSync(statusFile) || lstatSync(statusFile).isSymbolicLink()) return null;
+  try {
+    const status = readJson(statusFile);
+    return status?.jobId === jobId && typeof status.state === 'string' ? status : null;
+  } catch {
+    return null;
+  }
 }
 
 function directoryBytes(root) {
