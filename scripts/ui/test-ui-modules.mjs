@@ -147,6 +147,7 @@ check('deshacer revierte el historial', store.canUndo() === false && store.canRe
 store.redo();
 check('rehacer reaplica el cambio', store.canRedo() === false);
 check('el JSON exportado refleja el título aplicado', JSON.parse(store.exportJson()).title === 'Título de prueba');
-check('los recursos provienen del catálogo del motor', store.resources('character').length === 2);
+const catalogCharacters = catalog.entries.filter((entry) => entry.type === 'character').length;
+check('los recursos provienen del catálogo del motor', store.resources('character').length === catalogCharacters);
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);
