@@ -131,18 +131,23 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
   const orderedCharacters = characterElements
     .map((element, sourceIndex) => ({ element, sourceIndex }))
     .sort((left, right) => left.element.transform.zIndex - right.element.transform.zIndex || left.sourceIndex - right.sourceIndex);
-  const technicalCatalogs = new Set();
-  const characters = orderedCharacters.map(({ element }, characterIndex) => {
+  const characterSources = orderedCharacters.map(({ element }) => ({
+    element,
+    resource: resources.get(element.resourceId),
+  }));
+  const technicalCatalogs = new Set(characterSources.map(({ resource }) => resource.characterRef.catalog));
+  const useDirectManifests = technicalCatalogs.size > 1;
+  const characters = characterSources.map(({ element, resource }, characterIndex) => {
     assertCompatibleCharacterTransform(element, sceneIndex);
     if (element.poseId !== 'neutral') unsupportedScene(sceneIndex, `el personaje ${element.id} usa pose inicial ${element.poseId}; el runtime actual solo conserva neutral fuera de los turnos`);
-    const resource = resources.get(element.resourceId);
-    technicalCatalogs.add(resource.characterRef.catalog);
     const motion = MOTION_PRESETS[element.animationPreset];
     if (!motion) unsupportedScene(sceneIndex, `el preset ${element.animationPreset} no tiene compilación disponible`);
     const toX = element.transform.x - project.video.width / 2;
     return {
       id: element.id,
-      characterAssetId: resource.characterRef.entryId,
+      ...(useDirectManifests
+        ? { characterManifest: resolveCharacterManifest(resource, assetsRoot, sceneIndex) }
+        : { characterAssetId: resource.characterRef.entryId }),
       transform: {
         fromX: element.transform.x <= project.video.width / 2 ? -510 : 510,
         toX,
@@ -160,8 +165,6 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
       },
     };
   });
-  if (technicalCatalogs.size !== 1) unsupportedScene(sceneIndex, 'todos los personajes deben provenir del mismo catálogo técnico en 3A.1');
-
   const backgroundResource = resources.get(scene.background.resourceId);
   const manifestPath = resolveAuthoringAsset(assetsRoot, backgroundResource.backgroundManifest, `manifest de fondo ${backgroundResource.id}`);
   const backgroundManifest = readJson(manifestPath);
@@ -193,7 +196,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     version: 2,
     video: project.video,
     assets: { background: backgroundLayers[0].asset },
-    assetCatalog: [...technicalCatalogs][0],
+    ...(!useDirectManifests ? { assetCatalog: [...technicalCatalogs][0] } : {}),
     backgroundAnimation: { layers: backgroundLayers, camera },
     characters,
     dialogue,
@@ -202,11 +205,24 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
   };
   return {
     config,
-    bindings: characters.map((character) => {
-      const source = characterElements.find((element) => element.id === character.id);
-      return { elementId: source.id, resourceId: source.resourceId, characterAssetId: character.characterAssetId };
-    }),
+    bindings: characterSources.map(({ element, resource }) => ({
+      elementId: element.id,
+      resourceId: element.resourceId,
+      characterAssetId: resource.characterRef.entryId,
+    })),
   };
+}
+
+function resolveCharacterManifest(resource, assetsRoot, sceneIndex) {
+  const catalogPath = resolveAuthoringAsset(
+    assetsRoot,
+    resource.characterRef.catalog,
+    `catálogo técnico de ${resource.id}`,
+  );
+  const catalog = readJson(catalogPath);
+  const compiled = catalog.entries.find((entry) => entry.id === resource.characterRef.entryId);
+  if (!compiled) unsupportedScene(sceneIndex, `el personaje ${resource.id} no existe en su catálogo técnico`);
+  return compiled.manifest;
 }
 
 function assertCompatibleCharacterTransform(element, sceneIndex) {
