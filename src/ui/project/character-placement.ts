@@ -38,6 +38,21 @@ export function readCharacterDrag(dataTransfer: DataTransfer | null): CharacterP
   }
 }
 
+export const BACKGROUND_DRAG_TYPE = 'application/x-local-video-background';
+
+// Arrastre de fondos desde la biblioteca (B5): solo transporta el resourceId. El
+// cameraPreset lo resuelve el destino según lo que el fondo soporte.
+export function writeBackgroundDrag(dataTransfer: DataTransfer, resourceId: string, label: string): void {
+  dataTransfer.effectAllowed = 'copy';
+  dataTransfer.setData(BACKGROUND_DRAG_TYPE, resourceId);
+  dataTransfer.setData('text/plain', label);
+}
+
+export function readBackgroundDrag(dataTransfer: DataTransfer | null): string | null {
+  const resourceId = dataTransfer?.getData(BACKGROUND_DRAG_TYPE);
+  return resourceId && resourceId.length > 0 ? resourceId : null;
+}
+
 function notify(): void {
   window.dispatchEvent(new CustomEvent(CHARACTER_PLACEMENT_EVENT, { detail: current }));
 }

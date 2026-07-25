@@ -18,6 +18,12 @@ import {
   selectProjectItem,
 } from './project/selection.js';
 import {
+  BACKGROUND_DRAG_TYPE,
+  CHARACTER_DRAG_TYPE,
+  readBackgroundDrag,
+  readCharacterDrag,
+} from './project/character-placement.js';
+import {
   filmstripTimes,
   pauseLabel,
   rulerTicks,
@@ -213,6 +219,7 @@ function renderLayerStack(
         event.preventDefault();
         openContextMenu(clip, characterMenuItems(scene.id, element.id, clip));
       });
+      acceptResourceDrop(clip, CHARACTER_DRAG_TYPE, (dataTransfer) => applyCharacterDrop(scene.id, element.id, dataTransfer));
       return [clip];
     });
     rows.push(authoringTrack(`V${slot + 1}`, `Personaje ${slot + 1}`, totalWidth, clips));
@@ -751,6 +758,45 @@ function sceneInsertButtons(
   return buttons;
 }
 
+// ---- B5: soltar recursos de la biblioteca sobre clips ----
+
+function acceptResourceDrop(clip: HTMLElement, dragType: string, onDrop: (dataTransfer: DataTransfer) => void): void {
+  clip.addEventListener('dragover', (event) => {
+    if (!event.dataTransfer?.types.includes(dragType)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    clip.classList.add('is-drop-target');
+  });
+  clip.addEventListener('dragleave', () => clip.classList.remove('is-drop-target'));
+  clip.addEventListener('drop', (event) => {
+    if (!event.dataTransfer?.types.includes(dragType)) return;
+    event.preventDefault();
+    clip.classList.remove('is-drop-target');
+    onDrop(event.dataTransfer);
+  });
+}
+
+function applyBackgroundDrop(sceneId: string, dataTransfer: DataTransfer): void {
+  const resourceId = readBackgroundDrag(dataTransfer);
+  if (!resourceId || !store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  if (!scene) return;
+  const presets = store.resources('background').find((resource) => resource.id === resourceId)?.capabilities?.cameraPresets;
+  const list = Array.isArray(presets) ? (presets as string[]) : null;
+  const cameraPreset = list
+    ? (list.includes(scene.background.cameraPreset) ? scene.background.cameraPreset : list[0])
+    : scene.background.cameraPreset;
+  const error = store.dispatch({ type: 'set-scene-background', sceneId, resourceId, cameraPreset });
+  if (error) window.alert(error);
+}
+
+function applyCharacterDrop(sceneId: string, elementId: string, dataTransfer: DataTransfer): void {
+  const placement = readCharacterDrag(dataTransfer);
+  if (!placement || !store) return;
+  const error = store.dispatch({ type: 'set-character-resource', sceneId, elementId, resourceId: placement.resourceId });
+  if (error) window.alert(error);
+}
+
 const GAP_MAX_SECONDS = 2;
 const GAP_SNAP_SECONDS = 0.1;
 
@@ -849,6 +895,7 @@ function bindSceneClip(clip: HTMLButtonElement, sceneId: string): void {
     event.preventDefault();
     openContextMenu(clip, sceneMenuItems(sceneId, clip));
   });
+  acceptResourceDrop(clip, BACKGROUND_DRAG_TYPE, (dataTransfer) => applyBackgroundDrop(sceneId, dataTransfer));
   clip.addEventListener('dragstart', (event) => {
     event.dataTransfer?.setData('application/x-local-video-scene', sceneId);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';

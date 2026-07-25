@@ -4,6 +4,7 @@ import {
   CHARACTER_PLACEMENT_EVENT,
   beginCharacterPlacement,
   currentCharacterPlacement,
+  writeBackgroundDrag,
   writeCharacterDrag,
 } from './character-placement.js';
 import type { ProjectStore } from './store.js';
@@ -145,6 +146,14 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       card.addEventListener('dragstart', (event) => {
         beginCharacterPlacement(resource.id, resource.label);
         if (event.dataTransfer) writeCharacterDrag(event.dataTransfer, { resourceId: resource.id, label: resource.label });
+        card.classList.add('is-dragging');
+      });
+      card.addEventListener('dragend', () => card.classList.remove('is-dragging'));
+    } else if (resource.type === 'background') {
+      card.draggable = true;
+      card.addEventListener('click', () => apply(resource));
+      card.addEventListener('dragstart', (event) => {
+        if (event.dataTransfer) writeBackgroundDrag(event.dataTransfer, resource.id, resource.label);
         card.classList.add('is-dragging');
       });
       card.addEventListener('dragend', () => card.classList.remove('is-dragging'));
