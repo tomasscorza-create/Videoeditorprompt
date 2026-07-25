@@ -173,4 +173,12 @@ check('a más zoom, más marcas', geometry.rulerTicks(10, 200).length > geometry
 check('el paso mayor crece cuando el zoom baja', geometry.chooseTickStep(20, 64) > geometry.chooseTickStep(120, 64));
 check('las marcas no superan la duración', geometry.rulerTicks(10, 60).every((tick) => tick.seconds <= 10 + 1e-6));
 
+// ---- timeline-geometry.ts: reducción a picos de la onda (A1) ----
+check('sin buckets no hay picos', geometry.computePeaks(Float32Array.from([0.5, -0.5]), 0).length === 0);
+check('sin muestras los picos son cero', Array.from(geometry.computePeaks(new Float32Array(0), 3)).every((value) => value === 0));
+const peaks = geometry.computePeaks(Float32Array.from([0, 0.5, -1, 0.2]), 2);
+check('el pico es el máximo absoluto por ventana', peaks.length === 2 && peaks[0] === 0.5 && peaks[1] === 1);
+const flat = geometry.computePeaks(Float32Array.from([0.3, 0.3, 0.3, 0.3]), 4);
+check('un tono plano da picos constantes', Array.from(flat).every((value) => Math.abs(value - 0.3) < 1e-6));
+
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);

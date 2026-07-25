@@ -950,7 +950,9 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .authoring-clip.background { --clip-color: #477ac8; cursor: grab; }
 .authoring-clip.character { --clip-color: #7759b8; }
 .authoring-clip.dialogue { --clip-color: #258a79; }
-.authoring-clip strong, .authoring-clip small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+.authoring-clip .clip-waveform { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; pointer-events: none; }
+.authoring-clip.dialogue { --waveform-color: rgba(233, 255, 249, .85); }
+.authoring-clip strong, .authoring-clip small { position: relative; z-index: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
 .authoring-clip strong { font-size: .58rem; }
 .authoring-clip small { color: rgb(255 255 255 / .78); font-size: .49rem; }
 .authoring-clip.is-selected { outline: 2px solid var(--accent); outline-offset: -2px; }

@@ -71,3 +71,24 @@ export function transitionLabel(preset: string, durationSeconds: number): string
 export function pauseLabel(seconds: number): string {
   return `${roundTo(seconds, 2)} s`;
 }
+
+// Reduce muestras PCM a `buckets` picos (máximo valor absoluto por ventana), la base
+// para dibujar una onda sin re-decodificar en cada scroll/zoom. Pura y testeable: la
+// decodificación real (AudioContext) vive en la capa DOM y solo alimenta esta función.
+export function computePeaks(samples: Float32Array, buckets: number): Float32Array {
+  const total = Math.max(0, Math.floor(buckets));
+  const peaks = new Float32Array(total);
+  if (total === 0 || samples.length === 0) return peaks;
+  const windowSize = samples.length / total;
+  for (let index = 0; index < total; index += 1) {
+    const start = Math.floor(index * windowSize);
+    const end = Math.min(samples.length, Math.floor((index + 1) * windowSize));
+    let peak = 0;
+    for (let cursor = start; cursor < end; cursor += 1) {
+      const value = Math.abs(samples[cursor]);
+      if (value > peak) peak = value;
+    }
+    peaks[index] = peak;
+  }
+  return peaks;
+}

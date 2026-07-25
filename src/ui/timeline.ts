@@ -23,6 +23,11 @@ import {
   transitionGlyph,
   transitionLabel,
 } from './timeline-geometry.js';
+import {
+  drawWaveformSlice,
+  requestWaveform,
+  type WaveformPeaks,
+} from './timeline-waveform.js';
 
 const MIN_PIXELS_PER_SECOND = 20;
 const MAX_PIXELS_PER_SECOND = 220;
@@ -159,6 +164,9 @@ function renderLayerStack(
   }
   root.style.setProperty('--timeline-grid-size', `${pixelsPerSecond}px`);
   const totalWidth = Math.max(640, (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0));
+  const output = editorWorkspace().output;
+  // Onda real solo en modo medido (hay MP4 vigente); se decodifica una vez por url.
+  const waveform = measured && output ? requestWaveform(output.url, render) : null;
   const rows: HTMLElement[] = [
     authoringRuler(project, positions, totalWidth, measured),
   ];
@@ -220,6 +228,7 @@ function renderLayerStack(
           );
           clip.addEventListener('click', () => selectDialogue(scene.id, turn.id));
           clip.addEventListener('dblclick', () => selectDialogue(scene.id, turn.id));
+          if (waveform) attachWaveformCanvas(clip, cursor / pixelsPerSecond, (cursor + width) / pixelsPerSecond);
           clips.push(clip);
           if (turn.gapAfterSeconds > 0) {
             clips.push(pauseMarker(cursor + width, turn.gapAfterSeconds));
@@ -236,6 +245,25 @@ function renderLayerStack(
   playhead.hidden = !measured;
   rows.push(playhead);
   root.replaceChildren(...rows);
+  // Dibujar las ondas después de adjuntar: recién ahí los canvas tienen tamaño.
+  if (waveform) drawWaveforms(root, waveform);
+}
+
+function attachWaveformCanvas(clip: HTMLElement, startSeconds: number, endSeconds: number): void {
+  const canvas = document.createElement('canvas');
+  canvas.className = 'clip-waveform';
+  canvas.dataset.start = String(startSeconds);
+  canvas.dataset.end = String(endSeconds);
+  clip.prepend(canvas);
+}
+
+function drawWaveforms(root: HTMLElement, waveform: WaveformPeaks): void {
+  root.querySelectorAll<HTMLCanvasElement>('canvas.clip-waveform').forEach((canvas) => {
+    const color = getComputedStyle(canvas).getPropertyValue('--waveform-color').trim() || 'rgba(255,255,255,.55)';
+    const start = Number(canvas.dataset.start ?? '0');
+    const end = Number(canvas.dataset.end ?? '0');
+    drawWaveformSlice(canvas, waveform, start, end, color);
+  });
 }
 
 function authoringTrack(code: string, label: string, width: number, clips: HTMLElement[]): HTMLElement {
