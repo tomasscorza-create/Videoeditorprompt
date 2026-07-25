@@ -97,7 +97,7 @@ const projects = {
   list: () => [{ id: savedProject.id, title: savedProject.title, scenes: savedProject.scenes.length, updatedAt: new Date(0).toISOString() }],
   get: (id) => {
     if (id !== savedProject.id) throw Object.assign(new Error('No existe.'), { code: 'PROJECT_NOT_FOUND' });
-    return savedProject;
+    return { project: savedProject, revision: 'a'.repeat(64) };
   },
   save: (value) => {
     savedProject = value;
@@ -105,7 +105,7 @@ const projects = {
   },
   remove: (id) => id === savedProject.id,
 };
-const app = createLocalAppServer({
+const app = await createLocalAppServer({
   port: 0,
   manager,
   library,

@@ -23,7 +23,7 @@ const spawnImpl = (executable, args, options) => {
   spawned = { executable, args, options, child };
   return child;
 };
-const manager = createRenderJobManager({
+const manager = await createRenderJobManager({
   root: projectRoot,
   appJobsRoot: path.join(root, 'jobs'),
   appInputRoot: path.join(root, 'input'),
@@ -33,7 +33,7 @@ const manager = createRenderJobManager({
   renderTimeoutMs: 5000,
 });
 
-const job = manager.create(project);
+const job = await manager.create(project);
 assert.equal(job.state, 'rendering');
 assert.equal(manager.activeJobId, job.jobId);
 assert.equal(spawned.executable, process.execPath);
@@ -42,7 +42,7 @@ assert.equal(spawned.args.some((argument) => argument === `--job-id=${job.jobId}
 assert.equal(spawned.args.some((argument) => argument.startsWith('--project=')), true);
 assert.equal(spawned.args.includes('--verification-mode=interactive'), true);
 
-assert.throws(
+await assert.rejects(
   () => manager.create(project),
   (error) => error.code === 'RENDER_BUSY',
 );
@@ -54,15 +54,16 @@ spawned.child.stdout.write(`${JSON.stringify({
   stage: 'generating_voice',
 })}\n`);
 await new Promise((resolve) => setImmediate(resolve));
-assert.equal(manager.get(job.jobId).progress.state, 'generating_voice');
+await waitFor(async () => (await manager.get(job.jobId)).progress?.state === 'generating_voice');
+assert.equal((await manager.get(job.jobId)).progress.state, 'generating_voice');
 
-const cancelled = manager.cancel(job.jobId);
+const cancelled = await manager.cancel(job.jobId);
 assert.equal(cancelled.state, 'cancelled');
 assert.equal(spawned.child.killCalled, true);
 assert.equal(manager.activeJobId, null);
-assert.equal(manager.video(job.jobId), null);
+assert.equal(await manager.video(job.jobId), null);
 
-const failedJob = manager.create(project);
+const failedJob = await manager.create(project);
 spawned.child.stdout.write(`${JSON.stringify({
   version: 1,
   jobId: failedJob.jobId,
@@ -72,18 +73,19 @@ spawned.child.stdout.write(`${JSON.stringify({
   message: 'Duración compilada coincide',
 })}\n`);
 await new Promise((resolve) => setImmediate(resolve));
-assert.equal(manager.get(failedJob.jobId).state, 'rendering');
+assert.equal((await manager.get(failedJob.jobId)).state, 'rendering');
 const failedWorkTemp = path.join(root, 'work', failedJob.jobId, 'temp');
 mkdirSync(failedWorkTemp, { recursive: true });
 writeFileSync(path.join(failedWorkTemp, 'scratch.bin'), 'x');
 spawned.child.emit('close', 1);
-const failedStatus = manager.get(failedJob.jobId);
+await waitFor(async () => (await manager.get(failedJob.jobId)).state === 'failed');
+const failedStatus = await manager.get(failedJob.jobId);
 assert.equal(failedStatus.state, 'failed');
 assert.equal(failedStatus.error.code, 'ERR_ASSERTION');
 assert.equal(failedStatus.error.message, 'Duración compilada coincide');
 assert.equal(existsSync(failedWorkTemp), false);
 
-const completedJob = manager.create(project);
+const completedJob = await manager.create(project);
 const completedOutput = path.join(root, 'output', completedJob.jobId);
 mkdirSync(completedOutput, { recursive: true });
 writeFileSync(path.join(completedOutput, 'render-1.mp4'), 'video');
@@ -125,7 +127,8 @@ writeFileSync(path.join(completedOutput, 'project-manifest.json'), JSON.stringif
   },
 }));
 spawned.child.emit('close', 0);
-const completedStatus = manager.get(completedJob.jobId);
+await waitFor(async () => (await manager.get(completedJob.jobId)).state === 'completed');
+const completedStatus = await manager.get(completedJob.jobId);
 assert.equal(completedStatus.state, 'completed');
 assert.equal(completedStatus.result.timeline.durationSeconds, 12.5);
 assert.equal(completedStatus.result.timeline.scenes.length, 2);
@@ -153,7 +156,7 @@ writeFileSync(path.join(recoveryJobsRoot, 'render-interrupted.json'), JSON.strin
   progress: null,
   error: null,
 }));
-const recoveredManager = createRenderJobManager({
+const recoveredManager = await createRenderJobManager({
   root: projectRoot,
   appJobsRoot: recoveryJobsRoot,
   appInputRoot: path.join(root, 'recovery-input'),
@@ -161,15 +164,24 @@ const recoveredManager = createRenderJobManager({
   outputRoot: path.join(root, 'recovery-output'),
   spawnImpl,
 });
-const recovered = recoveredManager.get('render-interrupted');
+const recovered = await recoveredManager.get('render-interrupted');
 assert.equal(recovered.state, 'failed');
 assert.equal(recovered.stage, 'recovery');
 assert.equal(recovered.error.code, 'RENDER_INTERRUPTED');
-assert.equal(recoveredManager.list().length, 1);
+assert.equal((await recoveredManager.list()).length, 1);
 
-assert.throws(
+await assert.rejects(
   () => manager.get('../escape'),
   (error) => error.code === 'JOB_ID_INVALID',
 );
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed: 33, failed: 0, jobId: job.jobId })}\n`);
+
+async function waitFor(predicate, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail('La condición async no se cumplió dentro del timeout.');
+}

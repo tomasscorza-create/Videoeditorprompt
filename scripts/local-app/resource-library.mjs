@@ -24,6 +24,7 @@ import {
   applyCharacterDesign,
   customCharacterDesignIssues,
 } from '../../shared/character-design-presets.js';
+import { createFileResourceRepository } from '../storage/file-resource-repository.mjs';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 ajv.addFormat('date-time', {
@@ -46,7 +47,7 @@ const TRANSPARENT_PNG = Buffer.from(
   'base64',
 );
 
-export function createResourceLibrary(options = {}) {
+export async function createResourceLibrary(options = {}) {
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
   const usesDefaultStorage = !options.storageRoot && !process.env.LOCAL_VIDEO_LIBRARY_ROOT;
   const storageRoot = ensureDirectory(path.resolve(
@@ -73,16 +74,20 @@ export function createResourceLibrary(options = {}) {
     readFileSync(path.join(assetsRoot, 'assets', 'catalog', 'authoring-resources.json'), 'utf8'),
   ));
   validateCatalog(builtinCatalog, assetsRoot);
-  let registry = readRegistry(indexPath);
-  const upgradedRegistry = upgradeManagedCharacterCapabilities(registry, publishedAssetsRelative);
-  if (JSON.stringify(upgradedRegistry) !== JSON.stringify(registry)) {
-    atomicWriteJson(indexPath, upgradedRegistry);
-    registry = upgradedRegistry;
-  }
+  const repository = options.repository || await createFileResourceRepository({
+    indexPath,
+    validateRegistry,
+    normalizeRegistry: (value) => upgradeManagedCharacterCapabilities(
+      value,
+      publishedAssetsRelative,
+    ),
+  });
+  let registry = { version: 1, entries: await repository.list() };
   validateRegistry(registry);
   publish();
 
-  return {
+  const library = {
+    repository,
     storageRoot,
     storageAssetsRoot,
     publishRoot,
@@ -90,11 +95,11 @@ export function createResourceLibrary(options = {}) {
     catalogPath,
     catalogRelative,
     catalog: () => mergedCatalog(),
-    list: () => [
+    list: async () => [
       ...builtinCatalog.entries.map((entry) => summary(entry, 'builtin', null)),
       ...registry.entries.map((record) => summary(record.entry, 'local', record)),
     ],
-    register(input) {
+    async register(input) {
       const entry = clone(input);
       if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
         throw libraryError('LIBRARY_RESOURCE_INVALID', 'El recurso debe ser un objeto compatible.');
@@ -136,14 +141,15 @@ export function createResourceLibrary(options = {}) {
         registeredAt: (options.now ? options.now() : new Date()).toISOString(),
         entry,
       };
-      const next = { version: 1, entries: [...registry.entries, record] };
-      validateRegistry(next);
-      atomicWriteJson(indexPath, next);
-      registry = next;
+      const stored = await repository.register(record);
+      registry = { version: 1, entries: await repository.list() };
       publish();
-      return { created: true, resource: summary(entry, 'local', record) };
+      return {
+        created: stored.created,
+        resource: summary(stored.record.entry, 'local', stored.record),
+      };
     },
-    importBackground(input) {
+    async importBackground(input) {
       const bytes = Buffer.isBuffer(input?.bytes) ? input.bytes : Buffer.from(input?.bytes || []);
       const image = inspectBackgroundImage(bytes, input?.mimeType);
       const sourceName = safeDisplayName(input?.fileName || `fondo.${image.extension}`, 180);
@@ -200,7 +206,7 @@ export function createResourceLibrary(options = {}) {
           targetRoot: publishRoot,
         });
         const manifestRelative = path.posix.join(publishedAssetsRelative, 'backgrounds', id, manifestName);
-        const result = this.register({
+        const result = await library.register({
           id,
           type: 'background',
           label,
@@ -227,7 +233,7 @@ export function createResourceLibrary(options = {}) {
         throw error;
       }
     },
-    characterDesigns() {
+    async characterDesigns() {
       return registry.entries
         .filter((record) => isManagedCharacter(record.entry, publishedAssetsRelative))
         .map((record) => {
@@ -244,7 +250,7 @@ export function createResourceLibrary(options = {}) {
         })
         .filter(Boolean);
     },
-    saveCharacterDesign(input) {
+    async saveCharacterDesign(input) {
       const design = clone(input);
       validateCharacterDesign(design);
       const designHash = createHash('sha256')
@@ -323,7 +329,7 @@ export function createResourceLibrary(options = {}) {
           ...registry.entries.map((record) => record.entry),
           entry,
         ]);
-        return this.register(entry);
+        return await library.register(entry);
       } catch (error) {
         // Si register() alcanzó a persistir el índice, el paquete ya pertenece a la
         // biblioteca y debe conservarse para que el próximo arranque repare la publicación.
@@ -338,6 +344,8 @@ export function createResourceLibrary(options = {}) {
       }
     },
   };
+
+  return library;
 
   function mergedCatalog() {
     return {
@@ -555,17 +563,6 @@ function validateCatalog(catalog, assetsRoot) {
     throw error;
   }
   validateResourceCatalogSemantics(catalog, assetsRoot);
-}
-
-function readRegistry(indexPath) {
-  if (!existsSync(indexPath)) return { version: 1, entries: [] };
-  try {
-    return JSON.parse(readFileSync(indexPath, 'utf8'));
-  } catch (error) {
-    const wrapped = libraryError('LIBRARY_INDEX_INVALID', 'El índice de la biblioteca local no contiene JSON válido.');
-    wrapped.cause = error;
-    throw wrapped;
-  }
 }
 
 function validateRegistry(registry) {
