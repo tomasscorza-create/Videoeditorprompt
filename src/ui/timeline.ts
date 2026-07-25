@@ -18,6 +18,7 @@ import {
   selectProjectItem,
 } from './project/selection.js';
 import {
+  filmstripTimes,
   pauseLabel,
   rulerTicks,
   transitionGlyph,
@@ -28,6 +29,7 @@ import {
   requestWaveform,
   type WaveformPeaks,
 } from './timeline-waveform.js';
+import { requestFrame } from './timeline-frames.js';
 
 const MIN_PIXELS_PER_SECOND = 20;
 const MAX_PIXELS_PER_SECOND = 220;
@@ -184,6 +186,9 @@ function renderLayerStack(
       'background',
     );
     bindSceneClip(clip, scene.id);
+    if (measured && output) {
+      attachFilmstripCanvas(clip, measured.scenes[index].startSeconds, measured.scenes[index].endSeconds);
+    }
     return clip;
   })));
   const maximumCharacters = Math.max(1, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'character').length));
@@ -245,8 +250,48 @@ function renderLayerStack(
   playhead.hidden = !measured;
   rows.push(playhead);
   root.replaceChildren(...rows);
-  // Dibujar las ondas después de adjuntar: recién ahí los canvas tienen tamaño.
+  // Dibujar ondas y filmstrips después de adjuntar: recién ahí los canvas tienen tamaño.
   if (waveform) drawWaveforms(root, waveform);
+  if (measured && output) drawFilmstrips(root, output.url);
+}
+
+function attachFilmstripCanvas(clip: HTMLElement, startSeconds: number, endSeconds: number): void {
+  const canvas = document.createElement('canvas');
+  canvas.className = 'clip-filmstrip';
+  canvas.dataset.start = String(startSeconds);
+  canvas.dataset.end = String(endSeconds);
+  clip.prepend(canvas);
+}
+
+function drawFilmstrips(root: HTMLElement, url: string): void {
+  root.querySelectorAll<HTMLCanvasElement>('canvas.clip-filmstrip').forEach((canvas) => {
+    const start = Number(canvas.dataset.start ?? '0');
+    const end = Number(canvas.dataset.end ?? '0');
+    const width = Math.max(1, Math.round(canvas.clientWidth));
+    const height = Math.max(1, Math.round(canvas.clientHeight));
+    const slots = clamp(Math.round(width / 64), 1, 16);
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.scale(ratio, ratio);
+    const slotWidth = width / slots;
+    filmstripTimes(start, end, slots).forEach((time, index) => {
+      const frame = requestFrame(url, time, render);
+      if (frame) drawCover(context, frame, index * slotWidth, 0, slotWidth, height);
+    });
+  });
+}
+
+// Dibuja `image` cubriendo el rectángulo destino (recorte centrado), como background-size: cover.
+function drawCover(context: CanvasRenderingContext2D, image: HTMLCanvasElement, dx: number, dy: number, dw: number, dh: number): void {
+  const scale = Math.max(dw / image.width, dh / image.height);
+  const sw = dw / scale;
+  const sh = dh / scale;
+  const sx = (image.width - sw) / 2;
+  const sy = (image.height - sh) / 2;
+  context.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
 function attachWaveformCanvas(clip: HTMLElement, startSeconds: number, endSeconds: number): void {

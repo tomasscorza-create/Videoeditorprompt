@@ -72,6 +72,19 @@ export function pauseLabel(seconds: number): string {
   return `${roundTo(seconds, 2)} s`;
 }
 
+// Tiempos (centro de cada casilla) para un filmstrip de `count` miniaturas en el rango
+// [startSeconds, endSeconds]. Puro: la extracción real de frames vive en la capa DOM.
+export function filmstripTimes(startSeconds: number, endSeconds: number, count: number): number[] {
+  const slots = Math.max(0, Math.floor(count));
+  if (slots === 0 || !(endSeconds > startSeconds)) return [];
+  const span = endSeconds - startSeconds;
+  const times: number[] = [];
+  for (let index = 0; index < slots; index += 1) {
+    times.push(roundTo(startSeconds + ((index + 0.5) / slots) * span, 3));
+  }
+  return times;
+}
+
 // Reduce muestras PCM a `buckets` picos (máximo valor absoluto por ventana), la base
 // para dibujar una onda sin re-decodificar en cada scroll/zoom. Pura y testeable: la
 // decodificación real (AudioContext) vive en la capa DOM y solo alimenta esta función.

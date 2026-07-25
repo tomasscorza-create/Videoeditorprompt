@@ -181,4 +181,11 @@ check('el pico es el máximo absoluto por ventana', peaks.length === 2 && peaks[
 const flat = geometry.computePeaks(Float32Array.from([0.3, 0.3, 0.3, 0.3]), 4);
 check('un tono plano da picos constantes', Array.from(flat).every((value) => Math.abs(value - 0.3) < 1e-6));
 
+// ---- timeline-geometry.ts: casillas del filmstrip (A2) ----
+check('sin casillas no hay tiempos', geometry.filmstripTimes(0, 4, 0).length === 0);
+check('sin rango no hay tiempos', geometry.filmstripTimes(2, 2, 3).length === 0);
+const strip = geometry.filmstripTimes(0, 4, 2);
+check('los tiempos caen en el centro de cada casilla', strip.length === 2 && strip[0] === 1 && strip[1] === 3);
+check('los tiempos quedan dentro del rango', geometry.filmstripTimes(1, 5, 4).every((time) => time > 1 && time < 5));
+
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);
