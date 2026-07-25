@@ -21,7 +21,7 @@ El repositorio incluye actualmente:
 - estudio local de tres columnas con espacios explícitos de Editor y Creador;
 - biblioteca durable con miniaturas, tags, licencias, registro validado y catálogo unificado para Director/editor/render;
 - creador local de personajes por capas y presets, con compilación al rig animable y persistencia fuera del repositorio;
-- timeline única de capas visuales y audio, con escala editorial o medida, playhead, timecode, zoom, transporte y atajos;
+- timeline única de capas visuales y audio, con escala editorial o tiempos medidos por turno, playhead, timecode, zoom, transporte y atajos;
 - sesión editable y último render guardados localmente con revisión del catálogo;
 - Director IA local con Ollama y `qwen3:8b`, plan JSON cerrado, validación y caché;
 - parámetros rígidos de tono, duración objetivo y cantidad de escenas incorporados al esquema enviado a Ollama;
@@ -69,7 +69,7 @@ El panel **Recursos** permite importar fondos JPG o PNG mediante **Agregar fondo
 
 En escritorio, los separadores entre Director, visor, panel derecho y timeline permiten ajustar el espacio de trabajo. Las proporciones se conservan localmente; doble clic sobre un separador restaura el tamaño inicial.
 
-La timeline inferior pertenece siempre al Editor y presenta una sola superficie alineada: capas visuales (fondos y personajes) arriba y voces abajo. Permite seleccionar, reordenar escenas por arrastre, duplicar y eliminar estructura; visor e inspector siguen la misma selección. Sin una exportación actual, los anchos son editoriales y se rotulan **sin medir**. Después de renderizar la versión vigente, las mismas pistas adoptan segundos reales aportados por Piper, FFprobe y el ensamblador. Si el proyecto cambia, la exportación queda marcada como anterior y la timeline vuelve a autoría sin inventar tiempos.
+La timeline inferior pertenece siempre al Editor y presenta una sola superficie alineada: capas visuales (fondos y personajes) arriba y voces abajo. Permite seleccionar, reordenar escenas por arrastre, duplicar y eliminar estructura; visor e inspector siguen la misma selección. Sin una exportación actual, los anchos son editoriales y se rotulan **sin medir**. Después de renderizar la versión vigente, el manifiesto v2 aporta inicio, fin, duración y pausa medidos por turno; las mismas pistas pueden adoptar esos segundos reales de Piper, FFprobe y el ensamblador. Si el proyecto cambia, la exportación queda marcada como anterior y la timeline vuelve a autoría sin inventar tiempos.
 
 `stage3b:publish-project` genera `public/projects/`, necesario para que la interfaz encuentre proyectos editables existentes. Los previews de video aparecen después de publicar al menos un trabajo del pipeline.
 

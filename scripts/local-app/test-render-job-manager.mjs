@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { projectRoot } from '../stage1/common.mjs';
-import { createRenderJobManager } from './render-job-manager.mjs';
+import { createRenderJobManager, publicTimeline } from './render-job-manager.mjs';
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'local-video-render-manager-'));
 const project = JSON.parse(readFileSync(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'), 'utf8'));
@@ -88,7 +88,7 @@ const completedOutput = path.join(root, 'output', completedJob.jobId);
 mkdirSync(completedOutput, { recursive: true });
 writeFileSync(path.join(completedOutput, 'render-1.mp4'), 'video');
 writeFileSync(path.join(completedOutput, 'project-manifest.json'), JSON.stringify({
-  version: 1,
+  version: 2,
   jobId: completedJob.jobId,
   projectId: project.id,
   deterministic: false,
@@ -100,6 +100,10 @@ writeFileSync(path.join(completedOutput, 'project-manifest.json'), JSON.stringif
         startSeconds: 0,
         endSeconds: 6.5,
         audioDurationSeconds: 6.45,
+        turns: [
+          { id: 'turno-presentacion-01', speakerId: 'presentadora', startSeconds: 0, endSeconds: 3, durationSeconds: 3, gapAfterSeconds: 0.45 },
+          { id: 'turno-presentacion-02', speakerId: 'analista', startSeconds: 3.45, endSeconds: 6.45, durationSeconds: 3, gapAfterSeconds: 0 },
+        ],
         transitionToNext: {
           preset: 'fade',
           durationSeconds: 0.35,
@@ -112,6 +116,10 @@ writeFileSync(path.join(completedOutput, 'project-manifest.json'), JSON.stringif
         startSeconds: 6.15,
         endSeconds: 12.5,
         audioDurationSeconds: 6.3,
+        turns: [
+          { id: 'turno-cierre-01', speakerId: 'analista', startSeconds: 6.15, endSeconds: 9.15, durationSeconds: 3, gapAfterSeconds: 0.3 },
+          { id: 'turno-cierre-02', speakerId: 'presentadora', startSeconds: 9.45, endSeconds: 12.45, durationSeconds: 3, gapAfterSeconds: 0.15 },
+        ],
       },
     ],
   },
@@ -123,6 +131,14 @@ assert.equal(completedStatus.result.timeline.durationSeconds, 12.5);
 assert.equal(completedStatus.result.timeline.scenes.length, 2);
 assert.equal(completedStatus.result.timeline.scenes[0].transitionToNext.preset, 'fade');
 assert.equal(completedStatus.result.timeline.scenes[1].startSeconds, 6.15);
+assert.equal(completedStatus.result.timeline.scenes[1].turns[0].startSeconds, 6.15);
+assert.equal(completedStatus.result.timeline.scenes[1].turns[1].durationSeconds, 3);
+
+const legacyTimeline = publicTimeline({
+  durationSeconds: 4,
+  scenes: [{ id: 'legacy-scene', startSeconds: 0, endSeconds: 4, audioDurationSeconds: 3.9 }],
+});
+assert.deepEqual(legacyTimeline.scenes[0].turns, []);
 
 const recoveryJobsRoot = path.join(root, 'recovery-jobs');
 mkdirSync(recoveryJobsRoot, { recursive: true });
@@ -156,4 +172,4 @@ assert.throws(
   (error) => error.code === 'JOB_ID_INVALID',
 );
 
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 30, failed: 0, jobId: job.jobId })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 33, failed: 0, jobId: job.jobId })}\n`);

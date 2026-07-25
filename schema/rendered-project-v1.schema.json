@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local-video.invalid/schema/rendered-project-v2.json",
+  "$id": "https://local-video.invalid/schema/rendered-project-v1.json",
   "title": "Resultado multiescena renderizado",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "jobId", "projectId", "compiledProject", "compiledSemanticHash", "video", "timeline", "outputs", "deterministic", "verification"],
   "properties": {
-    "version": { "const": 2 },
+    "version": { "const": 1 },
     "jobId": { "$ref": "#/$defs/id" },
     "projectId": { "$ref": "#/$defs/id" },
     "compiledProject": { "$ref": "#/$defs/portablePath" },
@@ -55,23 +55,10 @@
         "endSeconds": { "type": "number", "minimum": 0, "maximum": 960 }
       }
     },
-    "renderedTurn": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "speakerId", "startSeconds", "endSeconds", "durationSeconds", "gapAfterSeconds"],
-      "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "speakerId": { "$ref": "#/$defs/id" },
-        "startSeconds": { "type": "number", "minimum": 0, "maximum": 960 },
-        "endSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 960 },
-        "durationSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 120 },
-        "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
-      }
-    },
     "renderedScene": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["index", "id", "sceneJobId", "config", "runtime", "render1", "audioDurationSeconds", "renderDurationSeconds", "startSeconds", "endSeconds", "turns", "verificationPassed"],
+      "required": ["index", "id", "sceneJobId", "config", "runtime", "render1", "audioDurationSeconds", "renderDurationSeconds", "startSeconds", "endSeconds", "verificationPassed"],
       "properties": {
         "index": { "type": "integer", "minimum": 0, "maximum": 7 },
         "id": { "$ref": "#/$defs/id" },
@@ -84,12 +71,6 @@
         "renderDurationSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 120 },
         "startSeconds": { "type": "number", "minimum": 0, "maximum": 960 },
         "endSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 960 },
-        "turns": {
-          "type": "array",
-          "minItems": 2,
-          "maxItems": 20,
-          "items": { "$ref": "#/$defs/renderedTurn" }
-        },
         "verificationPassed": { "type": "integer", "minimum": 1 },
         "transitionToNext": { "$ref": "#/$defs/transition" }
       }

@@ -92,7 +92,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `schema/local-resource-library.schema.json`: registro durable de fichas locales, hashes y fecha de alta.
 - `schema/background-manifest.schema.json`: contrato portable del fondo por tres capas.
 - `schema/compiled-project.schema.json`: manifiesto versionado que vincula proyecto, hashes, escenas v2 compiladas y transiciones.
-- `schema/rendered-project.schema.json`: contrato del manifiesto final con timeline medida, subtrabajos, outputs y verificación.
+- `schema/rendered-project.schema.json`: contrato v2 del manifiesto final con timeline medida por escena y turno, subtrabajos, outputs y verificación. `schema/rendered-project-v1.schema.json` conserva la validación histórica.
 - `schema/editor-command.schema.json`: vocabulario cerrado de operaciones semánticas soportadas por el editor local.
 - `schema/published-project-index.schema.json`: índice versionado de proyectos compatibles publicados para la UI.
 - `shared/project-editor.js`: estado inmutable, validación, comandos, undo/redo, catálogo y exportación del proyecto de autoría.

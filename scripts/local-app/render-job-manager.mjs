@@ -308,7 +308,7 @@ export function createRenderJobManager(options = {}) {
   return { create, get, list, cancel, cancelActive, video, get activeJobId() { return activeJobId; } };
 }
 
-function publicTimeline(timeline) {
+export function publicTimeline(timeline) {
   return {
     durationSeconds: timeline.durationSeconds,
     scenes: timeline.scenes.map((scene) => ({
@@ -316,6 +316,14 @@ function publicTimeline(timeline) {
       startSeconds: scene.startSeconds,
       endSeconds: scene.endSeconds,
       audioDurationSeconds: scene.audioDurationSeconds,
+      turns: Array.isArray(scene.turns) ? scene.turns.map((turn) => ({
+        id: turn.id,
+        speakerId: turn.speakerId,
+        startSeconds: turn.startSeconds,
+        endSeconds: turn.endSeconds,
+        durationSeconds: turn.durationSeconds,
+        gapAfterSeconds: turn.gapAfterSeconds,
+      })) : [],
       ...(scene.transitionToNext ? {
         transitionToNext: {
           preset: scene.transitionToNext.preset,

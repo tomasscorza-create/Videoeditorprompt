@@ -28,7 +28,7 @@ export function runProjectPipeline(context) {
     const outputs = runNumbers.map((runNumber) => assembleProjectRun(context, sceneRuns, assemblyPlan, runNumber, report));
     const verification = verifyProjectRender(context, compiled.manifest, sceneRuns, assemblyPlan, outputs, verificationMode);
     const manifest = {
-      version: 1,
+      version: 2,
       jobId: context.jobId,
       projectId: compiled.manifest.projectId,
       compiledProject: 'compiled/compiled-project.json',
@@ -49,6 +49,11 @@ export function runProjectPipeline(context) {
           renderDurationSeconds: sceneRuns[index].renderDurationSeconds,
           startSeconds: timelineScene.startSeconds,
           endSeconds: timelineScene.endSeconds,
+          turns: buildRenderedTurnTimeline(
+            sceneRuns[index].turns,
+            timelineScene.startSeconds,
+            sceneRuns[index].audioDurationSeconds,
+          ),
           verificationPassed: sceneRuns[index].verificationPassed,
           ...(timelineScene.transitionToNext ? { transitionToNext: timelineScene.transitionToNext } : {}),
         })),
@@ -91,6 +96,14 @@ function renderCompiledScenes(context, compiledManifest, report, verificationMod
     });
     const result = runPipeline(sceneContext, { verificationMode });
     const runtime = readJson(path.join(sceneContext.runtimeRoot, 'scene-runtime.json'));
+    if (runtime.version !== 2 || typeof runtime.dialoguePath !== 'string') {
+      renderedTurnError(`la escena ${scene.id} no publicó un runtime de diálogo v2`);
+    }
+    const dialogue = readJson(resolveWithin(
+      sceneContext.generatedRoot,
+      runtime.dialoguePath,
+      `timeline de diálogo de ${scene.id}`,
+    ));
     const metrics = readJson(path.join(sceneContext.resultRoot, 'export-metrics-1.json'));
     if (verificationMode === 'full' && !result.manifest.deterministic) {
       throw new PipelineError({
@@ -112,6 +125,7 @@ function renderCompiledScenes(context, compiledManifest, report, verificationMod
       render2File: path.join(sceneContext.resultRoot, 'render-2.mp4'),
       audioDurationSeconds: runtime.audio.durationSeconds,
       renderDurationSeconds: metrics.renderDurationSeconds,
+      turns: dialogue.turns,
       verificationPassed: result.verification.passed,
     };
   });
@@ -187,6 +201,56 @@ export function buildAssemblyPlan(scenes) {
   };
 }
 
+export function buildRenderedTurnTimeline(turns, sceneStartSeconds, audioDurationSeconds) {
+  if (!Array.isArray(turns) || turns.length < 2 || turns.length > 20) {
+    renderedTurnError('la escena debe contener entre 2 y 20 turnos medidos');
+  }
+  if (!Number.isFinite(sceneStartSeconds) || sceneStartSeconds < 0) {
+    renderedTurnError('el inicio de escena no es válido');
+  }
+  if (!Number.isFinite(audioDurationSeconds) || audioDurationSeconds <= 0) {
+    renderedTurnError('la duración de audio de escena no es válida');
+  }
+
+  let expectedStart = 0;
+  const renderedTurns = turns.map((turn, index) => {
+    const startSeconds = Number(turn.startSeconds);
+    const endSeconds = Number(turn.endSeconds);
+    const durationSeconds = Number(turn.durationSeconds);
+    const gapAfterSeconds = Number(turn.gapAfterSeconds);
+    if (
+      typeof turn.id !== 'string'
+      || typeof turn.speakerId !== 'string'
+      || !Number.isFinite(startSeconds)
+      || !Number.isFinite(endSeconds)
+      || !Number.isFinite(durationSeconds)
+      || !Number.isFinite(gapAfterSeconds)
+      || startSeconds < 0
+      || durationSeconds <= 0
+      || gapAfterSeconds < 0
+      || gapAfterSeconds > 5
+      || Math.abs(startSeconds - expectedStart) > 1e-6
+      || Math.abs(endSeconds - (startSeconds + durationSeconds)) > 1e-6
+    ) {
+      renderedTurnError(`el turno ${index + 1} tiene tiempos medidos inconsistentes`);
+    }
+    expectedStart = endSeconds + gapAfterSeconds;
+    return {
+      id: turn.id,
+      speakerId: turn.speakerId,
+      startSeconds: roundSeconds(sceneStartSeconds + startSeconds),
+      endSeconds: roundSeconds(sceneStartSeconds + endSeconds),
+      durationSeconds: roundSeconds(durationSeconds),
+      gapAfterSeconds: roundSeconds(gapAfterSeconds),
+    };
+  });
+
+  if (Math.abs(expectedStart - audioDurationSeconds) > 0.02) {
+    renderedTurnError('los turnos medidos no cubren la duración del audio de escena');
+  }
+  return renderedTurns;
+}
+
 function assembleProjectRun(context, sceneRuns, plan, runNumber, report) {
   const renderId = `render-${runNumber}`;
   report('encoding', { stage: 'assembling_project', renderId, scenes: sceneRuns.length, durationSeconds: plan.durationSeconds });
@@ -228,6 +292,7 @@ function verifyProjectRender(context, compiledManifest, sceneRuns, plan, outputs
   check('Cantidad de escenas consistente', sceneRuns.length === compiledManifest.scenes.length && plan.scenes.length === sceneRuns.length, sceneRuns.length);
   check('Escenas verificadas individualmente', sceneRuns.every((scene) => scene.verificationPassed > 0), sceneRuns.map((scene) => scene.verificationPassed));
   check('Duraciones medidas presentes', sceneRuns.every((scene) => scene.audioDurationSeconds > 0 && scene.renderDurationSeconds >= scene.audioDurationSeconds), sceneRuns.map((scene) => ({ audio: scene.audioDurationSeconds, render: scene.renderDurationSeconds })));
+  check('Turnos medidos presentes', sceneRuns.every((scene) => Array.isArray(scene.turns) && scene.turns.length >= 2), sceneRuns.map((scene) => scene.turns?.length));
   check('Timeline termina en la duración calculada', Math.abs(plan.scenes.at(-1).endSeconds - plan.durationSeconds) < 1e-8, plan);
   for (const output of outputs) {
     const video = output.probe.streams.find((stream) => stream.codec_type === 'video');
@@ -296,6 +361,16 @@ function assemblyError(sceneIndex, detail) {
     message: 'No se puede ensamblar una transición del proyecto.',
     technicalDetail: `/scenes/${sceneIndex} ${detail}`,
     suggestedAction: 'Use cut con duración 0 o fade menor que las dos escenas conectadas.',
+  });
+}
+
+function renderedTurnError(detail) {
+  throw new PipelineError({
+    code: 'RENDERED_TURN_TIMELINE_INVALID',
+    stage: 'verifying_project',
+    message: 'No se puede publicar la timeline medida de los turnos.',
+    technicalDetail: detail,
+    suggestedAction: 'Revise el runtime de diálogo y las duraciones medidas antes de ensamblar el proyecto.',
   });
 }
 

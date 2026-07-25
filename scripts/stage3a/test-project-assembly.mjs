@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { projectRoot, writeJson } from '../stage1/common.mjs';
-import { buildAssemblyPlan } from './project-pipeline.mjs';
+import { buildAssemblyPlan, buildRenderedTurnTimeline } from './project-pipeline.mjs';
 
 const results = [];
 
@@ -42,6 +42,22 @@ results.push({ name: 'fade-must-fit-both-scenes', passed: true });
 
 assert.throws(() => buildAssemblyPlan([]), (error) => error.code === 'PROJECT_SCENES_EMPTY');
 results.push({ name: 'empty-project-rejected', passed: true });
+
+const renderedTurns = buildRenderedTurnTimeline([
+  { id: 'turn-a', speakerId: 'speaker-a', startSeconds: 0, endSeconds: 1.25, durationSeconds: 1.25, gapAfterSeconds: 0.5 },
+  { id: 'turn-b', speakerId: 'speaker-b', startSeconds: 1.75, endSeconds: 3, durationSeconds: 1.25, gapAfterSeconds: 0 },
+], 9.5, 3);
+assert.deepEqual(renderedTurns, [
+  { id: 'turn-a', speakerId: 'speaker-a', startSeconds: 9.5, endSeconds: 10.75, durationSeconds: 1.25, gapAfterSeconds: 0.5 },
+  { id: 'turn-b', speakerId: 'speaker-b', startSeconds: 11.25, endSeconds: 12.5, durationSeconds: 1.25, gapAfterSeconds: 0 },
+]);
+results.push({ name: 'turn-timeline-uses-absolute-project-time', passed: true });
+
+assert.throws(() => buildRenderedTurnTimeline([
+  { id: 'turn-a', speakerId: 'speaker-a', startSeconds: 0, endSeconds: 1, durationSeconds: 1, gapAfterSeconds: 0.5 },
+  { id: 'turn-b', speakerId: 'speaker-b', startSeconds: 1.25, endSeconds: 2, durationSeconds: 0.75, gapAfterSeconds: 0 },
+], 0, 2), (error) => error.code === 'RENDERED_TURN_TIMELINE_INVALID');
+results.push({ name: 'turn-timeline-rejects-inconsistent-gaps', passed: true });
 
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'project-assembly-latest.json'), summary);
