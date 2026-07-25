@@ -5,14 +5,24 @@
       "id": "mono-azul-v1",
       "type": "character",
       "label": "Mono presentador azul",
-      "tags": ["geometrico", "mono", "presentador"],
+      "tags": [
+        "geometrico",
+        "mono",
+        "presentador"
+      ],
       "characterRef": {
         "catalog": "assets/catalog/index.json",
         "entryId": "mono-parametrico-azul-v1"
       },
       "capabilities": {
-        "poses": ["neutral", "point"],
-        "animationPresets": ["idle-calm", "talk-calm"]
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ]
       },
       "provenance": {
         "source": "Definición geométrica original del proyecto.",
@@ -23,14 +33,24 @@
       "id": "mono-ciruela-v1",
       "type": "character",
       "label": "Mono analista ciruela",
-      "tags": ["analista", "geometrico", "mono"],
+      "tags": [
+        "analista",
+        "geometrico",
+        "mono"
+      ],
       "characterRef": {
         "catalog": "assets/catalog/index.json",
         "entryId": "mono-parametrico-ciruela-v1"
       },
       "capabilities": {
-        "poses": ["neutral", "point"],
-        "animationPresets": ["idle-calm", "talk-calm"]
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ]
       },
       "provenance": {
         "source": "Definición geométrica original del proyecto.",
@@ -41,14 +61,25 @@
       "id": "mono-verde-v1",
       "type": "character",
       "label": "Mono divulgador verde",
-      "tags": ["divulgador", "geometrico", "mono", "verde"],
+      "tags": [
+        "divulgador",
+        "geometrico",
+        "mono",
+        "verde"
+      ],
       "characterRef": {
         "catalog": "assets/catalog/index.json",
         "entryId": "mono-parametrico-verde-v1"
       },
       "capabilities": {
-        "poses": ["neutral", "point"],
-        "animationPresets": ["idle-calm", "talk-calm"]
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ]
       },
       "provenance": {
         "source": "Variante de paleta de la definición geométrica original del proyecto.",
@@ -59,14 +90,25 @@
       "id": "mono-teal-v1",
       "type": "character",
       "label": "Mono divulgador teal",
-      "tags": ["divulgador", "geometrico", "mono", "teal"],
+      "tags": [
+        "divulgador",
+        "geometrico",
+        "mono",
+        "teal"
+      ],
       "characterRef": {
         "catalog": "assets/catalog/index.json",
         "entryId": "mono-parametrico-teal-v1"
       },
       "capabilities": {
-        "poses": ["neutral", "point"],
-        "animationPresets": ["idle-calm", "talk-calm"]
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ]
       },
       "provenance": {
         "source": "Variante de paleta de la definición geométrica original del proyecto.",
@@ -77,14 +119,25 @@
       "id": "mono-terracota-v1",
       "type": "character",
       "label": "Mono divulgador terracota",
-      "tags": ["calido", "divulgador", "geometrico", "mono"],
+      "tags": [
+        "calido",
+        "divulgador",
+        "geometrico",
+        "mono"
+      ],
       "characterRef": {
         "catalog": "assets/catalog/index.json",
         "entryId": "mono-parametrico-terracota-v1"
       },
       "capabilities": {
-        "poses": ["neutral", "point"],
-        "animationPresets": ["idle-calm", "talk-calm"]
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ]
       },
       "provenance": {
         "source": "Variante de paleta de la definición geométrica original del proyecto.",
@@ -95,14 +148,25 @@
       "id": "mono-pizarra-v1",
       "type": "character",
       "label": "Mono divulgador pizarra",
-      "tags": ["divulgador", "geometrico", "gris", "mono"],
+      "tags": [
+        "divulgador",
+        "geometrico",
+        "gris",
+        "mono"
+      ],
       "characterRef": {
         "catalog": "assets/catalog/index.json",
         "entryId": "mono-parametrico-pizarra-v1"
       },
       "capabilities": {
-        "poses": ["neutral", "point"],
-        "animationPresets": ["idle-calm", "talk-calm"]
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ]
       },
       "provenance": {
         "source": "Variante de paleta de la definición geométrica original del proyecto.",
@@ -113,14 +177,25 @@
       "id": "tucan-gala-v1",
       "type": "character",
       "label": "Tucán de gala",
-      "tags": ["ave", "formal", "traje", "tucan"],
+      "tags": [
+        "ave",
+        "formal",
+        "traje",
+        "tucan"
+      ],
       "characterRef": {
         "catalog": "assets/catalog/index-tucan.json",
         "entryId": "tucan-gala-v1"
       },
       "capabilities": {
-        "poses": ["neutral", "point"],
-        "animationPresets": ["idle-calm", "talk-calm"]
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ]
       },
       "provenance": {
         "source": "Definición geométrica original del proyecto: tucán con traje.",
@@ -128,10 +203,43 @@
       }
     },
     {
+      "id": "conejo-traje-v1",
+      "type": "character",
+      "label": "Conejo de Traje",
+      "tags": [
+        "conejo",
+        "traje",
+        "geometrico",
+        "animal"
+      ],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "conejo-traje-v1"
+      },
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ]
+      },
+      "provenance": {
+        "source": "Propuesta AI Conejo de Traje",
+        "license": "Creación local del usuario."
+      }
+    },
+    {
       "id": "voz-daniela-ar-v1",
       "type": "voice",
       "label": "Daniela — español de Argentina",
-      "tags": ["argentina", "espanol", "piper"],
+      "tags": [
+        "argentina",
+        "espanol",
+        "piper"
+      ],
       "voice": {
         "provider": "piper",
         "model": "es_AR-daniela-high",
@@ -148,7 +256,11 @@
       "id": "voz-davefx-es-v1",
       "type": "voice",
       "label": "DaveFX — español de España",
-      "tags": ["espana", "espanol", "piper"],
+      "tags": [
+        "espana",
+        "espanol",
+        "piper"
+      ],
       "voice": {
         "provider": "piper",
         "model": "es_ES-davefx-medium",
@@ -165,10 +277,18 @@
       "id": "fondo-estudio-parallax-v1",
       "type": "background",
       "label": "Estudio con parallax",
-      "tags": ["estudio", "parallax", "vertical"],
+      "tags": [
+        "estudio",
+        "parallax",
+        "vertical"
+      ],
       "backgroundManifest": "assets/backgrounds/studio-parallax-v1/background.manifest.json",
       "capabilities": {
-        "cameraPresets": ["static", "slow-pan", "slow-zoom"]
+        "cameraPresets": [
+          "static",
+          "slow-pan",
+          "slow-zoom"
+        ]
       },
       "provenance": {
         "source": "Creación vectorial determinista del proyecto.",

@@ -1,0 +1,109 @@
+{
+  "version": 2,
+  "id": "conejo-traje-v1",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/character-definitions/conejo-traje-v1.json",
+  "variant": {
+    "id": "custom",
+    "label": "Conejo de Traje",
+    "palette": {
+      "outline": "#24150f",
+      "fur": "#9a5636",
+      "lightFur": "#d89a69",
+      "suit": "#24385f",
+      "shirt": "#f4e9d9",
+      "accent": "#e35b55",
+      "white": "#fffaf0",
+      "mouthDark": "#3a1720",
+      "tongue": "#ef7c78",
+      "shadow": "#0a102059"
+    }
+  },
+  "layers": {
+    "body": "body.png",
+    "eyes": {
+      "open": "eyes_open.png",
+      "closed": "eyes_closed.png"
+    },
+    "mouth": {
+      "closed": "mouth_closed.png",
+      "medium": "mouth_medium.png",
+      "open": "mouth_open.png"
+    },
+    "hands": {
+      "neutral": "hand_neutral.png",
+      "point": "hand_point.png"
+    },
+    "thumbnails": {
+      "neutral": "pose_neutral.png",
+      "point": "pose_point.png"
+    }
+  },
+  "joints": [
+    {
+      "id": "root",
+      "parentId": null,
+      "x": 540,
+      "y": 960,
+      "pivotX": 540,
+      "pivotY": 960
+    },
+    {
+      "id": "head",
+      "parentId": "root",
+      "x": 540,
+      "y": 620,
+      "pivotX": 540,
+      "pivotY": 620
+    },
+    {
+      "id": "shoulder_left",
+      "parentId": "root",
+      "x": 280,
+      "y": 1100,
+      "pivotX": 280,
+      "pivotY": 1100
+    },
+    {
+      "id": "shoulder_right",
+      "parentId": "root",
+      "x": 800,
+      "y": 1100,
+      "pivotX": 800,
+      "pivotY": 1100
+    }
+  ],
+  "poses": [
+    {
+      "id": "neutral",
+      "handState": "neutral",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -12
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "handState": "point",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -67
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "Creado con el diseñador local de personajes a partir de primitivas declarativas.",
+    "license": "Creación local del usuario."
+  }
+}

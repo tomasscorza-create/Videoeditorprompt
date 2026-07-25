@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <ellipse cx="440" cy="380" rx="40" ry="150" fill="#f0f0f0" stroke="#111111" stroke-width="12" transform="rotate(-15 440 380)"/>
+  <ellipse cx="640" cy="380" rx="40" ry="150" fill="#f0f0f0" stroke="#111111" stroke-width="12" transform="rotate(15 640 380)"/>
+  <ellipse cx="540" cy="1160" rx="225" ry="275" fill="#1a1c23" stroke="#111111" stroke-width="12"/>
+  <rect x="480" y="910" width="120" height="280" rx="42" fill="#ffffff" stroke="#111111" stroke-width="12"/>
+  <rect x="520" y="970" width="40" height="220" rx="14" fill="#cc2233" stroke="#111111" stroke-width="10"/>
+  <ellipse cx="540" cy="620" rx="190" ry="210" fill="#f0f0f0" stroke="#111111" stroke-width="12"/>
+  <rect x="220" y="900" width="120" height="400" rx="42" fill="#1a1c23" stroke="#111111" stroke-width="12" transform="rotate(12 280 1100)"/>
+  <rect x="375" y="1360" width="130" height="380" rx="45.5" fill="#1a1c23" stroke="#111111" stroke-width="12" transform="rotate(4 440 1550)"/>
+  <rect x="575" y="1360" width="130" height="380" rx="45.5" fill="#1a1c23" stroke="#111111" stroke-width="12" transform="rotate(-4 640 1550)"/>
+</svg>

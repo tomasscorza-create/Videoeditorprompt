@@ -61,15 +61,13 @@ function renderViewerWorkspace(): void {
         ? state.output?.stale
           ? 'Reproduciendo la última exportación. El proyecto tiene cambios posteriores sin renderizar.'
           : 'Reproducción medida del proyecto. La timeline y el visor comparten el mismo transporte.'
-        : state.output?.stale
-          ? 'Edición activa. La última exportación quedó desactualizada después de tus cambios.'
-          : 'Seleccioná y arrastrá personajes. La duración real aparece cuando el proyecto se renderiza.';
+        : 'Seleccioná y arrastrá personajes. La duración real aparece cuando el proyecto se renderiza.';
   }
 
   const status = optional<HTMLElement>('#viewer-output-status');
   if (status) {
-    status.hidden = state.mode !== 'editor' || !state.output;
-    status.textContent = state.output?.stale ? 'Exportación anterior' : 'Exportación actual';
+    status.hidden = state.mode !== 'editor' || !state.output || state.output.stale;
+    status.textContent = 'Exportación actual';
     status.classList.toggle('is-stale', Boolean(state.output?.stale));
   }
   const returnButton = optional<HTMLButtonElement>('#viewer-return-edit');

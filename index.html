@@ -84,7 +84,10 @@
                 <span class="eyebrow">Crear</span>
                 <h1 id="director-title">Director IA</h1>
               </div>
-              <span id="director-health-badge" class="health-badge is-checking">Comprobando</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span id="director-health-badge" class="health-badge is-checking">Comprobando</span>
+                <button id="director-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel izquierdo" title="Ocultar panel">◀</button>
+              </div>
             </header>
 
             <label class="field" for="director-prompt">
@@ -178,10 +181,15 @@
         ></div>
 
         <section class="viewer-column" aria-label="Visor del proyecto">
+          <button id="director-expand" class="expand-button expand-left" type="button" aria-label="Mostrar panel izquierdo" title="Mostrar panel" hidden>▶</button>
+          <button id="inspector-expand" class="expand-button expand-right" type="button" aria-label="Mostrar panel derecho" title="Mostrar panel" hidden>◀</button>
+          <button id="timeline-expand" class="expand-button expand-bottom" type="button" aria-label="Mostrar timeline" title="Mostrar timeline" hidden>▲</button>
+
           <header class="viewer-header">
-            <div>
+            <div class="viewer-title-block">
               <span class="eyebrow">Vista</span>
-              <h2 id="viewer-title">Editor de video</h2>
+              <span class="eyebrow separator">/</span>
+              <h2 id="viewer-title" class="viewer-title-inline">Editor de video</h2>
             </div>
             <div class="source-tabs" role="tablist" aria-label="Espacio de trabajo">
               <button id="workspace-editor" class="source-tab is-active" type="button" role="tab" aria-selected="true">Editor</button>
@@ -251,7 +259,10 @@
                 <span class="eyebrow">Catálogo local</span>
                 <h2 id="library-title">Recursos</h2>
               </div>
-              <button id="resource-register" class="text-button" type="button">Agregar fondo</button>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button id="resource-register" class="text-button" type="button">Agregar fondo</button>
+                <button id="inspector-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel derecho" title="Ocultar panel">▶</button>
+              </div>
               <input id="resource-register-file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
             </header>
             <p id="resource-library-status" class="muted" role="status" aria-live="polite"></p>
@@ -402,6 +413,7 @@
             <button id="timeline-zoom-out" class="timeline-tool" type="button" title="Alejar (-)" aria-label="Alejar timeline">−</button>
             <button id="timeline-fit" class="timeline-tool" type="button" title="Ajustar al ancho (F)" aria-label="Ajustar timeline al ancho">Ajustar</button>
             <button id="timeline-zoom-in" class="timeline-tool" type="button" title="Acercar (+)" aria-label="Acercar timeline">+</button>
+            <button id="timeline-collapse" class="timeline-tool collapse-button" type="button" title="Ocultar timeline" aria-label="Ocultar timeline">▼</button>
           </div>
         </header>
 

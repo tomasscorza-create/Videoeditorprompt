@@ -211,6 +211,39 @@
         "source": "Definición geométrica original del proyecto, compuesta por primitivas y paths declarativos.",
         "license": "Asset original para uso interno del proyecto."
       }
+    },
+    {
+      "id": "conejo-traje-v1",
+      "type": "character",
+      "label": "Conejo de Traje",
+      "manifest": "assets/characters/conejo-traje-v1/character.manifest.json",
+      "thumbnail": "assets/characters/conejo-traje-v1/pose_neutral.png",
+      "tags": [
+        "geometrico",
+        "mono",
+        "parametrico"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open"
+        ],
+        "joints": [
+          "root",
+          "head",
+          "shoulder_left",
+          "shoulder_right"
+        ]
+      },
+      "provenance": {
+        "source": "Creado con el diseñador local de personajes a partir de primitivas declarativas.",
+        "license": "Creación local del usuario."
+      }
     }
   ]
 }
