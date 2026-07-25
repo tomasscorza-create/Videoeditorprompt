@@ -12,7 +12,13 @@ import { projectRoot, readJson } from '../stage1/common.mjs';
 // Se elige compilar (en vez de refactorizar) para no cambiar la superficie del código.
 const outDir = mkdtempSync(path.join(os.tmpdir(), 'local-video-ui-modules-'));
 const tsc = path.join(projectRoot, 'node_modules', 'typescript', 'bin', 'tsc');
-const sources = ['src/ui/editor-workspace.ts', 'src/ui/project/store.ts', 'src/ui/timeline-geometry.ts'];
+const sources = [
+  'src/vite-env.d.ts',
+  'src/ui/editor-workspace.ts',
+  'src/ui/project/store.ts',
+  'src/ui/timeline-geometry.ts',
+  'src/ui/director/api.ts',
+];
 const compile = spawnSync(process.execPath, [
   tsc,
   ...sources,
@@ -67,11 +73,14 @@ function fakeVideo() {
 }
 
 const geometryPath = path.join(outDir, 'src', 'ui', 'timeline-geometry.js');
+const apiPath = path.join(outDir, 'src', 'ui', 'director', 'api.js');
 assert.equal(existsSync(geometryPath), true, 'timeline-geometry.js no se compiló');
+assert.equal(existsSync(apiPath), true, 'director/api.js no se compiló');
 
 const workspace = await import(pathToFileURL(workspacePath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
+const directorApi = await import(pathToFileURL(apiPath).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 
 let passed = 0;
@@ -79,6 +88,24 @@ const check = (label, condition) => {
   assert.equal(condition, true, label);
   passed += 1;
 };
+
+check(
+  'explica la escena y la capacidad no soportada sin índice técnico',
+  directorApi.formatApiError({
+    code: 'PROJECT_SCENE_UNSUPPORTED',
+    message: 'Una escena no es compatible.',
+    technicalDetail: '/scenes/1 el personaje protagonista usa pose inicial point',
+    suggestedAction: 'Corrija la escena.',
+  }).includes('Escena 2: el personaje protagonista usa pose inicial point'),
+);
+check(
+  'no muestra detalles técnicos arbitrarios de otros errores',
+  !directorApi.formatApiError({
+    code: 'UNEXPECTED_ERROR',
+    message: 'Falló.',
+    technicalDetail: 'C:\\ruta\\privada\\archivo.json',
+  }).includes('ruta'),
+);
 
 // ---- editor-workspace.ts: máquina de estados modo/superficie/vigencia ----
 const video = fakeVideo();

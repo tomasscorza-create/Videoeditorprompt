@@ -69,6 +69,15 @@ export interface ApiError {
   technicalDetail?: string;
 }
 
+export function formatApiError(error: ApiError): string {
+  const detail = error.code === 'PROJECT_SCENE_UNSUPPORTED'
+    ? formatUnsupportedSceneDetail(error.technicalDetail)
+    : null;
+  return [error.message, detail, error.suggestedAction, error.code ? `(${error.code})` : null]
+    .filter(Boolean)
+    .join(' ');
+}
+
 export interface DirectorConstraints {
   tone: 'educational' | 'ironic' | 'serious' | 'energetic' | 'inspirational';
   targetDurationSeconds: number;
@@ -262,4 +271,12 @@ function friendlyError(message: string, suggestedAction: string) {
   const error = new Error(message) as Error & { detail?: ApiError };
   error.detail = { code: 'LOCAL_SERVICE_UNAVAILABLE', message, suggestedAction };
   return error;
+}
+
+function formatUnsupportedSceneDetail(value: string | undefined): string | null {
+  if (!value) return null;
+  const safe = value.replace(/[\u0000-\u001f\u007f]+/gu, ' ').trim().slice(0, 300);
+  const match = /^\/scenes\/(\d+)\s+(.+)$/u.exec(safe);
+  if (!match) return null;
+  return `Escena ${Number(match[1]) + 1}: ${match[2]}`;
 }
