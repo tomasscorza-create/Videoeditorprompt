@@ -672,26 +672,24 @@ function duplicateSceneById(sceneId: string): void {
   if (!error) selectScene(newSceneId);
 }
 
-// Inserta una escena en blanco en `targetIndex` (add-scene appende + reorder la ubica).
+// Inserta una escena en `targetIndex` DUPLICANDO la vecina, no con add-scene: el runtime
+// exige exactamente 2 personajes y >= 2 turnos por escena, y add-scene solo crea escenas
+// vacías que después no renderizan (PROJECT_SCENE_UNSUPPORTED). duplicate-scene la deja
+// justo después de la referencia; se reubica si el destino es otro.
 function insertSceneAt(referenceSceneId: string, targetIndex: number): void {
   if (!store) return;
-  const reference = store.project().scenes.find((item) => item.id === referenceSceneId);
-  if (!reference) return;
-  const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
-  const error = store.dispatch({
-    type: 'add-scene',
-    scene: {
-      id: newSceneId,
-      title: 'Escena nueva',
-      background: { resourceId: reference.background.resourceId, cameraPreset: reference.background.cameraPreset },
-      elements: [],
-      dialogue: [],
-    },
-  });
+  const scenes = store.project().scenes;
+  const reference = scenes.find((item) => item.id === referenceSceneId);
+  if (!reference || scenes.length >= 8) return;
+  const newSceneId = nextSceneId(scenes.map((item) => item.id));
+  const error = store.dispatch({ type: 'duplicate-scene', sceneId: referenceSceneId, newSceneId, title: `${reference.title} nueva` });
   if (error) { window.alert(error); return; }
-  const ids = store.project().scenes.map((item) => item.id).filter((id) => id !== newSceneId);
-  ids.splice(clamp(targetIndex, 0, ids.length), 0, newSceneId);
-  store.dispatch({ type: 'reorder-scenes', sceneIds: ids });
+  const currentIndex = store.project().scenes.findIndex((item) => item.id === newSceneId);
+  if (currentIndex !== targetIndex) {
+    const ids = store.project().scenes.map((item) => item.id).filter((id) => id !== newSceneId);
+    ids.splice(clamp(targetIndex, 0, ids.length), 0, newSceneId);
+    store.dispatch({ type: 'reorder-scenes', sceneIds: ids });
+  }
   selectScene(newSceneId);
 }
 
