@@ -1023,6 +1023,21 @@ function fitTimeline(): void {
 }
 
 function handleShortcut(event: KeyboardEvent): void {
+  // B6: Ctrl/Cmd+Z deshace y Ctrl+Y / Ctrl+Shift+Z rehace. Se respeta isTyping para no
+  // pisar el undo nativo de los inputs.
+  if ((event.ctrlKey || event.metaKey) && !isTyping(event.target)) {
+    const key = event.key.toLowerCase();
+    if (key === 'z' && !event.shiftKey) {
+      event.preventDefault();
+      if (store?.canUndo()) store.undo();
+      return;
+    }
+    if (key === 'y' || (key === 'z' && event.shiftKey)) {
+      event.preventDefault();
+      if (store?.canRedo()) store.redo();
+      return;
+    }
+  }
   if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
   const hasOutput = Boolean(editorWorkspace().output);
   if (event.code === 'Space' && hasOutput) {
