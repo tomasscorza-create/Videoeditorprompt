@@ -72,6 +72,13 @@ export function pauseLabel(seconds: number): string {
   return `${roundTo(seconds, 2)} s`;
 }
 
+// Ajusta un valor en segundos al paso `snap` y lo acota a [min, max]. Puro: lo usa el
+// arrastre de pausas (B2) para mapear píxeles a un gapAfterSeconds válido del contrato.
+export function snapSeconds(value: number, snap: number, min: number, max: number): number {
+  const snapped = snap > 0 ? Math.round(value / snap) * snap : value;
+  return roundTo(Math.min(max, Math.max(min, snapped)), 2);
+}
+
 // Tiempos (centro de cada casilla) para un filmstrip de `count` miniaturas en el rango
 // [startSeconds, endSeconds]. Puro: la extracción real de frames vive en la capa DOM.
 export function filmstripTimes(startSeconds: number, endSeconds: number, count: number): number[] {

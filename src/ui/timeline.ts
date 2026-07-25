@@ -21,6 +21,7 @@ import {
   filmstripTimes,
   pauseLabel,
   rulerTicks,
+  snapSeconds,
   transitionGlyph,
   transitionLabel,
 } from './timeline-geometry.js';
@@ -235,9 +236,7 @@ function renderLayerStack(
           clip.addEventListener('dblclick', () => selectDialogue(scene.id, turn.id));
           if (waveform) attachWaveformCanvas(clip, cursor / pixelsPerSecond, (cursor + width) / pixelsPerSecond);
           clips.push(clip);
-          if (turn.gapAfterSeconds > 0) {
-            clips.push(pauseMarker(cursor + width, turn.gapAfterSeconds));
-          }
+          clips.push(gapHandle(scene.id, turn.id, cursor + width, turn.gapAfterSeconds));
         }
         cursor += width;
       }
@@ -498,15 +497,60 @@ function popoverPointerdown(event: PointerEvent): void {
   if (activePopover && !activePopover.contains(event.target as Node)) closeTimelinePopover();
 }
 
-function pauseMarker(left: number, seconds: number): HTMLElement {
-  const marker = document.createElement('span');
-  marker.className = 'dialogue-pause';
-  marker.style.left = `${left}px`;
-  marker.title = `Pausa ${pauseLabel(seconds)}`;
+const GAP_MAX_SECONDS = 2;
+const GAP_SNAP_SECONDS = 0.1;
+
+function clampGap(seconds: number): number {
+  return snapSeconds(seconds, GAP_SNAP_SECONDS, 0, GAP_MAX_SECONDS);
+}
+
+// B2: handle en el borde derecho del clip (zona del gap). Arrastrar horizontal ajusta
+// gapAfterSeconds (0–2 s, snap 0.1 s) y despacha set-dialogue-turn al soltar. Es la única
+// manija temporal permitida: edita un dato del contrato, no la duración de la voz. El
+// mapeo px→s usa pixelsPerSecond (escala nominal en editorial, real en medido). El
+// arrastre se sigue a nivel window para no depender de la captura de puntero.
+function gapHandle(sceneId: string, turnId: string, left: number, gapSeconds: number): HTMLElement {
+  const handle = document.createElement('span');
+  handle.className = 'dialogue-gap';
+  handle.classList.toggle('has-pause', gapSeconds > 0);
+  handle.style.left = `${left}px`;
+  handle.style.setProperty('--gap-width', `${gapSeconds * pixelsPerSecond}px`);
   const badge = document.createElement('small');
-  badge.textContent = pauseLabel(seconds);
-  marker.append(badge);
-  return marker;
+  const paint = (value: number) => {
+    handle.style.setProperty('--gap-width', `${value * pixelsPerSecond}px`);
+    handle.classList.toggle('has-pause', value > 0);
+    handle.title = value > 0 ? `Pausa ${pauseLabel(value)} · arrastrá para ajustar` : 'Arrastrá para agregar una pausa';
+    badge.textContent = value > 0 ? pauseLabel(value) : '';
+  };
+  paint(gapSeconds);
+  handle.append(badge);
+  let dragging = false;
+  let startX = 0;
+  let current = gapSeconds;
+  const onMove = (event: PointerEvent) => {
+    if (!dragging) return;
+    current = clampGap(gapSeconds + (event.clientX - startX) / pixelsPerSecond);
+    paint(current);
+  };
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    handle.classList.remove('is-dragging');
+    if (current !== gapSeconds) store?.dispatch({ type: 'set-dialogue-turn', sceneId, turnId, gapAfterSeconds: current });
+  };
+  handle.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragging = true;
+    startX = event.clientX;
+    current = gapSeconds;
+    handle.classList.add('is-dragging');
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+  return handle;
 }
 
 function trackDivider(title: string, detail: string): HTMLElement {

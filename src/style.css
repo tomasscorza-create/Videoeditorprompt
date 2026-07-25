@@ -952,19 +952,20 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .timeline-popover-range { display: grid; gap: .3rem; color: var(--muted); }
 .timeline-popover-range input[type="range"] { width: 100%; }
 .timeline-popover-separator { height: 1px; margin: .1rem 0; background: var(--border); }
-.dialogue-pause {
+.dialogue-gap {
   position: absolute;
   top: .22rem;
   bottom: .22rem;
-  z-index: 2;
-  display: flex;
-  align-items: flex-end;
-  transform: translateX(-50%);
-  width: 6px;
-  pointer-events: none;
-  background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--muted) 55%, transparent) 0 2px, transparent 2px 4px);
+  z-index: 3;
+  width: var(--gap-width, 0px);
+  border-left: 2px solid color-mix(in srgb, var(--muted) 70%, transparent);
+  cursor: ew-resize;
+  touch-action: none;
 }
-.dialogue-pause small { position: absolute; bottom: -.1rem; left: 50%; transform: translateX(-50%); color: var(--muted); font: .44rem ui-monospace, monospace; white-space: nowrap; }
+.dialogue-gap::before { content: ""; position: absolute; left: -5px; top: 0; bottom: 0; width: 10px; }
+.dialogue-gap.has-pause { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--muted) 55%, transparent) 0 2px, transparent 2px 4px); }
+.dialogue-gap.is-dragging, .dialogue-gap:hover { border-left-color: var(--accent); }
+.dialogue-gap small { position: absolute; bottom: -.1rem; left: 2px; color: var(--muted); font: .44rem ui-monospace, monospace; white-space: nowrap; pointer-events: none; }
 .authoring-clip {
   position: absolute;
   top: .22rem;

@@ -188,4 +188,10 @@ const strip = geometry.filmstripTimes(0, 4, 2);
 check('los tiempos caen en el centro de cada casilla', strip.length === 2 && strip[0] === 1 && strip[1] === 3);
 check('los tiempos quedan dentro del rango', geometry.filmstripTimes(1, 5, 4).every((time) => time > 1 && time < 5));
 
+// ---- timeline-geometry.ts: snap del arrastre de pausas (B2) ----
+check('el snap redondea al paso', geometry.snapSeconds(0.43, 0.1, 0, 2) === 0.4);
+check('el snap sube al paso más cercano', geometry.snapSeconds(0.46, 0.1, 0, 2) === 0.5);
+check('el snap acota al mínimo', geometry.snapSeconds(-1, 0.1, 0, 2) === 0);
+check('el snap acota al máximo', geometry.snapSeconds(9, 0.1, 0, 2) === 2);
+
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);
