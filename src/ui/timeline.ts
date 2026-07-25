@@ -384,19 +384,118 @@ function transitionsRow(
   lane.className = 'authoring-junction-lane';
   lane.style.width = `${Math.ceil(width)}px`;
   for (let index = 0; index < project.scenes.length - 1; index += 1) {
-    const transition = project.scenes[index].transitionToNext ?? { preset: 'cut', durationSeconds: 0 };
+    const scene = project.scenes[index];
+    const transition = scene.transitionToNext ?? { preset: 'cut' as const, durationSeconds: 0 };
     const boundary = measured?.scenes[index]
       ? measured.scenes[index].endSeconds * pixelsPerSecond
       : positions[index] + sceneWidths[index];
-    const chip = document.createElement('span');
+    const chip = document.createElement('button');
+    chip.type = 'button';
     chip.className = `transition-chip is-${transition.preset}`;
     chip.style.left = `${boundary}px`;
     chip.textContent = transitionGlyph(transition.preset, transition.durationSeconds);
-    chip.title = `${transitionLabel(transition.preset, transition.durationSeconds)} · entre ${project.scenes[index].title} y ${project.scenes[index + 1].title}`;
+    chip.title = `${transitionLabel(transition.preset, transition.durationSeconds)} · entre ${scene.title} y ${project.scenes[index + 1].title} · clic: cambiar · clic derecho: duración`;
+    // B1: clic cicla corte↔fundido; clic derecho abre el popover de duración.
+    chip.addEventListener('click', () => cycleTransition(scene.id, transition.preset));
+    chip.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      openTransitionPopover(chip, scene.id, transition.preset, transition.durationSeconds);
+    });
     lane.append(chip);
   }
   row.append(label, lane);
   return row;
+}
+
+const FADE_DEFAULT_SECONDS = 0.35;
+const FADE_MIN_SECONDS = 0.05;
+const FADE_MAX_SECONDS = 2;
+
+// B1: alterna corte↔fundido conservando una transición válida siempre.
+function cycleTransition(sceneId: string, current: 'cut' | 'fade'): void {
+  if (!store) return;
+  if (current === 'cut') {
+    store.dispatch({ type: 'set-transition', sceneId, preset: 'fade', durationSeconds: FADE_DEFAULT_SECONDS });
+  } else {
+    store.dispatch({ type: 'set-transition', sceneId, preset: 'cut', durationSeconds: 0 });
+  }
+}
+
+// B1: popover para ajustar la duración del fundido (rango del contrato). Elegir corte
+// pone duración 0; mover el rango implica fundido. Cerrable con Esc o clic afuera.
+function openTransitionPopover(anchor: HTMLElement, sceneId: string, preset: 'cut' | 'fade', durationSeconds: number): void {
+  closeTimelinePopover();
+  const popover = document.createElement('div');
+  popover.className = 'timeline-popover transition-popover';
+  const heading = document.createElement('strong');
+  heading.textContent = 'Transición';
+  const cut = document.createElement('button');
+  cut.type = 'button';
+  cut.className = 'timeline-popover-option';
+  cut.textContent = '✂ Corte';
+  cut.classList.toggle('is-active', preset === 'cut');
+  cut.addEventListener('click', () => {
+    store?.dispatch({ type: 'set-transition', sceneId, preset: 'cut', durationSeconds: 0 });
+    closeTimelinePopover();
+  });
+  const row = document.createElement('label');
+  row.className = 'timeline-popover-range';
+  const rangeLabel = document.createElement('span');
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.min = String(FADE_MIN_SECONDS);
+  range.max = String(FADE_MAX_SECONDS);
+  range.step = '0.05';
+  range.value = String(preset === 'fade' && durationSeconds > 0 ? durationSeconds : FADE_DEFAULT_SECONDS);
+  const paint = () => { rangeLabel.textContent = `◇ Fundido ${Number(range.value).toFixed(2)} s`; };
+  paint();
+  range.addEventListener('input', () => {
+    paint();
+    store?.dispatch({ type: 'set-transition', sceneId, preset: 'fade', durationSeconds: Number(range.value) });
+  });
+  row.append(rangeLabel, range);
+  popover.append(heading, cut, row);
+  positionPopover(popover, anchor);
+}
+
+let activePopover: HTMLElement | null = null;
+
+// Ancla un popover flotante (fixed) junto a `anchor`, dentro del viewport, y lo cierra
+// con Esc o clic afuera. Compartido por B1 (unión) y B3 (menú contextual).
+function positionPopover(popover: HTMLElement, anchor: HTMLElement): void {
+  document.body.append(popover);
+  activePopover = popover;
+  const anchorRect = anchor.getBoundingClientRect();
+  const rect = popover.getBoundingClientRect();
+  const left = clamp(anchorRect.left, 8, window.innerWidth - rect.width - 8);
+  const top = anchorRect.bottom + 6 + rect.height > window.innerHeight
+    ? anchorRect.top - rect.height - 6
+    : anchorRect.bottom + 6;
+  popover.style.left = `${Math.max(8, left)}px`;
+  popover.style.top = `${Math.max(8, top)}px`;
+  window.addEventListener('keydown', popoverKeydown, true);
+  window.addEventListener('pointerdown', popoverPointerdown, true);
+  const first = popover.querySelector<HTMLElement>('button, input, [tabindex]');
+  first?.focus();
+}
+
+function closeTimelinePopover(): void {
+  if (!activePopover) return;
+  window.removeEventListener('keydown', popoverKeydown, true);
+  window.removeEventListener('pointerdown', popoverPointerdown, true);
+  activePopover.remove();
+  activePopover = null;
+}
+
+function popoverKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeTimelinePopover();
+  }
+}
+
+function popoverPointerdown(event: PointerEvent): void {
+  if (activePopover && !activePopover.contains(event.target as Node)) closeTimelinePopover();
 }
 
 function pauseMarker(left: number, seconds: number): HTMLElement {
