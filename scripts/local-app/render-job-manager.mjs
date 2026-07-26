@@ -471,19 +471,13 @@ export async function streamVideoResponse(request, response, video) {
     await pipeResponse(stream, response);
     return;
   }
-  const match = /^bytes=(\d*)-(\d*)$/u.exec(range);
-  if (!match) {
+  const resolvedRange = resolveVideoByteRange(range, video.size);
+  if (!resolvedRange) {
     response.writeHead(416, { 'content-range': `bytes */${video.size}` });
     response.end();
     return;
   }
-  const start = match[1] ? Number(match[1]) : 0;
-  const end = match[2] ? Number(match[2]) : video.size - 1;
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end >= video.size) {
-    response.writeHead(416, { 'content-range': `bytes */${video.size}` });
-    response.end();
-    return;
-  }
+  const { start, end } = resolvedRange;
   const stream = video.blobStorage
     ? (await video.blobStorage.openRead(video.key, { start, end })).stream
     : createReadStream(video.file, { start, end });
@@ -492,6 +486,36 @@ export async function streamVideoResponse(request, response, video) {
     'content-range': `bytes ${start}-${end}/${video.size}`,
   });
   await pipeResponse(stream, response);
+}
+
+export function resolveVideoByteRange(range, size) {
+  const match = /^bytes=(\d*)-(\d*)$/u.exec(range);
+  if (!match || !Number.isSafeInteger(size) || size <= 0 || (!match[1] && !match[2])) return null;
+
+  if (!match[1]) {
+    const suffixLength = Number(match[2]);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) return null;
+    return {
+      start: Math.max(0, size - suffixLength),
+      end: size - 1,
+    };
+  }
+
+  const start = Number(match[1]);
+  const requestedEnd = match[2] ? Number(match[2]) : size - 1;
+  if (
+    !Number.isSafeInteger(start)
+    || !Number.isSafeInteger(requestedEnd)
+    || start < 0
+    || start >= size
+    || requestedEnd < start
+  ) {
+    return null;
+  }
+  return {
+    start,
+    end: Math.min(requestedEnd, size - 1),
+  };
 }
 
 async function pipeResponse(stream, response) {

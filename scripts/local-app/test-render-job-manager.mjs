@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { projectRoot } from '../stage1/common.mjs';
-import { createRenderJobManager, publicTimeline } from './render-job-manager.mjs';
+import { createRenderJobManager, publicTimeline, resolveVideoByteRange } from './render-job-manager.mjs';
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'local-video-render-manager-'));
 const project = JSON.parse(readFileSync(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'), 'utf8'));
@@ -148,6 +148,14 @@ const legacyTimeline = publicTimeline({
 });
 assert.deepEqual(legacyTimeline.scenes[0].turns, []);
 
+assert.deepEqual(resolveVideoByteRange('bytes=0-1023', 5727158), { start: 0, end: 1023 });
+assert.deepEqual(resolveVideoByteRange('bytes=-1024', 5727158), { start: 5726134, end: 5727157 });
+assert.deepEqual(resolveVideoByteRange('bytes=5727000-', 5727158), { start: 5727000, end: 5727157 });
+assert.deepEqual(resolveVideoByteRange('bytes=0-9999999', 5727158), { start: 0, end: 5727157 });
+assert.equal(resolveVideoByteRange('bytes=-0', 5727158), null);
+assert.equal(resolveVideoByteRange('bytes=5727158-', 5727158), null);
+assert.equal(resolveVideoByteRange('bytes=0-1,4-5', 5727158), null);
+
 const recoveryJobsRoot = path.join(root, 'recovery-jobs');
 mkdirSync(recoveryJobsRoot, { recursive: true });
 writeFileSync(path.join(recoveryJobsRoot, 'render-interrupted.json'), JSON.stringify({
@@ -181,7 +189,7 @@ await assert.rejects(
 );
 
 rmSync(root, { recursive: true, force: true });
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 33, failed: 0, jobId: job.jobId })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 40, failed: 0, jobId: job.jobId })}\n`);
 
 async function waitFor(predicate, timeoutMs = 3000) {
   const deadline = Date.now() + timeoutMs;
