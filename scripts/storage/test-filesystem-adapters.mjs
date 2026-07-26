@@ -8,9 +8,11 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createProjectRepository } from '../local-app/project-repository.mjs';
 import { createFileBlobStorage } from './file-blob-storage.mjs';
 import { createFileRenderJobRepository } from './file-render-job-repository.mjs';
 import { createFileResourceRepository } from './file-resource-repository.mjs';
+import { runRepositoryContractSuite } from './repository-contract-suite.mjs';
 
 const root = mkdtempSync(path.join(tmpdir(), 'local-video-storage-'));
 let passed = 0;
@@ -20,65 +22,21 @@ const check = (condition, message) => {
 };
 
 try {
-  const resourceRepository = await createFileResourceRepository({
-    indexPath: path.join(root, 'library', 'library-index.json'),
-    validateRegistry: validateRegistry,
-  });
-  const resource = {
-    id: 'voz-storage-v1',
-    contentHash: '1'.repeat(64),
-    registeredAt: '2026-07-25T00:00:00.000Z',
-    entry: { id: 'voz-storage-v1', type: 'voice' },
-  };
-  check((await resourceRepository.list()).length === 0, 'registro inicialmente vacío');
-  check((await resourceRepository.register(resource)).created, 'recurso creado');
-  check((await resourceRepository.get(resource.id)).contentHash === resource.contentHash, 'recurso recuperado');
-  check(!(await resourceRepository.register({ ...resource, id: 'voz-alias-v1', entry: { ...resource.entry, id: 'voz-alias-v1' } })).created, 'hash deduplicado');
-  await assert.rejects(
-    () => resourceRepository.register({ ...resource, contentHash: '2'.repeat(64) }),
-    (error) => error.code === 'LIBRARY_RESOURCE_ID_CONFLICT',
-  );
-  passed += 1;
-
-  const jobRepository = createFileRenderJobRepository({
-    storageRoot: path.join(root, 'jobs'),
-  });
-  const queuedJob = {
-    version: 1,
-    jobId: 'render-storage-01',
-    projectId: 'proyecto-storage',
-    state: 'queued',
-    stage: 'queueing',
-    createdAt: '2026-07-25T00:00:00.000Z',
-    updatedAt: '2026-07-25T00:00:00.000Z',
-    progress: null,
-    error: null,
-  };
-  await jobRepository.reserve(queuedJob);
-  await assert.rejects(
-    () => jobRepository.reserve(queuedJob),
-    (error) => error.code === 'RENDER_JOB_CONFLICT',
-  );
-  passed += 1;
-  const renderingJob = await jobRepository.transition(
-    queuedJob.jobId,
-    'queued',
-    { state: 'rendering', stage: 'rendering_frames' },
-  );
-  check(renderingJob.state === 'rendering', 'transición atómica aplicada');
-  await assert.rejects(
-    () => jobRepository.transition(queuedJob.jobId, 'queued', { state: 'failed' }),
-    (error) => error.code === 'RENDER_JOB_STATE_CONFLICT',
-  );
-  passed += 1;
-  check((await jobRepository.list({ states: ['rendering'] })).length === 1, 'filtro de jobs');
-  await assert.rejects(
-    () => jobRepository.transition(queuedJob.jobId, 'rendering', {
-      technicalDetail: 'C:\\datos\\privados\\archivo.json',
+  const metadata = await runRepositoryContractSuite({
+    backend: 'filesystem',
+    prefix: 'fscontract',
+    createProjectRepository: () => createProjectRepository({
+      storageRoot: path.join(root, 'projects'),
     }),
-    (error) => error.code === 'RENDER_JOB_PATH_INVALID',
-  );
-  passed += 1;
+    createResourceRepository: () => createFileResourceRepository({
+      indexPath: path.join(root, 'library', 'library-index.json'),
+      validateRegistry,
+    }),
+    createRenderJobRepository: () => createFileRenderJobRepository({
+      storageRoot: path.join(root, 'jobs'),
+    }),
+  });
+  passed += metadata.passed;
 
   const blobRoot = path.join(root, 'blobs');
   const sandboxRoot = path.join(root, 'sandbox');
@@ -146,7 +104,13 @@ try {
   );
   passed += 1;
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({
+    version: 1,
+    backend: 'filesystem',
+    metadataPassed: metadata.passed,
+    passed,
+    failed: 0,
+  })}\n`);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

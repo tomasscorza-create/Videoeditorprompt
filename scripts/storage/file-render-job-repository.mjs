@@ -14,7 +14,7 @@ export function createFileRenderJobRepository(options) {
   async function reserve(job) {
     return serializeMutation(async () => {
       await ready;
-      validateJob(job);
+      validateRenderJob(job);
       const target = statusPath(storageRoot, job.jobId);
       try {
         await writeFile(target, `${JSON.stringify(job, null, 2)}\n`, {
@@ -68,7 +68,7 @@ export function createFileRenderJobRepository(options) {
         );
       }
       const next = { ...current, ...clone(event) };
-      validateJob(next);
+      validateRenderJob(next);
       await atomicWriteJson(statusPath(storageRoot, jobId), next);
       return clone(next);
     });
@@ -99,11 +99,11 @@ async function readJob(file) {
   } catch {
     throw storageError('RENDER_JOB_INVALID', 'El estado del trabajo no contiene JSON válido.');
   }
-  validateJob(job);
+  validateRenderJob(job);
   return clone(job);
 }
 
-function validateJob(job) {
+export function validateRenderJob(job) {
   if (!job || typeof job !== 'object' || Array.isArray(job)) {
     throw storageError('RENDER_JOB_INVALID', 'El estado del trabajo no es válido.');
   }
@@ -115,6 +115,8 @@ function validateJob(job) {
     || typeof job.stage !== 'string'
     || typeof job.createdAt !== 'string'
     || typeof job.updatedAt !== 'string'
+    || !isIsoDate(job.createdAt)
+    || !isIsoDate(job.updatedAt)
   ) {
     throw storageError('RENDER_JOB_INVALID', 'El estado del trabajo está incompleto.');
   }
@@ -124,7 +126,11 @@ function validateJob(job) {
   assertNoHostPaths(job);
 }
 
-function assertNoHostPaths(value) {
+function isIsoDate(value) {
+  return Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+
+export function assertNoHostPaths(value) {
   if (Array.isArray(value)) {
     value.forEach(assertNoHostPaths);
     return;

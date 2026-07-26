@@ -80,7 +80,7 @@ export async function createResourceLibrary(options = {}) {
     publishedAssetsRelative,
   });
   let registry = { version: 1, entries: await repository.list() };
-  validateRegistry(registry);
+  validateResourceLibraryRegistry(registry);
   publish();
 
   const library = {
@@ -411,7 +411,7 @@ export async function createResourceLibrary(options = {}) {
 export async function createResourceLibraryRepository(options) {
   return createFileResourceRepository({
     indexPath: options.indexPath,
-    validateRegistry,
+    validateRegistry: validateResourceLibraryRegistry,
     normalizeRegistry: (value) => upgradeManagedCharacterCapabilities(
       value,
       options.publishedAssetsRelative,
@@ -573,7 +573,7 @@ function validateCatalog(catalog, assetsRoot) {
   validateResourceCatalogSemantics(catalog, assetsRoot);
 }
 
-function validateRegistry(registry) {
+export function validateResourceLibraryRegistry(registry) {
   if (!validateLibrarySchema(registry)) {
     const detail = (validateLibrarySchema.errors || []).slice(0, 12)
       .map((error) => `${error.instancePath || '/'} ${error.message}`).join('; ');

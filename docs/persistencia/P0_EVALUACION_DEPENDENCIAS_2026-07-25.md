@@ -4,6 +4,9 @@ Fecha de consulta: 25 de julio de 2026.
 
 Estado: **propuesta para G0; nada instalado ni descargado**.
 
+Resolución posterior: G0 fue aprobado y P4 instaló exactamente `pg@8.22.0`;
+la evaluación del cliente S3 continúa sin ejecutar hasta P5.
+
 Esta evaluación cubre problema, insuficiencia de Node estándar, licencia,
 mantenimiento, tamaño/impacto, Windows/Linux, contenedor, riesgos y sustitución.
 Las versiones son candidatas exactas observadas en la fecha indicada; no se usan

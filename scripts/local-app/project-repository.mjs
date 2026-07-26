@@ -101,7 +101,7 @@ function projectPath(storageRoot, id) {
   return target;
 }
 
-function validateDraftEnvelope(project) {
+export function validateDraftEnvelope(project) {
   if (!project || typeof project !== 'object' || Array.isArray(project)) {
     throw storageError('PROJECT_INVALID', 'El proyecto debe ser un objeto.');
   }
@@ -155,7 +155,7 @@ async function readStoredProject(file) {
   };
 }
 
-function assertExpectedRevision(currentRevision, expectedRevision) {
+export function assertExpectedRevision(currentRevision, expectedRevision) {
   if (expectedRevision === undefined || expectedRevision === null) return;
   assertSha256(expectedRevision, 'PROJECT_REVISION_INVALID');
   if (!currentRevision || currentRevision !== expectedRevision) {

@@ -53,6 +53,7 @@
     "local:test-render-manager": "node scripts/local-app/test-render-job-manager.mjs",
     "local:test-retention": "node scripts/local-app/test-retention.mjs",
     "storage:test-filesystem": "node scripts/storage/test-filesystem-adapters.mjs",
+    "storage:test-postgres": "node scripts/storage/test-postgres-adapters.mjs",
     "storage:test-bundle": "node scripts/storage/test-local-data-bundle.mjs",
     "storage:inventory": "node scripts/storage/local-data-bundle-cli.mjs inventory",
     "storage:export": "node scripts/storage/local-data-bundle-cli.mjs export",
@@ -68,6 +69,7 @@
   },
   "dependencies": {
     "ajv": "^8.20.0",
+    "pg": "8.22.0",
     "pixi.js": "^8.19.0"
   },
   "devDependencies": {

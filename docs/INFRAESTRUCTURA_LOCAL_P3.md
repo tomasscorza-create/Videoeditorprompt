@@ -1,6 +1,6 @@
 # Infraestructura local — Fase P3
 
-Estado: **implementada y verificada técnicamente; gate G3 pendiente**.
+Estado: **implementada, verificada y aprobada en G3**.
 
 Fecha: 26 de julio de 2026.
 
@@ -97,8 +97,9 @@ NNNN_nombre_portable.sql
 - rechaza versiones duplicadas o una migración histórica modificada;
 - no requiere instalar un driver Node.
 
-P3 crea únicamente el esquema `local_video`. Las tablas de proyectos, recursos
-y jobs pertenecen a P4.
+P3 creó únicamente el esquema `local_video`. P4 agregó después las tablas de
+proyectos, recursos y jobs mediante migraciones nuevas, sin reescribir la
+migración histórica.
 
 ## Salud y persistencia
 
@@ -124,10 +125,13 @@ Evidencia ejecutada:
 - `docker compose restart`: DB y objeto conservados;
 - `infra:down` seguido de `infra:up`: ambos volúmenes, DB y objeto conservados.
 
-## Límites
+## Límites al cierre de P3
 
-- La aplicación todavía no lee ni escribe PostgreSQL/SeaweedFS.
-- No se instaló `pg` ni AWS SDK.
+- La aplicación todavía no leía ni escribía PostgreSQL/SeaweedFS.
+- No se había instalado `pg` ni AWS SDK.
+
+P4 instaló luego `pg` y los repositorios de metadata; SeaweedFS continúa sin
+adaptador hasta P5.
 - No existen tablas de dominio ni importador.
 - No se validó aún un worker Linux separado.
 - Las credenciales por defecto son únicamente para desarrollo local.

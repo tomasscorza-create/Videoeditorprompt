@@ -27,9 +27,15 @@ El repositorio incluye actualmente:
 - parámetros rígidos de tono, duración objetivo y cantidad de escenas incorporados al esquema enviado a Ollama;
 - creación por prompt, corrección en el mismo editor y lanzamiento del render desde la interfaz;
 - servicio HTTP local limitado a loopback, progreso, cancelación y reproducción/descarga del MP4 final;
+- repositorios de metadata equivalentes para filesystem y PostgreSQL, con revisión y transiciones atómicas;
 - publicación local versionada de previews y proyectos compatibles.
 
 Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo de edición 3B.0 y el primer flujo completo prompt → proyecto → MP4 ya están conectados a la interfaz local. Todavía no es un editor profesional ni una aplicación web.
+
+La persistencia portable llegó a P4: filesystem sigue siendo el backend normal,
+pero proyectos, recursos y jobs ya tienen adaptadores PostgreSQL verificados con
+la misma suite. El adaptador S3, la importación y el cutover siguen pendientes.
+Véase [Persistencia PostgreSQL P4](docs/PERSISTENCIA_POSTGRES_P4.md).
 
 ## Inicio rápido
 
@@ -138,6 +144,7 @@ npm run local:test-server
 npm run local:test-render-manager
 npm run local:test-retention
 npm run storage:test-filesystem
+npm run storage:test-postgres
 npm run storage:test-bundle
 npm run storage:inventory
 npm run storage:export -- --output=<directorio>
