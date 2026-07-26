@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -87,8 +87,12 @@ assert.equal(existsSync(failedWorkTemp), false);
 
 const completedJob = await manager.create(project);
 const completedOutput = path.join(root, 'output', completedJob.jobId);
+const completedWork = path.join(root, 'work', completedJob.jobId);
 mkdirSync(completedOutput, { recursive: true });
+mkdirSync(path.join(completedWork, 'scene-work'), { recursive: true });
+writeFileSync(path.join(completedWork, 'scene-work', 'derived.bin'), 'derived');
 writeFileSync(path.join(completedOutput, 'render-1.mp4'), 'video');
+writeFileSync(path.join(completedOutput, 'verification.json'), JSON.stringify({ version: 1, verified: true }));
 writeFileSync(path.join(completedOutput, 'project-manifest.json'), JSON.stringify({
   version: 2,
   jobId: completedJob.jobId,
@@ -136,6 +140,7 @@ assert.equal(completedStatus.result.timeline.scenes[0].transitionToNext.preset, 
 assert.equal(completedStatus.result.timeline.scenes[1].startSeconds, 6.15);
 assert.equal(completedStatus.result.timeline.scenes[1].turns[0].startSeconds, 6.15);
 assert.equal(completedStatus.result.timeline.scenes[1].turns[1].durationSeconds, 3);
+assert.equal(existsSync(completedWork), false);
 
 const legacyTimeline = publicTimeline({
   durationSeconds: 4,
@@ -175,6 +180,7 @@ await assert.rejects(
   (error) => error.code === 'JOB_ID_INVALID',
 );
 
+rmSync(root, { recursive: true, force: true });
 process.stdout.write(`${JSON.stringify({ version: 1, passed: 33, failed: 0, jobId: job.jobId })}\n`);
 
 async function waitFor(predicate, timeoutMs = 3000) {

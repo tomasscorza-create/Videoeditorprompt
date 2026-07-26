@@ -141,11 +141,12 @@ export async function createRenderJobManager(options = {}) {
       }
       const manifestFile = resultPath(job.jobId, 'project-manifest.json');
       const videoFile = resultPath(job.jobId, 'render-1.mp4');
-      if (!existsSync(manifestFile) || !existsSync(videoFile)) {
+      const verificationFile = resultPath(job.jobId, 'verification.json');
+      if (!existsSync(manifestFile) || !existsSync(videoFile) || !existsSync(verificationFile)) {
         await fail(job, new PipelineError({
           code: 'RENDER_OUTPUT_MISSING',
           stage: 'verifying_project',
-          message: 'El pipeline terminó sin producir el manifiesto o el MP4 esperado.',
+          message: 'El pipeline terminó sin producir el manifiesto, la verificación o el MP4 esperado.',
           suggestedAction: 'Revisá los outputs aislados del trabajo.',
         }));
         return;
@@ -270,12 +271,17 @@ export async function createRenderJobManager(options = {}) {
     job.process = null;
     activeJobId = null;
     await update(job, { ...patch, state: 'completed', error: null });
-    await cleanupJob(job);
+    await cleanupJob(job, { removeJobRoot: true });
   }
 
-  async function cleanupJob(job) {
+  async function cleanupJob(job, options = {}) {
     try {
-      const cleanup = cleanupCompletedJob({ workRoot, jobId: job.jobId, apply: true });
+      const cleanup = cleanupCompletedJob({
+        workRoot,
+        jobId: job.jobId,
+        apply: true,
+        removeJobRoot: Boolean(options.removeJobRoot),
+      });
       await update(job, { cleanup: { removedBytes: cleanup.removedBytes, paths: cleanup.paths.length } });
     } catch (error) {
       await update(job, { cleanup: { removedBytes: 0, paths: 0, warning: serializeError(error, 'cleanup') } });

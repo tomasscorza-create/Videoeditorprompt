@@ -13,6 +13,23 @@ export function cleanupCompletedJob(options) {
   const jobId = assertJobId(options.jobId);
   const jobRoot = resolveChild(workRoot, jobId);
   if (!existsSync(jobRoot)) return { jobId, removedBytes: 0, paths: [], applied: Boolean(options.apply) };
+  if (lstatSync(jobRoot).isSymbolicLink()) {
+    throw new PipelineError({ code: 'CLEANUP_PATH_INVALID', stage: 'cleanup', message: 'La limpieza no admite trabajos enlazados simbólicamente.' });
+  }
+  if (options.removeJobRoot) {
+    const removedBytes = directoryBytes(jobRoot);
+    if (options.apply) {
+      assertWithin(workRoot, jobRoot);
+      rmSync(jobRoot, { recursive: true, force: true });
+    }
+    return {
+      jobId,
+      removedBytes,
+      paths: [path.relative(workRoot, jobRoot).replaceAll('\\', '/')],
+      applied: Boolean(options.apply),
+      removedJobRoot: true,
+    };
+  }
   const paths = findDisposableDirectories(jobRoot);
   const removedBytes = paths.reduce((total, target) => total + directoryBytes(target), 0);
   if (options.apply) {
@@ -28,9 +45,17 @@ export function cleanLocalVideo(options = {}) {
   const localRoot = path.resolve(options.localRoot || path.join(projectRoot, '.local-video'));
   const workRoot = resolveChild(localRoot, 'work');
   const jobsRoot = resolveChild(localRoot, 'app-jobs');
+  const inputRoot = resolveChild(localRoot, 'app-input');
+  const outputRoot = resolveChild(localRoot, 'output');
+  const testsRoot = resolveChild(localRoot, 'tests');
+  const bundlesRoot = resolveChild(localRoot, 'persistence-bundles');
   const apply = Boolean(options.apply);
   const maximumAgeDays = Number(options.maximumAgeDays ?? 30);
   const maximumBytes = Number(options.maximumBytes ?? 10 * 1024 ** 3);
+  const testMaximumAgeDays = Number(options.testMaximumAgeDays ?? 7);
+  const testMaximumBytes = Number(options.testMaximumBytes ?? 1024 ** 3);
+  const bundleKeepCount = Number(options.bundleKeepCount ?? 3);
+  const orphanOutputAgeDays = Number(options.orphanOutputAgeDays ?? 7);
   const now = Number(options.now ?? Date.now());
   const activeIds = new Set();
   const statuses = new Map();
@@ -55,7 +80,9 @@ export function cleanLocalVideo(options = {}) {
       const status = statuses.get(entry.name) || readWorkStatus(target, entry.name);
       if (activeIds.has(entry.name) || ACTIVE_STATES.has(status?.state)) continue;
       if (TERMINAL_STATES.has(status?.state)) {
-        cleaned.push(cleanupCompletedJob({ workRoot, jobId: entry.name, apply }));
+        const removeJobRoot = status.state === 'completed' && hasVerifiedOutput(outputRoot, entry.name);
+        cleaned.push(cleanupCompletedJob({ workRoot, jobId: entry.name, apply, removeJobRoot }));
+        if (removeJobRoot) continue;
       }
       candidates.push({
         jobId: entry.name,
@@ -89,6 +116,31 @@ export function cleanLocalVideo(options = {}) {
       reason: candidate.reason,
     });
   }
+  const tests = cleanDirectoryCollection({
+    root: testsRoot,
+    apply,
+    now,
+    maximumAgeDays: testMaximumAgeDays,
+    maximumBytes: testMaximumBytes,
+  });
+  const bundles = cleanNewestDirectoryCollection({
+    root: bundlesRoot,
+    apply,
+    keepCount: bundleKeepCount,
+  });
+  const orphanOutputs = cleanOrphanOutputs({
+    outputRoot,
+    apply,
+    now,
+    maximumAgeDays: orphanOutputAgeDays,
+  });
+  const orphanInputs = cleanOrphanInputs({
+    inputRoot,
+    statuses,
+    apply,
+    now,
+    maximumAgeDays,
+  });
   return {
     version: 1,
     applied: apply,
@@ -97,14 +149,23 @@ export function cleanLocalVideo(options = {}) {
     maximumBytes,
     cleaned,
     expired,
-    reclaimedBytes: cleaned.reduce((sum, item) => sum + item.removedBytes, 0) + expired.reduce((sum, item) => sum + item.bytes, 0),
+    tests,
+    bundles,
+    orphanOutputs,
+    orphanInputs,
+    reclaimedBytes: cleaned.reduce((sum, item) => sum + item.removedBytes, 0)
+      + expired.reduce((sum, item) => sum + item.bytes, 0)
+      + tests.reduce((sum, item) => sum + item.bytes, 0)
+      + bundles.reduce((sum, item) => sum + item.bytes, 0)
+      + orphanOutputs.reduce((sum, item) => sum + item.bytes, 0)
+      + orphanInputs.reduce((sum, item) => sum + item.bytes, 0),
   };
 }
 
-// Barrido de retención pensado para el arranque del servicio local: aplica la política
-// existente (edad + tamaño) sobre `.local-video/work`, respeta los trabajos activos y
-// nunca toca los MP4 finales (viven fuera de `work/`). Jamás lanza: una limpieza fallida
-// no puede impedir que el servidor levante.
+// Barrido de retención pensado para el arranque del servicio local: aplica políticas
+// acotadas sobre work, tests, bundles, outputs incompletos e inputs huérfanos. Respeta
+// trabajos activos y nunca toca outputs con MP4 o verificación. Jamás lanza: una
+// limpieza fallida no puede impedir que el servidor levante.
 export function runStartupRetention(options = {}) {
   try {
     return cleanLocalVideo({ ...options, apply: true });
@@ -126,6 +187,102 @@ function findDisposableDirectories(root) {
   };
   visit(root);
   return found;
+}
+
+function hasVerifiedOutput(outputRoot, jobId) {
+  const jobOutput = resolveChild(outputRoot, jobId);
+  return existsSync(path.join(jobOutput, 'render-1.mp4'))
+    && existsSync(path.join(jobOutput, 'project-manifest.json'))
+    && existsSync(path.join(jobOutput, 'verification.json'));
+}
+
+function cleanDirectoryCollection({ root, apply, now, maximumAgeDays, maximumBytes }) {
+  if (!existsSync(root)) return [];
+  const candidates = safeChildDirectories(root).map((target) => {
+    const stats = statSync(target);
+    return {
+      target,
+      name: path.basename(target),
+      mtimeMs: stats.mtimeMs,
+      ageDays: (now - stats.mtimeMs) / 86_400_000,
+      bytes: directoryBytes(target),
+    };
+  });
+  const selected = new Map();
+  for (const candidate of candidates) {
+    if (maximumAgeDays >= 0 && candidate.ageDays > maximumAgeDays) {
+      selected.set(candidate.target, { ...candidate, reason: 'age' });
+    }
+  }
+  let retainedBytes = candidates.reduce((sum, candidate) => sum + candidate.bytes, 0)
+    - [...selected.values()].reduce((sum, candidate) => sum + candidate.bytes, 0);
+  if (maximumBytes >= 0 && retainedBytes > maximumBytes) {
+    for (const candidate of candidates.sort((left, right) => left.mtimeMs - right.mtimeMs)) {
+      if (selected.has(candidate.target)) continue;
+      selected.set(candidate.target, { ...candidate, reason: 'size' });
+      retainedBytes -= candidate.bytes;
+      if (retainedBytes <= maximumBytes) break;
+    }
+  }
+  return removeCandidates(root, [...selected.values()], apply);
+}
+
+function cleanNewestDirectoryCollection({ root, apply, keepCount }) {
+  if (!existsSync(root)) return [];
+  const retained = Math.max(0, Math.trunc(keepCount));
+  const candidates = safeChildDirectories(root)
+    .map((target) => ({ target, name: path.basename(target), mtimeMs: statSync(target).mtimeMs, bytes: directoryBytes(target), reason: 'count' }))
+    .sort((left, right) => right.mtimeMs - left.mtimeMs)
+    .slice(retained);
+  return removeCandidates(root, candidates, apply);
+}
+
+function cleanOrphanOutputs({ outputRoot, apply, now, maximumAgeDays }) {
+  if (!existsSync(outputRoot)) return [];
+  const candidates = [];
+  for (const target of safeChildDirectories(outputRoot)) {
+    const names = readdirSync(target);
+    const hasMp4 = names.some((name) => name.endsWith('.mp4'));
+    if (hasMp4 || names.includes('verification.json')) continue;
+    const stats = statSync(target);
+    const ageDays = (now - stats.mtimeMs) / 86_400_000;
+    if (maximumAgeDays >= 0 && ageDays > maximumAgeDays) {
+      candidates.push({ target, name: path.basename(target), ageDays, bytes: directoryBytes(target), reason: 'orphan' });
+    }
+  }
+  return removeCandidates(outputRoot, candidates, apply);
+}
+
+function cleanOrphanInputs({ inputRoot, statuses, apply, now, maximumAgeDays }) {
+  if (!existsSync(inputRoot)) return [];
+  const candidates = [];
+  for (const target of safeChildDirectories(inputRoot)) {
+    const jobId = path.basename(target);
+    if (!JOB_ID_PATTERN.test(jobId) || statuses.has(jobId)) continue;
+    const stats = statSync(target);
+    const ageDays = (now - stats.mtimeMs) / 86_400_000;
+    if (maximumAgeDays >= 0 && ageDays > maximumAgeDays) {
+      candidates.push({ target, name: jobId, ageDays, bytes: directoryBytes(target), reason: 'orphan' });
+    }
+  }
+  return removeCandidates(inputRoot, candidates, apply);
+}
+
+function safeChildDirectories(root) {
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
+    .map((entry) => resolveChild(root, entry.name));
+}
+
+function removeCandidates(root, candidates, apply) {
+  for (const candidate of candidates) {
+    assertWithin(root, candidate.target);
+    if (apply) rmSync(candidate.target, { recursive: true, force: true });
+  }
+  return candidates.map(({ target, ...candidate }) => ({
+    ...candidate,
+    path: path.relative(root, target).replaceAll('\\', '/'),
+  }));
 }
 
 function readWorkStatus(jobRoot, jobId) {

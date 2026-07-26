@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { compileVideoProject } from './compile-video-project.mjs';
@@ -14,6 +14,11 @@ const sourcePath = path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'p
 const source = readJson(sourcePath);
 const results = [];
 const silentReport = () => undefined;
+let passed = false;
+
+process.on('exit', () => {
+  if (passed) rmSync(testRoot, { recursive: true, force: true });
+});
 
 function contextFor(name, projectPath = sourcePath) {
   return createProjectCompilationContext({
@@ -21,6 +26,7 @@ function contextFor(name, projectPath = sourcePath) {
     project: projectPath,
     'assets-dir': assetsRoot,
     'work-dir': workRoot,
+    'output-dir': path.join(testRoot, 'output'),
   });
 }
 
@@ -112,6 +118,7 @@ const conflictContext = createProjectCompilationContext({
   project: sourcePath,
   'assets-dir': assetsRoot,
   'work-dir': workRoot,
+  'output-dir': path.join(testRoot, 'output'),
 });
 const changed = structuredClone(source);
 changed.title = 'Otro proyecto';
@@ -122,9 +129,11 @@ assert.throws(() => createProjectCompilationContext({
   project: changedPath,
   'assets-dir': assetsRoot,
   'work-dir': workRoot,
+  'output-dir': path.join(testRoot, 'output'),
 }), (error) => error.code === 'JOB_PROJECT_CONFLICT');
 results.push({ name: 'job-freezes-authoring-project', passed: true });
 
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'project-compiler-latest.json'), summary);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+passed = true;

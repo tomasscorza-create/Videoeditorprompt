@@ -68,10 +68,21 @@ procesos. Los resultados completados permanecen en `.local-video/output/<jobId>`
 
 ## Limpieza y retención
 
-Después de un render interactivo terminado se eliminan automáticamente solo directorios
-regenerables llamados `frames` y `temp` dentro de su trabajo. Al arrancar, el servicio
-también reconoce estados terminales escritos por pipelines CLI y limpia sus intermedios.
-Se conservan configuración, runtime, audio derivado, métricas, estados, manifiestos y MP4.
+Después de un render interactivo terminado se elimina `work/<jobId>` completo únicamente
+cuando el output durable contiene `render-1.mp4`, `project-manifest.json` y
+`verification.json`. Los estados fallidos o cancelados conservan evidencia y solo pierden
+directorios regenerables llamados `frames` y `temp`.
+
+Al arrancar, el servicio aplica además estas políticas sin impedir el inicio si fallan:
+
+- conserva los trabajos activos;
+- retira `work/<jobId>` de trabajos completados con output verificado;
+- limita `.local-video/tests` por edad (7 días) y tamaño (1 GiB);
+- conserva los tres bundles de persistencia más recientes;
+- elimina outputs incompletos sin MP4 ni verificación después de 7 días;
+- elimina entradas sin estado durable asociado después de la edad general de retención.
+
+Los MP4, manifiestos y verificaciones finales nunca son objetivos de limpieza.
 
 Inspección sin borrar:
 

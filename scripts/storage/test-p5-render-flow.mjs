@@ -107,6 +107,10 @@ try {
   const videoFile = path.join(outputRoot, 'render-1.mp4');
   createVerifiedVideo(videoFile);
   const originalVideo = readFileSync(videoFile);
+  writeFileSync(path.join(outputRoot, 'verification.json'), JSON.stringify({
+    version: 1,
+    verified: true,
+  }));
   writeFileSync(path.join(outputRoot, 'project-manifest.json'), JSON.stringify({
     version: 2,
     jobId,

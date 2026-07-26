@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
+import path from 'node:path';
 import { projectRoot } from './stage1/common.mjs';
 
 const commands = [
@@ -42,4 +44,5 @@ for (const command of commands) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+rmSync(path.join(projectRoot, '.local-video', 'tests'), { recursive: true, force: true });
 process.stdout.write(`${JSON.stringify({ version: 1, passed: commands.length, failed: 0, commands })}\n`);

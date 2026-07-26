@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, readFileSync } from 'node:fs';
+import { copyFileSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { ensureDirectory, ffprobe, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
@@ -12,6 +12,11 @@ const testRoot = path.join(projectRoot, '.local-video', 'tests', 'parametric-cha
 const sourceDefinitionPath = path.join(projectRoot, 'public', 'assets', 'character-definitions', 'mono-parametrico-v1.json');
 const source = loadParametricCharacterDefinition(sourceDefinitionPath);
 const results = [];
+let passed = false;
+
+process.on('exit', () => {
+  if (passed) rmSync(testRoot, { recursive: true, force: true });
+});
 
 assert.equal(source.variants.length, 6);
 assert.ok(source.joints.some((joint) => joint.id === 'shoulder_right'));
@@ -102,3 +107,4 @@ results.push({ name: 'unknown-catalog-id-rejected', passed: true });
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'parametric-character-latest.json'), summary);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+passed = true;
