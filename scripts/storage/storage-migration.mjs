@@ -13,6 +13,10 @@ import {
 } from './filesystem-utils.mjs';
 import { inventoryLocalData } from './local-data-bundle.mjs';
 import { assertBlobKey, storageError } from './contracts.mjs';
+import {
+  artifactMimeType,
+  contentAddressedBlobKey,
+} from './content-addressed-blobs.mjs';
 
 const MAX_PLAN_BYTES = 32 * 1024 * 1024;
 const planSchema = JSON.parse(await readFile(
@@ -295,14 +299,14 @@ async function migrationState(options) {
   for (const entry of entries.filter((candidate) => (
     candidate.kind === 'resource-asset' || candidate.kind === 'job-artifact'
   ))) {
-    const key = sha256BlobKey(entry.sha256);
+    const key = contentAddressedBlobKey(entry.sha256);
     const current = blobGroups.get(key) || {
       kind: 'blob',
       key,
       sourcePaths: [],
       bytes: entry.bytes,
       sha256: entry.sha256,
-      mimeType: mimeType(entry.path),
+      mimeType: artifactMimeType(entry.path),
       target: `blobs/${key}`,
       action: 'planned',
     };
@@ -329,10 +333,10 @@ function groupArtifacts(entries, owner, relativePath) {
     const artifact = {
       role: entry.role,
       relativePath: relativePath(entry),
-      key: sha256BlobKey(entry.sha256),
+      key: contentAddressedBlobKey(entry.sha256),
       bytes: entry.bytes,
       sha256: entry.sha256,
-      mimeType: mimeType(entry.path),
+      mimeType: artifactMimeType(entry.path),
     };
     const current = groups.get(id) || [];
     current.push(artifact);
@@ -471,7 +475,7 @@ function assertPlan(plan) {
       item.sourcePaths.forEach(assertPortablePlanPath);
       if (
         item.target !== `blobs/${item.key}`
-        || item.key !== sha256BlobKey(item.sha256)
+        || item.key !== contentAddressedBlobKey(item.sha256)
         || JSON.stringify(item.sourcePaths) !== JSON.stringify([...item.sourcePaths].sort())
       ) {
         throw migrationError('MIGRATION_PLAN_ITEM_INVALID', `Ítem de blob inválido: ${item.target}.`);
@@ -532,26 +536,6 @@ function summarizePlan(items) {
       .reduce((total, item) => total + item.bytes, 0),
     items: items.length,
   };
-}
-
-function sha256BlobKey(sha256) {
-  return `sha256/${sha256.slice(0, 2)}/${sha256}`;
-}
-
-function mimeType(file) {
-  const extension = path.posix.extname(file).toLowerCase();
-  return {
-    '.aac': 'audio/aac',
-    '.json': 'application/json',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.mp3': 'audio/mpeg',
-    '.mp4': 'video/mp4',
-    '.png': 'image/png',
-    '.svg': 'image/svg+xml',
-    '.wav': 'audio/wav',
-    '.webp': 'image/webp',
-  }[extension] || 'application/octet-stream';
 }
 
 function blobEquals(item, stored) {

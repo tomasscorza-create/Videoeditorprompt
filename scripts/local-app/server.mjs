@@ -17,6 +17,7 @@ import {
 import { createProjectRepository } from './project-repository.mjs';
 import { runStartupRetention } from './retention.mjs';
 import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
+import { createPersistenceRuntime } from '../storage/persistence-runtime.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
@@ -34,37 +35,48 @@ export async function createLocalAppServer(options = {}) {
   const sessionToken = String(options.sessionToken || randomBytes(32).toString('hex'));
   const root = path.resolve(options.root || projectRoot);
   const assetsRoot = path.resolve(options.assetsRoot || path.join(root, 'public'));
-  const persistence = String(
-    options.persistence || process.env.LOCAL_VIDEO_PERSISTENCE || 'filesystem',
-  );
-  if (persistence !== 'filesystem') {
-    const error = new Error(`Backend de persistencia no soportado: ${persistence}.`);
-    error.code = 'PERSISTENCE_BACKEND_UNSUPPORTED';
+  const ownsPersistenceRuntime = !options.persistenceRuntime;
+  const persistenceRuntime = options.persistenceRuntime || await createPersistenceRuntime({
+    root,
+    persistence: options.persistence || process.env.LOCAL_VIDEO_PERSISTENCE,
+    environment: options.environment || process.env,
+    pool: options.postgresPool,
+    blobStorage: options.blobStorage,
+    materializationRoot: options.materializationRoot,
+  });
+  const persistence = persistenceRuntime.backend;
+  const builtinCatalog = options.catalog || loadAuthoringCatalog(assetsRoot);
+  let library;
+  let projects;
+  let manager;
+  try {
+    library = options.library || await createResourceLibrary({
+      assetsRoot,
+      builtinCatalog,
+      storageRoot: options.libraryStorageRoot || persistenceRuntime.libraryStorageRoot,
+      publishRoot: options.libraryPublishRoot,
+      repository: options.resourceRepository || persistenceRuntime.resources,
+      repositoryFactory: options.resourceRepositoryFactory || createResourceLibraryRepository,
+    });
+    const projectRepositoryFactory = options.projectRepositoryFactory || createProjectRepository;
+    projects = options.projects || persistenceRuntime.projects || projectRepositoryFactory({
+      storageRoot: options.projectStorageRoot,
+    });
+    manager = options.manager || await createRenderJobManager({
+      ...options,
+      root,
+      assetsRoot,
+      catalogProvider: () => library.catalog(),
+      repository: options.renderJobRepository || persistenceRuntime.renderJobs,
+      repositoryFactory: options.renderJobRepositoryFactory || createFileRenderJobRepository,
+      blobStorage: options.blobStorage || persistenceRuntime.blobStorage,
+    });
+  } catch (error) {
+    if (ownsPersistenceRuntime) await persistenceRuntime.close().catch(() => {});
     throw error;
   }
-  const builtinCatalog = options.catalog || loadAuthoringCatalog(assetsRoot);
-  const library = options.library || await createResourceLibrary({
-    assetsRoot,
-    builtinCatalog,
-    storageRoot: options.libraryStorageRoot,
-    publishRoot: options.libraryPublishRoot,
-    repository: options.resourceRepository,
-    repositoryFactory: options.resourceRepositoryFactory || createResourceLibraryRepository,
-  });
   const currentCatalog = () => library.catalog();
-  const projectRepositoryFactory = options.projectRepositoryFactory || createProjectRepository;
-  const projects = options.projects || projectRepositoryFactory({
-    storageRoot: options.projectStorageRoot,
-  });
   const ownsManager = !options.manager;
-  const manager = options.manager || await createRenderJobManager({
-    ...options,
-    root,
-    assetsRoot,
-    catalogProvider: currentCatalog,
-    repository: options.renderJobRepository,
-    repositoryFactory: options.renderJobRepositoryFactory || createFileRenderJobRepository,
-  });
   // Retención automática al arrancar: solo cuando este servicio administra su propio
   // ciclo de vida de jobs (producción). Si el manager viene inyectado (tests), no se
   // toca el `.local-video` real. La política existente respeta trabajos activos y MP4.
@@ -110,6 +122,7 @@ export async function createLocalAppServer(options = {}) {
           registeredProviders: listProviderNames(),
           tts: { available: existsSync(ttsRoot) },
           renderBusy: Boolean(manager.activeJobId),
+          persistence: persistenceRuntime.diagnostic,
         });
         return;
       }
@@ -336,7 +349,11 @@ export async function createLocalAppServer(options = {}) {
     async close() {
       await manager.cancelActive?.();
       server.closeAllConnections?.();
-      return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      try {
+        await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      } finally {
+        if (ownsPersistenceRuntime) await persistenceRuntime.close();
+      }
     },
   };
 }

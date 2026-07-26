@@ -32,14 +32,14 @@ El repositorio incluye actualmente:
 
 Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo de edición 3B.0 y el primer flujo completo prompt → proyecto → MP4 ya están conectados a la interfaz local. Todavía no es un editor profesional ni una aplicación web.
 
-La persistencia portable llegó a P6: filesystem sigue siendo el backend normal,
-pero proyectos, recursos y jobs tienen adaptadores PostgreSQL, los blobs
-pueden hidratarse, publicarse y reproducirse desde un bucket S3 privado y existe
-un importador con plan inmutable, apply explícito, verificación e idempotencia.
-El cutover sigue pendiente.
+La persistencia portable llegó a P7: PostgreSQL es el backend normal de metadata
+y SeaweedFS ofrece el bucket S3 privado para recursos y resultados. El arranque
+diagnostica ambos servicios sin fallback silencioso, el origen filesystem sigue
+intacto para rollback y existen backup/restauración lógicos e idempotentes.
 Véanse [Persistencia PostgreSQL P4](docs/PERSISTENCIA_POSTGRES_P4.md) y
 [Persistencia S3 P5](docs/PERSISTENCIA_S3_P5.md), y
-[Persistencia importador P6](docs/PERSISTENCIA_IMPORTADOR_P6.md).
+[Persistencia importador P6](docs/PERSISTENCIA_IMPORTADOR_P6.md), y
+[Cutover y operación P7](docs/PERSISTENCIA_CUTOVER_P7.md).
 
 ## Inicio rápido
 
@@ -50,6 +50,7 @@ Véanse [Persistencia PostgreSQL P4](docs/PERSISTENCIA_POSTGRES_P4.md) y
 - FFmpeg y FFprobe disponibles en `PATH`.
 - Para generar voces y renderizar: un runtime local de Piper configurado como se explica en [Voz y render](#voz-y-render).
 - Para crear proyectos desde un prompt: [Ollama](https://ollama.com/) y el modelo local `qwen3:8b`.
+- Docker con Compose para PostgreSQL y SeaweedFS, usados por el arranque normal.
 
 Instalación:
 
@@ -58,6 +59,8 @@ git clone https://github.com/tomasscorza-create/Videoeditorprompt.git
 cd Videoeditorprompt
 npm install
 ollama pull qwen3:8b
+npm run infra:up
+npm run db:migrate
 ```
 
 Publicar el proyecto piloto compatible e iniciar la interfaz:
@@ -70,6 +73,12 @@ npm run dev
 Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localhost:5173).
 
 `npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. **Archivos → Nuevo +** crea un borrador con lienzo vacío; **Mis proyectos** abre proyectos editables durables y **Videos creados** conserva los MP4 terminados. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, y crear la propuesta. Una vez que el proyecto tiene contenido, el mismo campo acepta cambios contextuales como “cambiá el texto de la escena 2”; la IA devuelve comandos semánticos cerrados que pasan por el mismo núcleo y pueden deshacerse.
+
+El arranque normal usa PostgreSQL/S3 y falla claramente si la infraestructura no
+está disponible. El rollback no destructivo se inicia con
+`npm run dev:filesystem`. Véase el
+[runbook P7](docs/PERSISTENCIA_CUTOVER_P7.md) antes de restaurar backups o
+detener volúmenes.
 
 El visor central tiene solo dos espacios: **Editor** y **Creador**. El Editor mantiene el lienzo como superficie principal; el botón de reproducción de la timeline presenta el último MP4 dentro de ese mismo espacio y **Volver a editar** recupera el lienzo. No existen pestañas separadas para composición, preview y video final. **CREAR → Personajes** abre el Creador, con dos caminos: editar una plantilla o construir desde cero mediante piezas geométricas etiquetadas. Ambos guardan un rig animable en la biblioteca. La sesión rápida se conserva en `localStorage`; cada proyecto también se guarda como JSON durable fuera del repositorio.
 
@@ -151,10 +160,16 @@ npm run storage:test-filesystem
 npm run storage:test-postgres
 npm run storage:test-s3
 npm run storage:test-p5-flow
+npm run storage:test-migration
+npm run storage:test-cutover
+npm run storage:test-backup
 npm run storage:test-bundle
 npm run storage:inventory
 npm run storage:export -- --output=<directorio>
 npm run storage:verify -- --bundle=<directorio>
+npm run storage:backup -- --output=<directorio>
+npm run storage:backup:verify -- --backup=<directorio>
+npm run storage:restore -- --backup=<directorio> --dry-run
 npm run infra:up
 npm run db:migrate
 npm run infra:health

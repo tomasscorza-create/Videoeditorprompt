@@ -144,7 +144,7 @@ const app = await createLocalAppServer({
 });
 assert.equal(app.persistence, 'filesystem');
 await assert.rejects(
-  () => createLocalAppServer({ persistence: 'postgres-s3' }),
+  () => createLocalAppServer({ persistence: 'unknown-backend' }),
   (error) => error.code === 'PERSISTENCE_BACKEND_UNSUPPORTED',
 );
 const listening = await app.listen();

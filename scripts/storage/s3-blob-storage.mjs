@@ -4,7 +4,9 @@ import path from 'node:path';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import {
@@ -200,6 +202,47 @@ export function createS3BlobStorage(options = {}) {
     }
   }
 
+  async function health() {
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: bucket }));
+      return { ready: true, bucket };
+    } catch (error) {
+      throw s3StorageError(error, 'S3_UNAVAILABLE', 'El bucket S3 no está disponible.');
+    }
+  }
+
+  async function list(prefix = '') {
+    const portablePrefix = prefix === '' ? '' : assertBlobKey(prefix);
+    const objects = [];
+    let continuationToken;
+    try {
+      do {
+        const response = await client.send(new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: portablePrefix,
+          ContinuationToken: continuationToken,
+          MaxKeys: 1000,
+        }));
+        for (const object of response.Contents || []) {
+          if (typeof object.Key !== 'string') {
+            throw storageError('BLOB_METADATA_INVALID', 'S3 devolvió una clave inválida.');
+          }
+          objects.push(await statBlob(object.Key));
+          if (objects.length > 100_000) {
+            throw storageError('BLOB_LIST_TOO_LARGE', 'El bucket supera 100000 objetos.');
+          }
+        }
+        continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+        if (response.IsTruncated && !continuationToken) {
+          throw storageError('BLOB_METADATA_INVALID', 'S3 truncó la lista sin cursor.');
+        }
+      } while (continuationToken);
+      return objects.sort((left, right) => left.key.localeCompare(right.key));
+    } catch (error) {
+      throw s3StorageError(error, 'BLOB_LIST_FAILED', 'No se pudieron listar los blobs.');
+    }
+  }
+
   return {
     bucket,
     materializationRoot,
@@ -209,6 +252,8 @@ export function createS3BlobStorage(options = {}) {
     stat: statBlob,
     delete: deleteBlob,
     openRead,
+    health,
+    list,
     close: () => connection.close?.(),
   };
 }

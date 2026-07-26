@@ -226,18 +226,26 @@ export async function createRenderJobManager(options = {}) {
   async function video(jobId) {
     const status = await get(jobId);
     if (!status || status.state !== 'completed') return null;
-    const remote = status.result?.artifacts?.video;
+    const remote = status.result?.artifacts?.video
+      || status.blobStorage?.artifacts?.find((artifact) => (
+        artifact.role === 'rendered-video'
+        || artifact.mimeType === 'video/mp4'
+      ));
     if (blobStorage && remote?.key) {
       return {
         blobStorage,
         key: remote.key,
         size: remote.bytes,
-        name: status.result.downloadName,
+        name: status.result?.downloadName || `${status.projectId}.mp4`,
       };
     }
     const file = resultPath(jobId, 'render-1.mp4');
     if (!existsSync(file)) return null;
-    return { file, size: statSync(file).size, name: status.result.downloadName };
+    return {
+      file,
+      size: statSync(file).size,
+      name: status.result?.downloadName || `${status.projectId}.mp4`,
+    };
   }
 
   async function list() {
@@ -402,6 +410,7 @@ function publicJob(job) {
     error: job.error,
     ...(job.cleanup ? { cleanup: job.cleanup } : {}),
     ...(job.result ? { result: job.result } : {}),
+    ...(job.blobStorage ? { blobStorage: job.blobStorage } : {}),
   };
 }
 

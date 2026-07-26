@@ -622,6 +622,12 @@ duplica registros ni objetos.
 
 **Objetivo:** usar PostgreSQL/MinIO como backend normal con retorno probado.
 
+**Estado al 2026-07-26:** implementación técnica y cutover real completados.
+PostgreSQL/SeaweedFS es el arranque normal; el filesystem original permanece
+intacto, el rollback fue ejecutado y existen backup/restauración verificados.
+Queda pendiente la aprobación humana después del período de uso personal. P8 no
+está autorizada.
+
 Configuración conceptual:
 
 ```text
@@ -636,13 +642,13 @@ LOCAL_VIDEO_S3_FORCE_PATH_STYLE=true
 
 Tareas:
 
-- [ ] Diagnóstico de arranque que no imprima secretos.
-- [ ] Fallo claro si el backend elegido no está disponible.
-- [ ] No hacer fallback silencioso a filesystem cuando se pidió `postgres-s3`.
-- [ ] Backup lógico de PostgreSQL y copia/versionado del bucket.
-- [ ] Runbook de restauración.
+- [x] Diagnóstico de arranque que no imprima secretos.
+- [x] Fallo claro si el backend elegido no está disponible.
+- [x] No hacer fallback silencioso a filesystem cuando se pidió `postgres-s3`.
+- [x] Backup lógico de PostgreSQL y copia/versionado del bucket.
+- [x] Runbook de restauración.
 - [ ] Ejecutar producción personal real durante un período acordado.
-- [ ] Probar rollback seleccionando filesystem sin modificar el origen.
+- [x] Probar rollback seleccionando filesystem sin modificar el origen.
 - [ ] Solo después, definir política opcional de archivo/eliminación del origen.
 
 **Cierre:** crear, editar, cerrar, reabrir, renderizar y recuperar un proyecto

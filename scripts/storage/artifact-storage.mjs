@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { rename, rm } from 'node:fs/promises';
+import { cp, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import {
   assertBlobKey,
@@ -11,6 +11,10 @@ import {
   ensureSafeParent,
   safeTemporaryPath,
 } from './blob-stream-utils.mjs';
+import {
+  inspectArtifactFile,
+  listRegularArtifactFiles,
+} from './content-addressed-blobs.mjs';
 import { isWithin } from './filesystem-utils.mjs';
 
 const MAX_MATERIALIZED_INPUTS = 10_000;
@@ -125,7 +129,7 @@ export function createBlobMaterializer({
           bytes: metadata.bytes,
         });
       }
-      await rename(temporaryRoot, targetRoot);
+      await publishMaterialization(temporaryRoot, targetRoot, files);
       return { sandboxId, root: targetRoot, files };
     } catch (error) {
       await rm(temporaryRoot, { recursive: true, force: true });
@@ -134,4 +138,56 @@ export function createBlobMaterializer({
   }
 
   return { materializationRoot: root, materialize };
+}
+
+async function publishMaterialization(temporaryRoot, targetRoot, expectedFiles) {
+  try {
+    await rename(temporaryRoot, targetRoot);
+    return;
+  } catch (error) {
+    if (!['EACCES', 'EBUSY', 'EPERM'].includes(error?.code)) throw error;
+  }
+
+  try {
+    if (!existsSync(targetRoot)) {
+      await cp(temporaryRoot, targetRoot, {
+        recursive: true,
+        force: false,
+        errorOnExist: true,
+      });
+    }
+    await verifyMaterialization(targetRoot, expectedFiles);
+    await rm(temporaryRoot, { recursive: true, force: true });
+  } catch (error) {
+    await rm(targetRoot, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function verifyMaterialization(targetRoot, expectedFiles) {
+  const expected = new Map(expectedFiles.map((file) => [file.relativePath, file]));
+  const actualFiles = await listRegularArtifactFiles(targetRoot);
+  if (actualFiles.length !== expected.size) {
+    throw storageError(
+      'BLOB_MATERIALIZATION_VERIFY_FAILED',
+      'La copia publicada del sandbox no contiene todos los blobs.',
+    );
+  }
+  for (const file of actualFiles) {
+    const relativePath = path.relative(targetRoot, file).split(path.sep).join('/');
+    const wanted = expected.get(relativePath);
+    if (!wanted) {
+      throw storageError(
+        'BLOB_MATERIALIZATION_VERIFY_FAILED',
+        'La copia publicada del sandbox contiene un archivo inesperado.',
+      );
+    }
+    const actual = await inspectArtifactFile(file, relativePath, 'materialized-input');
+    if (actual.sha256 !== wanted.sha256 || actual.bytes !== wanted.bytes) {
+      throw storageError(
+        'BLOB_MATERIALIZATION_VERIFY_FAILED',
+        'La copia publicada del sandbox no coincide con los blobs verificados.',
+      );
+    }
+  }
 }
