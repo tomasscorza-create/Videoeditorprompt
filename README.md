@@ -32,14 +32,18 @@ El repositorio incluye actualmente:
 
 Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo de edición 3B.0 y el primer flujo completo prompt → proyecto → MP4 ya están conectados a la interfaz local. Todavía no es un editor profesional ni una aplicación web.
 
-La persistencia portable llegó a P7: PostgreSQL es el backend normal de metadata
+La persistencia portable llegó técnicamente a P8: PostgreSQL es el backend normal de metadata
 y SeaweedFS ofrece el bucket S3 privado para recursos y resultados. El arranque
 diagnostica ambos servicios sin fallback silencioso, el origen filesystem sigue
-intacto para rollback y existen backup/restauración lógicos e idempotentes.
+intacto para rollback y existen backup/restauración lógicos e idempotentes. El
+perfil remoto exige TLS, admite secretos montados, incluye un probe de
+latencia/costos y un worker Linux verificado. El gate remoto sigue pendiente de
+proveedor, región, prueba administrada, retención, presupuesto y autenticación.
 Véanse [Persistencia PostgreSQL P4](docs/PERSISTENCIA_POSTGRES_P4.md) y
 [Persistencia S3 P5](docs/PERSISTENCIA_S3_P5.md), y
 [Persistencia importador P6](docs/PERSISTENCIA_IMPORTADOR_P6.md), y
-[Cutover y operación P7](docs/PERSISTENCIA_CUTOVER_P7.md).
+[Cutover y operación P7](docs/PERSISTENCIA_CUTOVER_P7.md), y
+[Preparación remota P8](docs/PERSISTENCIA_REMOTA_P8.md).
 
 ## Inicio rápido
 
@@ -163,6 +167,10 @@ npm run storage:test-p5-flow
 npm run storage:test-migration
 npm run storage:test-cutover
 npm run storage:test-backup
+npm run storage:test-remote-config
+npm run storage:probe-remote
+npm run worker:test-portability
+npm run worker:test-linux
 npm run storage:test-bundle
 npm run storage:inventory
 npm run storage:export -- --output=<directorio>

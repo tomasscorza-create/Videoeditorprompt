@@ -661,16 +661,23 @@ funciona después de reiniciar aplicación y contenedores.
 **Objetivo:** demostrar que los adaptadores locales pueden apuntar a servicios
 remotos sin cambiar contratos.
 
+**Estado al 2026-07-26:** preparación técnica local implementada. TLS estricto,
+secret mounts/credenciales ambientales, matrices, probe de latencia/costos y
+worker Linux con render multiescena real están verificados. G7 sigue pendiente
+hasta elegir proveedor/región, ejecutar el probe contra servicios administrados,
+definir retención/presupuesto y aprobar autenticación. No se avanzó a
+multiusuario.
+
 Tareas:
 
-- [ ] Matriz de compatibilidad PostgreSQL local/administrado.
-- [ ] Matriz MinIO/S3/R2 u otro proveedor elegido.
-- [ ] TLS y validación de certificados.
-- [ ] Credenciales mediante secret manager del entorno.
-- [ ] Backups, retención, lifecycle y costos.
-- [ ] Latencia y transferencia medidas con assets reales.
-- [ ] Worker Linux que hidrata sandbox y produce resultado equivalente.
-- [ ] Separar despliegue de frontend/API/worker.
+- [x] Matriz de compatibilidad PostgreSQL local/administrado.
+- [x] Matriz MinIO/S3/R2 y AWS S3; proveedor final pendiente del gate.
+- [x] TLS y validación de certificados.
+- [x] Credenciales mediante secret manager del entorno.
+- [x] Runbook de backups, retención/lifecycle no destructivo y calculadora de costos; valores finales pendientes del gate.
+- [x] Latencia y transferencia medidas con assets reales localmente; probe administrado pendiente.
+- [x] Worker Linux que hidrata sandbox y produce resultado equivalente.
+- [x] Separar artefactos/procesos de frontend/API/worker; cola distribuida queda fuera de P8.
 
 Gate para pasar a multiusuario:
 

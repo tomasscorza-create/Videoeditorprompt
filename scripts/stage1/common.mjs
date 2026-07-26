@@ -100,7 +100,8 @@ export function run(executable, args, options = {}) {
       code: options.errorCode || `${executableName}_EXIT_NONZERO`,
       stage: options.stage || 'external_process',
       message: `${path.basename(executable)} terminó con código ${result.status}.`,
-      technicalDetail: (result.stderr || result.stdout || '').trim() || undefined,
+      technicalDetail: (result.stderr || result.stdout || '').trim()
+        || (result.signal ? `signal=${result.signal}` : undefined),
       suggestedAction: options.suggestedAction || `Revise la entrada y la instalación de ${path.basename(executable)}.`,
     });
   }

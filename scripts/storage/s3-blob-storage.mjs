@@ -245,6 +245,7 @@ export function createS3BlobStorage(options = {}) {
 
   return {
     bucket,
+    connectionDiagnostic: connection.diagnostic || null,
     materializationRoot,
     maximumBytes,
     put,

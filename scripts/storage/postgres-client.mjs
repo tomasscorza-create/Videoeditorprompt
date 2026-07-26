@@ -1,5 +1,9 @@
 import pg from 'pg';
 import { storageError } from './contracts.mjs';
+import {
+  readCertificateAuthority,
+  resolveConfiguredSecret,
+} from './configuration-secrets.mjs';
 
 const {
   Pool,
@@ -9,20 +13,65 @@ const {
 types.setTypeParser(20, (value) => Number(value));
 
 export function createPostgresPool(options = {}) {
+  const config = buildPostgresConfig(options);
+  const pool = new Pool(config);
+  pool.on('error', () => {
+    // Los errores de clientes ociosos se observan al adquirir la siguiente conexión.
+  });
+  return pool;
+}
+
+export function buildPostgresConfig(options = {}) {
   const environment = options.environment || process.env;
-  const pool = new Pool({
-    host: options.host || environment.LOCAL_VIDEO_POSTGRES_HOST || '127.0.0.1',
-    port: boundedInteger(
-      options.port ?? environment.LOCAL_VIDEO_POSTGRES_PORT,
-      1,
-      65535,
-      54329,
-      'POSTGRES_CONFIG_INVALID',
-    ),
-    database: options.database || environment.LOCAL_VIDEO_POSTGRES_DB || 'local_video',
-    user: options.user || environment.LOCAL_VIDEO_POSTGRES_USER || 'local_video',
-    password: options.password ?? environment.LOCAL_VIDEO_POSTGRES_PASSWORD
-      ?? 'local-video-dev-only-change-me',
+  const deployment = deploymentMode(options.deployment || environment.LOCAL_VIDEO_DEPLOYMENT);
+  const connectionString = options.connectionString || environment.LOCAL_VIDEO_DATABASE_URL;
+  if (connectionString) validateConnectionString(connectionString);
+  const sslMode = String(
+    options.sslMode
+      || environment.LOCAL_VIDEO_POSTGRES_SSL_MODE
+      || (deployment === 'remote' ? 'verify-full' : 'disable'),
+  );
+  if (!['disable', 'require', 'verify-full'].includes(sslMode)) {
+    throw storageError('POSTGRES_CONFIG_INVALID', 'El modo TLS de PostgreSQL no es válido.');
+  }
+  if (deployment === 'remote' && sslMode !== 'verify-full') {
+    throw storageError(
+      'POSTGRES_TLS_REQUIRED',
+      'El despliegue remoto exige PostgreSQL TLS con verificación completa.',
+    );
+  }
+  const password = options.password ?? resolveConfiguredSecret({
+    environment,
+    valueName: 'LOCAL_VIDEO_POSTGRES_PASSWORD',
+    fileName: 'LOCAL_VIDEO_POSTGRES_PASSWORD_FILE',
+    fallback: deployment === 'local' ? 'local-video-dev-only-change-me' : undefined,
+    required: !connectionString,
+    label: 'la contraseña PostgreSQL',
+  });
+  const ca = readCertificateAuthority(
+    options.caFile || environment.LOCAL_VIDEO_POSTGRES_SSL_CA_FILE,
+  );
+  const ssl = sslMode === 'disable'
+    ? false
+    : {
+      rejectUnauthorized: sslMode === 'verify-full',
+      ...(ca ? { ca } : {}),
+    };
+  return {
+    ...(connectionString ? { connectionString } : {
+      host: options.host || environment.LOCAL_VIDEO_POSTGRES_HOST || '127.0.0.1',
+      port: boundedInteger(
+        options.port ?? environment.LOCAL_VIDEO_POSTGRES_PORT,
+        1,
+        65535,
+        54329,
+        'POSTGRES_CONFIG_INVALID',
+      ),
+      database: options.database || environment.LOCAL_VIDEO_POSTGRES_DB || 'local_video',
+      user: options.user || environment.LOCAL_VIDEO_POSTGRES_USER || 'local_video',
+      password,
+    }),
+    ssl,
     max: boundedInteger(
       options.max ?? environment.LOCAL_VIDEO_POSTGRES_POOL_MAX,
       1,
@@ -59,11 +108,7 @@ export function createPostgresPool(options = {}) {
       'POSTGRES_CONFIG_INVALID',
     ),
     application_name: 'disenador-videos-local',
-  });
-  pool.on('error', () => {
-    // Los errores de clientes ociosos se observan al adquirir la siguiente conexión.
-  });
-  return pool;
+  };
 }
 
 export async function withPostgresTransaction(pool, operation) {
@@ -104,4 +149,31 @@ function boundedInteger(value, minimum, maximum, fallback, code) {
     throw storageError(code, 'La configuración de PostgreSQL no es válida.');
   }
   return parsed;
+}
+
+function deploymentMode(value) {
+  const mode = String(value || 'local');
+  if (!['local', 'remote'].includes(mode)) {
+    throw storageError('DEPLOYMENT_MODE_INVALID', 'El modo de despliegue no es válido.');
+  }
+  return mode;
+}
+
+function validateConnectionString(value) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw storageError('POSTGRES_CONFIG_INVALID', 'LOCAL_VIDEO_DATABASE_URL no es válida.');
+  }
+  if (
+    !['postgres:', 'postgresql:'].includes(parsed.protocol)
+    || parsed.hash
+    || parsed.searchParams.has('sslmode')
+  ) {
+    throw storageError(
+      'POSTGRES_CONFIG_INVALID',
+      'La URL PostgreSQL es inválida o intenta sobreescribir la política TLS.',
+    );
+  }
 }
