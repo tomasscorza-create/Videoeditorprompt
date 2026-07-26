@@ -100,6 +100,37 @@ export function createPostgresProjectRepository(options) {
     }
   }
 
+  async function insert(project) {
+    validateDraftEnvelope(project);
+    const revision = sha256Json(project);
+    try {
+      const result = await pool.query(`
+        INSERT INTO local_video.projects (id, revision, document)
+        VALUES ($1, $2, $3::jsonb)
+        RETURNING document, revision, updated_at
+      `, [project.id, revision, JSON.stringify(project)]);
+      const stored = storedProject(result.rows[0]);
+      return {
+        created: true,
+        project: stored.project,
+        revision: stored.revision,
+        summary: stored.summary,
+      };
+    } catch (error) {
+      if (error?.code === '23505') {
+        throw storageError(
+          'PROJECT_IMPORT_CONFLICT',
+          'El proyecto ya existe y no será sobrescrito durante la importación.',
+        );
+      }
+      throw postgresStorageError(
+        error,
+        'PROJECT_STORAGE_UNAVAILABLE',
+        'No se pudo importar el proyecto.',
+      );
+    }
+  }
+
   async function remove(id, expectedRevision) {
     assertProjectId(id);
     try {
@@ -125,7 +156,7 @@ export function createPostgresProjectRepository(options) {
     }
   }
 
-  return { list, get, save, remove };
+  return { list, get, save, insert, remove };
 }
 
 async function lockProject(client, id) {

@@ -32,12 +32,14 @@ El repositorio incluye actualmente:
 
 Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo de edición 3B.0 y el primer flujo completo prompt → proyecto → MP4 ya están conectados a la interfaz local. Todavía no es un editor profesional ni una aplicación web.
 
-La persistencia portable llegó a P5: filesystem sigue siendo el backend normal,
-pero proyectos, recursos y jobs tienen adaptadores PostgreSQL, y los blobs
-pueden hidratarse, publicarse y reproducirse desde un bucket S3 privado con el
-mismo contrato de filesystem. La importación y el cutover siguen pendientes.
+La persistencia portable llegó a P6: filesystem sigue siendo el backend normal,
+pero proyectos, recursos y jobs tienen adaptadores PostgreSQL, los blobs
+pueden hidratarse, publicarse y reproducirse desde un bucket S3 privado y existe
+un importador con plan inmutable, apply explícito, verificación e idempotencia.
+El cutover sigue pendiente.
 Véanse [Persistencia PostgreSQL P4](docs/PERSISTENCIA_POSTGRES_P4.md) y
-[Persistencia S3 P5](docs/PERSISTENCIA_S3_P5.md).
+[Persistencia S3 P5](docs/PERSISTENCIA_S3_P5.md), y
+[Persistencia importador P6](docs/PERSISTENCIA_IMPORTADOR_P6.md).
 
 ## Inicio rápido
 

@@ -36,6 +36,8 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] Índice y assets locales viven fuera del repositorio; la publicación servible es regenerable y existe migración legacy no destructiva.
 - [x] Timeline audiovisual V1/A1 restaurada con regla, playhead, zoom, snap, transporte, mute, navegación y atajos.
 - [x] Preview usa turnos medidos; MP4 usa escenas, audio y fundidos del manifiesto final; autoría queda marcada sin medir.
+- [x] P6 importa filesystem a PostgreSQL/S3 mediante plan inmutable, `--apply` explícito, verificación y segunda ejecución sin duplicados.
+- [ ] Gate P6 pendiente; no activar el cutover P7 ni migrar la única copia real antes de aprobación.
 - [ ] Próximo gate: producción personal real, métricas de planes válidos y mejoras de variantes/reparación y edición manual.
 
 Evidencia vigente: `etapas/ETAPA_2F_CALIDAD_RESULTADOS.md`, `etapas/ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `etapas/ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `etapas/ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `etapas/ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `etapas/ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.

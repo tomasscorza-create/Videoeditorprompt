@@ -577,6 +577,10 @@ Tareas:
 
 **Objetivo:** migrar datos reales de manera idempotente y auditable.
 
+**Estado al 2026-07-26:** implementada y verificada contra PostgreSQL/SeaweedFS
+reales usando copias temporales; gate humano pendiente. `filesystem` permanece
+como backend normal y P7 no está autorizado.
+
 Comandos esperados:
 
 ```powershell
@@ -841,4 +845,3 @@ Prompt sugerido para iniciar el hilo:
 > `docs/PLAN_DE_ACCION_PERSISTENCIA_PORTABLE_2026-07-25.md`. Ejecuta la Fase P0
 > completa, preserva cambios ajenos y no avances a Docker ni dependencias hasta
 > presentar y aprobar el gate G0.
-

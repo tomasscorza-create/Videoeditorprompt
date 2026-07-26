@@ -18,7 +18,36 @@
           "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
           "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
           "registeredAt": { "type": "string", "format": "date-time" },
-          "entry": { "type": "object" }
+          "entry": { "type": "object" },
+          "blobStorage": { "$ref": "#/$defs/blobStorage" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "blobStorage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "backend", "artifacts"],
+      "properties": {
+        "version": { "const": 1 },
+        "backend": { "const": "s3" },
+        "artifacts": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "relativePath", "key", "bytes", "sha256", "mimeType"],
+            "properties": {
+              "role": { "type": "string", "minLength": 1, "maxLength": 80 },
+              "relativePath": { "type": "string", "minLength": 1, "maxLength": 1024 },
+              "key": { "type": "string", "minLength": 1, "maxLength": 1024 },
+              "bytes": { "type": "integer", "minimum": 0 },
+              "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "mimeType": { "type": "string", "minLength": 1, "maxLength": 120 }
+            }
+          }
         }
       }
     }

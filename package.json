@@ -60,6 +60,8 @@
     "storage:inventory": "node scripts/storage/local-data-bundle-cli.mjs inventory",
     "storage:export": "node scripts/storage/local-data-bundle-cli.mjs export",
     "storage:verify": "node scripts/storage/local-data-bundle-cli.mjs verify",
+    "storage:migrate": "node scripts/storage/storage-migration-cli.mjs",
+    "storage:test-migration": "node scripts/storage/test-storage-migration.mjs",
     "infra:up": "docker compose -f compose.yaml up -d --wait",
     "infra:health": "node scripts/storage/infra-health.mjs",
     "infra:down": "docker compose -f compose.yaml down",
