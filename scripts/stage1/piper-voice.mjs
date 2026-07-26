@@ -17,9 +17,23 @@ export function resolvePiperSupport(context, modelName) {
   return {
     modelPath,
     modelConfig: readJson(requireFile(`${modelPath}.json`, 'configuración del modelo Piper')),
-    pythonPath: requireFile(path.join(context.ttsRoot, 'venv', 'Scripts', 'python.exe'), 'ejecutable Python de Piper'),
-    fontPath: requireFile(path.join(context.ttsRoot, 'fonts', 'arial.ttf'), 'fuente del runtime TTS'),
+    pythonPath: requireFile(resolvePiperPython(context.ttsRoot), 'ejecutable Python de Piper'),
+    fontPath: requireFile(
+      process.env.LOCAL_VIDEO_FONT_FILE || path.join(context.ttsRoot, 'fonts', 'arial.ttf'),
+      'fuente del runtime TTS',
+    ),
   };
+}
+
+export function resolvePiperPython(ttsRoot, environment = process.env, platform = process.platform) {
+  if (environment.LOCAL_VIDEO_PIPER_PYTHON) {
+    return path.resolve(environment.LOCAL_VIDEO_PIPER_PYTHON);
+  }
+  return path.join(
+    ttsRoot,
+    'venv',
+    ...(platform === 'win32' ? ['Scripts', 'python.exe'] : ['bin', 'python']),
+  );
 }
 
 export function generatePiperVoice(context, { text, model, lengthScale, volume, speaker }, report, detail = {}) {

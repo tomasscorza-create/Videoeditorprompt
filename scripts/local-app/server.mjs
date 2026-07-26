@@ -10,9 +10,14 @@ import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
 import { createRenderJobManager, streamVideoResponse } from './render-job-manager.mjs';
-import { createResourceLibrary } from './resource-library.mjs';
+import {
+  createResourceLibrary,
+  createResourceLibraryRepository,
+} from './resource-library.mjs';
 import { createProjectRepository } from './project-repository.mjs';
 import { runStartupRetention } from './retention.mjs';
+import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
+import { createPersistenceRuntime } from '../storage/persistence-runtime.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
@@ -24,28 +29,54 @@ const ALLOWED_ORIGINS = new Set([
   'http://localhost:4174',
 ]);
 
-export function createLocalAppServer(options = {}) {
+export async function createLocalAppServer(options = {}) {
   const host = options.host || '127.0.0.1';
   const port = Number(options.port ?? 4174);
   const sessionToken = String(options.sessionToken || randomBytes(32).toString('hex'));
   const root = path.resolve(options.root || projectRoot);
   const assetsRoot = path.resolve(options.assetsRoot || path.join(root, 'public'));
-  const builtinCatalog = options.catalog || loadAuthoringCatalog(assetsRoot);
-  const library = options.library || createResourceLibrary({
-    assetsRoot,
-    builtinCatalog,
-    storageRoot: options.libraryStorageRoot,
-    publishRoot: options.libraryPublishRoot,
-  });
-  const currentCatalog = () => library.catalog();
-  const projects = options.projects || createProjectRepository({ storageRoot: options.projectStorageRoot });
-  const ownsManager = !options.manager;
-  const manager = options.manager || createRenderJobManager({
-    ...options,
+  const ownsPersistenceRuntime = !options.persistenceRuntime;
+  const persistenceRuntime = options.persistenceRuntime || await createPersistenceRuntime({
     root,
-    assetsRoot,
-    catalogProvider: currentCatalog,
+    persistence: options.persistence || process.env.LOCAL_VIDEO_PERSISTENCE,
+    environment: options.environment || process.env,
+    pool: options.postgresPool,
+    blobStorage: options.blobStorage,
+    materializationRoot: options.materializationRoot,
   });
+  const persistence = persistenceRuntime.backend;
+  const builtinCatalog = options.catalog || loadAuthoringCatalog(assetsRoot);
+  let library;
+  let projects;
+  let manager;
+  try {
+    library = options.library || await createResourceLibrary({
+      assetsRoot,
+      builtinCatalog,
+      storageRoot: options.libraryStorageRoot || persistenceRuntime.libraryStorageRoot,
+      publishRoot: options.libraryPublishRoot,
+      repository: options.resourceRepository || persistenceRuntime.resources,
+      repositoryFactory: options.resourceRepositoryFactory || createResourceLibraryRepository,
+    });
+    const projectRepositoryFactory = options.projectRepositoryFactory || createProjectRepository;
+    projects = options.projects || persistenceRuntime.projects || projectRepositoryFactory({
+      storageRoot: options.projectStorageRoot,
+    });
+    manager = options.manager || await createRenderJobManager({
+      ...options,
+      root,
+      assetsRoot,
+      catalogProvider: () => library.catalog(),
+      repository: options.renderJobRepository || persistenceRuntime.renderJobs,
+      repositoryFactory: options.renderJobRepositoryFactory || createFileRenderJobRepository,
+      blobStorage: options.blobStorage || persistenceRuntime.blobStorage,
+    });
+  } catch (error) {
+    if (ownsPersistenceRuntime) await persistenceRuntime.close().catch(() => {});
+    throw error;
+  }
+  const currentCatalog = () => library.catalog();
+  const ownsManager = !options.manager;
   // Retención automática al arrancar: solo cuando este servicio administra su propio
   // ciclo de vida de jobs (producción). Si el manager viene inyectado (tests), no se
   // toca el `.local-video` real. La política existente respeta trabajos activos y MP4.
@@ -91,6 +122,7 @@ export function createLocalAppServer(options = {}) {
           registeredProviders: listProviderNames(),
           tts: { available: existsSync(ttsRoot) },
           renderBusy: Boolean(manager.activeJobId),
+          persistence: persistenceRuntime.diagnostic,
         });
         return;
       }
@@ -98,7 +130,7 @@ export function createLocalAppServer(options = {}) {
         sendJson(response, 200, {
           version: 1,
           catalogPath: library.catalogRelative,
-          resources: library.list(),
+          resources: await library.list(),
         });
         return;
       }
@@ -113,17 +145,18 @@ export function createLocalAppServer(options = {}) {
       if (request.method === 'GET' && url.pathname === '/api/library/character-designs') {
         sendJson(response, 200, {
           version: 1,
-          designs: library.characterDesigns(),
+          designs: await library.characterDesigns(),
         });
         return;
       }
       if (request.method === 'GET' && url.pathname === '/api/projects') {
-        sendJson(response, 200, { version: 1, projects: projects.list() });
+        sendJson(response, 200, { version: 1, projects: await projects.list() });
         return;
       }
       const projectMatch = /^\/api\/projects\/([a-zA-Z0-9_-]{2,64})$/u.exec(url.pathname);
       if (request.method === 'GET' && projectMatch) {
-        sendJson(response, 200, { version: 1, project: projects.get(projectMatch[1]) });
+        const stored = await projects.get(projectMatch[1]);
+        sendJson(response, 200, { version: 1, project: stored.project, revision: stored.revision });
         return;
       }
       if (request.method === 'PUT' && projectMatch) {
@@ -134,12 +167,12 @@ export function createLocalAppServer(options = {}) {
           error.code = 'PROJECT_ID_INVALID';
           throw error;
         }
-        const result = projects.save(body.project);
+        const result = await projects.save(body.project, body.expectedRevision);
         sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
         return;
       }
       if (request.method === 'DELETE' && projectMatch) {
-        const removed = projects.remove(projectMatch[1]);
+        const removed = await projects.remove(projectMatch[1], url.searchParams.get('expectedRevision') || undefined);
         if (!removed) return sendNotFound(response);
         sendJson(response, 200, { version: 1, removed: true });
         return;
@@ -147,7 +180,7 @@ export function createLocalAppServer(options = {}) {
       if (request.method === 'POST' && url.pathname === '/api/library/resources') {
         assertJsonContentType(request);
         const body = await readJsonBody(request);
-        const result = library.register(body.entry);
+        const result = await library.register(body.entry);
         sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
         return;
       }
@@ -160,14 +193,14 @@ export function createLocalAppServer(options = {}) {
         }
         const fileName = decodeHeaderValue(request.headers['x-resource-file-name'], 'fondo');
         const bytes = await readBody(request, MAX_BACKGROUND_BODY_BYTES);
-        const result = library.importBackground({ bytes, mimeType, fileName });
+        const result = await library.importBackground({ bytes, mimeType, fileName });
         sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/library/characters') {
         assertJsonContentType(request);
         const body = await readJsonBody(request);
-        const result = library.saveCharacterDesign(body.design);
+        const result = await library.saveCharacterDesign(body.design);
         sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
         return;
       }
@@ -249,38 +282,45 @@ export function createLocalAppServer(options = {}) {
       if (request.method === 'POST' && url.pathname === '/api/render-jobs') {
         assertJsonContentType(request);
         const body = await readJsonBody(request);
-        const job = manager.create(body.project);
+        const job = await manager.create(body.project);
         sendJson(response, 202, job);
         return;
       }
       if (request.method === 'GET' && url.pathname === '/api/render-jobs') {
-        sendJson(response, 200, { version: 1, jobs: manager.list() });
+        sendJson(response, 200, { version: 1, jobs: await manager.list() });
         return;
       }
       const jobMatch = /^\/api\/render-jobs\/([a-zA-Z0-9_-]{2,64})$/u.exec(url.pathname);
       if (request.method === 'GET' && jobMatch) {
-        const job = manager.get(jobMatch[1]);
+        const job = await manager.get(jobMatch[1]);
         if (!job) return sendNotFound(response);
         sendJson(response, 200, job);
         return;
       }
       if (request.method === 'POST' && jobMatch && url.searchParams.get('action') === 'cancel') {
-        const job = manager.cancel(jobMatch[1]);
+        const job = await manager.cancel(jobMatch[1]);
         if (!job) return sendNotFound(response);
         sendJson(response, 200, job);
         return;
       }
       const videoMatch = /^\/api\/render-jobs\/([a-zA-Z0-9_-]{2,64})\/video$/u.exec(url.pathname);
       if (request.method === 'GET' && videoMatch) {
-        const video = manager.video(videoMatch[1]);
+        const video = await manager.video(videoMatch[1]);
         if (!video) return sendNotFound(response);
-        streamVideoResponse(request, response, video);
+        await streamVideoResponse(request, response, video);
         return;
       }
       sendNotFound(response);
     } catch (error) {
       const serialized = serializeError(error, 'local_app');
-      const status = ['RENDER_BUSY', 'DIRECTOR_BUSY', 'LIBRARY_RESOURCE_ID_CONFLICT'].includes(error?.code) ? 409
+      const status = [
+        'RENDER_BUSY',
+        'DIRECTOR_BUSY',
+        'LIBRARY_RESOURCE_ID_CONFLICT',
+        'PROJECT_REVISION_CONFLICT',
+        'RENDER_JOB_CONFLICT',
+        'RENDER_JOB_STATE_CONFLICT',
+      ].includes(error?.code) ? 409
         : String(error?.code || '').includes('INVALID') || error?.code === 'DIRECTOR_PROVIDER_UNKNOWN' ? 400
           : error?.code === 'REQUEST_BODY_TOO_LARGE' ? 413
             : 500;
@@ -293,6 +333,7 @@ export function createLocalAppServer(options = {}) {
     manager,
     library,
     projects,
+    persistence,
     sessionToken,
     listen() {
       return new Promise((resolve, reject) => {
@@ -305,10 +346,14 @@ export function createLocalAppServer(options = {}) {
         });
       });
     },
-    close() {
-      manager.cancelActive?.();
+    async close() {
+      await manager.cancelActive?.();
       server.closeAllConnections?.();
-      return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      try {
+        await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      } finally {
+        if (ownsPersistenceRuntime) await persistenceRuntime.close();
+      }
     },
   };
 }
@@ -407,7 +452,7 @@ function sendNotFound(response) {
 }
 
 if (isMain(import.meta.url)) {
-  const app = createLocalAppServer();
+  const app = await createLocalAppServer();
   app.listen().then(({ url }) => {
     process.stdout.write(`${JSON.stringify({ version: 1, state: 'ready', url })}\n`);
   }).catch((error) => {

@@ -36,6 +36,14 @@ Usar solo los puntos aplicables. Debe poder completarse en menos de dos minutos;
 - [x] Índice y assets locales viven fuera del repositorio; la publicación servible es regenerable y existe migración legacy no destructiva.
 - [x] Timeline audiovisual V1/A1 restaurada con regla, playhead, zoom, snap, transporte, mute, navegación y atajos.
 - [x] Preview usa turnos medidos; MP4 usa escenas, audio y fundidos del manifiesto final; autoría queda marcada sin medir.
+- [x] P6 importa filesystem a PostgreSQL/S3 mediante plan inmutable, `--apply` explícito, verificación y segunda ejecución sin duplicados.
+- [x] P6 aprobado; el origen filesystem real fue respaldado y migrado sin borrarlo.
+- [x] P7 activa PostgreSQL/S3 como backend normal, falla sin fallback, prueba reinicio y conserva rollback explícito a filesystem.
+- [x] Backup lógico, verificación offline y restauración idempotente PostgreSQL/S3 tienen runbook y evidencia real.
+- [x] Gate G6 aprobado; P8 fue autorizada.
+- [x] P8 exige TLS verificable, secret mounts o credenciales ambientales y rechaza configuración remota insegura.
+- [x] Worker Linux hidrata S3, consulta PostgreSQL y completa un render multiescena Piper H.264/AAC determinista.
+- [ ] Gate G7: elegir proveedor/región, probar servicios administrados, fijar retención/presupuesto y aprobar autenticación.
 - [ ] Próximo gate: producción personal real, métricas de planes válidos y mejoras de variantes/reparación y edición manual.
 
 Evidencia vigente: `etapas/ETAPA_2F_CALIDAD_RESULTADOS.md`, `etapas/ETAPA_2F_PARAMETRICOS_RESULTADOS.md`, `etapas/ETAPA_3A0_PROYECTO_EDITABLE_RESULTADOS.md`, `etapas/ETAPA_3A1_COMPILADOR_PROYECTO_RESULTADOS.md`, `etapas/ETAPA_3A2_RENDER_MULTIESCENA_RESULTADOS.md` y `etapas/ETAPA_3B0_NUCLEO_EDITOR_RESULTADOS.md`. Los joints de 2F.2 son todavía metadatos validados; la articulación continua no está implementada.

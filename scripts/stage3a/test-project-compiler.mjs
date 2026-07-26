@@ -68,6 +68,25 @@ assert.ok(/^[a-f0-9]{64}$/.test(compiledRuns[0].manifest.projectSha256));
 assert.ok(/^[a-f0-9]{64}$/.test(compiledRuns[0].manifest.catalogSha256));
 results.push({ name: 'compilation-input-hashes-recorded', passed: true });
 
+const mixedCatalogProject = structuredClone(source);
+mixedCatalogProject.scenes[0].elements[1].resourceId = 'tucan-gala-v1';
+const mixedCatalogRun = compileCase('mixed-character-catalogs', mixedCatalogProject);
+const mixedCatalogContext = contextFor('mixed-character-catalogs', path.join(projectsRoot, 'mixed-character-catalogs.json'));
+const mixedConfig = readJson(path.join(mixedCatalogContext.jobRoot, mixedCatalogRun.manifest.scenes[0].config));
+assert.equal(mixedConfig.assetCatalog, undefined);
+assert.deepEqual(
+  mixedConfig.characters.map((character) => character.characterManifest),
+  [
+    'assets/characters/mono-parametrico-azul-v1/character.manifest.json',
+    'assets/characters/tucan-gala-v1/character.manifest.json',
+  ],
+);
+assert.deepEqual(
+  mixedCatalogRun.manifest.scenes[0].bindings.map((binding) => binding.characterAssetId),
+  ['mono-parametrico-azul-v1', 'tucan-gala-v1'],
+);
+results.push({ name: 'mixed-character-catalogs-compile-through-direct-manifests', passed: true });
+
 const expressiveProject = path.join(projectRoot, 'pilots', 'proyecto-editable-01', 'project.json');
 assert.throws(() => compileVideoProject(contextFor('unsupported-text', expressiveProject), { report: silentReport }), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
 results.push({ name: 'unsupported-elements-are-not-dropped', passed: true });

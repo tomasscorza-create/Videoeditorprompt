@@ -19,6 +19,10 @@ const commands = [
   'local:test-server',
   'local:test-render-manager',
   'local:test-retention',
+  'storage:test-filesystem',
+  'storage:test-bundle',
+  'storage:test-remote-config',
+  'worker:test-portability',
   'ui:test-modules',
 ];
 

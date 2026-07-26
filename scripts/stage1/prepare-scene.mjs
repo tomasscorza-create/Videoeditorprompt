@@ -9,6 +9,7 @@ import { createProgressReporter, serializeError } from './progress.mjs';
 import { loadAndValidateJobConfig, validateMeasuredDuration } from './validate-scene-config.mjs';
 import { PipelineError } from './errors.mjs';
 import { prepareDialogueJob } from './prepare-dialogue.mjs';
+import { resolvePiperPython } from './piper-voice.mjs';
 
 export function prepareJob(context, report = createProgressReporter(context)) {
   const config = loadAndValidateJobConfig(context);
@@ -24,7 +25,7 @@ export function prepareJob(context, report = createProgressReporter(context)) {
   }
   const modelPath = requireFile(path.join(context.ttsRoot, 'models', `${config.voice.model}.onnx`), 'modelo Piper');
   const modelConfigPath = requireFile(`${modelPath}.json`, 'configuración del modelo Piper');
-  const pythonPath = requireFile(path.join(context.ttsRoot, 'venv', 'Scripts', 'python.exe'), 'ejecutable Python de Piper');
+  const pythonPath = requireFile(resolvePiperPython(context.ttsRoot), 'ejecutable Python de Piper');
   const fontPath = requireFile(path.join(context.ttsRoot, 'fonts', 'arial.ttf'), 'fuente del runtime TTS');
   const modelConfig = readJson(modelConfigPath);
   const voiceKey = sha256(JSON.stringify({
@@ -80,14 +81,15 @@ export function prepareJob(context, report = createProgressReporter(context)) {
   const boxHeight = 250;
   const y = config.video.height - config.subtitle.bottomMargin - boxHeight;
   const filter = [
-    'format=rgba',
-    `drawbox=x=70:y=${y}:w=940:h=${boxHeight}:color=black@0.72:t=fill:replace=1`,
-    `drawtext=fontfile='${ffmpegPath(fontPath)}':textfile='${ffmpegPath(subtitleText)}':fontcolor=white:fontsize=${config.subtitle.fontSize}:line_spacing=16:x=(w-text_w)/2:y=${y + 52}`,
-  ].join(',');
+    `[0:v][1:v]overlay=x=70:y=${y}:format=auto[boxed]`,
+    `[boxed]drawtext=fontfile='${ffmpegPath(fontPath)}':textfile='${ffmpegPath(subtitleText)}':fontcolor=white:fontsize=${config.subtitle.fontSize}:line_spacing=16:x=(w-text_w)/2:y=${y + 52}[out]`,
+  ].join(';');
   run('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi',
     '-i', `color=c=black@0.0:s=${config.video.width}x${config.video.height}:r=1:d=1,format=rgba`,
-    '-vf', filter, '-frames:v', '1', subtitlePng,
+    '-f', 'lavfi',
+    '-i', `color=c=black@0.72:s=${config.video.width - 140}x${boxHeight}:r=1:d=1,format=rgba`,
+    '-filter_complex', filter, '-map', '[out]', '-frames:v', '1', subtitlePng,
   ], { stage: 'preparing', errorCode: 'FFMPEG_SUBTITLE_EXIT_NONZERO' });
 
   const runtime = {

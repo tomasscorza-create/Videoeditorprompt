@@ -1,0 +1,311 @@
+{
+  "version": 1,
+  "id": "def-conejo-traje-v1",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "variants": [
+    {
+      "id": "custom",
+      "outputId": "conejo-traje-v1",
+      "label": "Conejo de Traje",
+      "palette": {
+        "outline": "#24150f",
+        "fur": "#9a5636",
+        "lightFur": "#d89a69",
+        "suit": "#24385f",
+        "shirt": "#f4e9d9",
+        "accent": "#e35b55",
+        "white": "#fffaf0",
+        "mouthDark": "#3a1720",
+        "tongue": "#ef7c78",
+        "shadow": "#0a102059"
+      }
+    }
+  ],
+  "joints": [
+    {
+      "id": "root",
+      "parentId": null,
+      "x": 540,
+      "y": 960,
+      "pivotX": 540,
+      "pivotY": 960
+    },
+    {
+      "id": "head",
+      "parentId": "root",
+      "x": 540,
+      "y": 620,
+      "pivotX": 540,
+      "pivotY": 620
+    },
+    {
+      "id": "shoulder_left",
+      "parentId": "root",
+      "x": 280,
+      "y": 1100,
+      "pivotX": 280,
+      "pivotY": 1100
+    },
+    {
+      "id": "shoulder_right",
+      "parentId": "root",
+      "x": 800,
+      "y": 1100,
+      "pivotX": 800,
+      "pivotY": 1100
+    }
+  ],
+  "poses": [
+    {
+      "id": "neutral",
+      "handState": "neutral",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -12
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "handState": "point",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -67
+        }
+      ]
+    }
+  ],
+  "layers": {
+    "body": [
+      {
+        "type": "ellipse",
+        "cx": 440,
+        "cy": 380,
+        "rx": 40,
+        "ry": 150,
+        "fill": "#f0f0f0",
+        "stroke": "#111111",
+        "strokeWidth": 12,
+        "rotationDegrees": -15
+      },
+      {
+        "type": "ellipse",
+        "cx": 640,
+        "cy": 380,
+        "rx": 40,
+        "ry": 150,
+        "fill": "#f0f0f0",
+        "stroke": "#111111",
+        "strokeWidth": 12,
+        "rotationDegrees": 15
+      },
+      {
+        "type": "ellipse",
+        "cx": 540,
+        "cy": 1160,
+        "rx": 225,
+        "ry": 275,
+        "fill": "#1a1c23",
+        "stroke": "#111111",
+        "strokeWidth": 12,
+        "rotationDegrees": 0
+      },
+      {
+        "type": "rect",
+        "x": 480,
+        "y": 910,
+        "width": 120,
+        "height": 280,
+        "rx": 42,
+        "fill": "#ffffff",
+        "stroke": "#111111",
+        "strokeWidth": 12,
+        "rotationDegrees": 0
+      },
+      {
+        "type": "rect",
+        "x": 520,
+        "y": 970,
+        "width": 40,
+        "height": 220,
+        "rx": 14,
+        "fill": "#cc2233",
+        "stroke": "#111111",
+        "strokeWidth": 10,
+        "rotationDegrees": 0
+      },
+      {
+        "type": "ellipse",
+        "cx": 540,
+        "cy": 620,
+        "rx": 190,
+        "ry": 210,
+        "fill": "#f0f0f0",
+        "stroke": "#111111",
+        "strokeWidth": 12,
+        "rotationDegrees": 0
+      },
+      {
+        "type": "rect",
+        "x": 220,
+        "y": 900,
+        "width": 120,
+        "height": 400,
+        "rx": 42,
+        "fill": "#1a1c23",
+        "stroke": "#111111",
+        "strokeWidth": 12,
+        "rotationDegrees": 12
+      },
+      {
+        "type": "rect",
+        "x": 375,
+        "y": 1360,
+        "width": 130,
+        "height": 380,
+        "rx": 45.5,
+        "fill": "#1a1c23",
+        "stroke": "#111111",
+        "strokeWidth": 12,
+        "rotationDegrees": 4
+      },
+      {
+        "type": "rect",
+        "x": 575,
+        "y": 1360,
+        "width": 130,
+        "height": 380,
+        "rx": 45.5,
+        "fill": "#1a1c23",
+        "stroke": "#111111",
+        "strokeWidth": 12,
+        "rotationDegrees": -4
+      }
+    ],
+    "eyes": {
+      "open": [
+        {
+          "type": "ellipse",
+          "cx": 475,
+          "cy": 570,
+          "rx": 22.5,
+          "ry": 35,
+          "fill": "#111111",
+          "stroke": "#111111",
+          "strokeWidth": 0,
+          "rotationDegrees": 0
+        },
+        {
+          "type": "ellipse",
+          "cx": 605,
+          "cy": 570,
+          "rx": 22.5,
+          "ry": 35,
+          "fill": "#111111",
+          "stroke": "#111111",
+          "strokeWidth": 0,
+          "rotationDegrees": 0
+        }
+      ],
+      "closed": [
+        {
+          "type": "path",
+          "d": "M452.5 570 Q475 587.5 497.5 570",
+          "fill": "none",
+          "stroke": "#111111",
+          "strokeWidth": 4,
+          "lineCap": "round"
+        },
+        {
+          "type": "path",
+          "d": "M582.5 570 Q605 587.5 627.5 570",
+          "fill": "none",
+          "stroke": "#111111",
+          "strokeWidth": 4,
+          "lineCap": "round"
+        }
+      ]
+    },
+    "mouth": {
+      "closed": [
+        {
+          "type": "path",
+          "d": "M510 740 Q540 752.5 570 740",
+          "fill": "none",
+          "stroke": "#111111",
+          "strokeWidth": 8,
+          "lineCap": "round"
+        }
+      ],
+      "medium": [
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 740,
+          "rx": 30,
+          "ry": 7.5,
+          "fill": "#ff8899",
+          "stroke": "#111111",
+          "strokeWidth": 8,
+          "rotationDegrees": 0
+        }
+      ],
+      "open": [
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 740,
+          "rx": 30,
+          "ry": 16.875,
+          "fill": "#ff8899",
+          "stroke": "#111111",
+          "strokeWidth": 8,
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    "hands": {
+      "neutral": [
+        {
+          "type": "rect",
+          "x": 740,
+          "y": 900,
+          "width": 120,
+          "height": 400,
+          "rx": 42,
+          "fill": "#1a1c23",
+          "stroke": "#111111",
+          "strokeWidth": 12,
+          "rotationDegrees": -12
+        }
+      ],
+      "point": [
+        {
+          "type": "rect",
+          "x": 740,
+          "y": 772,
+          "width": 120,
+          "height": 400,
+          "rx": 42,
+          "fill": "#1a1c23",
+          "stroke": "#111111",
+          "strokeWidth": 12,
+          "rotationDegrees": -67
+        }
+      ]
+    }
+  },
+  "provenance": {
+    "source": "Creado con el diseñador local de personajes a partir de primitivas declarativas.",
+    "license": "Creación local del usuario."
+  }
+}

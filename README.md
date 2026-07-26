@@ -27,9 +27,23 @@ El repositorio incluye actualmente:
 - parámetros rígidos de tono, duración objetivo y cantidad de escenas incorporados al esquema enviado a Ollama;
 - creación por prompt, corrección en el mismo editor y lanzamiento del render desde la interfaz;
 - servicio HTTP local limitado a loopback, progreso, cancelación y reproducción/descarga del MP4 final;
+- repositorios de metadata equivalentes para filesystem y PostgreSQL, con revisión y transiciones atómicas;
 - publicación local versionada de previews y proyectos compatibles.
 
 Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo de edición 3B.0 y el primer flujo completo prompt → proyecto → MP4 ya están conectados a la interfaz local. Todavía no es un editor profesional ni una aplicación web.
+
+La persistencia portable llegó técnicamente a P8: PostgreSQL es el backend normal de metadata
+y SeaweedFS ofrece el bucket S3 privado para recursos y resultados. El arranque
+diagnostica ambos servicios sin fallback silencioso, el origen filesystem sigue
+intacto para rollback y existen backup/restauración lógicos e idempotentes. El
+perfil remoto exige TLS, admite secretos montados, incluye un probe de
+latencia/costos y un worker Linux verificado. El gate remoto sigue pendiente de
+proveedor, región, prueba administrada, retención, presupuesto y autenticación.
+Véanse [Persistencia PostgreSQL P4](docs/PERSISTENCIA_POSTGRES_P4.md) y
+[Persistencia S3 P5](docs/PERSISTENCIA_S3_P5.md), y
+[Persistencia importador P6](docs/PERSISTENCIA_IMPORTADOR_P6.md), y
+[Cutover y operación P7](docs/PERSISTENCIA_CUTOVER_P7.md), y
+[Preparación remota P8](docs/PERSISTENCIA_REMOTA_P8.md).
 
 ## Inicio rápido
 
@@ -40,6 +54,7 @@ Las etapas 0–2F y 3A.0–3A.2 están implementadas y verificadas. El núcleo d
 - FFmpeg y FFprobe disponibles en `PATH`.
 - Para generar voces y renderizar: un runtime local de Piper configurado como se explica en [Voz y render](#voz-y-render).
 - Para crear proyectos desde un prompt: [Ollama](https://ollama.com/) y el modelo local `qwen3:8b`.
+- Docker con Compose para PostgreSQL y SeaweedFS, usados por el arranque normal.
 
 Instalación:
 
@@ -48,6 +63,8 @@ git clone https://github.com/tomasscorza-create/Videoeditorprompt.git
 cd Videoeditorprompt
 npm install
 ollama pull qwen3:8b
+npm run infra:up
+npm run db:migrate
 ```
 
 Publicar el proyecto piloto compatible e iniciar la interfaz:
@@ -60,6 +77,12 @@ npm run dev
 Abrir la URL que informe Vite, normalmente [http://localhost:5173](http://localhost:5173).
 
 `npm run dev` inicia tanto Vite como el servicio local en `127.0.0.1:4174`. **Archivos → Nuevo +** crea un borrador con lienzo vacío; **Mis proyectos** abre proyectos editables durables y **Videos creados** conserva los MP4 terminados. Desde **Director IA**, escribir la idea, elegir tono, duración y escenas, y crear la propuesta. Una vez que el proyecto tiene contenido, el mismo campo acepta cambios contextuales como “cambiá el texto de la escena 2”; la IA devuelve comandos semánticos cerrados que pasan por el mismo núcleo y pueden deshacerse.
+
+El arranque normal usa PostgreSQL/S3 y falla claramente si la infraestructura no
+está disponible. El rollback no destructivo se inicia con
+`npm run dev:filesystem`. Véase el
+[runbook P7](docs/PERSISTENCIA_CUTOVER_P7.md) antes de restaurar backups o
+detener volúmenes.
 
 El visor central tiene solo dos espacios: **Editor** y **Creador**. El Editor mantiene el lienzo como superficie principal; el botón de reproducción de la timeline presenta el último MP4 dentro de ese mismo espacio y **Volver a editar** recupera el lienzo. No existen pestañas separadas para composición, preview y video final. **CREAR → Personajes** abre el Creador, con dos caminos: editar una plantilla o construir desde cero mediante piezas geométricas etiquetadas. Ambos guardan un rig animable en la biblioteca. La sesión rápida se conserva en `localStorage`; cada proyecto también se guarda como JSON durable fuera del repositorio.
 
@@ -137,6 +160,28 @@ npm run local:test-library
 npm run local:test-server
 npm run local:test-render-manager
 npm run local:test-retention
+npm run storage:test-filesystem
+npm run storage:test-postgres
+npm run storage:test-s3
+npm run storage:test-p5-flow
+npm run storage:test-migration
+npm run storage:test-cutover
+npm run storage:test-backup
+npm run storage:test-remote-config
+npm run storage:probe-remote
+npm run worker:test-portability
+npm run worker:test-linux
+npm run storage:test-bundle
+npm run storage:inventory
+npm run storage:export -- --output=<directorio>
+npm run storage:verify -- --bundle=<directorio>
+npm run storage:backup -- --output=<directorio>
+npm run storage:backup:verify -- --backup=<directorio>
+npm run storage:restore -- --backup=<directorio> --dry-run
+npm run infra:up
+npm run db:migrate
+npm run infra:health
+npm run infra:down
 npm run stage3b:test-contracts
 npm test
 ```
@@ -225,6 +270,9 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [Creador local de personajes](docs/CREADOR_PERSONAJES.md) | Plantillas, construcción geométrica semántica, persistencia y límites. |
 | [Biblioteca local](docs/BIBLIOTECA_LOCAL.md) | Registro durable, publicación del catálogo, API, seguridad y límites. |
 | [Operación local](docs/OPERACION_LOCAL.md) | Seguridad de sesión, recuperación, render interactivo y retención. |
+| [Persistencia filesystem P1](docs/PERSISTENCIA_FILESYSTEM_P1.md) | Contratos async, adaptadores filesystem, revisiones, jobs y blobs. |
+| [Bundle portable P2](docs/PERSISTENCIA_BUNDLE_P2.md) | Inventario, exportación determinista, política de jobs y verificación. |
+| [Infraestructura local P3](docs/INFRAESTRUCTURA_LOCAL_P3.md) | PostgreSQL, SeaweedFS, Compose, migraciones y persistencia. |
 | [Dependencias de IA](docs/DEPENDENCIAS_IA_LOCAL.md) | Procedencia y licencias declaradas de Ollama y Qwen. |
 | [Visión de producto y Etapa 2F](docs/VISION_PRODUCTO_Y_ETAPA_2F.md) | Flujo creativo y dirección del producto. |
 | [Flujo de colaboración](docs/FLUJO_COLABORACION_CODEX_CLAUDE.md) | Reglas usadas para integrar motor y UX/UI. |

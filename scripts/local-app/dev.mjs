@@ -5,7 +5,7 @@ import { projectRoot } from '../stage1/common.mjs';
 import { createLocalAppServer } from './server.mjs';
 
 const sessionToken = randomBytes(32).toString('hex');
-const app = createLocalAppServer({ sessionToken });
+const app = await createLocalAppServer({ sessionToken });
 const listening = await app.listen();
 process.stdout.write(`${JSON.stringify({ version: 1, component: 'local-api', state: 'ready', url: listening.url })}\n`);
 

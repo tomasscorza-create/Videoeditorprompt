@@ -23,15 +23,26 @@ const project = {
 };
 
 try {
-  assert.equal(repository.list().length, 0);
-  assert.equal(repository.save(project).created, true);
-  assert.equal(repository.save({ ...project, title: 'Editado' }).created, false);
-  assert.equal(repository.get(project.id).title, 'Editado');
-  assert.equal(repository.list()[0].scenes, 1);
-  assert.throws(() => repository.get('../escape'), (error) => error.code === 'PROJECT_ID_INVALID');
-  assert.equal(repository.remove(project.id), true);
-  assert.equal(repository.remove(project.id), false);
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 7, failed: 0 })}\n`);
+  assert.equal((await repository.list()).length, 0);
+  const created = await repository.save(project);
+  assert.equal(created.created, true);
+  assert.match(created.revision, /^[a-f0-9]{64}$/u);
+  const edited = await repository.save({ ...project, title: 'Editado' }, created.revision);
+  assert.equal(edited.created, false);
+  assert.notEqual(edited.revision, created.revision);
+  assert.equal((await repository.get(project.id)).project.title, 'Editado');
+  assert.equal((await repository.list())[0].scenes, 1);
+  await assert.rejects(
+    () => repository.save({ ...project, title: 'Conflicto' }, created.revision),
+    (error) => error.code === 'PROJECT_REVISION_CONFLICT',
+  );
+  await assert.rejects(
+    () => repository.get('../escape'),
+    (error) => error.code === 'PROJECT_ID_INVALID',
+  );
+  assert.equal(await repository.remove(project.id, edited.revision), true);
+  assert.equal(await repository.remove(project.id), false);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 11, failed: 0 })}\n`);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

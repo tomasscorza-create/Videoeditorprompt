@@ -71,12 +71,23 @@ Después del alta, la interfaz se recarga y vuelve a validar la sesión contra e
 
 La API conserva los límites y defensas del servicio local. No es un backend remoto ni multiusuario.
 
+La persistencia usa contratos async con backend `filesystem`. Puede declararse
+explícitamente mediante `LOCAL_VIDEO_PERSISTENCE=filesystem`; otro valor falla
+sin hacer fallback. El registro durable y la publicación regenerable son
+responsabilidades separadas aunque el servicio las coordine.
+
+Al abrir o guardar un proyecto, la API devuelve una revisión SHA-256. El `PUT`
+acepta `expectedRevision` opcional y responde `PROJECT_REVISION_CONFLICT` si el
+archivo cambió. La UI vigente puede omitirla para conservar compatibilidad.
+
 ## Límites actuales
 
 - No hay eliminación o modificación desde la interfaz.
 - Solo se importan imágenes estáticas como fondos. Los personajes animables continúan usando rigs y manifiestos compilados.
 - No hay importación general de paquetes ni generación de recursos con IA.
 - No hay base de datos, sincronización remota, cuentas ni almacenamiento compartido.
+- `FileBlobStorage` existe y está probado como adaptador, pero la biblioteca
+  todavía materializa sus paquetes mediante las ubicaciones filesystem vigentes.
 - El runtime actual solo puede renderizar el subconjunto de personajes, fondos, voces y capacidades ya soportado por los contratos vigentes.
 
 Prueba específica:

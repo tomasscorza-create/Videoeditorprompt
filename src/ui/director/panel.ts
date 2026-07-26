@@ -7,6 +7,7 @@ import {
   cancelRenderJob,
   createProposal,
   editProjectWithAi,
+  formatApiError,
   getHealth,
   getRenderJob,
   listRenderJobs,
@@ -381,10 +382,6 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
 
 function hasAuthoredContent(store: ProjectStore | null): boolean {
   return Boolean(store?.project().scenes.some((scene) => scene.elements.length > 0 || scene.dialogue.length > 0));
-}
-
-function formatApiError(error: ApiError): string {
-  return [error.message, error.suggestedAction, error.code ? `(${error.code})` : null].filter(Boolean).join(' ');
 }
 
 function humanState(state: RenderJob['state']): string {

@@ -168,13 +168,12 @@ export function buildOllamaPlanSchema(catalog, constraints = {}) {
   schema.$defs.castMember.properties.characterResourceId = { type: 'string', enum: characters };
   schema.$defs.castMember.properties.voiceId = { type: 'string', enum: voices };
   schema.$defs.scene.properties.backgroundResourceId = { type: 'string', enum: backgrounds };
-  const poses = [...new Set(catalog.entries
-    .filter((entry) => entry.type === 'character')
-    .flatMap((entry) => entry.capabilities.poses))];
   const animationPresets = [...new Set(catalog.entries
     .filter((entry) => entry.type === 'character')
     .flatMap((entry) => entry.capabilities.animationPresets))];
-  schema.$defs.castMember.properties.poseId = { type: 'string', enum: poses };
+  // El runtime v2 solo conserva neutral como pose inicial. `point` sigue
+  // disponible como gesto de diálogo, pero no debe llegar a elements[].poseId.
+  schema.$defs.castMember.properties.poseId = { const: 'neutral' };
   schema.$defs.castMember.properties.animationPreset = { type: 'string', enum: animationPresets };
   schema.$defs.scene.properties.transitionDurationSeconds = { type: 'number', minimum: 0, maximum: 1 };
   schema.$defs.scene.properties.layoutPreset = { type: 'string', enum: listLayoutPresetIds() };

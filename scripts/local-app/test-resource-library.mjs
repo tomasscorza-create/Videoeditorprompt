@@ -27,15 +27,15 @@ try {
     }),
     path.join('C:\\datos-locales', 'DisenadorVideosLocal', 'library'),
   );
-  const library = createResourceLibrary({
+  const library = await createResourceLibrary({
     assetsRoot,
     storageRoot,
     publishRoot,
     builtinCatalog,
     now: () => new Date('2026-07-24T00:00:00.000Z'),
   });
-  assert.equal(library.list().length, 12);
-  assert.equal(library.catalog().entries.length, 12);
+  assert.equal((await library.list()).length, 13);
+  assert.equal(library.catalog().entries.length, 13);
   assert.match(library.catalogRelative, /^assets\/library\/test-[^/]+\/authoring-resources\.json$/);
 
   const voice = {
@@ -55,16 +55,16 @@ try {
       license: 'Uso interno de prueba.'
     }
   };
-  const registered = library.register(voice);
+  const registered = await library.register(voice);
   assert.equal(registered.created, true);
   assert.equal(registered.resource.origin, 'local');
-  assert.equal(library.catalog().entries.length, 13);
+  assert.equal(library.catalog().entries.length, 14);
 
-  const same = library.register(voice);
+  const same = await library.register(voice);
   assert.equal(same.created, false);
   assert.equal(same.resource.id, voice.id);
 
-  const alias = library.register({
+  const alias = await library.register({
     ...voice,
     id: 'voz-prueba-alias-v1',
     label: 'Alias',
@@ -79,11 +79,11 @@ try {
   assert.equal(alias.created, false);
   assert.equal(alias.resource.id, voice.id);
 
-  assert.throws(
+  await assert.rejects(
     () => library.register({ ...voice, label: 'Conflicto', voice: { ...voice.voice, model: 'otro-modelo' } }),
     (error) => error.code === 'LIBRARY_RESOURCE_ID_CONFLICT',
   );
-  assert.throws(
+  await assert.rejects(
     () => library.register({ ...voice, id: '../escape' }),
     (error) => error.code === 'LIBRARY_RESOURCE_INVALID',
   );
@@ -95,7 +95,7 @@ try {
     'studio-parallax-v1',
     'far.png',
   ));
-  const importedBackground = library.importBackground({
+  const importedBackground = await library.importBackground({
     bytes: backgroundBytes,
     mimeType: 'image/png',
     fileName: 'Fondo de prueba.png',
@@ -103,7 +103,7 @@ try {
   assert.equal(importedBackground.created, true);
   assert.equal(importedBackground.resource.entry.type, 'background');
   assert.equal(importedBackground.image.mimeType, 'image/png');
-  assert.equal(library.catalog().entries.length, 14);
+  assert.equal(library.catalog().entries.length, 15);
   const importedManifest = JSON.parse(readFileSync(
     path.join(assetsRoot, importedBackground.resource.entry.backgroundManifest),
     'utf8',
@@ -116,12 +116,12 @@ try {
     importedBackground.resource.id,
     'background.png',
   )), true);
-  assert.equal(library.importBackground({
+  assert.equal((await library.importBackground({
     bytes: backgroundBytes,
     mimeType: 'image/png',
     fileName: 'El mismo fondo.png',
-  }).created, false);
-  assert.throws(
+  })).created, false);
+  await assert.rejects(
     () => library.importBackground({
       bytes: Buffer.from('no-es-una-imagen'),
       mimeType: 'image/png',
@@ -129,7 +129,7 @@ try {
     }),
     (error) => error.code === 'LIBRARY_BACKGROUND_FORMAT_INVALID',
   );
-  assert.throws(
+  await assert.rejects(
     () => library.importBackground({
       bytes: Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=',
@@ -147,7 +147,7 @@ try {
     '-frames:v', '1', landscapeJpg,
   ], { shell: false, windowsHide: true, timeout: 30_000 });
   assert.equal(jpegFixture.status, 0);
-  const normalizedBackground = library.importBackground({
+  const normalizedBackground = await library.importBackground({
     bytes: readFileSync(landscapeJpg),
     mimeType: 'image/jpeg',
     fileName: 'Paisaje horizontal.jpg',
@@ -177,10 +177,10 @@ try {
       shadow: '#0a102059',
     },
   };
-  const savedCharacter = library.saveCharacterDesign(characterDesign);
+  const savedCharacter = await library.saveCharacterDesign(characterDesign);
   assert.equal(savedCharacter.created, true);
   assert.equal(savedCharacter.resource.entry.type, 'character');
-  assert.equal(library.characterDesigns()[0].design.accessory, 'glasses');
+  assert.equal((await library.characterDesigns())[0].design.accessory, 'glasses');
   assert.equal(existsSync(path.join(
     library.storageAssetsRoot,
     'characters',
@@ -192,21 +192,21 @@ try {
     'utf8',
   ));
   assert.equal(localCharacterCatalog.entries[0].id, savedCharacter.resource.id);
-  assert.equal(library.saveCharacterDesign(characterDesign).created, false);
-  assert.throws(
+  assert.equal((await library.saveCharacterDesign(characterDesign)).created, false);
+  await assert.rejects(
     () => library.saveCharacterDesign({ ...characterDesign, accessory: 'arbitrary-svg' }),
     (error) => error.code === 'LIBRARY_CHARACTER_DESIGN_INVALID',
   );
   const scratchDesign = createDefaultCustomCharacterDesign();
   scratchDesign.name = 'Personaje geométrico';
   scratchDesign.parts.find((part) => part.role === 'arm-right').rotationDegrees = -28;
-  const scratchCharacter = library.saveCharacterDesign(scratchDesign);
+  const scratchCharacter = await library.saveCharacterDesign(scratchDesign);
   assert.equal(scratchCharacter.created, true);
   assert.deepEqual(
     scratchCharacter.resource.entry.capabilities.animationPresets,
     ['idle-calm', 'talk-calm'],
   );
-  assert.equal(library.characterDesigns().find((item) => item.id === scratchCharacter.resource.id).design.version, 2);
+  assert.equal((await library.characterDesigns()).find((item) => item.id === scratchCharacter.resource.id).design.version, 2);
   const scratchManifest = JSON.parse(readFileSync(path.join(
     library.storageAssetsRoot,
     'characters',
@@ -217,7 +217,7 @@ try {
   assert.equal(scratchManifest.poses.some((pose) => pose.id === 'point'), true);
   const incompleteScratch = createDefaultCustomCharacterDesign();
   incompleteScratch.parts = incompleteScratch.parts.filter((part) => part.role !== 'mouth');
-  assert.throws(
+  await assert.rejects(
     () => library.saveCharacterDesign(incompleteScratch),
     (error) => error.code === 'LIBRARY_CHARACTER_DESIGN_INVALID',
   );
@@ -228,11 +228,11 @@ try {
   const legacyCharacterRecord = registryBeforeUpgrade.entries.find((record) => record.entry.type === 'character');
   legacyCharacterRecord.entry.capabilities.animationPresets = ['idle', 'dialogue'];
   writeFileSync(library.indexPath, JSON.stringify(registryBeforeUpgrade), 'utf8');
-  const restored = createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
-  assert.equal(restored.list().length, 17);
+  const restored = await createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
+  assert.equal((await restored.list()).length, 18);
   assert.equal(restored.catalog().entries.at(-1).type, 'character');
   assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 5);
-  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 17);
+  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 18);
   assert.equal(existsSync(path.join(
     publishRoot,
     'backgrounds',
@@ -240,7 +240,7 @@ try {
     'background.png',
   )), true);
   assert.deepEqual(
-    restored.list().find((resource) => resource.id === legacyCharacterRecord.id).entry.capabilities.animationPresets,
+    (await restored.list()).find((resource) => resource.id === legacyCharacterRecord.id).entry.capabilities.animationPresets,
     ['idle-calm', 'talk-calm'],
   );
   assert.equal(existsSync(path.join(
@@ -251,14 +251,14 @@ try {
   )), true);
 
   const migratedStorageRoot = path.join(root, 'migrated-durable');
-  const migrated = createResourceLibrary({
+  const migrated = await createResourceLibrary({
     assetsRoot,
     storageRoot: migratedStorageRoot,
     publishRoot,
     builtinCatalog,
     legacyIndexPath: restored.indexPath,
   });
-  assert.equal(migrated.list().length, 17);
+  assert.equal((await migrated.list()).length, 18);
   assert.equal(existsSync(migrated.indexPath), true);
   assert.equal(existsSync(path.join(
     migrated.storageAssetsRoot,
@@ -270,7 +270,7 @@ try {
   const inconsistent = JSON.parse(readFileSync(restored.indexPath, 'utf8'));
   inconsistent.entries[0].contentHash = '0'.repeat(64);
   writeFileSync(restored.indexPath, JSON.stringify(inconsistent), 'utf8');
-  assert.throws(
+  await assert.rejects(
     () => createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog }),
     (error) => error.code === 'LIBRARY_INDEX_INVALID',
   );

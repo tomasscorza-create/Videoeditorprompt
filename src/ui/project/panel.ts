@@ -143,16 +143,9 @@ export function initProjectEditor(store: ProjectStore): void {
     sceneActions.className = 'inspector-actions';
     const addScene = actionButton('Nueva escena', () => {
       const id = nextId('escena', project.scenes.map((item) => item.id));
-      send({
-        type: 'add-scene',
-        scene: {
-          id,
-          title: `Escena ${project.scenes.length + 1}`,
-          background: { ...scene.background },
-          elements: [],
-          dialogue: [],
-        },
-      });
+      // Se duplica la escena actual (no add-scene) para que nazca renderizable: el runtime
+      // exige exactamente 2 personajes y >= 2 turnos, y una escena vacía no compila.
+      send({ type: 'duplicate-scene', sceneId: scene.id, newSceneId: id, title: `Escena ${project.scenes.length + 1}` });
       send({ type: 'select-scene', sceneId: id });
     });
     const duplicate = actionButton('Duplicar', () => {

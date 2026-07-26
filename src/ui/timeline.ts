@@ -31,6 +31,7 @@ import {
   snapSeconds,
   transitionGlyph,
   transitionLabel,
+  turnClipRect,
 } from './timeline-geometry.js';
 import {
   drawWaveformSlice,
@@ -233,34 +234,46 @@ function renderLayerStack(
       const speaker = scene.elements.filter((element) => element.type === 'character')[slot];
       if (!speaker) return;
       const totalWords = Math.max(1, wordsInScene(scene));
+      const measuredTurns = measured?.scenes[sceneIndex]?.turns;
+      const turnById = measuredTurns && measuredTurns.length > 0
+        ? new Map(measuredTurns.map((measuredTurn) => [measuredTurn.id, measuredTurn]))
+        : null;
       let cursor = positions[sceneIndex];
       for (const turn of scene.dialogue) {
-        const width = Math.max(38, sceneWidths[sceneIndex] * (wordCount(turn.text) / totalWords));
+        // D1: en medido se usan los tiempos reales por turno; si no, prorrateo por palabras.
+        const measuredTurn = turnById?.get(turn.id);
+        const { left, width } = measuredTurn
+          ? turnClipRect(measuredTurn.startSeconds, measuredTurn.durationSeconds, pixelsPerSecond, MIN_CLIP_WIDTH)
+          : { left: cursor, width: Math.max(38, sceneWidths[sceneIndex] * (wordCount(turn.text) / totalWords)) };
+        const turnStartSeconds = measuredTurn ? measuredTurn.startSeconds : left / pixelsPerSecond;
+        const turnEndSeconds = measuredTurn ? measuredTurn.endSeconds : (left + width) / pixelsPerSecond;
         if (turn.speakerElementId === speaker.id) {
           const selection = projectSelection();
+          const detail = measuredTurn
+            ? `${turn.voiceId} · ${measuredTurn.durationSeconds.toFixed(2)} s medidos`
+            : measured ? `${turn.voiceId} · orden del guion dentro de la escena medida` : `${turn.voiceId} · duración pendiente de voz`;
           const clip = authoringClip(
             turn.text,
-            measured ? `${turn.voiceId} · orden del guion dentro de la escena medida` : `${turn.voiceId} · duración pendiente de voz`,
-            cursor,
+            detail,
+            left,
             width,
             'dialogue',
             selection?.kind === 'dialogue' && selection.turnId === turn.id,
           );
-          const turnStart = cursor / pixelsPerSecond;
-          clip.addEventListener('click', () => clipSingleClick(turnStart, () => selectDialogue(scene.id, turn.id), () => selectDialogueCore(scene.id, turn.id)));
+          clip.addEventListener('click', () => clipSingleClick(turnStartSeconds, () => selectDialogue(scene.id, turn.id), () => selectDialogueCore(scene.id, turn.id)));
           clip.addEventListener('dblclick', () => selectDialogue(scene.id, turn.id));
           clip.addEventListener('contextmenu', (event) => {
             event.preventDefault();
             openContextMenu(clip, dialogueMenuItems(scene.id, turn.id, clip));
           });
           bindDialogueDrag(clip, scene.id, turn.id);
-          if (waveform) attachWaveformCanvas(clip, cursor / pixelsPerSecond, (cursor + width) / pixelsPerSecond);
+          if (waveform) attachWaveformCanvas(clip, turnStartSeconds, turnEndSeconds);
           clips.push(clip);
-          clips.push(gapHandle(scene.id, turn.id, cursor + width, turn.gapAfterSeconds));
+          clips.push(gapHandle(scene.id, turn.id, turnEndSeconds * pixelsPerSecond, turn.gapAfterSeconds));
           const turnIndex = scene.dialogue.indexOf(turn);
           if (turnIndex > 0 && scene.dialogue.length < 20) {
             const previous = scene.dialogue[turnIndex - 1];
-            clips.push(insertButton(cursor, 'Insertar turno aquí', false, () => insertTurn(scene.id, turn, previous.id)));
+            clips.push(insertButton(left, 'Insertar turno aquí', false, () => insertTurn(scene.id, turn, previous.id)));
           }
         }
         cursor += width;
@@ -659,26 +672,24 @@ function duplicateSceneById(sceneId: string): void {
   if (!error) selectScene(newSceneId);
 }
 
-// Inserta una escena en blanco en `targetIndex` (add-scene appende + reorder la ubica).
+// Inserta una escena en `targetIndex` DUPLICANDO la vecina, no con add-scene: el runtime
+// exige exactamente 2 personajes y >= 2 turnos por escena, y add-scene solo crea escenas
+// vacías que después no renderizan (PROJECT_SCENE_UNSUPPORTED). duplicate-scene la deja
+// justo después de la referencia; se reubica si el destino es otro.
 function insertSceneAt(referenceSceneId: string, targetIndex: number): void {
   if (!store) return;
-  const reference = store.project().scenes.find((item) => item.id === referenceSceneId);
-  if (!reference) return;
-  const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
-  const error = store.dispatch({
-    type: 'add-scene',
-    scene: {
-      id: newSceneId,
-      title: 'Escena nueva',
-      background: { resourceId: reference.background.resourceId, cameraPreset: reference.background.cameraPreset },
-      elements: [],
-      dialogue: [],
-    },
-  });
+  const scenes = store.project().scenes;
+  const reference = scenes.find((item) => item.id === referenceSceneId);
+  if (!reference || scenes.length >= 8) return;
+  const newSceneId = nextSceneId(scenes.map((item) => item.id));
+  const error = store.dispatch({ type: 'duplicate-scene', sceneId: referenceSceneId, newSceneId, title: `${reference.title} nueva` });
   if (error) { window.alert(error); return; }
-  const ids = store.project().scenes.map((item) => item.id).filter((id) => id !== newSceneId);
-  ids.splice(clamp(targetIndex, 0, ids.length), 0, newSceneId);
-  store.dispatch({ type: 'reorder-scenes', sceneIds: ids });
+  const currentIndex = store.project().scenes.findIndex((item) => item.id === newSceneId);
+  if (currentIndex !== targetIndex) {
+    const ids = store.project().scenes.map((item) => item.id).filter((id) => id !== newSceneId);
+    ids.splice(clamp(targetIndex, 0, ids.length), 0, newSceneId);
+    store.dispatch({ type: 'reorder-scenes', sceneIds: ids });
+  }
   selectScene(newSceneId);
 }
 

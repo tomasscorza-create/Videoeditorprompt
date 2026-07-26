@@ -1,11 +1,21 @@
 export type WorkspaceMode = 'editor' | 'creator';
 export type EditorSurface = 'canvas' | 'playback';
 
+export interface MeasuredTurn {
+  id: string;
+  speakerId: string;
+  startSeconds: number;
+  endSeconds: number;
+  durationSeconds: number;
+  gapAfterSeconds: number;
+}
+
 export interface MeasuredScene {
   id: string;
   startSeconds: number;
   endSeconds: number;
   audioDurationSeconds?: number;
+  turns?: MeasuredTurn[];
   transitionToNext?: {
     preset: string;
     durationSeconds: number;

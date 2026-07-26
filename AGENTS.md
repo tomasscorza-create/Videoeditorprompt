@@ -10,6 +10,8 @@ Estado vigente:
 
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
 - La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`. El primer vertical slice dirigido por prompt usa Ollama con `qwen3:8b`, normaliza un plan semántico cerrado al mismo proyecto editable y permite renderizarlo desde la interfaz mediante un servicio limitado a loopback. La interfaz vigente organiza Director, visor y edición en tres columnas y expone solo dos espacios centrales: Editor y Creador. El Editor reúne lienzo, reproducción y exportación sin pestañas separadas de preview/MP4; un coordinador único vincula su salida renderizada con la timeline. El núcleo distingue borrador incompleto de proyecto renderizable; permite crear/eliminar escenas, personajes y turnos mediante comandos cerrados. El Director reutiliza ese vocabulario para peticiones contextuales sobre un proyecto existente. La timeline conserva sus capas de fondo, personajes y voces tanto en autoría como al adoptar escala real de una exportación vigente. La biblioteca local V1 registra fichas validadas en almacenamiento durable, deduplica por hash y publica un catálogo combinado consumido por Director, editor y render. `CREAR → Personajes` ofrece plantillas y construcción desde cero por piezas geométricas con roles semánticos; ambos caminos compilan un rig v2 real y lo registran de forma no destructiva.
+- La Fase P0 de persistencia portable fue aprobada. P1 separa contratos async para proyectos, recursos, jobs y blobs, conserva `filesystem` como backend operativo e inyecta sus adaptadores desde el servicio local.
+- P2 exporta el estado durable a un bundle portable y determinista, verifica esquema, referencias, tamaños y SHA-256, e ignora cachés, temporales, publicaciones regenerables y jobs sin outputs conservados. G2–G6 fueron aprobados. P3 aporta PostgreSQL 17.10 y SeaweedFS 4.40 locales reproducibles; P4 implementa repositorios PostgreSQL de metadata. P5 implementa blobs S3 con el mismo contrato que filesystem, materialización atómica, publicación de outputs y streaming privado. P6 implementa un importador filesystem → PostgreSQL/S3 con plan inmutable, apply explícito, verificación, conflictos e idempotencia. P7 activa PostgreSQL/S3 como backend normal con diagnóstico estricto, conserva rollback no destructivo a filesystem y aporta backup/restauración lógicos. P8 añade configuración remota TLS/secret mounts, matrices y probe de capacidad/costos, y verifica un worker Linux con render multiescena real; G7 sigue pendiente de proveedor/región, prueba administrada, retención, presupuesto y autenticación.
 - Existe un runtime probado de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC. Un pipeline padre ya compone varias de esas escenas en un MP4 mediante cortes o fundidos.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
@@ -107,6 +109,36 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `scripts/local-app/render-job-manager.mjs`: congelado, aislamiento, progreso, cancelación y entrega del MP4.
 - `scripts/local-app/retention.mjs`: limpieza validada de temporales y retención local; el modo predeterminado no borra.
 - `scripts/local-app/resource-library.mjs`: registro local atómico, validación, deduplicación y publicación del catálogo combinado.
+- `scripts/storage/contracts.mjs`: capacidades async reemplazables de proyectos, recursos, jobs y blobs.
+- `scripts/storage/file-resource-repository.mjs`: índice durable filesystem separado de publicación/materialización.
+- `scripts/storage/file-render-job-repository.mjs`: reserva y transiciones persistentes de jobs.
+- `scripts/storage/file-blob-storage.mjs`: claves portables, streaming, límites y SHA-256 dentro de raíces controladas.
+- `docs/PERSISTENCIA_FILESYSTEM_P1.md`: contrato operativo, compatibilidad, pruebas y límites de P1.
+- `scripts/storage/local-data-bundle.mjs`: inventario, exportación determinista y verificación de bundles portables.
+- `schema/local-data-bundle.schema.json`: contrato v1 del bundle autocontenido.
+- `docs/PERSISTENCIA_BUNDLE_P2.md`: política, operación, evidencia y límites de P2.
+- `scripts/storage/postgres-client.mjs`: pool PostgreSQL acotado, timeouts, transacciones y errores saneados.
+- `scripts/storage/postgres-project-repository.mjs`, `postgres-resource-repository.mjs` y `postgres-render-job-repository.mjs`: adaptadores de metadata PostgreSQL.
+- `scripts/storage/repository-contract-suite.mjs`: casos contractuales idénticos para filesystem y PostgreSQL.
+- `docs/PERSISTENCIA_POSTGRES_P4.md`: modelo, operación, evidencia y límites de P4.
+- `scripts/storage/s3-client.mjs` y `s3-blob-storage.mjs`: cliente S3 acotado y blobs por streaming, límites y SHA-256.
+- `scripts/storage/artifact-storage.mjs`: materialización atómica y publicación verificable de manifiesto/MP4.
+- `scripts/storage/blob-storage-contract-suite.mjs`: casos idénticos para BlobStorage filesystem y S3.
+- `docs/PERSISTENCIA_S3_P5.md`: integridad, operación, evidencia y límites de P5.
+- `scripts/storage/storage-migration.mjs` y `storage-migration-cli.mjs`: plan inmutable, importación idempotente y verificación filesystem → PostgreSQL/S3.
+- `schema/storage-migration-plan.schema.json`: contrato portable v1 del plan de migración.
+- `docs/PERSISTENCIA_IMPORTADOR_P6.md`: operación, seguridad, evidencia y límites de P6.
+- `scripts/storage/persistence-runtime.mjs` y `remote-resource-repository.mjs`: selección estricta del backend, diagnóstico y materialización de recursos remotos.
+- `scripts/storage/postgres-s3-backup.mjs` y `postgres-s3-backup-cli.mjs`: backup lógico, verificación offline y restauración idempotente.
+- `schema/storage-backup.schema.json`: contrato portable v1 del backup PostgreSQL/S3.
+- `docs/PERSISTENCIA_CUTOVER_P7.md`: arranque normal, rollback, backup/restauración y evidencia de P7.
+- `scripts/storage/configuration-secrets.mjs`: secretos por entorno o archivos montados, acotados y no observables.
+- `scripts/storage/remote-readiness-probe.mjs`: salud, latencia, transferencia, capacidad y escenario de costos sin secretos.
+- `deploy/worker/Dockerfile` y `scripts/worker/*`: runtime Linux aislado, hidratación y render multiescena real.
+- `docs/PERSISTENCIA_REMOTA_P8.md`: matrices, seguridad, costos, operación, worker y gate remoto.
+- `compose.yaml`: PostgreSQL y SeaweedFS locales, fijados por digest y con volúmenes nombrados.
+- `scripts/storage/infra-health.mjs` y `db-migrate.mjs`: salud real y migraciones SQL idempotentes.
+- `docs/INFRAESTRUCTURA_LOCAL_P3.md`: configuración, operación, evidencia y límites de P3.
 - `src/ui/viewer.ts`: selector explícito entre composición editable, preview medido y MP4 final.
 - `src/ui/timeline.ts`: timeline audiovisual, transporte, zoom, snap, atajos y despacho al medio activo; nunca estima duración como si fuera medida.
 - `src/ui/project/composition.ts`: proyección visual estática del proyecto y catálogo; no evalúa audio, boca ni tiempos.
@@ -153,6 +185,32 @@ npm run local:test-library # registro durable, validación, deduplicación y pub
 npm run local:test-server # API loopback, límites y respuestas
 npm run local:test-render-manager # aislamiento, proceso, cancelación y errores
 npm run local:test-retention # limpieza, rutas protegidas y trabajos activos
+npm run storage:test-filesystem # contratos filesystem, conflictos, rutas y hashes
+npm run storage:test-postgres # mismos contratos de metadata en PostgreSQL y recuperación
+npm run storage:test-s3 # mismos contratos de blobs contra SeaweedFS
+npm run storage:test-p5-flow # flujo PostgreSQL, hidratación, upload y streaming privado
+npm run storage:test-migration # vacío/parcial/completo, repetición, corrupción y conflictos
+npm run storage:test-cutover # arranque real, reapertura, streaming, rollback y fallo estricto
+npm run storage:test-backup # backup/restauración real, idempotencia y corrupción
+npm run storage:test-remote-config # TLS, secret mounts y rechazo de configuración insegura
+npm run storage:probe-remote # mide DB/S3 y verifica un asset real
+npm run worker:test-portability # rutas Piper Windows/Linux
+npm run worker:test-linux # hidratación y render multiescena dentro de Linux
+npm run storage:test-bundle # bundles vacíos/parciales, determinismo y corrupción
+npm run storage:inventory # inventario portable de solo lectura
+npm run storage:export -- --output=<directorio> # exporta a una carpeta nueva
+npm run storage:verify -- --bundle=<directorio> # verifica sin modificar el bundle
+npm run storage:migrate -- --dry-run # inventario/plan por stdout, sin abrir el destino
+npm run storage:migrate -- --plan=<archivo> # crea un plan nuevo e inmutable
+npm run storage:migrate -- --plan=<archivo> --apply # importa sin borrar el origen
+npm run storage:migrate -- --plan=<archivo> --verify # compara origen y destino
+npm run storage:backup -- --output=<directorio> # backup lógico de PostgreSQL y blobs administrados
+npm run storage:backup:verify -- --backup=<directorio> # verificación offline
+npm run storage:restore -- --backup=<directorio> --dry-run # preflight sin escritura
+npm run infra:up # levanta PostgreSQL y SeaweedFS y espera salud
+npm run db:migrate # aplica migraciones idempotentes
+npm run infra:health # comprueba DB, migraciones y bucket privado
+npm run infra:down # detiene sin eliminar volúmenes
 npm run stage3b:test-contracts # compatibilidad entre autoría, editor y compilador
 npm test                  # suite central agregada
 npm run build              # TypeScript + Vite

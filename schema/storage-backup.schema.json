@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/storage-backup-v1.json",
+  "title": "Backup lógico PostgreSQL/S3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "format", "createdAt", "summary", "metadata", "objects", "fingerprint"],
+  "properties": {
+    "version": { "const": 1 },
+    "format": { "const": "local-video-postgres-s3-backup" },
+    "createdAt": { "type": "string" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projects", "resources", "jobs", "objects", "objectBytes"],
+      "properties": {
+        "projects": { "type": "integer", "minimum": 0 },
+        "resources": { "type": "integer", "minimum": 0 },
+        "jobs": { "type": "integer", "minimum": 0 },
+        "objects": { "type": "integer", "minimum": 0 },
+        "objectBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": { "$ref": "#/$defs/file" },
+    "objects": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "path", "bytes", "sha256", "mimeType"],
+        "properties": {
+          "key": { "$ref": "#/$defs/path" },
+          "path": { "$ref": "#/$defs/path" },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "sha256": { "$ref": "#/$defs/hash" },
+          "mimeType": { "type": ["string", "null"], "maxLength": 120 }
+        }
+      }
+    },
+    "fingerprint": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\\\:/][^\\\\:]*$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/hash" }
+      }
+    }
+  }
+}

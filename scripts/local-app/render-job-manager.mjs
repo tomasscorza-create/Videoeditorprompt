@@ -1,17 +1,20 @@
 import { randomBytes } from 'node:crypto';
-import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { pipeline as streamPipeline } from 'node:stream/promises';
 import { PipelineError, serializeError } from '../stage1/errors.mjs';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
 import { cleanupCompletedJob } from './retention.mjs';
+import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
+import { publishRenderArtifacts } from '../storage/artifact-storage.mjs';
 
 const JOB_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/;
 const MAX_IN_MEMORY_JOBS = 500;
 
-export function createRenderJobManager(options = {}) {
+export async function createRenderJobManager(options = {}) {
   const root = path.resolve(options.root || projectRoot);
   const assetsRoot = path.resolve(options.assetsRoot || path.join(root, 'public'));
   const appJobsRoot = ensureDirectory(path.resolve(options.appJobsRoot || path.join(root, '.local-video', 'app-jobs')));
@@ -23,11 +26,15 @@ export function createRenderJobManager(options = {}) {
   const pipelineScript = path.join(root, 'scripts', 'stage3a', 'project-pipeline.mjs');
   const spawnImpl = options.spawnImpl || spawn;
   const terminateTree = options.terminateProcessTreeImpl || terminateProcessTree;
+  const repositoryFactory = options.repositoryFactory || createFileRenderJobRepository;
+  const repository = options.repository || await repositoryFactory({ storageRoot: appJobsRoot });
+  const blobStorage = options.blobStorage || null;
+  const artifactPublisher = options.artifactPublisher || publishRenderArtifacts;
   const jobs = new Map();
   let activeJobId = null;
-  recoverPersistedJobs();
+  await recoverPersistedJobs();
 
-  function create(project) {
+  async function create(project) {
     if (activeJobId) {
       throw new PipelineError({
         code: 'RENDER_BUSY',
@@ -56,16 +63,17 @@ export function createRenderJobManager(options = {}) {
       process: null,
       stdoutBuffer: '',
       timeout: null,
+      operation: Promise.resolve(),
     };
+    await repository.reserve(publicJob(job));
     jobs.set(jobId, job);
     activeJobId = jobId;
-    persist(job);
-    launch(job);
+    await launch(job);
     return publicJob(job);
   }
 
-  function launch(job) {
-    update(job, { state: 'rendering', stage: 'starting_pipeline' });
+  async function launch(job) {
+    await update(job, { state: 'rendering', stage: 'starting_pipeline' });
     const args = [
       pipelineScript,
       `--job-id=${job.jobId}`,
@@ -84,15 +92,14 @@ export function createRenderJobManager(options = {}) {
     });
     job.process = child;
     job.processId = child.pid ?? null;
-    persist(job);
     const timeoutMs = Number(options.renderTimeoutMs || 45 * 60 * 1000);
     job.timeout = setTimeout(() => {
-      fail(job, new PipelineError({
+      void fail(job, new PipelineError({
         code: 'RENDER_TIMEOUT',
         stage: 'rendering',
         message: 'El render superó el tiempo máximo permitido.',
         suggestedAction: 'Reducí la cantidad de escenas o revisá el rendimiento de Piper y FFmpeg.',
-      }));
+      })).catch(() => {});
       terminateTree(child);
     }, timeoutMs);
     child.stdout?.setEncoding('utf8');
@@ -102,16 +109,21 @@ export function createRenderJobManager(options = {}) {
     child.stderr?.on('data', (chunk) => {
       stderr = `${stderr}${chunk}`.slice(-4000);
     });
-    child.on('error', (error) => fail(job, error));
+    child.on('error', (error) => {
+      void fail(job, error).catch(() => {});
+    });
     child.on('close', (code) => {
+      void handleClose().catch((error) => fail(job, error).catch(() => {}));
+      async function handleClose() {
+      await job.operation;
       if (job.state === 'cancelled') {
-        cleanupJob(job);
+        await cleanupJob(job);
         return;
       }
       if (job.state === 'failed') return;
       if (code !== 0) {
         const reportedFailure = job.progress?.state === 'failed' ? job.progress : null;
-        fail(job, new PipelineError(reportedFailure ? {
+        await fail(job, new PipelineError(reportedFailure ? {
           code: reportedFailure.code || 'PROJECT_PIPELINE_EXIT_NONZERO',
           stage: reportedFailure.stage || job.stage || 'rendering',
           message: reportedFailure.message || 'El pipeline local no pudo completar el video.',
@@ -130,7 +142,7 @@ export function createRenderJobManager(options = {}) {
       const manifestFile = resultPath(job.jobId, 'project-manifest.json');
       const videoFile = resultPath(job.jobId, 'render-1.mp4');
       if (!existsSync(manifestFile) || !existsSync(videoFile)) {
-        fail(job, new PipelineError({
+        await fail(job, new PipelineError({
           code: 'RENDER_OUTPUT_MISSING',
           stage: 'verifying_project',
           message: 'El pipeline terminó sin producir el manifiesto o el MP4 esperado.',
@@ -139,7 +151,21 @@ export function createRenderJobManager(options = {}) {
         return;
       }
       const manifest = readJson(manifestFile);
-      complete(job, {
+      let artifacts = null;
+      if (blobStorage) {
+        try {
+          artifacts = await artifactPublisher({
+            blobStorage,
+            jobId: job.jobId,
+            manifestFile,
+            videoFile,
+          });
+        } catch (error) {
+          await fail(job, error);
+          return;
+        }
+      }
+      await complete(job, {
         stage: 'project_pipeline',
         result: {
           durationSeconds: manifest.timeline.durationSeconds,
@@ -148,8 +174,10 @@ export function createRenderJobManager(options = {}) {
           videoUrl: `/api/render-jobs/${job.jobId}/video`,
           downloadName: `${job.projectId}.mp4`,
           timeline: publicTimeline(manifest.timeline),
+          ...(artifacts ? { artifacts } : {}),
         },
       });
+      }
     });
   }
 
@@ -162,11 +190,11 @@ export function createRenderJobManager(options = {}) {
       try {
         const event = JSON.parse(line);
         if (event.jobId === job.jobId || event.jobId?.startsWith('scene-')) {
-          update(job, {
+          queueJobOperation(job, () => update(job, {
             state: 'rendering',
             stage: event.stage || event.state || job.stage,
             progress: event,
-          });
+          }));
         }
       } catch {
         // La salida externa no estructurada se ignora; el pipeline conserva sus propios logs.
@@ -174,87 +202,97 @@ export function createRenderJobManager(options = {}) {
     }
   }
 
-  function get(jobId) {
+  async function get(jobId) {
     assertJobId(jobId);
     const inMemory = jobs.get(jobId);
     if (inMemory) return publicJob(inMemory);
-    const statusFile = statusPath(jobId);
-    if (!existsSync(statusFile)) return null;
-    return readJson(statusFile);
+    return repository.get(jobId);
   }
 
-  function cancel(jobId) {
+  async function cancel(jobId) {
     assertJobId(jobId);
     const job = jobs.get(jobId);
-    if (!job || !['queued', 'rendering'].includes(job.state)) return get(jobId);
+    if (!job || !['queued', 'rendering'].includes(job.state)) return await get(jobId);
     const processToKill = job.process;
     clearTimeout(job.timeout);
     job.timeout = null;
     job.process = null;
     activeJobId = null;
-    update(job, { state: 'cancelled', stage: 'cancelled' });
+    await update(job, { state: 'cancelled', stage: 'cancelled' });
     if (processToKill) terminateTree(processToKill);
     return publicJob(job);
   }
 
-  function video(jobId) {
-    const status = get(jobId);
+  async function video(jobId) {
+    const status = await get(jobId);
     if (!status || status.state !== 'completed') return null;
+    const remote = status.result?.artifacts?.video
+      || status.blobStorage?.artifacts?.find((artifact) => (
+        artifact.role === 'rendered-video'
+        || artifact.mimeType === 'video/mp4'
+      ));
+    if (blobStorage && remote?.key) {
+      return {
+        blobStorage,
+        key: remote.key,
+        size: remote.bytes,
+        name: status.result?.downloadName || `${status.projectId}.mp4`,
+      };
+    }
     const file = resultPath(jobId, 'render-1.mp4');
     if (!existsSync(file)) return null;
-    return { file, size: statSync(file).size, name: status.result.downloadName };
+    return {
+      file,
+      size: statSync(file).size,
+      name: status.result?.downloadName || `${status.projectId}.mp4`,
+    };
   }
 
-  function list() {
-    return [...jobs.values()].map(publicJob).sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  async function list() {
+    return (await repository.list()).slice(0, MAX_IN_MEMORY_JOBS);
   }
 
-  function cancelActive() {
-    return activeJobId ? cancel(activeJobId) : null;
+  async function cancelActive() {
+    return activeJobId ? await cancel(activeJobId) : null;
   }
 
-  function update(job, patch) {
-    Object.assign(job, patch, { updatedAt: new Date().toISOString() });
-    persist(job);
+  async function update(job, patch) {
+    const expectedState = job.state;
+    const next = { ...job, ...patch, updatedAt: new Date().toISOString() };
+    await repository.transition(job.jobId, expectedState, publicJob(next));
+    Object.assign(job, next);
+    return publicJob(job);
   }
 
-  function complete(job, patch) {
+  async function complete(job, patch) {
     clearTimeout(job.timeout);
     job.timeout = null;
     job.process = null;
     activeJobId = null;
-    update(job, { ...patch, state: 'completed', error: null });
-    cleanupJob(job);
+    await update(job, { ...patch, state: 'completed', error: null });
+    await cleanupJob(job);
   }
 
-  function cleanupJob(job) {
+  async function cleanupJob(job) {
     try {
       const cleanup = cleanupCompletedJob({ workRoot, jobId: job.jobId, apply: true });
-      update(job, { cleanup: { removedBytes: cleanup.removedBytes, paths: cleanup.paths.length } });
+      await update(job, { cleanup: { removedBytes: cleanup.removedBytes, paths: cleanup.paths.length } });
     } catch (error) {
-      update(job, { cleanup: { removedBytes: 0, paths: 0, warning: serializeError(error, 'cleanup') } });
+      await update(job, { cleanup: { removedBytes: 0, paths: 0, warning: serializeError(error, 'cleanup') } });
     }
   }
 
-  function fail(job, error) {
+  async function fail(job, error) {
     if (!job || job.state === 'failed') return;
     clearTimeout(job.timeout);
     job.timeout = null;
     job.process = null;
     if (activeJobId === job.jobId) activeJobId = null;
-    update(job, {
+    await update(job, {
       state: 'failed',
       error: serializeError(error, job.stage || 'rendering'),
     });
-    cleanupJob(job);
-  }
-
-  function persist(job) {
-    writeJson(statusPath(job.jobId), publicJob(job));
-  }
-
-  function statusPath(jobId) {
-    return path.join(appJobsRoot, `${jobId}.json`);
+    await cleanupJob(job);
   }
 
   function resultPath(jobId, filename) {
@@ -262,13 +300,18 @@ export function createRenderJobManager(options = {}) {
     return path.join(outputRoot, jobId, filename);
   }
 
-  function recoverPersistedJobs() {
-    for (const entry of readdirSync(appJobsRoot, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+  async function recoverPersistedJobs() {
+    for (const status of await repository.list()) {
       try {
-        const status = readJson(path.join(appJobsRoot, entry.name));
         if (!status?.jobId || !JOB_ID_PATTERN.test(status.jobId)) continue;
-        const recovered = { ...status, process: null, processId: null, stdoutBuffer: '', timeout: null };
+        const recovered = {
+          ...status,
+          process: null,
+          processId: null,
+          stdoutBuffer: '',
+          timeout: null,
+          operation: Promise.resolve(),
+        };
         if (['queued', 'rendering'].includes(recovered.state)) {
           recovered.state = 'failed';
           recovered.stage = 'recovery';
@@ -287,7 +330,11 @@ export function createRenderJobManager(options = {}) {
           }
         }
         jobs.set(recovered.jobId, recovered);
-        if (recovered.state === 'failed' && recovered.stage === 'recovery') persist(recovered);
+        if (recovered.state === 'failed' && recovered.stage === 'recovery') {
+          await repository.transition(status.jobId, status.state, publicJob(recovered));
+        } else if (JSON.stringify(publicJob(recovered)) !== JSON.stringify(status)) {
+          await repository.transition(status.jobId, status.state, publicJob(recovered));
+        }
       } catch {
         // Un estado corrupto no puede bloquear el arranque ni convertirse en fuente de verdad.
       }
@@ -305,7 +352,21 @@ export function createRenderJobManager(options = {}) {
     }
   }
 
-  return { create, get, list, cancel, cancelActive, video, get activeJobId() { return activeJobId; } };
+  function queueJobOperation(job, operation) {
+    job.operation = job.operation.then(operation, operation);
+    job.operation.catch(() => {});
+  }
+
+  return {
+    repository,
+    create,
+    get,
+    list,
+    cancel,
+    cancelActive,
+    video,
+    get activeJobId() { return activeJobId; },
+  };
 }
 
 export function publicTimeline(timeline) {
@@ -349,6 +410,7 @@ function publicJob(job) {
     error: job.error,
     ...(job.cleanup ? { cleanup: job.cleanup } : {}),
     ...(job.result ? { result: job.result } : {}),
+    ...(job.blobStorage ? { blobStorage: job.blobStorage } : {}),
   };
 }
 
@@ -390,14 +452,17 @@ function assertJobId(jobId) {
   }
 }
 
-export function streamVideoResponse(request, response, video) {
+export async function streamVideoResponse(request, response, video) {
   const range = request.headers.range;
   response.setHeader('accept-ranges', 'bytes');
   response.setHeader('content-type', 'video/mp4');
   response.setHeader('content-disposition', `inline; filename="${video.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}"`);
   if (!range) {
+    const stream = video.blobStorage
+      ? (await video.blobStorage.openRead(video.key)).stream
+      : createReadStream(video.file);
     response.writeHead(200, { 'content-length': video.size });
-    createReadStream(video.file).pipe(response);
+    await pipeResponse(stream, response);
     return;
   }
   const match = /^bytes=(\d*)-(\d*)$/u.exec(range);
@@ -413,9 +478,20 @@ export function streamVideoResponse(request, response, video) {
     response.end();
     return;
   }
+  const stream = video.blobStorage
+    ? (await video.blobStorage.openRead(video.key, { start, end })).stream
+    : createReadStream(video.file, { start, end });
   response.writeHead(206, {
     'content-length': end - start + 1,
     'content-range': `bytes ${start}-${end}/${video.size}`,
   });
-  createReadStream(video.file, { start, end }).pipe(response);
+  await pipeResponse(stream, response);
+}
+
+async function pipeResponse(stream, response) {
+  try {
+    await streamPipeline(stream, response);
+  } catch {
+    response.destroy();
+  }
 }
