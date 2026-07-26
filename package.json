@@ -27,6 +27,7 @@
     "stage2c:assets": "node scripts/stage2c/generate-monkey-character.mjs",
     "stage2c:test-rig": "node scripts/stage1/test-character-rig.mjs",
     "stage2d:test-contract": "node scripts/stage1/test-dialogue-contract.mjs",
+    "stage2d:test-audio-mix": "node scripts/stage1/test-dialogue-audio-mix.mjs",
     "stage2d:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-dialogo-monos-01 --config=pilots/dialogo-monos-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
     "stage2e:assets": "node scripts/stage2e/generate-background-layers.mjs",
     "stage2e:test-background": "node scripts/stage1/test-background-animation.mjs",

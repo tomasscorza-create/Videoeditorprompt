@@ -76,6 +76,25 @@ estadística, escena cotidiana) y prohibición explícita de aperturas repetidas
 
 ## Fase 2 — Ampliar lo que la IA puede decidir (sube el techo visual)
 
+**Estado: implementada y verificada técnicamente el 2026-07-26.**
+
+La boca usa seis visemas deterministas derivados del texto español y ajustados a
+los límites de actividad medidos por RMS. Esta máquina no dispone de `espeak-ng`
+ni de una build de Piper que entregue tiempos fonéticos, por lo que no se declara
+alineación fonética real: `hybrid-grapheme-rms-v1` es la fuente primaria y
+`rms-fallback` conserva compatibilidad ante una entrada no utilizable. El contrato
+queda preparado para sustituir el alineador sin cambiar el evaluador temporal.
+
+Se agregaron tres loops musicales originales y deterministas con licencia
+`CC0-1.0`, selección opcional por video y mezcla FFmpeg con `-14 dB` durante voz y
+`-6 dB` en pausas/colas. El título histórico menciona SFX, pero los pasos de 2b
+solo especificaban música; los efectos puntuales siguen fuera de este alcance.
+
+También están operativos `pace`, `gestureAtWord`, cinco gestos, tres perfiles idle
+seeded y `layoutPreset` por turno con interpolación de 0,35 s. Preview PixiJS y
+exportación consumen el mismo evaluador, y los campos también pueden editarse con
+los comandos semánticos. `DIRECTOR_PIPELINE_VERSION` quedó en 10.
+
 Orden por impacto percibido:
 
 **2a. Boca por fonemas (visemas).** Reemplazar la clasificación RMS de 3 estados:

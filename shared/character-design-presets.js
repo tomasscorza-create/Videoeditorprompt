@@ -177,6 +177,9 @@ function customDesignToDefinition(design, outputId) {
     poses: [
       { id: 'neutral', handState: 'neutral', joints: [{ jointId: 'shoulder_right', rotationDegrees: rightArm.rotationDegrees }] },
       { id: 'point', handState: 'point', joints: [{ jointId: 'shoulder_right', rotationDegrees: clamp(rightArm.rotationDegrees - 55, -180, 180) }] },
+      { id: 'celebrate', handState: 'celebrate', joints: [{ jointId: 'shoulder_right', rotationDegrees: clamp(rightArm.rotationDegrees - 95, -180, 180) }] },
+      { id: 'doubt', handState: 'doubt', joints: [{ jointId: 'shoulder_right', rotationDegrees: clamp(rightArm.rotationDegrees + 35, -180, 180) }] },
+      { id: 'deny', handState: 'deny', joints: [{ jointId: 'shoulder_right', rotationDegrees: clamp(rightArm.rotationDegrees - 20, -180, 180) }] },
     ],
     layers: {
       body: bodyShapes,
@@ -202,6 +205,23 @@ function customDesignToDefinition(design, outputId) {
         }],
         medium: [partToEllipse(mouth, .6)],
         open: [partToEllipse(mouth, 1.35)],
+        round: [partToEllipse({ ...mouth, width: mouth.width * .68 }, 1.15)],
+        labiodental: [{
+          type: 'path',
+          d: `M${round(mouth.x - mouth.width / 2)} ${round(mouth.y)} Q${round(mouth.x)} ${round(mouth.y + mouth.height)} ${round(mouth.x + mouth.width / 2)} ${round(mouth.y)}`,
+          fill: mouth.fill,
+          stroke: mouth.stroke,
+          strokeWidth: Math.max(4, mouth.strokeWidth),
+          lineCap: 'round',
+        }],
+        bilabial: [{
+          type: 'path',
+          d: `M${round(mouth.x - mouth.width / 2)} ${round(mouth.y)} Q${round(mouth.x)} ${round(mouth.y + mouth.height / 4)} ${round(mouth.x + mouth.width / 2)} ${round(mouth.y)}`,
+          fill: 'none',
+          stroke: mouth.stroke,
+          strokeWidth: Math.max(6, mouth.strokeWidth * 1.25),
+          lineCap: 'round',
+        }],
       },
       hands: {
         neutral: [partToShape(rightArm)],
@@ -209,6 +229,22 @@ function customDesignToDefinition(design, outputId) {
           ...rightArm,
           y: clamp(rightArm.y - rightArm.height * .32, 0, 1920),
           rotationDegrees: clamp(rightArm.rotationDegrees - 55, -180, 180),
+        })],
+        celebrate: [partToShape({
+          ...rightArm,
+          y: clamp(rightArm.y - rightArm.height * .55, 0, 1920),
+          rotationDegrees: clamp(rightArm.rotationDegrees - 95, -180, 180),
+        })],
+        doubt: [partToShape({
+          ...rightArm,
+          x: clamp(rightArm.x - rightArm.width * .55, 0, 1080),
+          y: clamp(rightArm.y - rightArm.height * .15, 0, 1920),
+          rotationDegrees: clamp(rightArm.rotationDegrees + 35, -180, 180),
+        })],
+        deny: [partToShape({
+          ...rightArm,
+          x: clamp(rightArm.x - rightArm.width * .9, 0, 1080),
+          rotationDegrees: clamp(rightArm.rotationDegrees - 20, -180, 180),
         })],
       },
     },

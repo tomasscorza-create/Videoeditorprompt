@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <path d="M700 1010 C790 1010 875 990 940 940 C980 910 1015 950 980 990 C900 1060 800 1090 705 1070 Z" fill="#6d6153" stroke="#1a1d21" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M900 900 L980 1010 M980 900 L900 1010" fill="none" stroke="#b8ab97" stroke-width="24" stroke-linecap="round"/>
+</svg>

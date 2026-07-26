@@ -35,15 +35,24 @@
     "mouth": {
       "closed": "mouth_closed.png",
       "medium": "mouth_medium.png",
-      "open": "mouth_open.png"
+      "open": "mouth_open.png",
+      "round": "mouth_round.png",
+      "labiodental": "mouth_labiodental.png",
+      "bilabial": "mouth_bilabial.png"
     },
     "hands": {
       "neutral": "hand_neutral.png",
-      "point": "hand_point.png"
+      "point": "hand_point.png",
+      "celebrate": "hand_celebrate.png",
+      "doubt": "hand_doubt.png",
+      "deny": "hand_deny.png"
     },
     "thumbnails": {
       "neutral": "pose_neutral.png",
-      "point": "pose_point.png"
+      "point": "pose_point.png",
+      "celebrate": "pose_celebrate.png",
+      "doubt": "pose_doubt.png",
+      "deny": "pose_deny.png"
     }
   },
   "joints": [
@@ -126,6 +135,48 @@
         {
           "jointId": "wrist_right",
           "rotationDegrees": -8
+        }
+      ]
+    },
+    {
+      "id": "celebrate",
+      "handState": "celebrate",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -72
+        },
+        {
+          "jointId": "elbow_right",
+          "rotationDegrees": -18
+        }
+      ]
+    },
+    {
+      "id": "doubt",
+      "handState": "doubt",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -24
+        },
+        {
+          "jointId": "elbow_right",
+          "rotationDegrees": 38
+        }
+      ]
+    },
+    {
+      "id": "deny",
+      "handState": "deny",
+      "joints": [
+        {
+          "jointId": "shoulder_right",
+          "rotationDegrees": -12
+        },
+        {
+          "jointId": "elbow_right",
+          "rotationDegrees": -48
         }
       ]
     }

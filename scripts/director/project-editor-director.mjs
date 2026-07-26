@@ -94,6 +94,7 @@ function commandBatchSchema(project, catalog) {
   const gestures = [...new Set(catalog.entries
     .filter((entry) => entry.type === 'character')
     .flatMap((entry) => entry.capabilities.poses))];
+  const layoutPresets = readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'layout-presets.json')).presets.map((preset) => preset.id);
   const id = (values) => ({ type: 'string', enum: values.length ? values : ['none'] });
   const command = {
     oneOf: [
@@ -103,6 +104,9 @@ function commandBatchSchema(project, catalog) {
       object(['type', 'sceneId', 'turnId'], {
         type: { const: 'set-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds),
         text: text(DIRECTOR_TEXT_MAX_LENGTH), voiceId: id(voices), gestureId: enumOf(gestures),
+        gestureAtWord: { type: 'integer', minimum: 0, maximum: 99 },
+        pace: { enum: ['slow', 'normal', 'fast'] },
+        layoutPreset: enumOf(layoutPresets),
         gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 },
       }),
       object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-character-resource' }, sceneId: id(sceneIds), elementId: id(elementIds), resourceId: id(characters) }),
@@ -148,6 +152,9 @@ function commandBatchSchema(project, catalog) {
       object(['type', 'sceneId', 'turnId', 'speakerElementId', 'text', 'voiceId', 'gestureId', 'gapAfterSeconds'], {
         type: { const: 'add-dialogue-turn' }, sceneId: id(sceneIds), turnId: newId(), speakerElementId: id(elementIds),
         text: text(DIRECTOR_TEXT_MAX_LENGTH), voiceId: id(voices), gestureId: enumOf(gestures),
+        gestureAtWord: { type: 'integer', minimum: 0, maximum: 99 },
+        pace: { enum: ['slow', 'normal', 'fast'] },
+        layoutPreset: enumOf(layoutPresets),
         gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 }, afterTurnId: id(turnIds),
       }),
       object(['type', 'sceneId', 'turnId'], { type: { const: 'delete-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds) }),
@@ -195,6 +202,9 @@ function summarizeProject(project) {
         text: turn.text,
         voiceId: turn.voiceId,
         gestureId: turn.gestureId,
+        gestureAtWord: turn.gestureAtWord,
+        pace: turn.pace,
+        layoutPreset: turn.layoutPreset,
         gapAfterSeconds: turn.gapAfterSeconds,
       })),
     })),

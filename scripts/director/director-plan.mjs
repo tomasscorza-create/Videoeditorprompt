@@ -37,6 +37,10 @@ export function listLayoutPresetIds() {
   return [...LAYOUT_PRESET_IDS];
 }
 
+export function getLayoutPreset(id) {
+  return LAYOUTS[id] ? structuredClone(LAYOUTS[id]) : null;
+}
+
 export function getDirectorPlanSchema() {
   return structuredClone(planSchema);
 }
@@ -50,6 +54,9 @@ export function validateDirectorPlan(plan, catalog) {
   }
 
   const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
+  if (plan.musicResourceId) {
+    requireResource(resources, plan.musicResourceId, 'music', '/musicResourceId');
+  }
   const castEntries = Object.entries(plan.cast);
   const characterIds = new Set();
   const voiceIds = new Set();
@@ -91,7 +98,14 @@ export function validateDirectorPlan(plan, catalog) {
       if (!character.capabilities.poses.includes(turn.gestureId)) {
         directorError('DIRECTOR_RESOURCE_UNSUPPORTED', 'El personaje no soporta el gesto seleccionado.', `/scenes/${sceneIndex}/dialogue/${turnIndex}/gestureId`);
       }
-      totalWords += wordCount(turn.text);
+      const words = wordCount(turn.text);
+      if (turn.gestureAtWord !== undefined && turn.gestureAtWord >= words) {
+        directorError('DIRECTOR_GESTURE_TIMING_INVALID', 'El índice del gesto excede las palabras del turno.', `/scenes/${sceneIndex}/dialogue/${turnIndex}/gestureAtWord`);
+      }
+      if (turn.layoutPreset !== undefined && !Object.hasOwn(LAYOUTS, turn.layoutPreset)) {
+        directorError('DIRECTOR_RESOURCE_UNSUPPORTED', 'El layout del turno no existe.', `/scenes/${sceneIndex}/dialogue/${turnIndex}/layoutPreset`);
+      }
+      totalWords += words;
     }
     if (speakers.size !== 2) {
       directorError('DIRECTOR_SCENE_DIALOGUE_INVALID', 'Cada escena debe incluir al menos un turno de cada personaje.', `/scenes/${sceneIndex}/dialogue`);
@@ -124,6 +138,7 @@ export function normalizeDirectorPlan(plan, catalog, options = {}) {
     video: { width: 1080, height: 1920, fps: 30 },
     seed,
     resourceCatalog: options.resourceCatalog || 'assets/catalog/authoring-resources.json',
+    ...(plan.musicResourceId ? { musicResourceId: plan.musicResourceId } : {}),
     scenes: plan.scenes.map((scene, sceneIndex) => normalizeScene(plan, scene, sceneIndex)),
   };
   validateVideoProjectDocument({
@@ -173,6 +188,9 @@ function normalizeScene(plan, scene, sceneIndex) {
       text: turn.text.trim(),
       voiceId: plan.cast[turn.speaker].voiceId,
       gestureId: turn.gestureId,
+      ...(turn.gestureAtWord !== undefined ? { gestureAtWord: turn.gestureAtWord } : {}),
+      ...(turn.pace !== undefined ? { pace: turn.pace } : {}),
+      ...(turn.layoutPreset !== undefined ? { layoutPreset: turn.layoutPreset } : {}),
       gapAfterSeconds: turnIndex === scene.dialogue.length - 1 ? 0 : turn.gapAfterSeconds,
     })),
   };

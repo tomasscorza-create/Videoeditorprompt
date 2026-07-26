@@ -74,6 +74,27 @@ assert.ok(/^[a-f0-9]{64}$/.test(compiledRuns[0].manifest.projectSha256));
 assert.ok(/^[a-f0-9]{64}$/.test(compiledRuns[0].manifest.catalogSha256));
 results.push({ name: 'compilation-input-hashes-recorded', passed: true });
 
+const phase2Project = structuredClone(source);
+phase2Project.musicResourceId = 'musica-calma-v1';
+phase2Project.scenes[0].dialogue[0] = {
+  ...phase2Project.scenes[0].dialogue[0],
+  gestureId: 'celebrate',
+  gestureAtWord: 2,
+  pace: 'fast',
+  layoutPreset: 'focus-a',
+};
+const phase2Run = compileCase('phase2-directing-controls', phase2Project);
+const phase2Context = contextFor('phase2-directing-controls', path.join(projectsRoot, 'phase2-directing-controls.json'));
+const phase2Config = readJson(path.join(phase2Context.jobRoot, phase2Run.manifest.scenes[0].config));
+assert.equal(phase2Config.assets.music, 'assets/audio/music/calm-loop-v1.wav');
+assert.equal(phase2Config.dialogue[0].voice.lengthScale, 0.9);
+assert.equal(phase2Config.dialogue[0].gesture, 'celebrate');
+assert.equal(phase2Config.dialogue[0].gestureAtWord, 2);
+assert.equal(phase2Config.dialogue[0].layout.length, 2);
+assert.ok(phase2Config.characters.every((character) => character.transform.idleProfile && Number.isInteger(character.transform.motionSeed)));
+assert.ok(phase2Run.manifest.sourceHashes.some((item) => item.path === 'assets/audio/music/calm-loop-v1.wav'));
+results.push({ name: 'phase2-controls-compile-to-runtime-and-hashes', passed: true });
+
 const mixedCatalogProject = structuredClone(source);
 mixedCatalogProject.scenes[0].elements[1].resourceId = 'tucan-gala-v1';
 const mixedCatalogRun = compileCase('mixed-character-catalogs', mixedCatalogProject);

@@ -164,7 +164,14 @@ function validateDialogueSemantics(config) {
 function resolveDialogueAssets(config, context) {
   assertPortableRelativePath(config.assets.background, '/assets/background');
   resolveAsset(context, config.assets.background, 'background');
-  context.resolvedAssets = { background: config.assets.background };
+  if (config.assets.music) {
+    assertPortableRelativePath(config.assets.music, '/assets/music');
+    resolveAsset(context, config.assets.music, 'music');
+  }
+  context.resolvedAssets = {
+    background: config.assets.background,
+    ...(config.assets.music ? { music: config.assets.music } : {}),
+  };
   context.resolvedBackgroundAnimation = config.backgroundAnimation ? {
     camera: config.backgroundAnimation.camera,
     layers: config.backgroundAnimation.layers.map((layer, index) => {
@@ -262,8 +269,14 @@ function resolveCharacterManifest(context, manifestPath, jsonPath) {
     mouthClosed: manifest.layers.mouth.closed,
     mouthMedium: manifest.layers.mouth.medium,
     mouthOpen: manifest.layers.mouth.open,
+    mouthRound: manifest.layers.mouth.round ?? manifest.layers.mouth.open,
+    mouthLabiodental: manifest.layers.mouth.labiodental ?? manifest.layers.mouth.medium,
+    mouthBilabial: manifest.layers.mouth.bilabial ?? manifest.layers.mouth.closed,
     handNeutral: manifest.layers.hands.neutral,
     handPoint: manifest.layers.hands.point,
+    handCelebrate: manifest.layers.hands.celebrate ?? manifest.layers.hands.point,
+    handDoubt: manifest.layers.hands.doubt ?? manifest.layers.hands.neutral,
+    handDeny: manifest.layers.hands.deny ?? manifest.layers.hands.neutral,
   };
   const assets = {};
   for (const [name, relativePath] of Object.entries(sourceLayers)) {

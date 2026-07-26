@@ -23,6 +23,12 @@ const MOTION_PRESETS = Object.freeze({
   'idle-calm': { bobAmplitude: 4, bobPeriodSeconds: 3.6, scalePulse: 0.003 },
   'talk-calm': { bobAmplitude: 5, bobPeriodSeconds: 3.1, scalePulse: 0.004 },
 });
+const PACE_SCALES = Object.freeze({ slow: 1.12, normal: 1, fast: 0.9 });
+const IDLE_PROFILES = Object.freeze(['breathing', 'sway', 'organic']);
+const LAYOUTS = Object.freeze(Object.fromEntries(
+  readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'layout-presets.json'))
+    .presets.map((preset) => [preset.id, preset.slots]),
+));
 
 const CAMERA_PRESETS = Object.freeze({
   static: { fromX: 0, toX: 0, fromY: 0, toY: 0, fromZoom: 1, toZoom: 1 },
@@ -155,6 +161,8 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
         entrySeconds: [0.7, 0.85][characterIndex],
         ...motion,
         baseScale: element.transform.scale,
+        idleProfile: IDLE_PROFILES[stableSeed(project.seed, scene.id, element.id, 'idle') % IDLE_PROFILES.length],
+        motionSeed: stableSeed(project.seed, scene.id, element.id, 'motion'),
       },
       blink: {
         seed: stableSeed(project.seed, scene.id, element.id),
@@ -177,8 +185,11 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
   const camera = CAMERA_PRESETS[scene.background.cameraPreset];
   if (!camera) unsupportedScene(sceneIndex, `el preset de cámara ${scene.background.cameraPreset} no tiene compilación disponible`);
 
+  const sourceCharacters = scene.elements.filter((element) => element.type === 'character');
   const dialogue = scene.dialogue.map((turn) => {
     const voiceResource = resources.get(turn.voiceId);
+    const pace = turn.pace ?? 'normal';
+    const layout = turn.layoutPreset ? compileTurnLayout(turn.layoutPreset, sourceCharacters, project.video, sceneIndex) : null;
     return {
       id: turn.id,
       speakerId: turn.speakerElementId,
@@ -186,17 +197,22 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
       voice: {
         model: voiceResource.voice.model,
         ...(voiceResource.voice.speaker !== undefined ? { speaker: voiceResource.voice.speaker } : {}),
-        lengthScale: voiceResource.voice.lengthScale,
+        lengthScale: Number((voiceResource.voice.lengthScale * PACE_SCALES[pace]).toFixed(4)),
         volume: voiceResource.voice.volume,
       },
       gesture: turn.gestureId,
+      ...(turn.gestureAtWord !== undefined ? { gestureAtWord: turn.gestureAtWord } : {}),
+      ...(layout ? { layout } : {}),
       gapAfterSeconds: turn.gapAfterSeconds,
     };
   });
   const config = {
     version: 2,
     video: project.video,
-    assets: { background: backgroundLayers[0].asset },
+    assets: {
+      background: backgroundLayers[0].asset,
+      ...(project.musicResourceId ? { music: resources.get(project.musicResourceId).asset } : {}),
+    },
     ...(!useDirectManifests ? { assetCatalog: [...technicalCatalogs][0] } : {}),
     backgroundAnimation: { layers: backgroundLayers, camera },
     characters,
@@ -212,6 +228,20 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
       characterAssetId: resource.characterRef.entryId,
     })),
   };
+}
+
+function compileTurnLayout(presetId, characters, video, sceneIndex) {
+  const preset = LAYOUTS[presetId];
+  if (!preset) unsupportedScene(sceneIndex, `el layout dinámico ${presetId} no existe`);
+  return characters.map((character, index) => {
+    const slot = preset[index === 0 ? 'a' : 'b'];
+    return {
+      characterId: character.id,
+      x: slot.x - video.width / 2,
+      y: slot.y - video.height / 2,
+      scale: slot.scale,
+    };
+  });
 }
 
 function resolveCharacterManifest(resource, assetsRoot, sceneIndex) {
@@ -260,6 +290,7 @@ function assertCompiledManifest(manifest) {
 
 function collectSourceHashes(project, resources, assetsRoot) {
   const paths = new Set();
+  if (project.musicResourceId) paths.add(resources.get(project.musicResourceId).asset);
   for (const scene of project.scenes) {
     const background = resources.get(scene.background.resourceId);
     paths.add(background.backgroundManifest);
@@ -274,8 +305,8 @@ function collectSourceHashes(project, resources, assetsRoot) {
   }));
 }
 
-function stableSeed(seed, sceneId, elementId) {
-  const digest = createHash('sha256').update(`${seed}:${sceneId}:${elementId}`).digest('hex');
+function stableSeed(...parts) {
+  const digest = createHash('sha256').update(parts.join(':')).digest('hex');
   return Number.parseInt(digest.slice(0, 8), 16);
 }
 

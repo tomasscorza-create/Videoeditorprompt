@@ -28,6 +28,21 @@ Por escena:
 - **transitionPreset** (`cut`/`fade`) y **transitionDurationSeconds**: el fundido
   usa una duración elegida por la IA en el rango cerrado `0.15–1.0 s`; `cut` es 0.
 - **dialogue**: 2–6 turnos, texto ≤300, gesto validado por personaje, pausa ≤2 s.
+  Cada turno puede elegir `pace` (`slow|normal|fast`), `gestureAtWord` y un
+  `layoutPreset` dinámico. Los layouts interpolan durante 0,35 s.
+- **musicResourceId**: pista opcional por video, elegida entre recursos `music`.
+  El runtime la repite y mezcla a -14 dB durante voz y -6 dB en pausas/colas.
+
+Expresión y runtime:
+
+- **Boca**: seis estados (`closed`, `medium`, `open`, `round`, `labiodental`,
+  `bilabial`). El alineador vigente combina grafemas españoles con límites de
+  actividad RMS; conserva fallback RMS. No equivale todavía a tiempos fonéticos
+  entregados por Piper/espeak-ng.
+- **Gestos**: `neutral`, `point`, `celebrate`, `doubt` y `deny`; un gesto no
+  neutral dura como máximo 1,2 s y puede comenzar en una palabra indicada.
+- **Idle**: perfiles `breathing`, `sway` y `organic`, elegidos por seed.
+  Preview y FFmpeg derivan sus curvas del evaluador temporal compartido.
 
 Calidad de generación:
 
@@ -56,10 +71,12 @@ del proyecto real; IDs nuevos como patrón portable.
   `add-dialogue-turn`, `delete-dialogue-turn`, `reorder-scenes`,
   `set-dialogue-speaker`.
 - **Campos**: `set-character-transform` acepta `x/y/scale/zIndex`;
-  `set-dialogue-turn` acepta `text/voiceId/gestureId/gapAfterSeconds`; el texto de
-  diálogo se unifica en ≤300 en ambos caminos.
+  `set-dialogue-turn` acepta
+  `text/voiceId/gestureId/gestureAtWord/pace/layoutPreset/gapAfterSeconds`; el
+  texto de diálogo se unifica en ≤300 en ambos caminos.
 - **Resumen para la IA** (`summarizeProject`): incluye pose, animación, escala,
-  profundidad, gesto, pausa y transición por escena, compacto para el modelo 8B.
+  profundidad, gesto, timing, ritmo, layout, pausa y transición por escena,
+  compacto para el modelo 8B.
 
 ## Reglas duras
 

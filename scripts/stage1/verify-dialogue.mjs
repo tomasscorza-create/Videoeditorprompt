@@ -36,7 +36,12 @@ export function verifyDialogueJob(context, config) {
   }
   check('Duración compilada coincide', Math.abs(runtime.audio.durationSeconds - dialogue.turns.at(-1).endSeconds) < 0.03, { audio: runtime.audio.durationSeconds, timeline: dialogue.turns.at(-1).endSeconds });
   check('Pausas medidas presentes', dialogue.turns.slice(0, -1).every((turn, index) => Math.abs(dialogue.turns[index + 1].startSeconds - turn.endSeconds - turn.gapAfterSeconds) < 1e-6), true);
-  check('Cues RMS por turno', dialogue.turns.every((turn) => turn.mouthCues.length > 0 && ['closed', 'medium', 'open'].every((state) => turn.mouthCues.some((cue) => cue.state === state))), dialogue.turns.map((turn) => turn.mouthCues.length));
+  const mouthStates = new Set(['closed', 'medium', 'open', 'round', 'labiodental', 'bilabial']);
+  check('Cues de boca hÃ­bridos o fallback RMS', dialogue.turns.every((turn) => (
+    turn.mouthCues.length > 0
+    && ['hybrid-grapheme-rms-v1', 'rms-fallback'].includes(turn.mouthCueSource)
+    && turn.mouthCues.every((cue) => mouthStates.has(cue.state))
+  )), dialogue.turns.map((turn) => ({ source: turn.mouthCueSource, cues: turn.mouthCues.length })));
   check('Subtítulos por turno y portables', dialogue.turns.every((turn) => turn.subtitlePath && !path.isAbsolute(turn.subtitlePath)), dialogue.turns.map((turn) => turn.subtitlePath));
   check('Parpadeos independientes', runtime.characters.every((character) => character.blinks.length >= 2), runtime.characters.map((character) => character.blinks.length));
 

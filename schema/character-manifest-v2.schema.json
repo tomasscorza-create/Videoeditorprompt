@@ -49,16 +49,23 @@
         "mouth": {
           "type": "object", "additionalProperties": false, "required": ["closed", "medium", "open"],
           "properties": {
-            "closed": { "$ref": "#/$defs/assetPath" }, "medium": { "$ref": "#/$defs/assetPath" }, "open": { "$ref": "#/$defs/assetPath" }
+            "closed": { "$ref": "#/$defs/assetPath" }, "medium": { "$ref": "#/$defs/assetPath" }, "open": { "$ref": "#/$defs/assetPath" },
+            "round": { "$ref": "#/$defs/assetPath" }, "labiodental": { "$ref": "#/$defs/assetPath" }, "bilabial": { "$ref": "#/$defs/assetPath" }
           }
         },
         "hands": {
           "type": "object", "additionalProperties": false, "required": ["neutral", "point"],
-          "properties": { "neutral": { "$ref": "#/$defs/assetPath" }, "point": { "$ref": "#/$defs/assetPath" } }
+          "properties": {
+            "neutral": { "$ref": "#/$defs/assetPath" }, "point": { "$ref": "#/$defs/assetPath" },
+            "celebrate": { "$ref": "#/$defs/assetPath" }, "doubt": { "$ref": "#/$defs/assetPath" }, "deny": { "$ref": "#/$defs/assetPath" }
+          }
         },
         "thumbnails": {
           "type": "object", "additionalProperties": false, "required": ["neutral", "point"],
-          "properties": { "neutral": { "$ref": "#/$defs/assetPath" }, "point": { "$ref": "#/$defs/assetPath" } }
+          "properties": {
+            "neutral": { "$ref": "#/$defs/assetPath" }, "point": { "$ref": "#/$defs/assetPath" },
+            "celebrate": { "$ref": "#/$defs/assetPath" }, "doubt": { "$ref": "#/$defs/assetPath" }, "deny": { "$ref": "#/$defs/assetPath" }
+          }
         }
       }
     },
@@ -72,7 +79,7 @@
     "pose": {
       "type": "object", "additionalProperties": false, "required": ["id", "handState", "joints"],
       "properties": {
-        "id": { "$ref": "#/$defs/id" }, "handState": { "enum": ["neutral", "point"] },
+        "id": { "$ref": "#/$defs/id" }, "handState": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
         "joints": {
           "type": "array", "maxItems": 32,
           "items": {

@@ -17,7 +17,8 @@
           { "$ref": "#/$defs/characterResource" },
           { "$ref": "#/$defs/voiceResource" },
           { "$ref": "#/$defs/backgroundResource" },
-          { "$ref": "#/$defs/imageResource" }
+          { "$ref": "#/$defs/imageResource" },
+          { "$ref": "#/$defs/musicResource" }
         ]
       }
     }
@@ -128,6 +129,21 @@
         "tags": { "$ref": "#/$defs/tags" },
         "asset": { "$ref": "#/$defs/assetPath" },
         "thumbnail": { "$ref": "#/$defs/assetPath" },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "musicResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "label", "tags", "asset", "loop", "gainDb", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "music" },
+        "label": { "$ref": "#/$defs/label" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "asset": { "$ref": "#/$defs/assetPath" },
+        "loop": { "type": "boolean" },
+        "gainDb": { "type": "number", "minimum": -30, "maximum": 0 },
         "provenance": { "$ref": "#/$defs/provenance" }
       }
     }

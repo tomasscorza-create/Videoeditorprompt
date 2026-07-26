@@ -1,13 +1,14 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
-import { isMain, parseArguments, projectRoot } from '../stage1/common.mjs';
+import { isMain, parseArguments, projectRoot, readJson } from '../stage1/common.mjs';
 import { PipelineError, serializeError } from '../stage1/errors.mjs';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateProjectSchema = ajv.compile(readSchema('video-project.schema.json'));
 const validateResourceCatalogSchema = ajv.compile(readSchema('authoring-resource-catalog.schema.json'));
 const validateCharacterCatalogSchema = ajv.compile(readSchema('asset-catalog.schema.json'));
+const layoutPresetIds = new Set(readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'layout-presets.json')).presets.map((preset) => preset.id));
 const validateBackgroundManifestSchema = ajv.compile(readSchema('background-manifest.schema.json'));
 
 export function loadAndValidateVideoProject({ projectPath, assetsRoot }) {
@@ -116,11 +117,16 @@ export function validateResourceCatalogSemantics(catalog, assetsRoot) {
         resolveAuthoringAsset(assetsRoot, entry[name], `${name} de imagen ${entry.id}`);
       }
     }
+    if (entry.type === 'music') {
+      assertPortableRelativePath(entry.asset, `/resourceCatalog/entries/${index}/asset`);
+      resolveAuthoringAsset(assetsRoot, entry.asset, `música ${entry.id}`);
+    }
   }
   return resources;
 }
 
 function validateProjectSemantics(project, resources) {
+  if (project.musicResourceId) requireResource(resources, project.musicResourceId, 'music', '/musicResourceId');
   const sceneIds = new Set();
   for (const [sceneIndex, scene] of project.scenes.entries()) {
     if (sceneIds.has(scene.id)) semanticError(`/scenes/${sceneIndex}/id`, 'debe ser único dentro del proyecto');
@@ -163,6 +169,12 @@ function validateProjectSemantics(project, resources) {
       if (!speaker || speaker.type !== 'character') semanticError(`${turnPath}/speakerElementId`, 'debe referenciar un personaje de la misma escena');
       const speakerResource = resources.get(speaker.resourceId);
       if (!speakerResource.capabilities.poses.includes(turn.gestureId)) semanticError(`${turnPath}/gestureId`, 'debe estar soportado por el personaje que habla');
+      if (turn.gestureAtWord !== undefined && turn.gestureAtWord >= wordCount(turn.text)) {
+        semanticError(`${turnPath}/gestureAtWord`, 'debe apuntar a una palabra existente');
+      }
+      if (turn.layoutPreset !== undefined && !layoutPresetIds.has(turn.layoutPreset)) {
+        semanticError(`${turnPath}/layoutPreset`, 'debe existir en el catálogo de layouts');
+      }
       requireResource(resources, turn.voiceId, 'voice', `${turnPath}/voiceId`);
     }
   }
@@ -257,6 +269,10 @@ function assertSchema(validate, value, options) {
     technicalDetail: details,
     suggestedAction: 'Revise los campos requeridos, tipos, IDs y límites indicados.',
   });
+}
+
+function wordCount(text) {
+  return String(text).trim().split(/\s+/u).filter(Boolean).length;
 }
 
 function semanticError(jsonPath, rule) {

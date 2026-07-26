@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <ellipse cx="540" cy="1440" rx="260" ry="55" fill="#0a102059"/>
+  <path d="M438 1260 C385 1335 375 1410 405 1450 L490 1450 C500 1380 505 1325 515 1260 Z" fill="#24385f" stroke="#24150f" stroke-width="16" stroke-linejoin="round"/>
+  <path d="M565 1260 C575 1325 585 1380 590 1450 L675 1450 C705 1410 695 1335 642 1260 Z" fill="#24385f" stroke="#24150f" stroke-width="16" stroke-linejoin="round"/>
+  <ellipse cx="447" cy="1452" rx="75" ry="30" fill="#24150f"/>
+  <ellipse cx="633" cy="1452" rx="75" ry="30" fill="#24150f"/>
+  <path d="M350 950 C315 1050 320 1215 390 1320 C470 1365 610 1365 690 1320 C760 1215 765 1050 730 950 C645 900 435 900 350 950 Z" fill="#24385f" stroke="#24150f" stroke-width="18" stroke-linejoin="round"/>
+  <polygon points="470,935 540,1065 610,935" fill="#f4e9d9" stroke="#24150f" stroke-width="12"/>
+  <polygon points="520,1055 560,1055 582,1195 540,1240 498,1195" fill="#e35b55" stroke="#24150f" stroke-width="11"/>
+  <path d="M365 980 C270 1025 238 1160 290 1250 C320 1298 373 1288 390 1240 C350 1170 365 1090 420 1045 Z" fill="#9a5636" stroke="#24150f" stroke-width="18" stroke-linejoin="round"/>
+  <ellipse cx="305" cy="1270" rx="55" ry="62" fill="#d89a69" stroke="#24150f" stroke-width="15"/>
+  <ellipse cx="325" cy="650" rx="115" ry="142" fill="#9a5636" stroke="#24150f" stroke-width="18"/>
+  <ellipse cx="755" cy="650" rx="115" ry="142" fill="#9a5636" stroke="#24150f" stroke-width="18"/>
+  <ellipse cx="325" cy="650" rx="63" ry="82" fill="#d89a69" stroke="#24150f" stroke-width="12"/>
+  <ellipse cx="755" cy="650" rx="63" ry="82" fill="#d89a69" stroke="#24150f" stroke-width="12"/>
+  <path d="M365 500 C420 410 650 405 715 500 C780 595 752 815 650 900 C590 950 490 950 430 900 C328 815 300 595 365 500 Z" fill="#9a5636" stroke="#24150f" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M405 500 C455 430 625 430 675 500 C635 485 590 480 540 480 C490 480 445 485 405 500 Z" fill="#24150f"/>
+  <path d="M390 690 C410 590 670 590 690 690 C715 810 635 895 540 895 C445 895 365 810 390 690 Z" fill="#d89a69" stroke="#24150f" stroke-width="14" stroke-linejoin="round"/>
+  <ellipse cx="540" cy="740" rx="42" ry="32" fill="#24150f"/>
+  <path d="M510 743 Q540 770 570 743" fill="none" stroke="#24150f" stroke-width="10" stroke-linecap="round"/>
+  <ellipse cx="475" cy="620" rx="48" ry="58" fill="#fffaf0" stroke="#24150f" stroke-width="12"/>
+  <ellipse cx="605" cy="620" rx="48" ry="58" fill="#fffaf0" stroke="#24150f" stroke-width="12"/>
+  <ellipse cx="486" cy="630" rx="20" ry="20" fill="#24150f"/>
+  <ellipse cx="616" cy="630" rx="20" ry="20" fill="#24150f"/>
+  <ellipse cx="492" cy="622" rx="6" ry="6" fill="#fffaf0"/>
+  <ellipse cx="622" cy="622" rx="6" ry="6" fill="#fffaf0"/>
+  <path d="M430 555 Q475 525 515 550 M565 550 Q610 525 650 555" fill="none" stroke="#24150f" stroke-width="14" stroke-linecap="round"/>
+  <path d="M478 815 Q540 840 602 815" fill="none" stroke="#24150f" stroke-width="15" stroke-linecap="round"/>
+  <path d="M700 1000 C770 970 820 925 850 870 C875 825 925 845 920 895 C895 970 820 1040 735 1080 Z" fill="#9a5636" stroke="#24150f" stroke-width="18" stroke-linejoin="round"/>
+  <ellipse cx="900" cy="870" rx="62" ry="34" fill="#d89a69" stroke="#24150f" stroke-width="14"/>
+</svg>

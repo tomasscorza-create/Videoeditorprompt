@@ -47,7 +47,11 @@ export function exportDialogueJob(context, config, options) {
     layer,
     index: addAsset(layer.asset, `background/${layer.id}`),
   })) || [];
-  const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral', 'handPoint'];
+  const layerKeys = [
+    'body', 'eyesOpen', 'eyesClosed',
+    'mouthClosed', 'mouthMedium', 'mouthOpen', 'mouthRound', 'mouthLabiodental', 'mouthBilabial',
+    'handNeutral', 'handPoint', 'handCelebrate', 'handDoubt', 'handDeny',
+  ];
   const characterInputs = runtime.characters.map((character) => ({
     id: character.id,
     indices: Object.fromEntries(layerKeys.map((key) => [key, addAsset(character.assets[key], `${character.id}/${key}`)])),
@@ -70,10 +74,16 @@ export function exportDialogueJob(context, config, options) {
     filters.push(`[${prefix}e2][${item.indices.mouthClosed}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'closed')}'[${prefix}m1]`);
     filters.push(`[${prefix}m1][${item.indices.mouthMedium}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'medium')}'[${prefix}m2]`);
     filters.push(`[${prefix}m2][${item.indices.mouthOpen}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'open')}'[${prefix}m3]`);
-    filters.push(`[${prefix}m3][${item.indices.handNeutral}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'neutral')}'[${prefix}h1]`);
-    filters.push(`[${prefix}h1][${item.indices.handPoint}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'point')}'[${prefix}hands]`);
+    filters.push(`[${prefix}m3][${item.indices.mouthRound}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'round')}'[${prefix}m4]`);
+    filters.push(`[${prefix}m4][${item.indices.mouthLabiodental}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'labiodental')}'[${prefix}m5]`);
+    filters.push(`[${prefix}m5][${item.indices.mouthBilabial}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'bilabial')}'[${prefix}m6]`);
+    filters.push(`[${prefix}m6][${item.indices.handNeutral}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'neutral')}'[${prefix}h1]`);
+    filters.push(`[${prefix}h1][${item.indices.handPoint}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'point')}'[${prefix}h2]`);
+    filters.push(`[${prefix}h2][${item.indices.handCelebrate}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'celebrate')}'[${prefix}h3]`);
+    filters.push(`[${prefix}h3][${item.indices.handDoubt}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'doubt')}'[${prefix}h4]`);
+    filters.push(`[${prefix}h4][${item.indices.handDeny}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'deny')}'[${prefix}hands]`);
     filters.push(`[${prefix}hands]fade=t=in:st=0:d=0.3:alpha=1[${prefix}character]`);
-    const motion = createFfmpegMotionExpressions(config, item.transform);
+    const motion = createFfmpegMotionExpressions(config, item.transform, dialogueData, item.id);
     filters.push(`[${prefix}character]scale=w='${motion.scaleWidth}':h='${motion.scaleHeight}':eval=frame[${prefix}scaled]`);
     scaledLabels.push({ label: `${prefix}scaled`, motion });
   }

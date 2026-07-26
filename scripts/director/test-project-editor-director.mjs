@@ -93,13 +93,27 @@ try {
   assert.equal(gestured.project.scenes[0].dialogue[0].gestureId, 'neutral');
   assert.equal(gestured.project.scenes[0].dialogue[0].gapAfterSeconds, 1.5);
 
+  const phase2Turn = await runEdit([{
+    type: 'set-dialogue-turn',
+    sceneId: 'escena-presentacion',
+    turnId: 'turno-presentacion-01',
+    gestureId: 'celebrate',
+    gestureAtWord: 2,
+    pace: 'fast',
+    layoutPreset: 'focus-a',
+  }]);
+  assert.equal(phase2Turn.project.scenes[0].dialogue[0].gestureId, 'celebrate');
+  assert.equal(phase2Turn.project.scenes[0].dialogue[0].gestureAtWord, 2);
+  assert.equal(phase2Turn.project.scenes[0].dialogue[0].pace, 'fast');
+  assert.equal(phase2Turn.project.scenes[0].dialogue[0].layoutPreset, 'focus-a');
+
   // B1: una instrucción que referencia un turno inexistente devuelve error claro, sin proyecto roto.
   await assert.rejects(
     () => runEdit([{ type: 'delete-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-inexistente' }]),
     (error) => error.code === 'EDITOR_TURN_NOT_FOUND',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 24, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 28, failed: 0 })}\n`);
 } finally {
   rmSync(cacheRoot, { recursive: true, force: true });
 }

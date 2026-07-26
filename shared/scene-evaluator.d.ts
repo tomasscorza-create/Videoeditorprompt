@@ -1,18 +1,20 @@
-export interface MouthCue { start: number; end: number; state: 'closed' | 'medium' | 'open' }
+export type MouthState = 'closed' | 'medium' | 'open' | 'round' | 'labiodental' | 'bilabial';
+export type GestureState = 'neutral' | 'point' | 'celebrate' | 'doubt' | 'deny';
+export interface MouthCue { start: number; end: number; state: MouthState }
 export interface SceneState {
   time: number;
   character: { x: number; y: number; scale: number; opacity: number };
   eyes: 'open' | 'closed';
-  mouth: 'closed' | 'medium' | 'open';
-  gesture: 'neutral' | 'point';
+  mouth: MouthState;
+  gesture: GestureState;
   subtitleVisible: boolean;
 }
 export interface DialogueCharacterState {
   id: string;
   character: { x: number; y: number; scale: number; opacity: number };
   eyes: 'open' | 'closed';
-  mouth: 'closed' | 'medium' | 'open';
-  gesture: 'neutral' | 'point';
+  mouth: MouthState;
+  gesture: GestureState;
   speaking: boolean;
 }
 export interface DialogueSceneState {
@@ -28,5 +30,5 @@ export interface DialogueSceneState {
 }
 export function buildBlinkSchedule(durationSeconds: number, options: any): Array<{ start: number; end: number }>;
 export function evaluateScene(config: any, runtime: any, temporalData: MouthCue[] | any, timeSeconds: number): SceneState | DialogueSceneState;
-export function createFfmpegMotionExpressions(config: any, character?: any): { scaleWidth: string; scaleHeight: string; x: string; y: string };
+export function createFfmpegMotionExpressions(config: any, character?: any, dialogueData?: any, characterId?: string): { scaleWidth: string; scaleHeight: string; x: string; y: string };
 export function createFfmpegBackgroundExpressions(runtime: any, layer: any): { scaleWidth: string; scaleHeight: string; x: string; y: string };

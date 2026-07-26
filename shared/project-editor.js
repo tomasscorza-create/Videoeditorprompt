@@ -1,5 +1,7 @@
 const HISTORY_LIMIT_DEFAULT = 50;
 const PORTABLE_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/u;
+const PACE_IDS = new Set(['slow', 'normal', 'fast']);
+const LAYOUT_PRESET_IDS = new Set(['balanced', 'focus-a', 'focus-b', 'close-up-a', 'close-up-b', 'wide', 'stacked']);
 
 export class ProjectEditorError extends Error {
   constructor(code, message, path = '/') {
@@ -173,6 +175,13 @@ export function validateEditableProject(project, catalog) {
       requireResource(resources, turn.voiceId, 'voice', `${turnPath}/voiceId`);
       stringInRange(turn.text, 1, 500, `${turnPath}/text`);
       numberInRange(turn.gapAfterSeconds, 0, 5, `${turnPath}/gapAfterSeconds`);
+      if (turn.pace !== undefined && !PACE_IDS.has(turn.pace)) fail('EDITOR_PACE_INVALID', 'El ritmo del turno no es compatible.', `${turnPath}/pace`);
+      if (turn.layoutPreset !== undefined && !LAYOUT_PRESET_IDS.has(turn.layoutPreset)) fail('EDITOR_LAYOUT_INVALID', 'El layout del turno no existe.', `${turnPath}/layoutPreset`);
+      if (turn.gestureAtWord !== undefined) {
+        integerInRange(turn.gestureAtWord, 0, 99, `${turnPath}/gestureAtWord`);
+        const wordCount = turn.text.trim().split(/\s+/u).filter(Boolean).length;
+        if (turn.gestureAtWord >= wordCount) fail('EDITOR_GESTURE_TIMING_INVALID', 'El gesto debe apuntar a una palabra existente.', `${turnPath}/gestureAtWord`);
+      }
     }
   }
   return true;
@@ -332,7 +341,7 @@ function applyMutation(project, catalog, command) {
       const scene = requireScene(project, command.sceneId);
       const turn = scene.dialogue.find((item) => item.id === command.turnId);
       if (!turn) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.turnId}.`, '/command/turnId');
-      const keys = ['text', 'voiceId', 'gestureId', 'gapAfterSeconds'].filter((key) => Object.hasOwn(command, key));
+      const keys = ['text', 'voiceId', 'gestureId', 'gestureAtWord', 'pace', 'layoutPreset', 'gapAfterSeconds'].filter((key) => Object.hasOwn(command, key));
       if (keys.length === 0) fail('EDITOR_COMMAND_INVALID', 'Indique al menos un cambio para el turno.', '/command');
       if (Object.hasOwn(command, 'voiceId')) requireResource(resources, command.voiceId, 'voice', '/command/voiceId');
       for (const key of keys) turn[key] = command[key];
@@ -351,6 +360,9 @@ function applyMutation(project, catalog, command) {
         text: command.text,
         voiceId: command.voiceId,
         gestureId: command.gestureId,
+        ...(command.gestureAtWord !== undefined ? { gestureAtWord: command.gestureAtWord } : {}),
+        ...(command.pace !== undefined ? { pace: command.pace } : {}),
+        ...(command.layoutPreset !== undefined ? { layoutPreset: command.layoutPreset } : {}),
         gapAfterSeconds: command.gapAfterSeconds,
       };
       const index = command.afterTurnId
@@ -504,8 +516,8 @@ function assertCommandShape(command) {
     'delete-element': { required: ['type', 'sceneId', 'elementId'], optional: [] },
     'place-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y'], optional: [] },
     'set-character-transform': { required: ['type', 'sceneId', 'elementId'], optional: ['x', 'y', 'scale', 'zIndex'] },
-    'set-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: ['text', 'voiceId', 'gestureId', 'gapAfterSeconds'] },
-    'add-dialogue-turn': { required: ['type', 'sceneId', 'turnId', 'speakerElementId', 'text', 'voiceId', 'gestureId', 'gapAfterSeconds'], optional: ['afterTurnId'] },
+    'set-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: ['text', 'voiceId', 'gestureId', 'gestureAtWord', 'pace', 'layoutPreset', 'gapAfterSeconds'] },
+    'add-dialogue-turn': { required: ['type', 'sceneId', 'turnId', 'speakerElementId', 'text', 'voiceId', 'gestureId', 'gapAfterSeconds'], optional: ['gestureAtWord', 'pace', 'layoutPreset', 'afterTurnId'] },
     'delete-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: [] },
     'set-dialogue-speaker': { required: ['type', 'sceneId', 'turnId', 'speakerElementId'], optional: [] },
     'set-transition': { required: ['type', 'sceneId', 'preset', 'durationSeconds'], optional: [] },

@@ -33,7 +33,11 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
     app.stage.addChild(fullSprite(backgroundTexture, config.video.width, config.video.height));
   }
 
-  const layerKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen', 'handNeutral', 'handPoint'];
+  const layerKeys = [
+    'body', 'eyesOpen', 'eyesClosed',
+    'mouthClosed', 'mouthMedium', 'mouthOpen', 'mouthRound', 'mouthLabiodental', 'mouthBilabial',
+    'handNeutral', 'handPoint', 'handCelebrate', 'handDoubt', 'handDeny',
+  ];
   const visualCharacters: Array<{ id: string; container: Container; layers: Record<string, Sprite> }> = [];
   for (const characterRuntime of runtime.characters) {
     const textures = Object.fromEntries(await Promise.all(layerKeys.map(async (key) => [
@@ -81,16 +85,22 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
       visual.layers.mouthClosed.visible = characterState.mouth === 'closed';
       visual.layers.mouthMedium.visible = characterState.mouth === 'medium';
       visual.layers.mouthOpen.visible = characterState.mouth === 'open';
+      visual.layers.mouthRound.visible = characterState.mouth === 'round';
+      visual.layers.mouthLabiodental.visible = characterState.mouth === 'labiodental';
+      visual.layers.mouthBilabial.visible = characterState.mouth === 'bilabial';
       visual.layers.handNeutral.visible = characterState.gesture === 'neutral';
       visual.layers.handPoint.visible = characterState.gesture === 'point';
+      visual.layers.handCelebrate.visible = characterState.gesture === 'celebrate';
+      visual.layers.handDoubt.visible = characterState.gesture === 'doubt';
+      visual.layers.handDeny.visible = characterState.gesture === 'deny';
     }
     for (const [turnId, subtitle] of subtitles) subtitle.visible = turnId === state.activeTurnId;
     const speakerState = state.characters.find((item) => item.speaking);
     ui.time.textContent = `${state.time.toFixed(2)} / ${runtime.audio.durationSeconds.toFixed(2)} s`;
     ui.mouth.textContent = speakerState ? `${speakerState.id}: ${speakerState.mouth}` : 'silencio';
     ui.eyes.textContent = state.characters.map((item) => `${item.id}: ${item.eyes}`).join(' · ');
-    const gestureState = state.characters.find((item) => item.gesture === 'point');
-    ui.gesture.textContent = gestureState ? `${gestureState.id}: señala` : state.activeSpeakerId ? `habla ${state.activeSpeakerId}` : 'pausa';
+    const gestureState = state.characters.find((item) => item.gesture !== 'neutral');
+    ui.gesture.textContent = gestureState ? `${gestureState.id}: ${gestureState.gesture}` : state.activeSpeakerId ? `habla ${state.activeSpeakerId}` : 'pausa';
     if (window.__STAGE1__) {
       window.__STAGE1__.currentMouth = speakerState?.mouth ?? 'closed';
       window.__STAGE1__.currentEyes = state.characters.map((item) => item.eyes).join(',');

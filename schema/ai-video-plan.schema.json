@@ -17,6 +17,7 @@
       "minimum": 8,
       "maximum": 90
     },
+    "musicResourceId": { "$ref": "#/$defs/id" },
     "cast": {
       "type": "object",
       "additionalProperties": false,
@@ -57,7 +58,10 @@
       "properties": {
         "speaker": { "enum": ["a", "b"] },
         "text": { "type": "string", "minLength": 1, "maxLength": 300 },
-        "gestureId": { "enum": ["neutral", "point"] },
+        "gestureId": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
+        "gestureAtWord": { "type": "integer", "minimum": 0, "maximum": 99 },
+        "pace": { "enum": ["slow", "normal", "fast"] },
+        "layoutPreset": { "$ref": "#/$defs/id" },
         "gapAfterSeconds": {
           "type": "number",
           "minimum": 0,

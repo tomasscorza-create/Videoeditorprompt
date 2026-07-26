@@ -106,9 +106,9 @@ export function compileParametricCharacter(options) {
         layers: {
           body: 'body.png',
           eyes: { open: 'eyes_open.png', closed: 'eyes_closed.png' },
-          mouth: { closed: 'mouth_closed.png', medium: 'mouth_medium.png', open: 'mouth_open.png' },
-          hands: { neutral: 'hand_neutral.png', point: 'hand_point.png' },
-          thumbnails: { neutral: poseFiles.neutral, point: poseFiles.point },
+          mouth: Object.fromEntries(Object.keys(definition.layers.mouth).map((state) => [state, `mouth_${state}.png`])),
+          hands: Object.fromEntries(Object.keys(definition.layers.hands).map((state) => [state, `hand_${state}.png`])),
+          thumbnails: { ...poseFiles },
         },
         joints: definition.joints,
         poses: definition.poses,
@@ -141,7 +141,7 @@ export function compileParametricCharacter(options) {
       tags: ['geometrico', 'mono', 'parametrico'],
       capabilities: {
         poses: definition.poses.map((pose) => pose.id),
-        mouthStates: ['closed', 'medium', 'open'],
+        mouthStates: Object.keys(definition.layers.mouth),
         joints: definition.joints.map((joint) => joint.id),
       },
       provenance: definition.provenance,
@@ -216,11 +216,8 @@ function flattenLayers(layers) {
     body: layers.body,
     eyes_open: layers.eyes.open,
     eyes_closed: layers.eyes.closed,
-    mouth_closed: layers.mouth.closed,
-    mouth_medium: layers.mouth.medium,
-    mouth_open: layers.mouth.open,
-    hand_neutral: layers.hands.neutral,
-    hand_point: layers.hands.point,
+    ...Object.fromEntries(Object.entries(layers.mouth).map(([state, shapes]) => [`mouth_${state}`, shapes])),
+    ...Object.fromEntries(Object.entries(layers.hands).map(([state, shapes]) => [`hand_${state}`, shapes])),
   };
 }
 

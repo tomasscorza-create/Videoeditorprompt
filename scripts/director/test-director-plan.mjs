@@ -86,6 +86,37 @@ assert.equal(normalizedA.project.scenes[0].transitionToNext.preset, 'fade');
 assert.equal(Object.hasOwn(normalizedA.project.scenes[1], 'transitionToNext'), false);
 assert.equal(normalizedA.project.scenes.every((scene) => scene.dialogue.at(-1).gapAfterSeconds === 0), true);
 assert.equal(normalizedA.project.scenes.every((scene) => scene.elements[0].transform.zIndex < scene.elements[1].transform.zIndex), true);
+
+const phase2Plan = structuredClone(validPlan);
+phase2Plan.musicResourceId = 'musica-enfoque-v1';
+phase2Plan.scenes[0].dialogue[0] = {
+  ...phase2Plan.scenes[0].dialogue[0],
+  gestureId: 'celebrate',
+  gestureAtWord: 3,
+  pace: 'fast',
+  layoutPreset: 'close-up-a',
+};
+const phase2Project = normalizeDirectorPlan(phase2Plan, catalog).project;
+assert.equal(phase2Project.musicResourceId, 'musica-enfoque-v1');
+assert.deepEqual(
+  {
+    gestureId: phase2Project.scenes[0].dialogue[0].gestureId,
+    gestureAtWord: phase2Project.scenes[0].dialogue[0].gestureAtWord,
+    pace: phase2Project.scenes[0].dialogue[0].pace,
+    layoutPreset: phase2Project.scenes[0].dialogue[0].layoutPreset,
+  },
+  { gestureId: 'celebrate', gestureAtWord: 3, pace: 'fast', layoutPreset: 'close-up-a' },
+);
+assert.throws(
+  () => validateDirectorPlan({ ...phase2Plan, musicResourceId: 'musica-inexistente' }, catalog),
+  (error) => error.code === 'DIRECTOR_RESOURCE_INVALID',
+);
+const invalidGestureTiming = structuredClone(phase2Plan);
+invalidGestureTiming.scenes[0].dialogue[0].gestureAtWord = 99;
+assert.throws(
+  () => validateDirectorPlan(invalidGestureTiming, catalog),
+  (error) => error.code === 'DIRECTOR_GESTURE_TIMING_INVALID',
+);
 // A5: `static` es una elección legítima y sobrevive sin coerción hasta el proyecto.
 const staticPlan = structuredClone(validPlan);
 staticPlan.scenes[0].cameraPreset = 'static';
@@ -176,7 +207,7 @@ assert.throws(
 
 const summary = {
   version: 1,
-  passed: 22,
+  passed: 26,
   failed: 0,
   semanticHash: normalizedA.semanticHash,
   projectId: normalizedA.project.id,

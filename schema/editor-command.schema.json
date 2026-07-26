@@ -140,12 +140,19 @@
         { "properties": { "text": true }, "required": ["text"] },
         { "properties": { "voiceId": true }, "required": ["voiceId"] },
         { "properties": { "gestureId": true }, "required": ["gestureId"] },
+        { "properties": { "gestureAtWord": true }, "required": ["gestureAtWord"] },
+        { "properties": { "pace": true }, "required": ["pace"] },
+        { "properties": { "layoutPreset": true }, "required": ["layoutPreset"] },
         { "properties": { "gapAfterSeconds": true }, "required": ["gapAfterSeconds"] }
       ],
       "properties": {
         "type": { "const": "set-dialogue-turn" }, "sceneId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
         "text": { "type": "string", "minLength": 1, "maxLength": 500 }, "voiceId": { "$ref": "#/$defs/id" },
-        "gestureId": { "enum": ["neutral", "point"] }, "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
+        "gestureId": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
+        "gestureAtWord": { "type": "integer", "minimum": 0, "maximum": 99 },
+        "pace": { "enum": ["slow", "normal", "fast"] },
+        "layoutPreset": { "enum": ["balanced", "focus-a", "focus-b", "close-up-a", "close-up-b", "wide", "stacked"] },
+        "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
       }
     },
     "addDialogueTurn": {
@@ -154,7 +161,10 @@
       "properties": {
         "type": { "const": "add-dialogue-turn" }, "sceneId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
         "speakerElementId": { "$ref": "#/$defs/id" }, "text": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "voiceId": { "$ref": "#/$defs/id" }, "gestureId": { "enum": ["neutral", "point"] },
+        "voiceId": { "$ref": "#/$defs/id" }, "gestureId": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
+        "gestureAtWord": { "type": "integer", "minimum": 0, "maximum": 99 },
+        "pace": { "enum": ["slow", "normal", "fast"] },
+        "layoutPreset": { "enum": ["balanced", "focus-a", "focus-b", "close-up-a", "close-up-b", "wide", "stacked"] },
         "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }, "afterTurnId": { "$ref": "#/$defs/id" }
       }
     },

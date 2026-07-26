@@ -20,7 +20,7 @@ process.on('exit', () => {
 
 assert.equal(source.variants.length, 6);
 assert.ok(source.joints.some((joint) => joint.id === 'shoulder_right'));
-assert.deepEqual(source.poses.map((pose) => pose.id), ['neutral', 'point']);
+assert.deepEqual(source.poses.map((pose) => pose.id), ['neutral', 'point', 'celebrate', 'doubt', 'deny']);
 results.push({ name: 'definition-valid-with-variants-joints-poses', passed: true });
 
 const unsafe = structuredClone(source);
@@ -71,7 +71,13 @@ assert.notEqual(catalogHash(firstBody), catalogHash(secondBody));
 results.push({ name: 'palette-variants-produce-distinct-png', passed: true });
 
 for (const artifact of compiledRuns[0].artifacts) {
-  for (const name of ['body.png', 'eyes_open.png', 'eyes_closed.png', 'mouth_closed.png', 'mouth_medium.png', 'mouth_open.png', 'hand_neutral.png', 'hand_point.png', 'pose_neutral.png', 'pose_point.png']) {
+  for (const name of [
+    'body.png', 'eyes_open.png', 'eyes_closed.png',
+    'mouth_closed.png', 'mouth_medium.png', 'mouth_open.png', 'mouth_round.png',
+    'mouth_labiodental.png', 'mouth_bilabial.png',
+    'hand_neutral.png', 'hand_point.png', 'hand_celebrate.png', 'hand_doubt.png', 'hand_deny.png',
+    'pose_neutral.png', 'pose_point.png', 'pose_celebrate.png', 'pose_doubt.png', 'pose_deny.png',
+  ]) {
     const stream = ffprobe(path.join(artifact.root, name)).streams[0];
     assert.equal(stream.width, 1080);
     assert.equal(stream.height, 1920);

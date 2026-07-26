@@ -55,6 +55,30 @@
         { "jointId": "shoulder_right", "rotationDegrees": -38 },
         { "jointId": "wing_right", "rotationDegrees": -22 }
       ]
+    },
+    {
+      "id": "celebrate",
+      "handState": "celebrate",
+      "joints": [
+        { "jointId": "shoulder_right", "rotationDegrees": -68 },
+        { "jointId": "wing_right", "rotationDegrees": -36 }
+      ]
+    },
+    {
+      "id": "doubt",
+      "handState": "doubt",
+      "joints": [
+        { "jointId": "shoulder_right", "rotationDegrees": -20 },
+        { "jointId": "wing_right", "rotationDegrees": 28 }
+      ]
+    },
+    {
+      "id": "deny",
+      "handState": "deny",
+      "joints": [
+        { "jointId": "shoulder_right", "rotationDegrees": -10 },
+        { "jointId": "wing_right", "rotationDegrees": -42 }
+      ]
     }
   ],
   "layers": {
@@ -113,6 +137,16 @@
       "open": [
         { "type": "path", "d": "M610 738 C712 746 828 758 942 762 C830 788 712 780 606 760 Z", "fill": "$mouthDark" },
         { "type": "path", "d": "M660 756 C716 762 782 768 840 772 C784 782 716 778 662 770 Z", "fill": "$tongue" }
+      ],
+      "round": [
+        { "type": "ellipse", "cx": 700, "cy": 758, "rx": 42, "ry": 28, "fill": "$mouthDark" }
+      ],
+      "labiodental": [
+        { "type": "path", "d": "M612 746 C710 748 822 754 930 758 C824 770 710 766 610 756 Z", "fill": "$mouthDark" },
+        { "type": "path", "d": "M640 750 L850 760", "fill": "none", "stroke": "$shirt", "strokeWidth": 8, "lineCap": "round" }
+      ],
+      "bilabial": [
+        { "type": "path", "d": "M612 752 C710 746 824 752 934 760 C824 764 710 760 612 752 Z", "fill": "$tongue" }
       ]
     },
     "hands": {
@@ -123,6 +157,18 @@
       "point": [
         { "type": "path", "d": "M672 1044 C760 1010 850 940 902 852 C922 812 892 786 852 812 C800 858 740 918 668 986 C650 1004 654 1030 672 1044 Z", "fill": "$body", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
         { "type": "ellipse", "cx": 884, "cy": 838, "rx": 30, "ry": 38, "fill": "$bodyLight", "rotationDegrees": -30 }
+      ],
+      "celebrate": [
+        { "type": "path", "d": "M670 1050 C720 930 738 770 720 640 C712 585 760 570 784 620 C816 790 790 960 720 1080 Z", "fill": "$body", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
+        { "type": "ellipse", "cx": 752, "cy": 600, "rx": 34, "ry": 42, "fill": "$bodyLight" }
+      ],
+      "doubt": [
+        { "type": "path", "d": "M670 1050 C760 1020 832 970 878 900 C902 862 946 886 928 928 C875 1015 790 1080 700 1100 Z", "fill": "$body", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
+        { "type": "ellipse", "cx": 914, "cy": 900, "rx": 44, "ry": 25, "fill": "$bodyLight" }
+      ],
+      "deny": [
+        { "type": "path", "d": "M670 1050 C770 1050 862 1020 930 960 C968 930 1000 968 966 1004 C884 1080 786 1110 692 1100 Z", "fill": "$body", "stroke": "$outline", "strokeWidth": 16, "lineJoin": "round" },
+        { "type": "path", "d": "M900 924 L968 1000 M968 924 L900 1000", "fill": "none", "stroke": "$bodyLight", "strokeWidth": 20, "lineCap": "round" }
       ]
     }
   },

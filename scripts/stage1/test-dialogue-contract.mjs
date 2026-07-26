@@ -80,6 +80,48 @@ assert.equal(secondTurn.activeSpeakerId, 'invitado');
 assert.equal(secondTurn.characters.find((item) => item.id === 'invitado').mouth, 'open');
 results.push({ name: 'only-active-speaker-moves-mouth', passed: true });
 
+const phase2Runtime = {
+  audio: { durationSeconds: 3 },
+  characters: config.characters.map((character, index) => ({
+    id: character.id,
+    transform: {
+      ...character.transform,
+      idleProfile: index === 0 ? 'breathing' : 'organic',
+      motionSeed: 1234 + index,
+    },
+    blinks: [],
+  })),
+};
+const phase2Dialogue = {
+  turns: [
+    {
+      ...dialogue.turns[0],
+      gesture: 'celebrate',
+      gestureCue: { pose: 'celebrate', startSeconds: 0.4, durationSeconds: 0.4 },
+      mouthCues: [{ start: 0, end: 1, state: 'bilabial' }],
+      layout: [
+        { characterId: 'presentador', x: -190, y: 120, scale: 0.78 },
+        { characterId: 'invitado', x: 260, y: 170, scale: 0.62 },
+      ],
+    },
+    dialogue.turns[1],
+  ],
+};
+const beforeGesture = evaluateScene(config, phase2Runtime, phase2Dialogue, 0.2);
+const duringGesture = evaluateScene(config, phase2Runtime, phase2Dialogue, 0.5);
+const afterGesture = evaluateScene(config, phase2Runtime, phase2Dialogue, 0.9);
+const repeatedFrame = evaluateScene(config, phase2Runtime, phase2Dialogue, 0.5);
+assert.equal(duringGesture.characters.find((item) => item.id === 'presentador').mouth, 'bilabial');
+assert.equal(beforeGesture.characters.find((item) => item.id === 'presentador').gesture, 'neutral');
+assert.equal(duringGesture.characters.find((item) => item.id === 'presentador').gesture, 'celebrate');
+assert.equal(afterGesture.characters.find((item) => item.id === 'presentador').gesture, 'neutral');
+assert.notEqual(
+  duringGesture.characters.find((item) => item.id === 'presentador').character.x,
+  phase2Runtime.characters[0].transform.toX,
+);
+assert.deepEqual(duringGesture, repeatedFrame);
+results.push({ name: 'phase2-viseme-gesture-idle-layout-deterministic', passed: true });
+
 const wrapped = wrapSubtitleText('Sí, pero seguimos usando una sola computadora.');
 assert.ok(wrapped.includes('\n'));
 assert.ok(wrapped.split('\n').every((line) => line.length <= 38));

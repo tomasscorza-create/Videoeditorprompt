@@ -62,20 +62,26 @@
         "mouth": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["closed", "medium", "open"],
+          "required": ["closed", "medium", "open", "round", "labiodental", "bilabial"],
           "properties": {
             "closed": { "$ref": "#/$defs/shapeList" },
             "medium": { "$ref": "#/$defs/shapeList" },
-            "open": { "$ref": "#/$defs/shapeList" }
+            "open": { "$ref": "#/$defs/shapeList" },
+            "round": { "$ref": "#/$defs/shapeList" },
+            "labiodental": { "$ref": "#/$defs/shapeList" },
+            "bilabial": { "$ref": "#/$defs/shapeList" }
           }
         },
         "hands": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["neutral", "point"],
+          "required": ["neutral", "point", "celebrate", "doubt", "deny"],
           "properties": {
             "neutral": { "$ref": "#/$defs/shapeList" },
-            "point": { "$ref": "#/$defs/shapeList" }
+            "point": { "$ref": "#/$defs/shapeList" },
+            "celebrate": { "$ref": "#/$defs/shapeList" },
+            "doubt": { "$ref": "#/$defs/shapeList" },
+            "deny": { "$ref": "#/$defs/shapeList" }
           }
         }
       }
@@ -123,7 +129,7 @@
       "required": ["id", "handState", "joints"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "handState": { "enum": ["neutral", "point"] },
+        "handState": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
         "joints": {
           "type": "array",
           "maxItems": 32,

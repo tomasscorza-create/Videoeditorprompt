@@ -86,21 +86,30 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
   const characters = runtime.characters.map((characterRuntime) => {
     const transform = characterRuntime.transform;
     const entry = smoothstep(time / transform.entrySeconds);
-    const phase = (time / transform.bobPeriodSeconds) * Math.PI * 2;
+    const idle = evaluateIdleMotion(transform, time);
+    const layout = evaluateTurnLayout(dialogueData.turns, characterRuntime.id, transform, time);
     const blinking = characterRuntime.blinks.some((blink) => time >= blink.start && time < blink.end);
     const speaking = activeTurn?.speakerId === characterRuntime.id;
     const localTime = speaking ? time - activeTurn.startSeconds : -1;
     const cue = speaking ? activeTurn.mouthCues.find((item) => localTime >= item.start && localTime < item.end) : null;
-    const turnProgress = speaking && activeTurn.durationSeconds > 0 ? localTime / activeTurn.durationSeconds : 0;
-    const gesture = speaking && activeTurn.gesture === 'point' && turnProgress >= 0.22 && turnProgress < 0.72
-      ? 'point'
+    const gestureCue = speaking
+      ? activeTurn.gestureCue ?? (activeTurn.gesture !== 'neutral' ? {
+        pose: activeTurn.gesture,
+        startSeconds: activeTurn.durationSeconds * 0.22,
+        durationSeconds: activeTurn.durationSeconds * 0.5,
+      } : null)
+      : null;
+    const gesture = gestureCue
+      && localTime >= gestureCue.startSeconds
+      && localTime < gestureCue.startSeconds + gestureCue.durationSeconds
+      ? gestureCue.pose
       : 'neutral';
     return {
       id: characterRuntime.id,
       character: {
-        x: transform.fromX + (transform.toX - transform.fromX) * entry,
-        y: transform.baseY + Math.sin(phase) * transform.bobAmplitude,
-        scale: transform.baseScale + Math.sin(phase * 0.5) * transform.scalePulse,
+        x: layout ? layout.x : transform.fromX + (transform.toX - transform.fromX) * entry,
+        y: (layout?.y ?? transform.baseY) + idle.y,
+        scale: (layout?.scale ?? transform.baseScale) + idle.scale,
         opacity: clamp(time / 0.3, 0, 1),
       },
       eyes: blinking ? 'closed' : 'open',
@@ -119,17 +128,117 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
   };
 }
 
-export function createFfmpegMotionExpressions(config, character = config.character) {
+function evaluateIdleMotion(transform, time) {
+  if (!transform.idleProfile) {
+    const phase = (time / transform.bobPeriodSeconds) * Math.PI * 2;
+    return {
+      y: Math.sin(phase) * transform.bobAmplitude,
+      scale: Math.sin(phase * 0.5) * transform.scalePulse,
+    };
+  }
+  const phaseOffset = ((transform.motionSeed ?? 0) % 997) / 997 * Math.PI * 2;
+  const phase = (time / transform.bobPeriodSeconds) * Math.PI * 2 + phaseOffset;
+  if (transform.idleProfile === 'breathing') {
+    return {
+      y: Math.sin(phase) * transform.bobAmplitude * 0.55 + Math.sin(phase * 0.37) * transform.bobAmplitude * 0.2,
+      scale: Math.sin(phase * 0.5) * transform.scalePulse,
+    };
+  }
+  if (transform.idleProfile === 'sway') {
+    return {
+      y: Math.sin(phase) * transform.bobAmplitude + Math.sin(phase * 1.73) * transform.bobAmplitude * 0.18,
+      scale: Math.sin(phase * 0.41) * transform.scalePulse * 0.65,
+    };
+  }
+  return {
+    y: Math.sin(phase) * transform.bobAmplitude * 0.72
+      + Math.sin(phase * 0.61 + 1.2) * transform.bobAmplitude * 0.25,
+    scale: Math.sin(phase * 0.47) * transform.scalePulse
+      + Math.sin(phase * 0.19 + 0.7) * transform.scalePulse * 0.3,
+  };
+}
+
+function evaluateTurnLayout(turns, characterId, transform, time) {
+  let previous = { x: transform.toX, y: transform.baseY, scale: transform.baseScale };
+  for (const turn of turns) {
+    const target = turn.layout?.find((item) => item.characterId === characterId);
+    if (!target || time < turn.startSeconds) continue;
+    const progress = smoothstep((time - turn.startSeconds) / 0.35);
+    const current = {
+      x: previous.x + (target.x - previous.x) * progress,
+      y: previous.y + (target.y - previous.y) * progress,
+      scale: previous.scale + (target.scale - previous.scale) * progress,
+    };
+    if (progress < 1) return current;
+    previous = target;
+  }
+  return previous.x === transform.toX && previous.y === transform.baseY && previous.scale === transform.baseScale
+    ? null
+    : previous;
+}
+
+export function createFfmpegMotionExpressions(config, character = config.character, dialogueData = null, characterId = null) {
   const item = character;
   const entry = `min(max(t/${item.entrySeconds},0),1)`;
   const eased = `((${entry})*(${entry})*(3-2*(${entry})))`;
-  const scale = `(${item.baseScale}+sin(PI*t/${item.bobPeriodSeconds})*${item.scalePulse})`;
+  if (!item.idleProfile) {
+    const scale = `(${item.baseScale}+sin(PI*t/${item.bobPeriodSeconds})*${item.scalePulse})`;
+    return {
+      scaleWidth: `${config.video.width}*${scale}`,
+      scaleHeight: `${config.video.height}*${scale}`,
+      x: `${config.video.width / 2}+(${item.fromX}+(${item.toX}-${item.fromX})*${eased})-overlay_w/2`,
+      y: `${config.video.height / 2}+${item.baseY}+sin(2*PI*t/${item.bobPeriodSeconds})*${item.bobAmplitude}-overlay_h/2`,
+    };
+  }
+  const phaseOffset = (((item.motionSeed ?? 0) % 997) / 997 * Math.PI * 2).toFixed(9);
+  const phase = `(2*PI*t/${item.bobPeriodSeconds}+${phaseOffset})`;
+  const idle = idleExpressions(item, phase);
+  const baseX = `(${item.fromX}+(${item.toX}-${item.fromX})*${eased})`;
+  const layoutTurns = dialogueData?.turns?.filter((turn) => turn.layout?.some((layout) => layout.characterId === characterId)) ?? [];
+  const layoutX = layoutExpression(layoutTurns, characterId, 'x', baseX, item.toX);
+  const layoutY = layoutExpression(layoutTurns, characterId, 'y', String(item.baseY), item.baseY);
+  const layoutScale = layoutExpression(layoutTurns, characterId, 'scale', String(item.baseScale), item.baseScale);
+  const scale = `((${layoutScale})+(${idle.scale}))`;
   return {
     scaleWidth: `${config.video.width}*${scale}`,
     scaleHeight: `${config.video.height}*${scale}`,
-    x: `${config.video.width / 2}+(${item.fromX}+(${item.toX}-${item.fromX})*${eased})-overlay_w/2`,
-    y: `${config.video.height / 2}+${item.baseY}+sin(2*PI*t/${item.bobPeriodSeconds})*${item.bobAmplitude}-overlay_h/2`,
+    x: `${config.video.width / 2}+(${layoutX})-overlay_w/2`,
+    y: `${config.video.height / 2}+(${layoutY})+(${idle.y})-overlay_h/2`,
   };
+}
+
+function idleExpressions(item, phase) {
+  if (item.idleProfile === 'breathing') {
+    return {
+      y: `sin(${phase})*${item.bobAmplitude}*0.55+sin((${phase})*0.37)*${item.bobAmplitude}*0.2`,
+      scale: `sin((${phase})*0.5)*${item.scalePulse}`,
+    };
+  }
+  if (item.idleProfile === 'sway') {
+    return {
+      y: `sin(${phase})*${item.bobAmplitude}+sin((${phase})*1.73)*${item.bobAmplitude}*0.18`,
+      scale: `sin((${phase})*0.41)*${item.scalePulse}*0.65`,
+    };
+  }
+  return {
+    y: `sin(${phase})*${item.bobAmplitude}*0.72+sin((${phase})*0.61+1.2)*${item.bobAmplitude}*0.25`,
+    scale: `sin((${phase})*0.47)*${item.scalePulse}+sin((${phase})*0.19+0.7)*${item.scalePulse}*0.3`,
+  };
+}
+
+function layoutExpression(turns, characterId, property, initialExpression, initialValue) {
+  let expression = initialExpression;
+  let previous = initialValue;
+  for (const turn of turns) {
+    const target = turn.layout.find((item) => item.characterId === characterId)?.[property];
+    if (target === undefined) continue;
+    const progress = `min(max((t-${turn.startSeconds})/0.35,0),1)`;
+    const eased = `((${progress})*(${progress})*(3-2*(${progress})))`;
+    const transition = `(${previous}+(${target}-${previous})*${eased})`;
+    expression = `if(gte(t,${turn.startSeconds}),${transition},${expression})`;
+    previous = target;
+  }
+  return expression;
 }
 
 export function createFfmpegBackgroundExpressions(runtime, layer) {

@@ -22,6 +22,7 @@
     },
     "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
     "resourceCatalog": { "$ref": "#/$defs/assetPath" },
+    "musicResourceId": { "$ref": "#/$defs/id" },
     "scenes": {
       "type": "array",
       "minItems": 1,
@@ -93,7 +94,10 @@
         "speakerElementId": { "$ref": "#/$defs/id" },
         "text": { "type": "string", "minLength": 1, "maxLength": 500 },
         "voiceId": { "$ref": "#/$defs/id" },
-        "gestureId": { "enum": ["neutral", "point"] },
+        "gestureId": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
+        "gestureAtWord": { "type": "integer", "minimum": 0, "maximum": 99 },
+        "pace": { "enum": ["slow", "normal", "fast"] },
+        "layoutPreset": { "$ref": "#/$defs/id" },
         "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
       }
     },

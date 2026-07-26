@@ -17,7 +17,10 @@
       "capabilities": {
         "poses": [
           "neutral",
-          "point"
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "animationPresets": [
           "idle-calm",
@@ -45,7 +48,10 @@
       "capabilities": {
         "poses": [
           "neutral",
-          "point"
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "animationPresets": [
           "idle-calm",
@@ -74,7 +80,10 @@
       "capabilities": {
         "poses": [
           "neutral",
-          "point"
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "animationPresets": [
           "idle-calm",
@@ -103,7 +112,10 @@
       "capabilities": {
         "poses": [
           "neutral",
-          "point"
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "animationPresets": [
           "idle-calm",
@@ -132,7 +144,10 @@
       "capabilities": {
         "poses": [
           "neutral",
-          "point"
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "animationPresets": [
           "idle-calm",
@@ -161,7 +176,10 @@
       "capabilities": {
         "poses": [
           "neutral",
-          "point"
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "animationPresets": [
           "idle-calm",
@@ -190,7 +208,10 @@
       "capabilities": {
         "poses": [
           "neutral",
-          "point"
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "animationPresets": [
           "idle-calm",
@@ -341,6 +362,45 @@
       "provenance": {
         "source": "Creación vectorial determinista del proyecto.",
         "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "musica-calma-v1",
+      "type": "music",
+      "label": "Pulso calmo",
+      "tags": ["educational", "inspirational", "calma"],
+      "asset": "assets/audio/music/calm-loop-v1.wav",
+      "loop": true,
+      "gainDb": -6,
+      "provenance": {
+        "source": "Síntesis determinista original generada por scripts/stage2f/generate-music-assets.mjs.",
+        "license": "CC0-1.0"
+      }
+    },
+    {
+      "id": "musica-brillante-v1",
+      "type": "music",
+      "label": "Impulso brillante",
+      "tags": ["energetic", "inspirational", "ritmo"],
+      "asset": "assets/audio/music/bright-loop-v1.wav",
+      "loop": true,
+      "gainDb": -6,
+      "provenance": {
+        "source": "Síntesis determinista original generada por scripts/stage2f/generate-music-assets.mjs.",
+        "license": "CC0-1.0"
+      }
+    },
+    {
+      "id": "musica-enfoque-v1",
+      "type": "music",
+      "label": "Fondo de enfoque",
+      "tags": ["serious", "ironic", "enfoque"],
+      "asset": "assets/audio/music/focused-loop-v1.wav",
+      "loop": true,
+      "gainDb": -6,
+      "provenance": {
+        "source": "Síntesis determinista original generada por scripts/stage2f/generate-music-assets.mjs.",
+        "license": "CC0-1.0"
       }
     }
   ]

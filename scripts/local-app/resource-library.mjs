@@ -285,7 +285,7 @@ export async function createResourceLibrary(options = {}) {
         tags: ['local', 'parametrico', 'personalizado'],
         characterRef: { catalog: characterCatalogRelative, entryId: id },
         capabilities: {
-          poses: ['neutral', 'point'],
+          poses: ['neutral', 'point', 'celebrate', 'doubt', 'deny'],
           animationPresets: ['idle-calm', 'talk-calm'],
         },
         provenance: {

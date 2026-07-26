@@ -39,6 +39,10 @@ export interface DialogueData {
     durationSeconds: number;
     subtitlePath: string;
     mouthCues: MouthCue[];
+    mouthCueSource?: 'hybrid-grapheme-rms-v1' | 'rms-fallback';
+    gesture?: 'neutral' | 'point' | 'celebrate' | 'doubt' | 'deny';
+    gestureCue?: { pose: 'point' | 'celebrate' | 'doubt' | 'deny'; startSeconds: number; durationSeconds: number };
+    layout?: Array<{ characterId: string; x: number; y: number; scale: number }>;
   }>;
 }
 

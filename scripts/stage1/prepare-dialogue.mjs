@@ -7,6 +7,8 @@ import { generatePiperVoice } from './piper-voice.mjs';
 import { renderSubtitle, wrapSubtitleText } from './subtitle-renderer.mjs';
 import { normalizeSpanishTtsText } from './tts-text.mjs';
 import { validateMeasuredDuration } from './validate-scene-config.mjs';
+import { buildHybridVisemeCues } from './viseme-analysis.mjs';
+import { resolveAsset } from './job-context.mjs';
 
 export function prepareDialogueJob(context, config, report) {
   report('preparing', { stage: 'prepare', config: 'input/scene.config.json', contractVersion: 2 });
@@ -32,11 +34,23 @@ export function prepareDialogueJob(context, config, report) {
     report('analyzing_audio', { stage: 'analyzing_audio', turnId: turn.id, speakerId: turn.speakerId, durationSeconds });
     const analysisStarted = performance.now();
     const analysis = analyzeWav(generated.jobWav, config.mouth);
+    const mouth = buildHybridVisemeCues(ttsText, analysis);
     totalAnalysisSeconds += (performance.now() - analysisStarted) / 1000;
     const subtitleText = wrapSubtitleText(turn.text);
     const subtitle = renderSubtitle(context, config.video, subtitleText, config.subtitleStyle, fontPath);
     const startSeconds = cursor;
     const endSeconds = startSeconds + durationSeconds;
+    const words = ttsText.split(/\s+/u).filter(Boolean);
+    const gestureStart = turn.gesture === 'neutral'
+      ? null
+      : turn.gestureAtWord !== undefined
+        ? durationSeconds * turn.gestureAtWord / Math.max(1, words.length)
+        : durationSeconds * 0.22;
+    const gestureCue = gestureStart === null ? null : {
+      pose: turn.gesture,
+      startSeconds: gestureStart,
+      durationSeconds: Math.min(1.2, Math.max(0.35, durationSeconds - gestureStart)),
+    };
     timelineTurns.push({
       id: turn.id,
       speakerId: turn.speakerId,
@@ -48,8 +62,11 @@ export function prepareDialogueJob(context, config, report) {
       subtitlePath: subtitle.subtitleRelative,
       subtitleText,
       ttsText,
-      mouthCues: analysis.cues,
+      mouthCues: mouth.cues,
+      mouthCueSource: mouth.source,
       gesture: turn.gesture ?? 'neutral',
+      ...(gestureCue ? { gestureCue } : {}),
+      ...(turn.layout ? { layout: turn.layout } : {}),
       voice: { model: turn.voice.model, ...(turn.voice.speaker !== undefined ? { speaker: turn.voice.speaker } : {}), lengthScale: turn.voice.lengthScale, volume: turn.voice.volume },
       cacheKey: generated.voiceKey,
       cacheHit: generated.cacheHit,
@@ -61,12 +78,21 @@ export function prepareDialogueJob(context, config, report) {
 
   const timelineKey = sha256(JSON.stringify({
     configVersion: config.version,
-    turns: timelineTurns.map(({ id, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture }) => ({ id, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture })),
+    music: config.assets.music ?? null,
+    turns: timelineTurns.map(({ id, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture, gestureCue, layout, mouthCueSource }) => ({
+      id, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture, gestureCue, layout, mouthCueSource,
+    })),
   }));
   const masterRelative = path.posix.join('audio', `dialogue-${timelineKey}.wav`);
   const masterPath = path.join(context.generatedRoot, ...masterRelative.split('/'));
   ensureDirectory(path.dirname(masterPath));
-  composeDialogueAudio(audioSequence, masterPath);
+  composeDialogueAudio(
+    audioSequence,
+    masterPath,
+    config.assets.music ? resolveAsset(context, config.assets.music, 'music') : null,
+    cursor,
+    timelineTurns,
+  );
   const masterProbe = ffprobe(masterPath);
   const durationSeconds = Number(masterProbe.format.duration);
   validateMeasuredDuration(config, durationSeconds);
@@ -123,6 +149,7 @@ export function prepareDialogueJob(context, config, report) {
       durationSeconds: turn.durationSeconds,
       cacheHit: turn.cacheHit,
       cueCount: turn.mouthCues.length,
+      mouthCueSource: turn.mouthCueSource,
     })),
     ttsSeconds: totalTtsSeconds,
     analysisSeconds: totalAnalysisSeconds,
@@ -130,7 +157,7 @@ export function prepareDialogueJob(context, config, report) {
   return { runtime, runtimePath };
 }
 
-function composeDialogueAudio(sequence, outputPath) {
+export function composeDialogueAudio(sequence, outputPath, musicPath = null, durationSeconds = 0, turns = []) {
   const inputArgs = [];
   const labels = [];
   const filters = [];
@@ -140,10 +167,21 @@ function composeDialogueAudio(sequence, outputPath) {
     filters.push(`[${index}:a]aresample=22050,aformat=sample_fmts=s16:channel_layouts=mono[s${index}]`);
     labels.push(`[s${index}]`);
   }
-  filters.push(`${labels.join('')}concat=n=${sequence.length}:v=0:a=1[out]`);
+  filters.push(`${labels.join('')}concat=n=${sequence.length}:v=0:a=1[voice]`);
+  let outputLabel = 'voice';
+  if (musicPath) {
+    const musicIndex = sequence.length;
+    inputArgs.push('-stream_loop', '-1', '-i', musicPath);
+    const voiceRanges = turns
+      .map((turn) => `between(t\\,${turn.startSeconds.toFixed(6)}\\,${turn.endSeconds.toFixed(6)})`)
+      .join('+') || '0';
+    filters.push(`[${musicIndex}:a]aresample=22050,aformat=sample_fmts=s16:channel_layouts=mono,atrim=0:${durationSeconds.toFixed(6)},volume='if(${voiceRanges}\\,0.199526\\,0.501187)':eval=frame[music]`);
+    filters.push('[voice][music]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[mixed]');
+    outputLabel = 'mixed';
+  }
   run('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y', ...inputArgs,
-    '-filter_complex', filters.join(';'), '-map', '[out]',
+    '-filter_complex', filters.join(';'), '-map', `[${outputLabel}]`,
     '-c:a', 'pcm_s16le', '-ar', '22050', '-ac', '1', outputPath,
   ], { stage: 'generating_voice', errorCode: 'FFMPEG_DIALOGUE_AUDIO_EXIT_NONZERO' });
 }

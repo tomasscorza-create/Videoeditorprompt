@@ -240,12 +240,14 @@ export function buildOllamaPlanSchema(catalog, constraints = {}) {
   const characters = catalog.entries.filter((entry) => entry.type === 'character').map((entry) => entry.id);
   const voices = catalog.entries.filter((entry) => entry.type === 'voice').map((entry) => entry.id);
   const backgrounds = catalog.entries.filter((entry) => entry.type === 'background').map((entry) => entry.id);
+  const music = catalog.entries.filter((entry) => entry.type === 'music').map((entry) => entry.id);
   if (characters.length < 2 || voices.length < 2 || backgrounds.length < 1) {
     directorError('DIRECTOR_CATALOG_INSUFFICIENT', 'El catálogo no tiene recursos suficientes para dirigir un video.');
   }
   schema.$defs.castMember.properties.characterResourceId = { type: 'string', enum: characters };
   schema.$defs.castMember.properties.voiceId = { type: 'string', enum: voices };
   schema.$defs.scene.properties.backgroundResourceId = { type: 'string', enum: backgrounds };
+  if (music.length > 0) schema.properties.musicResourceId = { type: 'string', enum: music };
   const animationPresets = [...new Set(catalog.entries
     .filter((entry) => entry.type === 'character')
     .flatMap((entry) => entry.capabilities.animationPresets))];
@@ -255,6 +257,11 @@ export function buildOllamaPlanSchema(catalog, constraints = {}) {
   schema.$defs.castMember.properties.animationPreset = { type: 'string', enum: animationPresets };
   schema.$defs.scene.properties.transitionDurationSeconds = { type: 'number', minimum: 0, maximum: 1 };
   schema.$defs.scene.properties.layoutPreset = { type: 'string', enum: listLayoutPresetIds() };
+  schema.$defs.dialogueTurn.properties.layoutPreset = { type: 'string', enum: listLayoutPresetIds() };
+  const gestures = [...new Set(catalog.entries
+    .filter((entry) => entry.type === 'character')
+    .flatMap((entry) => entry.capabilities.poses))];
+  schema.$defs.dialogueTurn.properties.gestureId = { type: 'string', enum: gestures };
   // A5: `static` es una elección legítima; ya no se filtra del enum de cámara.
   const cameraPresets = [...new Set(catalog.entries
     .filter((entry) => entry.type === 'background')
@@ -313,6 +320,8 @@ function buildSystemPrompt(catalog) {
     'REGLAS:',
     'Usá solamente IDs presentes en el catálogo.',
     'Elegí para cada personaje una pose y una animación entre las que declara su catálogo (capabilities).',
+    'Podés elegir música del catálogo, pace slow|normal|fast y un layout por turno cuando aporten intención.',
+    'gestureAtWord es un índice desde 0: usalo para disparar gestos cerca de la palabra importante.',
     'transitionDurationSeconds solo importa cuando transitionPreset es «fade»: usá entre 0.15 y 1.0 segundos; con «cut» dejá 0.',
     'Cada escena debe tener de 2 a 6 turnos e incluir a ambos personajes.',
     'Escribí español natural para voz, sin markdown, acotaciones, emojis ni instrucciones técnicas.',
