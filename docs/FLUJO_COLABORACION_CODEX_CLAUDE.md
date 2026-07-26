@@ -2,7 +2,7 @@
 
 Fecha: 22 de julio de 2026. Actualizado: 24 de julio de 2026.
 
-Estado: guía operativa vigente para trabajar en paralelo sin mezclar responsabilidades ni desestabilizar `main`. El esquema anterior de dos ramas largas fue reemplazado (ver «Modelo de ramas vigente»).
+Estado: guía operativa vigente para trabajar en paralelo sin mezclar responsabilidades ni desestabilizar `main`. Desde el 26-jul-2026 el trabajo ocurre en una sola rama y un solo worktree (ver «Modelo de ramas vigente»).
 
 ## Objetivo
 
@@ -12,19 +12,22 @@ Avanzar en paralelo sin desarrollar dos aplicaciones: ambos carriles terminan co
 - **Claude:** diseño UX/UI, flujo del editor e interfaz.
 - **`main`:** versión estable e integrable; es el tronco compartido de trabajo, no un espacio de experimentación.
 
-## Modelo de ramas vigente (24-jul-2026)
+## Modelo de ramas vigente (26-jul-2026): una sola rama
 
-Reemplaza el esquema anterior de dos ramas largas y dos worktrees. Las ramas `codex/desarrollo-local`, `claude/trabajo` e `integration/2f-ui` fueron retiradas por estar contenidas en `main` y generar conflictos falsos.
+Decisión del usuario del 26 de julio de 2026. Reemplaza el esquema de ramas cortas del 24-jul, que a su vez había reemplazado el de dos ramas largas.
 
-| Responsable | Rama | Propósito |
+**Regla única: todo el trabajo ocurre en `main`, en un solo worktree.** Codex y Claude commitean los dos directo en `main`. No se crean ramas de tarea, ramas de integración ni worktrees adicionales.
+
+| Responsable | Rama | Worktree |
 |---|---|---|
-| Codex | `main` (trabajo directo) | Motor y capacidades funcionales |
-| Claude | rama corta cortada de `main` del día, integrada el mismo día y borrada | UX/UI e interfaz |
-| Integración | `main` | Tronco estable e integrable |
+| Codex | `main` (trabajo directo) | `...\Diseñador de videos LOCAL` |
+| Claude | `main` (trabajo directo) | el mismo |
 
-Ritual de Claude al empezar y cerrar: `git fetch && git rebase origin/main` para abrir; `git rebase main` + `git merge --ff-only` para cerrar; luego borrar la rama. Nunca revivir una rama larga ni integrar recopiando archivos a mano: reaplicar commits en vez de mergear hace divergir el historial de forma permanente.
+**Por qué.** Cada división terminaba en residuo sin cerrar y en commits reaplicados a mano que divergen para siempre: `28b8545` en `codex/desarrollo-local` y `3014fd3` en `main` eran el mismo trabajo con dos hashes. El 26-jul se retiraron `codex/desarrollo-local`, `agent/timeline-profesional-d1` y `claude/main-branch-readme-review-96b905` junto con su worktree, todas verificadas como contenidas en `main` (`git cherry` confirmó el parche duplicado).
 
-Cada agente debe comprobar su rama y worktree al comenzar:
+**Consecuencia operativa — el worktree es compartido y está en vivo.** Ediciones sin commitear pueden entrar en el commit del otro agente sin que ninguno lo decida, y el `git user` es el mismo para ambos, así que el historial no los distingue. Por eso: commitear apenas se cierra un bloque coherente, y no dejar trabajo a medias en el árbol.
+
+Cada agente comprueba su rama al comenzar, y debe leer `main` y un único worktree:
 
 ```powershell
 git rev-parse --show-toplevel
@@ -146,7 +149,7 @@ Antes de una tarea, cada agente debe registrar brevemente:
 - qué queda fuera;
 - prueba de salida.
 
-Para comunicar una dependencia entre carriles se usará este formato en el resumen de la rama o PR:
+Para comunicar una dependencia entre carriles se usará este formato en el mensaje del commit que la origina:
 
 ```text
 NECESIDAD DE CONTRATO
@@ -161,7 +164,7 @@ Codex decide la implementación técnica del contrato junto con el usuario. Clau
 
 ## Archivos sensibles y reglas para evitar choques
 
-El reparto siguiente es una **guía por defecto para evitar choques, no un muro**. En la práctica, algunos cambios cruzan motor y UI (por ejemplo, los commits del 24-jul-2026 tocan `shared/`, `scripts/` y `src/ui/` a la vez, y Codex ya edita módulos bajo `src/ui/`). Cuando un cambio cruza carriles se coordina en el resumen del PR o de la rama y se respetan los invariantes de `AGENTS.md`; la tabla indica el propietario habitual de cada zona, no una prohibición absoluta.
+El reparto siguiente es una **guía por defecto para evitar choques, no un muro**. En la práctica, algunos cambios cruzan motor y UI (por ejemplo, los commits del 24-jul-2026 tocan `shared/`, `scripts/` y `src/ui/` a la vez, y Codex ya edita módulos bajo `src/ui/`). Cuando un cambio cruza carriles se coordina en el mensaje del commit y se respetan los invariantes de `AGENTS.md`; la tabla indica el propietario habitual de cada zona, no una prohibición absoluta.
 
 | Zona | Regla |
 |---|---|
@@ -192,36 +195,26 @@ docs(ux): definir flujo de diálogo por turnos
 ui(prototype): agregar panel simulado de personajes
 ```
 
-Cada rama debe quedar limpia después de sus commits. El responsable de una rama no debe reescribir el historial publicado de la otra.
+El árbol debe quedar limpio después de cada commit. Ningún agente reescribe el historial ya publicado en `origin/main`.
 
-## Proceso seguro de integración
+## Proceso seguro de trabajo en `main`
 
-No se deben fusionar dos ramas antiguas consecutivamente en `main` sin actualizar y probar la segunda.
+Con una sola rama ya no hay fusiones entre carriles: la integración es continua y ocurre commit a commit. La disciplina se traslada al orden de los commits.
 
-### Integración recomendada por hito
+### Secuencia recomendada por hito
 
-1. Confirmar que `main` está limpia y sus pruebas pasan.
-2. Revisar el alcance y los commits de ambas ramas.
-3. Integrar primero el cambio de motor que define los contratos.
-4. Ejecutar en la rama de integración:
+1. Confirmar que `main` está limpia y sus pruebas pasan **antes** de empezar.
+2. **Commitear primero el cambio de motor que define el contrato**, en su propio commit.
+3. Verificar con lo que corresponda al alcance:
    - pruebas específicas;
    - `npm run build`;
    - pipeline y FFprobe si cambió render/audio;
    - determinismo;
    - preview/exportación si cambió el evaluador.
-5. Actualizar la rama UX/UI con ese nuevo contrato.
-6. Adaptar el prototipo o interfaz; no resolver incompatibilidades copiando lógica del motor.
-7. Integrar UX/UI.
-8. Ejecutar nuevamente las pruebas completas y una revisión visual.
-9. Fusionar a `main` solo si la integración está limpia y documentada.
+4. Recién entonces adaptar la interfaz al contrato nuevo, en commits separados. No resolver incompatibilidades copiando lógica del motor.
+5. Ejecutar las pruebas completas y una revisión visual antes de pushear.
 
-Para hitos grandes conviene crear una rama temporal:
-
-```text
-integration/stage2d-ui
-```
-
-Esta rama permite resolver y probar la combinación sin romper `main`. Después de aprobarla, se fusiona una sola vez a `main`.
+Si un cambio es lo bastante grande como para dejar `main` rota a mitad de camino, se divide en commits que mantengan el árbol verde en cada paso — no se abre una rama.
 
 ### Conflictos
 
@@ -229,7 +222,7 @@ Esta rama permite resolver y probar la combinación sin romper `main`. Después 
 - Nunca aceptar automáticamente “todo Codex” o “todo Claude”.
 - Si el conflicto toca un contrato, resolver primero el contrato y después sus consumidores.
 - Si Git no informa conflictos, igualmente revisar conflictos lógicos: nombres de estados, rutas, eventos, tipos y supuestos de duración.
-- Regenerar outputs después de integrar; no mezclar outputs producidos por ramas distintas.
+- Regenerar outputs después de un cambio de contrato; no mezclar outputs producidos antes y después.
 
 ## Criterios antes de incorporar a `main`
 
