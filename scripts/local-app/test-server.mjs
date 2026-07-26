@@ -77,8 +77,10 @@ const library = {
   }),
 };
 let receivedConstraints = null;
-const director = async ({ prompt, signal, constraints }) => {
+let receivedGenerationOptions = null;
+const director = async ({ prompt, signal, constraints, think, bestOf }) => {
   receivedConstraints = constraints;
+  receivedGenerationOptions = { think, bestOf };
   if (prompt === 'slow') {
     await new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })), { once: true });
@@ -227,10 +229,13 @@ const constrainedProposalResponse = await request('/api/director/proposals', {
   body: JSON.stringify({
     prompt: 'Una propuesta seria.',
     constraints: { tone: 'serious', targetDurationSeconds: 30, sceneCount: 2 },
+    think: true,
+    bestOf: 2,
   }),
 });
 assert.equal(constrainedProposalResponse.status, 200);
 assert.deepEqual(receivedConstraints, { tone: 'serious', targetDurationSeconds: 30, sceneCount: 2 });
+assert.deepEqual(receivedGenerationOptions, { think: true, bestOf: 2 });
 
 const editResponse = await request('/api/director/edits', {
   method: 'POST',

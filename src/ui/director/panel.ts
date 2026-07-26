@@ -14,6 +14,7 @@ import {
   startRender,
   type ApiError,
   type DirectorConstraints,
+  type DirectorGenerationOptions,
   type RenderJob,
 } from './api.js';
 
@@ -26,6 +27,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const tone = required<HTMLSelectElement>('#director-tone');
   const duration = required<HTMLSelectElement>('#director-duration');
   const scenes = required<HTMLSelectElement>('#director-scenes');
+  const think = required<HTMLInputElement>('#director-think');
+  const bestOf = required<HTMLSelectElement>('#director-best-of');
   const generate = required<HTMLButtonElement>('#director-generate');
   const render = required<HTMLButtonElement>('#director-render');
   const cancel = required<HTMLButtonElement>('#director-cancel');
@@ -84,12 +87,16 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       return;
     }
     proposalController = new AbortController();
-    setBusy(true, 'El Director IA está preparando la propuesta. Puede tardar entre uno y cuatro minutos en CPU.');
+    const generation = readGenerationOptions();
+    const highQuality = generation.think || generation.bestOf > 1;
+    setBusy(true, highQuality
+      ? 'El Director IA está comparando propuestas en modo calidad. Puede tardar varios minutos en CPU.'
+      : 'El Director IA está preparando la propuesta. Puede tardar entre uno y cuatro minutos en CPU.');
     cancel.disabled = false;
     try {
       const result = editing && store
         ? await editProjectWithAi(value, store.project())
-        : await createProposal(value, variant, readConstraints(), proposalController.signal);
+        : await createProposal(value, variant, readConstraints(), generation, proposalController.signal);
       const appliedCommands = 'commands' in result ? result.commands.length : 0;
       if (editing && store && 'commands' in result) {
         for (const command of result.commands) {
@@ -171,6 +178,13 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       tone: tone.value as DirectorConstraints['tone'],
       targetDurationSeconds: Number(duration.value),
       sceneCount: Number(scenes.value),
+    };
+  }
+
+  function readGenerationOptions(): DirectorGenerationOptions {
+    return {
+      think: think.checked,
+      bestOf: Number(bestOf.value) as DirectorGenerationOptions['bestOf'],
     };
   }
 

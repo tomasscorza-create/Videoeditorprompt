@@ -37,12 +37,16 @@ const fakeFetch = async (url, options = {}) => {
     const request = JSON.parse(options.body);
     assert.equal(request.model, 'qwen3:8b');
     assert.equal(request.stream, false);
+    assert.equal(request.keep_alive, '10m');
     assert.equal(request.format.$defs.castMember.properties.characterResourceId.enum.length, 8);
     assert.equal(request.format.$defs.castMember.properties.poseId.const, 'neutral');
     assert.ok(request.format.$defs.castMember.properties.animationPreset.enum.includes('talk-calm'));
     assert.equal(request.format.$defs.scene.properties.transitionDurationSeconds.maximum, 1);
     assert.ok(request.format.$defs.scene.properties.layoutPreset.enum.includes('stacked'));
     assert.ok(request.format.$defs.scene.properties.cameraPreset.enum.includes('static'));
+    assert.ok(request.messages[0].content.includes('educational:'));
+    assert.ok(request.messages[0].content.includes('inspirational:'));
+    assert.ok(request.messages[0].content.includes('no empieces con «¿Sabías que…?»'));
     return response({
       message: { role: 'assistant', content: JSON.stringify(plan) },
       prompt_eval_count: 100,
@@ -138,6 +142,136 @@ await assert.rejects(
   (error) => error.code === 'DIRECTOR_OPTION_INVALID',
 );
 
+// Fase 1a: keep-alive configurable con un default que evita recargar el modelo.
+let configuredKeepAlive;
+await createDirectorProposal({
+  prompt: 'Explicá por qué conviene reutilizar el modelo ya cargado.',
+  keepAlive: '2m',
+  fetchImpl: async (url, options = {}) => {
+    if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+    configuredKeepAlive = JSON.parse(options.body).keep_alive;
+    return response({ message: { content: JSON.stringify(plan) } });
+  },
+  cacheRoot,
+  useCache: false,
+});
+assert.equal(configuredKeepAlive, '2m');
+await assert.rejects(
+  () => createDirectorProposal({
+    prompt: 'Explicá una configuración inválida.',
+    keepAlive: 'para siempre',
+    fetchImpl: fakeFetch,
+    cacheRoot,
+  }),
+  (error) => error.code === 'OLLAMA_KEEP_ALIVE_INVALID',
+);
+
+// Fase 1d: dos candidatos, juez estructurado y caché del ganador.
+const alternativePlan = structuredClone(plan);
+alternativePlan.title = 'Colaborar sin perder el criterio';
+alternativePlan.scenes[0].dialogue[0].text = 'Una respuesta rápida no siempre es una respuesta correcta.';
+alternativePlan.scenes[0].dialogue[1].text = 'Usá la velocidad de la herramienta y reservá el criterio para decidir.';
+let bestOfCalls = 0;
+const candidateVariants = [];
+const bestOfFetch = async (url, options = {}) => {
+  if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+  bestOfCalls += 1;
+  const request = JSON.parse(options.body);
+  if (request.format.properties?.winnerIndex) {
+    assert.equal(request.think, false);
+    const judgedCandidates = JSON.parse(request.messages[1].content).candidates;
+    assert.equal(judgedCandidates.length, 2);
+    assert.equal('characterResourceId' in judgedCandidates[0], false);
+    return response({
+      message: {
+        content: JSON.stringify({
+          winnerIndex: 1,
+          scores: [
+            { hook: 1, naturalness: 2, ending: 2, variety: 2 },
+            { hook: 3, naturalness: 3, ending: 3, variety: 3 },
+          ],
+        }),
+      },
+    });
+  }
+  candidateVariants.push(Number(/Variante solicitada: (\d+)/u.exec(request.messages[1].content)?.[1]));
+  return response({
+    message: {
+      content: JSON.stringify(candidateVariants.length === 1 ? plan : alternativePlan),
+    },
+  });
+};
+const bestOfResult = await createDirectorProposal({
+  prompt: 'Compará dos maneras de colaborar con inteligencia artificial.',
+  variant: 10,
+  bestOf: 2,
+  think: true,
+  fetchImpl: bestOfFetch,
+  cacheRoot,
+  useCache: false,
+});
+assert.equal(bestOfCalls, 3);
+assert.deepEqual(candidateVariants, [10, 11]);
+assert.equal(bestOfResult.plan.title, alternativePlan.title);
+assert.equal(bestOfResult.selection.bestOf, 2);
+assert.equal(bestOfResult.selection.winnerIndex, 1);
+assert.equal(bestOfResult.selection.judgeVersion, 1);
+assert.equal(bestOfResult.selection.scores[1].hook, 3);
+assert.equal(bestOfResult.usage.generationCount, 2);
+
+const cachedBestOf = await createDirectorProposal({
+  prompt: 'Compará dos maneras de colaborar con inteligencia artificial.',
+  variant: 10,
+  bestOf: 2,
+  think: true,
+  fetchImpl: bestOfFetch,
+  cacheRoot,
+});
+assert.equal(cachedBestOf.cacheHit, true);
+assert.equal(bestOfCalls, 3);
+assert.deepEqual(cachedBestOf.selection, bestOfResult.selection);
+
+await assert.rejects(
+  () => createDirectorProposal({
+    prompt: 'Compará demasiadas variantes.',
+    bestOf: 4,
+    fetchImpl: fakeFetch,
+    cacheRoot,
+  }),
+  (error) => error.code === 'DIRECTOR_OPTION_INVALID',
+);
+await assert.rejects(
+  () => createDirectorProposal({
+    prompt: 'Compará variantes fuera del límite.',
+    variant: 1_000_000,
+    bestOf: 2,
+    fetchImpl: fakeFetch,
+    cacheRoot,
+  }),
+  (error) => error.code === 'DIRECTOR_OPTION_INVALID',
+);
+
+await assert.rejects(
+  () => createDirectorProposal({
+    prompt: 'Probá un juez que responde fuera del contrato.',
+    bestOf: 2,
+    fetchImpl: async (url, options = {}) => {
+      if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+      const request = JSON.parse(options.body);
+      return response({
+        message: {
+          content: request.format.properties?.winnerIndex
+            ? JSON.stringify({ winnerIndex: 9, scores: [] })
+            : JSON.stringify(plan),
+        },
+      });
+    },
+    cacheRoot,
+    useCache: false,
+  }),
+  (error) => error.code === 'DIRECTOR_JUDGE_RESPONSE_INVALID',
+);
+
 // C1: bucle de reparación por presupuesto. overBudgetPlan excede el presupuesto
 // de palabras para 8 s (máximo 40); el modelo lo corrige en el segundo intento.
 const overBudgetPlan = structuredClone(plan);
@@ -176,7 +310,7 @@ assert.equal(failCalls, 3);
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 32,
+  passed: 50,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

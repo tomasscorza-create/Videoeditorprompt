@@ -7,6 +7,7 @@ import { PipelineError } from '../../stage1/errors.mjs';
 
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 export const DEFAULT_DIRECTOR_MODEL = 'qwen3:8b';
+export const DEFAULT_OLLAMA_KEEP_ALIVE = '10m';
 
 export function createOllamaProvider(config = {}) {
   const fetchImpl = config.fetchImpl || globalThis.fetch;
@@ -14,6 +15,9 @@ export function createOllamaProvider(config = {}) {
     providerError('OLLAMA_FETCH_UNAVAILABLE', 'El runtime no ofrece un cliente HTTP para Ollama.');
   }
   const baseUrl = normalizeLoopbackUrl(config.baseUrl || DEFAULT_OLLAMA_URL);
+  const keepAlive = normalizeKeepAlive(
+    config.keepAlive ?? process.env.LOCAL_VIDEO_OLLAMA_KEEP_ALIVE ?? DEFAULT_OLLAMA_KEEP_ALIVE,
+  );
 
   async function chat({ messages, schema, options = {}, signal }) {
     const response = await requestJson(fetchImpl, `${baseUrl}/api/chat`, {
@@ -24,7 +28,7 @@ export function createOllamaProvider(config = {}) {
         model: String(options.model || DEFAULT_DIRECTOR_MODEL),
         stream: false,
         think: options.think === true,
-        keep_alive: 0,
+        keep_alive: keepAlive,
         format: schema,
         messages,
         options: {
@@ -65,6 +69,15 @@ export function createOllamaProvider(config = {}) {
       };
     },
   };
+}
+
+function normalizeKeepAlive(value) {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+  if (typeof value === 'string' && /^(?:0|[1-9]\d*(?:ms|s|m|h))$/u.test(value)) return value;
+  providerError(
+    'OLLAMA_KEEP_ALIVE_INVALID',
+    'La retención del modelo de Ollama debe ser 0 o una duración como 30s, 10m o 1h.',
+  );
 }
 
 async function requestJson(fetchImpl, url, options) {

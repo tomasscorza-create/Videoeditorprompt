@@ -221,6 +221,7 @@ export async function createLocalAppServer(options = {}) {
             constraints: body.constraints,
             provider: body.provider,
             think: body.think,
+            bestOf: body.bestOf,
             assetsRoot,
             catalog: currentCatalog(),
             resourceCatalog: library.catalogRelative,
@@ -236,6 +237,7 @@ export async function createLocalAppServer(options = {}) {
           plan: proposal.plan,
           project: proposal.project,
           budget: proposal.budget,
+          selection: proposal.selection,
         });
         return;
       }

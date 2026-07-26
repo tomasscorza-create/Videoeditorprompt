@@ -26,6 +26,12 @@ export interface DirectorProposal {
   };
   project: unknown;
   budget: { totalWords: number; maximumWords: number };
+  selection: {
+    bestOf: number;
+    winnerIndex: number;
+    judgeVersion: number | null;
+    scores: Array<{ hook: number; naturalness: number; ending: number; variety: number }> | null;
+  };
 }
 
 export interface RenderJob {
@@ -84,6 +90,11 @@ export interface DirectorConstraints {
   sceneCount: number;
 }
 
+export interface DirectorGenerationOptions {
+  think: boolean;
+  bestOf: 1 | 2 | 3;
+}
+
 export interface RegisteredResource {
   id: string;
   type: string;
@@ -136,12 +147,13 @@ export async function createProposal(
   prompt: string,
   variant: number,
   constraints: DirectorConstraints,
+  generation: DirectorGenerationOptions,
   signal?: AbortSignal,
 ): Promise<DirectorProposal> {
   return apiRequest<DirectorProposal>('/api/director/proposals', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, variant, constraints }),
+    body: JSON.stringify({ prompt, variant, constraints, ...generation }),
     signal,
   });
 }

@@ -41,6 +41,8 @@ Agravantes verificados en el motor:
 
 ## Fase 1 — Motor de IA: mejoras baratas de alto retorno
 
+**Estado: implementada y verificada técnicamente el 2026-07-26.**
+
 **1a. Mantener el modelo cargado.** En `scripts/director/providers/ollama.mjs:27`
 cambiar `keep_alive: 0` → `keep_alive: '10m'`. Una línea; elimina la recarga de
 5,2 GB por request. Verificar: dos propuestas seguidas — la segunda debe tardar

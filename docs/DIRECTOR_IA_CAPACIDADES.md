@@ -35,10 +35,17 @@ Calidad de generación:
   hasta 2 veces reinyectando el error como feedback. Solo se cachea el resultado
   final válido; el resultado expone `repairAttempts`.
 - **think**: opción (default `false`). `think: true` activa el razonamiento del
-  modelo (mejor plan, más lento en CPU). Entra en la clave de caché y se refleja
-  en `usage.think`.
-- **System prompt**: guía por tono, estructura gancho→desarrollo→cierre con un
-  ejemplo mínimo, y reglas de ritmo para TTS.
+  modelo (mejor plan, más lento en CPU). La UI lo expone como «Calidad máxima»;
+  entra en la clave de caché y se refleja en `usage.think`.
+- **Best-of-N**: la UI permite generar 1–3 variantes secuenciales. Con 2 o 3, un
+  juez estructurado puntúa gancho, naturalidad, cierre y variedad; código
+  determinista elige el mayor total y el índice menor en empates. La clave de
+  caché incluye `bestOf` y la versión del juez.
+- **System prompt**: guía por tono, estructura gancho→desarrollo→cierre, dos
+  ejemplos breves por tono, aperturas variadas y reglas de ritmo para TTS.
+- **Ollama caliente**: el proveedor conserva el modelo cargado 10 minutos por
+  defecto. Puede ajustarse con `LOCAL_VIDEO_OLLAMA_KEEP_ALIVE` usando `0` o una
+  duración acotada como `30s`, `10m` o `1h`.
 
 ## Edición (instrucción → comandos) · `project-editor-director.mjs`
 

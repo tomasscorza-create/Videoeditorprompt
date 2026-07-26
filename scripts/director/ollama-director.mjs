@@ -9,6 +9,7 @@ import {
   loadAuthoringCatalog,
   normalizeDirectorPlan,
 } from './director-plan.mjs';
+import { judgeDirectorPlans, PLAN_JUDGE_VERSION } from './plan-judge.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 import { resolveDirectorProvider } from './providers/index.mjs';
 import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './providers/ollama.mjs';
@@ -28,9 +29,14 @@ export async function createDirectorProposal(options) {
   const provider = resolveDirectorProvider(options.provider, {
     fetchImpl: options.fetchImpl,
     baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
+    keepAlive: options.keepAlive,
   });
   const temperature = numberOption(options.temperature, 0.35, 0, 1);
   const variant = integerOption(options.variant, 0, 0, 1_000_000);
+  const bestOf = integerOption(options.bestOf, 1, 1, 3);
+  if (variant + bestOf - 1 > 1_000_000) {
+    directorError('DIRECTOR_OPTION_INVALID', 'La variante inicial no deja espacio para comparar la cantidad solicitada.');
+  }
   // Modo «calidad máxima» (C3): con think:true qwen3 razona antes de responder
   // (mejor plan, más lento en CPU). Default false. Forma parte de la clave de caché.
   const think = booleanOption(options.think, false);
@@ -44,6 +50,8 @@ export async function createDirectorProposal(options) {
     temperature,
     variant,
     think,
+    bestOf,
+    judgeVersion: PLAN_JUDGE_VERSION,
     constraints,
     catalog: hashJson(catalog),
     schema: hashJson(schema),
@@ -62,6 +70,7 @@ export async function createDirectorProposal(options) {
       project: normalized.project,
       semanticHash: normalized.semanticHash,
       repairAttempts: cached.repairAttempts ?? 0,
+      selection: cached.selection ?? defaultSelection(),
       cacheKey,
       cacheHit: true,
       cachePath,
@@ -70,11 +79,98 @@ export async function createDirectorProposal(options) {
 
   const timeoutMs = integerOption(options.timeoutMs, think ? 300_000 : 240_000, 1_000, 300_000);
 
-  // Bucle de reparación por presupuesto (C1): el modo de fallo más frecuente es
-  // DIRECTOR_DURATION_BUDGET_EXCEEDED (guion más largo que el presupuesto de
-  // palabras). Ante ese error, reintentamos reinyectando el error como feedback en
-  // el prompt de usuario. Cualquier otro error corta de inmediato. Solo se cachea
-  // el resultado final válido.
+  const candidates = [];
+  for (let candidateIndex = 0; candidateIndex < bestOf; candidateIndex += 1) {
+    candidates.push(await generateCandidate({
+      provider,
+      schema,
+      signal: options.signal,
+      catalog,
+      assetsRoot,
+      resourceCatalog: options.resourceCatalog,
+      prompt,
+      variant: variant + candidateIndex,
+      constraints,
+      model,
+      temperature,
+      think,
+      timeoutMs,
+      promptHash: cacheKey,
+      seedKey: hashJson({ cacheKey, candidateIndex, variant: variant + candidateIndex }),
+    }));
+  }
+
+  let selection = defaultSelection();
+  if (bestOf > 1) {
+    const judged = await judgeDirectorPlans({
+      provider,
+      plans: candidates.map((candidate) => candidate.plan),
+      model,
+      signal: options.signal,
+      timeoutMs,
+      seed: seedFrom(hashJson({ cacheKey, judgeVersion: PLAN_JUDGE_VERSION })),
+    });
+    selection = {
+      bestOf,
+      winnerIndex: judged.winnerIndex,
+      judgeVersion: PLAN_JUDGE_VERSION,
+      scores: judged.scores,
+      usage: judged.usage,
+    };
+  }
+  const selected = candidates[selection.winnerIndex];
+  const repairAttempts = candidates.reduce((total, candidate) => total + candidate.repairAttempts, 0);
+
+  const cached = {
+    version: 1,
+    directorVersion: DIRECTOR_PIPELINE_VERSION,
+    provider: provider.name,
+    model,
+    plan: selected.plan,
+    project: selected.normalized.project,
+    semanticHash: selected.normalized.semanticHash,
+    budget: selected.normalized.budget,
+    repairAttempts,
+    selection,
+    usage: {
+      think,
+      generationCount: bestOf,
+      promptEvalCount: selected.usage?.promptEvalCount ?? null,
+      evalCount: selected.usage?.evalCount ?? null,
+      totalDurationNanoseconds: selected.usage?.totalDurationNanoseconds ?? null,
+    },
+  };
+  writeJson(cachePath, cached);
+  return { ...cached, cacheKey, cacheHit: false, cachePath };
+}
+
+export async function inspectOllama(options = {}) {
+  const provider = resolveDirectorProvider(options.provider, {
+    fetchImpl: options.fetchImpl,
+    baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
+    keepAlive: options.keepAlive,
+  });
+  const timeoutMs = integerOption(options.timeoutMs, 5000, 500, 30_000);
+  return provider.inspect({ model: options.model, timeoutMs });
+}
+
+async function generateCandidate({
+  provider,
+  schema,
+  signal,
+  catalog,
+  assetsRoot,
+  resourceCatalog,
+  prompt,
+  variant,
+  constraints,
+  model,
+  temperature,
+  think,
+  timeoutMs,
+  promptHash,
+  seedKey,
+}) {
   let plan;
   let normalized;
   let usage = null;
@@ -83,7 +179,7 @@ export async function createDirectorProposal(options) {
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
     const result = await provider.generatePlan({
       schema,
-      signal: options.signal,
+      signal,
       messages: [
         { role: 'system', content: buildSystemPrompt(catalog) },
         { role: 'user', content: buildUserPrompt(prompt, variant, constraints, feedback) },
@@ -92,7 +188,7 @@ export async function createDirectorProposal(options) {
         model,
         temperature,
         think,
-        seed: seedFrom(cacheKey) + attempt,
+        seed: seedFrom(seedKey) + attempt,
         maxOutputTokens: 4000,
         timeoutMs,
       },
@@ -114,8 +210,8 @@ export async function createDirectorProposal(options) {
     try {
       normalized = normalizeDirectorPlan(plan, catalog, {
         assetsRoot,
-        promptHash: cacheKey,
-        resourceCatalog: options.resourceCatalog,
+        promptHash,
+        resourceCatalog,
       });
       usage = result.usage || null;
       break;
@@ -126,35 +222,17 @@ export async function createDirectorProposal(options) {
       feedback = budgetRepairFeedback(error);
     }
   }
-
-  const cached = {
-    version: 1,
-    directorVersion: DIRECTOR_PIPELINE_VERSION,
-    provider: provider.name,
-    model,
-    plan,
-    project: normalized.project,
-    semanticHash: normalized.semanticHash,
-    budget: normalized.budget,
-    repairAttempts,
-    usage: {
-      think,
-      promptEvalCount: usage?.promptEvalCount ?? null,
-      evalCount: usage?.evalCount ?? null,
-      totalDurationNanoseconds: usage?.totalDurationNanoseconds ?? null,
-    },
-  };
-  writeJson(cachePath, cached);
-  return { ...cached, cacheKey, cacheHit: false, cachePath };
+  return { plan, normalized, usage, repairAttempts };
 }
 
-export async function inspectOllama(options = {}) {
-  const provider = resolveDirectorProvider(options.provider, {
-    fetchImpl: options.fetchImpl,
-    baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
-  });
-  const timeoutMs = integerOption(options.timeoutMs, 5000, 500, 30_000);
-  return provider.inspect({ model: options.model, timeoutMs });
+function defaultSelection() {
+  return {
+    bestOf: 1,
+    winnerIndex: 0,
+    judgeVersion: null,
+    scores: null,
+    usage: null,
+  };
 }
 
 export function buildOllamaPlanSchema(catalog, constraints = {}) {
@@ -220,9 +298,17 @@ function buildSystemPrompt(catalog) {
     'RITMO PARA VOZ (TTS). Frases cortas, una idea por turno. Evitá enumeraciones',
     'largas, incisos, siglas deletreadas y números complejos: se leen mal en voz.',
     '',
-    'EJEMPLO (tono ironic, dos turnos):',
-    '  a: "Dicen que la inteligencia artificial va a reemplazar a los programadores."',
-    '  b: "Genial. Ahora alguien tiene que explicarle por qué se cayó producción."',
+    'EJEMPLOS DE GANCHO → CIERRE. Variá la apertura; no empieces con «¿Sabías que…?»:',
+    '- educational: "Tu contraseña larga puede seguir siendo débil." → "La longitud ayuda, pero combinar palabras únicas ayuda más."',
+    '- educational: "Una planta no se marchita solo por falta de agua." → "Primero mirá luz, suelo y raíces; después regá."',
+    '- ironic: "Dicen que la IA va a reemplazar a los programadores." → "Perfecto: ahora alguien debe explicarle por qué cayó producción."',
+    '- ironic: "Compré una agenda para organizar cada minuto." → "Mañana anoto cuándo voy a empezar a usarla."',
+    '- serious: "Una copia de seguridad que nunca probaste todavía no es una copia." → "Restaurarla hoy evita descubrir el fallo durante una emergencia."',
+    '- serious: "Compartir un dato personal parece instantáneo; recuperarlo no." → "Antes de publicar, decidí si aceptarías que permanezca años."',
+    '- energetic: "¡Treinta segundos alcanzan para destrabar tu mañana!" → "Elegí una tarea, cerrá distracciones y empezá ahora."',
+    '- energetic: "¡Tu idea no necesita otra semana de espera!" → "Hacé una versión pequeña, probala y mejorala en movimiento."',
+    '- inspirational: "Todo proyecto grande alguna vez fue una primera prueba imperfecta." → "Construí hoy el paso que mañana te permita continuar."',
+    '- inspirational: "Compararte borra la distancia que ya recorriste." → "Medí tu avance contra tu punto de partida y seguí creciendo."',
     '',
     'REGLAS:',
     'Usá solamente IDs presentes en el catálogo.',

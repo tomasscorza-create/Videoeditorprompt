@@ -473,6 +473,24 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 .director-constraints .field:last-child { grid-column: 1 / -1; }
 .director-constraints .field + .field { margin-top: 0; }
+.director-quality-options {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: .65rem;
+  align-items: end;
+}
+.toggle-option {
+  display: flex;
+  gap: .55rem;
+  align-items: center;
+  min-height: 2.5rem;
+  color: var(--text);
+  font-size: .75rem;
+}
+.toggle-option input { accent-color: var(--accent); }
+.toggle-option span { display: grid; gap: .1rem; }
+.toggle-option small { color: var(--muted); font-size: .68rem; }
 .action-row { gap: .5rem; margin-top: .8rem; }
 .action-row > :first-child { flex: 1; }
 
