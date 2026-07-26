@@ -14,7 +14,19 @@ export class ProjectEditorError extends Error {
   path: string;
 }
 
+export interface VoiceReferenceReplacement {
+  sceneId: unknown;
+  turnId: unknown;
+  previousVoiceId: string;
+  replacementVoiceId: string;
+}
+
 export function createProjectEditor(project: unknown, catalog: unknown, options?: { historyLimit?: number }): EditorState;
+export function repairMissingVoiceReferences(
+  project: unknown,
+  catalog: unknown,
+  options?: { preferredVoiceId?: string },
+): { project: unknown; replacements: VoiceReferenceReplacement[] };
 export function applyProjectEditorCommand(state: EditorState, command: Record<string, unknown>): EditorState;
 export function undoProjectEditor(state: EditorState): EditorState;
 export function redoProjectEditor(state: EditorState): EditorState;

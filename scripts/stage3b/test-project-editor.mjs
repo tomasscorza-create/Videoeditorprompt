@@ -9,6 +9,7 @@ import {
   createProjectEditor,
   exportEditorProject,
   listEditorResources,
+  repairMissingVoiceReferences,
   redoProjectEditor,
   undoProjectEditor,
   validateRenderableProject,
@@ -46,6 +47,27 @@ test('creates-frozen-state-with-real-resources', () => {
   assert.equal(listEditorResources(state, 'character').length, catalogCount('character'));
   assert.equal(listEditorResources(state, 'voice').length, catalogCount('voice'));
   assert.equal(listEditorResources(state, 'background').length, catalogCount('background'));
+});
+
+test('repairs-only-missing-voice-references-without-mutating-the-project', () => {
+  const legacy = structuredClone(project);
+  legacy.scenes[0].dialogue[0].voiceId = 'voz-daniela-ar-v1';
+  const repaired = repairMissingVoiceReferences(legacy, catalog);
+  assert.equal(legacy.scenes[0].dialogue[0].voiceId, 'voz-daniela-ar-v1');
+  assert.equal(repaired.project.scenes[0].dialogue[0].voiceId, 'voz-claude-mx-v1');
+  assert.deepEqual(repaired.replacements, [{
+    sceneId: legacy.scenes[0].id,
+    turnId: legacy.scenes[0].dialogue[0].id,
+    previousVoiceId: 'voz-daniela-ar-v1',
+    replacementVoiceId: 'voz-claude-mx-v1',
+  }]);
+  assert.doesNotThrow(() => createProjectEditor(repaired.project, catalog));
+
+  const wrongType = structuredClone(project);
+  wrongType.scenes[0].dialogue[0].voiceId = 'mono-azul-v1';
+  const unchanged = repairMissingVoiceReferences(wrongType, catalog);
+  assert.equal(unchanged.replacements.length, 0);
+  rejects('EDITOR_RESOURCE_INVALID', () => createProjectEditor(unchanged.project, catalog));
 });
 
 test('selection-does-not-create-project-history', () => {

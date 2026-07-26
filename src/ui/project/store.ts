@@ -3,6 +3,7 @@ import {
   createProjectEditor,
   exportEditorProject,
   listEditorResources,
+  repairMissingVoiceReferences,
   redoProjectEditor,
   undoProjectEditor,
   validateRenderableProject,
@@ -44,6 +45,7 @@ export interface ProjectStore {
   project(): ProjectView;
   selectedSceneId(): string;
   catalogRevision(): string;
+  recoveryWarnings(): readonly string[];
   canUndo(): boolean;
   canRedo(): boolean;
   /** Devuelve null si el comando se aplicó, o un mensaje si el motor lo rechazó. */
@@ -67,7 +69,7 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function createStore(initial: EditorState, revision = 'unknown'): ProjectStore {
+export function createStore(initial: EditorState, revision = 'unknown', warnings: readonly string[] = []): ProjectStore {
   let current = initial;
   const listeners: Array<() => void> = [];
   const notify = (): void => { for (const listener of listeners) listener(); };
@@ -77,6 +79,7 @@ export function createStore(initial: EditorState, revision = 'unknown'): Project
     project: () => current.project as unknown as ProjectView,
     selectedSceneId: () => current.selectedSceneId,
     catalogRevision: () => revision,
+    recoveryWarnings: () => warnings,
     canUndo: () => current.past.length > 0,
     canRedo: () => current.future.length > 0,
     dispatch(command) {
@@ -204,13 +207,13 @@ export async function loadProjectStore(requestedProjectId?: string | null): Prom
     loadActiveCatalog(entry.resourceCatalog, cacheKey),
   ]);
   const selectedProject = selectResourceCatalog(project, activeCatalog.path);
-  return createStore(createProjectEditor(selectedProject, activeCatalog.catalog), await hashJson(activeCatalog.catalog));
+  return createRecoveredStore(selectedProject, activeCatalog.catalog, await hashJson(activeCatalog.catalog));
 }
 
 export async function createProjectStore(project: unknown): Promise<ProjectStore> {
   const activeCatalog = await loadActiveCatalog('assets/catalog/authoring-resources.json');
   const selectedProject = selectResourceCatalog(project, activeCatalog.path);
-  return createStore(createProjectEditor(selectedProject, activeCatalog.catalog), await hashJson(activeCatalog.catalog));
+  return createRecoveredStore(selectedProject, activeCatalog.catalog, await hashJson(activeCatalog.catalog));
 }
 
 export async function restoreProjectStore(project: unknown, expectedCatalogRevision: string): Promise<ProjectStore> {
@@ -220,7 +223,15 @@ export async function restoreProjectStore(project: unknown, expectedCatalogRevis
   // vuelve a validar el proyecto contra el catálogo actual sin descartar la sesión.
   void expectedCatalogRevision;
   const selectedProject = selectResourceCatalog(project, activeCatalog.path);
-  return createStore(createProjectEditor(selectedProject, activeCatalog.catalog), actualRevision);
+  return createRecoveredStore(selectedProject, activeCatalog.catalog, actualRevision);
+}
+
+function createRecoveredStore(project: unknown, catalog: unknown, revision: string): ProjectStore {
+  const repaired = repairMissingVoiceReferences(project, catalog);
+  const warnings = repaired.replacements.length === 0
+    ? []
+    : [`Se reemplazaron ${repaired.replacements.length} referencias a voces que ya no están disponibles.`];
+  return createStore(createProjectEditor(repaired.project, catalog), revision, warnings);
 }
 
 async function hashJson(value: unknown): Promise<string> {

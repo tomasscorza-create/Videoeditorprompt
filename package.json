@@ -56,6 +56,8 @@
     "local:test-projects": "node scripts/local-app/test-project-repository.mjs",
     "local:test-render-manager": "node scripts/local-app/test-render-job-manager.mjs",
     "local:test-retention": "node scripts/local-app/test-retention.mjs",
+    "local:test-voice-migration": "node scripts/local-app/test-legacy-voice-migration.mjs",
+    "local:migrate-voices": "node scripts/local-app/migrate-legacy-voices.mjs",
     "storage:test-filesystem": "node scripts/storage/test-filesystem-adapters.mjs",
     "storage:test-postgres": "node scripts/storage/test-postgres-adapters.mjs",
     "storage:test-s3": "node scripts/storage/test-s3-adapter.mjs",

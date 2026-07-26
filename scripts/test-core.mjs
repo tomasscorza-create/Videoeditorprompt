@@ -21,6 +21,7 @@ const commands = [
   'local:test-server',
   'local:test-render-manager',
   'local:test-retention',
+  'local:test-voice-migration',
   'storage:test-filesystem',
   'storage:test-bundle',
   'storage:test-remote-config',

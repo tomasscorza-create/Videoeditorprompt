@@ -28,6 +28,36 @@ export function createProjectEditor(project, catalog, options = {}) {
   });
 }
 
+export function repairMissingVoiceReferences(project, catalog, options = {}) {
+  const projectCopy = cloneJson(project);
+  const entries = Array.isArray(catalog?.entries) ? catalog.entries : [];
+  const resources = new Map(entries.map((entry) => [entry?.id, entry]));
+  const voices = entries.filter((entry) => entry?.type === 'voice' && typeof entry.id === 'string');
+  const preferredVoiceId = options.preferredVoiceId ?? 'voz-claude-mx-v1';
+  const fallback = voices.find((entry) => entry.id === preferredVoiceId) ?? voices[0];
+  const replacements = [];
+
+  if (!fallback || !Array.isArray(projectCopy?.scenes)) {
+    return { project: projectCopy, replacements };
+  }
+
+  for (const scene of projectCopy.scenes) {
+    if (!Array.isArray(scene?.dialogue)) continue;
+    for (const turn of scene.dialogue) {
+      if (!turn || typeof turn.voiceId !== 'string' || resources.has(turn.voiceId)) continue;
+      replacements.push({
+        sceneId: scene.id,
+        turnId: turn.id,
+        previousVoiceId: turn.voiceId,
+        replacementVoiceId: fallback.id,
+      });
+      turn.voiceId = fallback.id;
+    }
+  }
+
+  return { project: projectCopy, replacements };
+}
+
 export function applyProjectEditorCommand(state, command) {
   assertEditorState(state);
   if (!command || typeof command !== 'object' || Array.isArray(command)) fail('EDITOR_COMMAND_INVALID', 'El comando debe ser un objeto.', '/command');

@@ -1,4 +1,3 @@
-import type { PreviewHandle } from '../preview/types.js';
 import { optional } from './dom.js';
 import { initDirectorUi } from './director/panel.js';
 import { initWorkspaceResize } from './layout-resize.js';
@@ -27,12 +26,6 @@ export function initShellUi(): void {
   initTimelineShell();
 }
 
-// El preview publicado de una escena se mantiene como comprobación interna de
-// compatibilidad. El flujo principal reproduce únicamente el MP4 del Editor.
-export function initEditorUi(handle: PreviewHandle): void {
-  void handle;
-}
-
 // Editor del proyecto de autoría. Es independiente del preview: si el proyecto no
 // está disponible, el resto de la aplicación sigue funcionando.
 export async function initProjectUi(): Promise<void> {
@@ -42,6 +35,10 @@ export async function initProjectUi(): Promise<void> {
     const restored = requestedProjectId ? null : await restoreSession();
     store = restored?.store ?? await loadProjectStore(requestedProjectId);
     attachProjectUi(store);
+    showRecoveryWarnings([
+      ...(restored?.warning ? [restored.warning] : []),
+      ...store.recoveryWarnings(),
+    ]);
   } catch (error) {
     const root = optional<HTMLElement>('#project-editor');
     const status = optional<HTMLElement>('#project-status');
@@ -56,6 +53,16 @@ export async function initProjectUi(): Promise<void> {
     store = createdStore;
     attachProjectUi(createdStore);
   });
+}
+
+function showRecoveryWarnings(warnings: readonly string[]): void {
+  if (warnings.length === 0) return;
+  const status = optional<HTMLElement>('#project-status');
+  if (status) {
+    status.textContent = warnings.join(' ');
+    status.classList.remove('error');
+  }
+  console.warn('Recuperación del proyecto', ...warnings);
 }
 
 function attachProjectUi(store: ProjectStore): void {

@@ -1,6 +1,7 @@
 import { restoreProjectStore, type ProjectStore } from './store.js';
 
 const STORAGE_KEY = 'local-video.editor-session';
+const RECOVERY_BACKUP_KEY = 'local-video.editor-session.recovery-backup';
 const SESSION_VERSION = 1;
 
 interface PersistedSession {
@@ -11,15 +12,34 @@ interface PersistedSession {
   savedAt: string;
 }
 
-export async function restoreSession(): Promise<{ store: ProjectStore; lastJobId: string | null } | null> {
+export interface RestoredSession {
+  store: ProjectStore | null;
+  lastJobId: string | null;
+  warning: string | null;
+}
+
+export async function restoreSession(): Promise<RestoredSession | null> {
+  const rawSession = localStorage.getItem(STORAGE_KEY);
+  if (!rawSession) return null;
   const session = readSession();
-  if (!session) return null;
+  if (!session) {
+    backupRawSession(rawSession);
+    return {
+      store: null,
+      lastJobId: null,
+      warning: 'La sesión anterior tenía un formato incompatible. Se conservó una copia de recuperación y se abrió el proyecto publicado.',
+    };
+  }
   try {
     const store = await restoreProjectStore(session.project, session.catalogRevision);
-    return { store, lastJobId: session.lastJobId };
+    return { store, lastJobId: session.lastJobId, warning: null };
   } catch {
-    localStorage.removeItem(STORAGE_KEY);
-    return null;
+    backupSession(session);
+    return {
+      store: null,
+      lastJobId: session.lastJobId,
+      warning: 'La sesión anterior no pudo restaurarse. Se conservó una copia de recuperación y se abrió el proyecto publicado.',
+    };
   }
 }
 
@@ -65,5 +85,17 @@ function writeSession(session: PersistedSession): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   } catch {
     // La edición sigue funcionando aunque el navegador bloquee o llene localStorage.
+  }
+}
+
+function backupSession(session: PersistedSession): void {
+  backupRawSession(JSON.stringify(session));
+}
+
+function backupRawSession(session: string): void {
+  try {
+    localStorage.setItem(RECOVERY_BACKUP_KEY, session);
+  } catch {
+    // Si el almacenamiento está lleno, se conserva al menos la clave original.
   }
 }
