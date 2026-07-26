@@ -1,6 +1,6 @@
 # ADR-0002 — Storage S3-compatible para blobs
 
-Estado: **propuesto para G0**.
+Estado: **aceptado en G0; SeaweedFS 4.40 aprobado para desarrollo local en P3**.
 
 Fecha: 25 de julio de 2026.
 
@@ -26,6 +26,17 @@ La decisión fija el protocolo/contrato, no un servidor concreto. MinIO no queda
 aprobado: su edición comunitaria fue archivada y pasó a distribución source-only
 en 2026. El servidor local debe seleccionarse mediante evaluación separada antes
 de P3.
+
+Para P3 se seleccionó SeaweedFS 4.40:
+
+- release estable y mantenida;
+- licencia Apache-2.0;
+- modo mononodo `weed mini` con API S3 y bucket precreado;
+- imagen fijada por tag y digest multi-arquitectura;
+- uso limitado a infraestructura local; el contrato no adopta APIs propias de
+  SeaweedFS.
+
+El usuario aprobó explícitamente esta sustitución el 26-07-2026.
 
 ## Consecuencias
 

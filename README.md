@@ -142,6 +142,10 @@ npm run storage:test-bundle
 npm run storage:inventory
 npm run storage:export -- --output=<directorio>
 npm run storage:verify -- --bundle=<directorio>
+npm run infra:up
+npm run db:migrate
+npm run infra:health
+npm run infra:down
 npm run stage3b:test-contracts
 npm test
 ```
@@ -232,6 +236,7 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [Operación local](docs/OPERACION_LOCAL.md) | Seguridad de sesión, recuperación, render interactivo y retención. |
 | [Persistencia filesystem P1](docs/PERSISTENCIA_FILESYSTEM_P1.md) | Contratos async, adaptadores filesystem, revisiones, jobs y blobs. |
 | [Bundle portable P2](docs/PERSISTENCIA_BUNDLE_P2.md) | Inventario, exportación determinista, política de jobs y verificación. |
+| [Infraestructura local P3](docs/INFRAESTRUCTURA_LOCAL_P3.md) | PostgreSQL, SeaweedFS, Compose, migraciones y persistencia. |
 | [Dependencias de IA](docs/DEPENDENCIAS_IA_LOCAL.md) | Procedencia y licencias declaradas de Ollama y Qwen. |
 | [Visión de producto y Etapa 2F](docs/VISION_PRODUCTO_Y_ETAPA_2F.md) | Flujo creativo y dirección del producto. |
 | [Flujo de colaboración](docs/FLUJO_COLABORACION_CODEX_CLAUDE.md) | Reglas usadas para integrar motor y UX/UI. |

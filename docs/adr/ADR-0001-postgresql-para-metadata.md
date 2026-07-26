@@ -1,6 +1,6 @@
 # ADR-0001 — PostgreSQL para metadata durable
 
-Estado: **propuesto para G0**.
+Estado: **aceptado en G0; infraestructura local implementada en P3**.
 
 Fecha: 25 de julio de 2026.
 

@@ -34,6 +34,22 @@ La salida debe ser una carpeta nueva y externa a las raíces durables. La
 política exacta de inclusión, exclusión y verificación está documentada en
 `docs/PERSISTENCIA_BUNDLE_P2.md`.
 
+## Infraestructura local
+
+PostgreSQL y SeaweedFS son opcionales y todavía no reemplazan filesystem:
+
+```powershell
+npm run infra:up
+npm run db:migrate
+npm run infra:health
+npm run infra:down
+```
+
+Los puertos se publican solo en loopback. `infra:down` conserva los volúmenes;
+no agregar `--volumes` salvo una decisión destructiva explícita. Configuración,
+credenciales de desarrollo y evidencia están en
+`docs/INFRAESTRUCTURA_LOCAL_P3.md`.
+
 ## Render y recuperación
 
 La interfaz usa verificación `interactive`: produce una pasada por escena y valida

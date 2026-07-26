@@ -57,6 +57,12 @@
     "storage:inventory": "node scripts/storage/local-data-bundle-cli.mjs inventory",
     "storage:export": "node scripts/storage/local-data-bundle-cli.mjs export",
     "storage:verify": "node scripts/storage/local-data-bundle-cli.mjs verify",
+    "infra:up": "docker compose -f compose.yaml up -d --wait",
+    "infra:health": "node scripts/storage/infra-health.mjs",
+    "infra:down": "docker compose -f compose.yaml down",
+    "infra:test-config": "node scripts/storage/test-infra-config.mjs",
+    "infra:test-persistence": "node scripts/storage/infra-persistence-probe.mjs",
+    "db:migrate": "node scripts/storage/db-migrate.mjs",
     "ui:test-modules": "node scripts/ui/test-ui-modules.mjs",
     "local:clean": "node scripts/local-app/retention.mjs"
   },

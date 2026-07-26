@@ -143,3 +143,24 @@ Fuentes:
 
 No se modificó `package.json`, no se creó lockfile nuevo, no se ejecutó Docker y
 no se descargó ninguna imagen.
+
+## 6. Reevaluación autorizada para P3 — 26-07-2026
+
+El gate G2 fue aprobado y el usuario autorizó sustituir MinIO por SeaweedFS
+4.40. La elección se basó en:
+
+- release estable publicada el 20-07-2026;
+- actividad y releases frecuentes;
+- licencia Apache-2.0;
+- quickstart oficial S3 en Docker mediante `weed mini`;
+- bucket inicializable por configuración;
+- imagen multi-arquitectura fijada al digest
+  `sha256:52194fba4fecd0083c842158b3a902ba6e04a63619b2b0efcd08007bdb6a4602`.
+
+PostgreSQL 17.10 Bookworm conservó el digest candidato de P0:
+`sha256:4f736ae292687621d4dbe0d499ffd024a36bd2ee7d8ca6f2ccd4c800f047b394`.
+
+Docker Scout no generó el reescaneo porque requiere autenticación local. No se
+agregaron credenciales ni herramientas adicionales. Esta limitación queda
+documentada para repetirse antes de exponer la infraestructura fuera de
+loopback.
