@@ -11,7 +11,7 @@ Estado vigente:
 - Etapas 0, 1, 1.1, el endurecimiento de contrato 2A y el selector de previews 2B aprobados. Las Etapas 2C, 2D y 2E están implementadas y verificadas técnicamente.
 - La Etapa 2F.0 está documentada, 2F.1–2F.2 están implementadas y verificadas técnicamente, y el usuario aprobó el gate humano con ajustes finos no bloqueantes. 3A.0 define el proyecto editable, 3A.1 lo compila a configuraciones v2 por escena y 3A.2 prepara, renderiza y ensambla esas escenas de forma determinista. 3B.0 aporta el núcleo inmutable de edición y su contrato de comandos, ya conectado a la interfaz local mediante módulos `src/ui/*`. El primer vertical slice dirigido por prompt usa Ollama con `qwen3:8b`, normaliza un plan semántico cerrado al mismo proyecto editable y permite renderizarlo desde la interfaz mediante un servicio limitado a loopback. La interfaz vigente organiza Director, visor y edición en tres columnas y expone solo dos espacios centrales: Editor y Creador. El Editor reúne lienzo, reproducción y exportación sin pestañas separadas de preview/MP4; un coordinador único vincula su salida renderizada con la timeline. El núcleo distingue borrador incompleto de proyecto renderizable; permite crear/eliminar escenas, personajes y turnos mediante comandos cerrados. El Director reutiliza ese vocabulario para peticiones contextuales sobre un proyecto existente. La timeline conserva sus capas de fondo, personajes y voces tanto en autoría como al adoptar escala real de una exportación vigente. La biblioteca local V1 registra fichas validadas en almacenamiento durable, deduplica por hash y publica un catálogo combinado consumido por Director, editor y render. `CREAR → Personajes` ofrece plantillas y construcción desde cero por piezas geométricas con roles semánticos; ambos caminos compilan un rig v2 real y lo registran de forma no destructiva.
 - La Fase P0 de persistencia portable fue aprobada. P1 separa contratos async para proyectos, recursos, jobs y blobs, conserva `filesystem` como backend operativo e inyecta sus adaptadores desde el servicio local.
-- P2 exporta el estado durable a un bundle portable y determinista, verifica esquema, referencias, tamaños y SHA-256, e ignora cachés, temporales, publicaciones regenerables y jobs sin outputs conservados. G2 y G3 fueron aprobados. P3 aporta PostgreSQL 17.10 y SeaweedFS 4.40 locales reproducibles. P4 implementa repositorios PostgreSQL de metadata con la misma suite contractual que filesystem; G4 sigue pendiente. Blobs S3, importación y cutover no están implementados.
+- P2 exporta el estado durable a un bundle portable y determinista, verifica esquema, referencias, tamaños y SHA-256, e ignora cachés, temporales, publicaciones regenerables y jobs sin outputs conservados. G2–G4 fueron aprobados. P3 aporta PostgreSQL 17.10 y SeaweedFS 4.40 locales reproducibles; P4 implementa repositorios PostgreSQL de metadata. P5 implementa blobs S3 con el mismo contrato que filesystem, materialización atómica, publicación de outputs y streaming privado; G5 sigue pendiente. Importación y cutover no están implementados.
 - Existe un runtime probado de **una escena**: 1080 × 1920, 30 fps, dos personajes reutilizables y diferenciados, diálogo medido con dos voces Piper, boca RMS estabilizada, gesto neutral/point, subtítulo por turno y fondo opcional de tres capas con cámara/parallax deterministas, equivalente en PixiJS y MP4 H.264/AAC. Un pipeline padre ya compone varias de esas escenas en un MP4 mediante cortes o fundidos.
 - El pipeline es headless, se invoca por CLI, usa `jobId`, rutas configurables y trabajos aislados.
 - `shared/scene-evaluator.js` es el evaluador temporal compartido.
@@ -121,6 +121,10 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `scripts/storage/postgres-project-repository.mjs`, `postgres-resource-repository.mjs` y `postgres-render-job-repository.mjs`: adaptadores de metadata PostgreSQL.
 - `scripts/storage/repository-contract-suite.mjs`: casos contractuales idénticos para filesystem y PostgreSQL.
 - `docs/PERSISTENCIA_POSTGRES_P4.md`: modelo, operación, evidencia y límites de P4.
+- `scripts/storage/s3-client.mjs` y `s3-blob-storage.mjs`: cliente S3 acotado y blobs por streaming, límites y SHA-256.
+- `scripts/storage/artifact-storage.mjs`: materialización atómica y publicación verificable de manifiesto/MP4.
+- `scripts/storage/blob-storage-contract-suite.mjs`: casos idénticos para BlobStorage filesystem y S3.
+- `docs/PERSISTENCIA_S3_P5.md`: integridad, operación, evidencia y límites de P5.
 - `compose.yaml`: PostgreSQL y SeaweedFS locales, fijados por digest y con volúmenes nombrados.
 - `scripts/storage/infra-health.mjs` y `db-migrate.mjs`: salud real y migraciones SQL idempotentes.
 - `docs/INFRAESTRUCTURA_LOCAL_P3.md`: configuración, operación, evidencia y límites de P3.
@@ -172,6 +176,8 @@ npm run local:test-render-manager # aislamiento, proceso, cancelación y errores
 npm run local:test-retention # limpieza, rutas protegidas y trabajos activos
 npm run storage:test-filesystem # contratos filesystem, conflictos, rutas y hashes
 npm run storage:test-postgres # mismos contratos de metadata en PostgreSQL y recuperación
+npm run storage:test-s3 # mismos contratos de blobs contra SeaweedFS
+npm run storage:test-p5-flow # flujo PostgreSQL, hidratación, upload y streaming privado
 npm run storage:test-bundle # bundles vacíos/parciales, determinismo y corrupción
 npm run storage:inventory # inventario portable de solo lectura
 npm run storage:export -- --output=<directorio> # exporta a una carpeta nueva

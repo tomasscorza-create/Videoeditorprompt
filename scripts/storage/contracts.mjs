@@ -33,6 +33,7 @@ export const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
  * @property {(key: string, destination: string, expectedSha256?: string) => Promise<void>} getToFile
  * @property {(key: string) => Promise<object>} stat
  * @property {(key: string) => Promise<void>} delete
+ * @property {(key: string, range?: object) => Promise<object>} openRead
  */
 
 export function assertProjectId(id) {

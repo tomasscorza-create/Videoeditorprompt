@@ -2,12 +2,14 @@ import { randomBytes } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { pipeline as streamPipeline } from 'node:stream/promises';
 import { PipelineError, serializeError } from '../stage1/errors.mjs';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
 import { cleanupCompletedJob } from './retention.mjs';
 import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
+import { publishRenderArtifacts } from '../storage/artifact-storage.mjs';
 
 const JOB_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/;
 const MAX_IN_MEMORY_JOBS = 500;
@@ -26,6 +28,8 @@ export async function createRenderJobManager(options = {}) {
   const terminateTree = options.terminateProcessTreeImpl || terminateProcessTree;
   const repositoryFactory = options.repositoryFactory || createFileRenderJobRepository;
   const repository = options.repository || await repositoryFactory({ storageRoot: appJobsRoot });
+  const blobStorage = options.blobStorage || null;
+  const artifactPublisher = options.artifactPublisher || publishRenderArtifacts;
   const jobs = new Map();
   let activeJobId = null;
   await recoverPersistedJobs();
@@ -147,6 +151,20 @@ export async function createRenderJobManager(options = {}) {
         return;
       }
       const manifest = readJson(manifestFile);
+      let artifacts = null;
+      if (blobStorage) {
+        try {
+          artifacts = await artifactPublisher({
+            blobStorage,
+            jobId: job.jobId,
+            manifestFile,
+            videoFile,
+          });
+        } catch (error) {
+          await fail(job, error);
+          return;
+        }
+      }
       await complete(job, {
         stage: 'project_pipeline',
         result: {
@@ -156,6 +174,7 @@ export async function createRenderJobManager(options = {}) {
           videoUrl: `/api/render-jobs/${job.jobId}/video`,
           downloadName: `${job.projectId}.mp4`,
           timeline: publicTimeline(manifest.timeline),
+          ...(artifacts ? { artifacts } : {}),
         },
       });
       }
@@ -207,6 +226,15 @@ export async function createRenderJobManager(options = {}) {
   async function video(jobId) {
     const status = await get(jobId);
     if (!status || status.state !== 'completed') return null;
+    const remote = status.result?.artifacts?.video;
+    if (blobStorage && remote?.key) {
+      return {
+        blobStorage,
+        key: remote.key,
+        size: remote.bytes,
+        name: status.result.downloadName,
+      };
+    }
     const file = resultPath(jobId, 'render-1.mp4');
     if (!existsSync(file)) return null;
     return { file, size: statSync(file).size, name: status.result.downloadName };
@@ -415,14 +443,17 @@ function assertJobId(jobId) {
   }
 }
 
-export function streamVideoResponse(request, response, video) {
+export async function streamVideoResponse(request, response, video) {
   const range = request.headers.range;
   response.setHeader('accept-ranges', 'bytes');
   response.setHeader('content-type', 'video/mp4');
   response.setHeader('content-disposition', `inline; filename="${video.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}"`);
   if (!range) {
+    const stream = video.blobStorage
+      ? (await video.blobStorage.openRead(video.key)).stream
+      : createReadStream(video.file);
     response.writeHead(200, { 'content-length': video.size });
-    createReadStream(video.file).pipe(response);
+    await pipeResponse(stream, response);
     return;
   }
   const match = /^bytes=(\d*)-(\d*)$/u.exec(range);
@@ -438,9 +469,20 @@ export function streamVideoResponse(request, response, video) {
     response.end();
     return;
   }
+  const stream = video.blobStorage
+    ? (await video.blobStorage.openRead(video.key, { start, end })).stream
+    : createReadStream(video.file, { start, end });
   response.writeHead(206, {
     'content-length': end - start + 1,
     'content-range': `bytes ${start}-${end}/${video.size}`,
   });
-  createReadStream(video.file, { start, end }).pipe(response);
+  await pipeResponse(stream, response);
+}
+
+async function pipeResponse(stream, response) {
+  try {
+    await streamPipeline(stream, response);
+  } catch {
+    response.destroy();
+  }
 }

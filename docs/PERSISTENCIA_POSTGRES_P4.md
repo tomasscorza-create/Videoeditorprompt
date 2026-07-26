@@ -1,6 +1,6 @@
 # Persistencia PostgreSQL — Fase P4
 
-Estado: **implementada y verificada técnicamente; gate G4 pendiente**.
+Estado: **implementada, verificada y aprobada en G4**.
 
 Fecha: 26 de julio de 2026.
 
@@ -116,7 +116,7 @@ mientras los blobs siguen locales.
 
 Queda fuera:
 
-- adaptador S3 y materialización de assets (P5);
+- adaptador S3 y materialización de assets (implementados después en P5);
 - importación filesystem → PostgreSQL/S3 (P6);
 - selección normal, cutover, backup y rollback (P7);
 - TLS y servicios remotos (P8).

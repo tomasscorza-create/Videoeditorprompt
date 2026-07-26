@@ -54,6 +54,8 @@
     "local:test-retention": "node scripts/local-app/test-retention.mjs",
     "storage:test-filesystem": "node scripts/storage/test-filesystem-adapters.mjs",
     "storage:test-postgres": "node scripts/storage/test-postgres-adapters.mjs",
+    "storage:test-s3": "node scripts/storage/test-s3-adapter.mjs",
+    "storage:test-p5-flow": "node scripts/storage/test-p5-render-flow.mjs",
     "storage:test-bundle": "node scripts/storage/test-local-data-bundle.mjs",
     "storage:inventory": "node scripts/storage/local-data-bundle-cli.mjs inventory",
     "storage:export": "node scripts/storage/local-data-bundle-cli.mjs export",
@@ -68,6 +70,8 @@
     "local:clean": "node scripts/local-app/retention.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1095.0",
+    "@smithy/node-http-handler": "4.9.11",
     "ajv": "^8.20.0",
     "pg": "8.22.0",
     "pixi.js": "^8.19.0"

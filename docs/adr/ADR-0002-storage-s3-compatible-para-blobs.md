@@ -1,6 +1,6 @@
 # ADR-0002 — Storage S3-compatible para blobs
 
-Estado: **aceptado en G0; SeaweedFS 4.40 aprobado para desarrollo local en P3**.
+Estado: **aceptado en G0; infraestructura P3 y adaptador S3 P5 implementados**.
 
 Fecha: 25 de julio de 2026.
 

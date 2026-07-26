@@ -17,9 +17,8 @@ $env:LOCAL_VIDEO_PERSISTENCE = "filesystem"
 npm run dev
 ```
 
-P4 incluye adaptadores PostgreSQL de metadata, pero todavía no habilita un
-backend parcial en la aplicación: S3, importación y cutover pertenecen a fases
-posteriores. Cualquier otro valor detiene el arranque con
+P4 y P5 incluyen adaptadores PostgreSQL/S3, pero todavía no habilitan el
+cutover normal ni importan el estado existente. Cualquier otro valor detiene el arranque con
 `PERSISTENCE_BACKEND_UNSUPPORTED`; nunca se degrada silenciosamente a filesystem.
 
 ## Bundle portable
@@ -45,14 +44,17 @@ npm run infra:up
 npm run db:migrate
 npm run infra:health
 npm run storage:test-postgres
+npm run storage:test-s3
+npm run storage:test-p5-flow
 npm run infra:down
 ```
 
 Los puertos se publican solo en loopback. `infra:down` conserva los volúmenes;
 no agregar `--volumes` salvo una decisión destructiva explícita. Configuración,
 credenciales de desarrollo y evidencia están en
-`docs/INFRAESTRUCTURA_LOCAL_P3.md`. Las tablas, el pool y la paridad contractual
-se documentan en `docs/PERSISTENCIA_POSTGRES_P4.md`.
+`docs/INFRAESTRUCTURA_LOCAL_P3.md`. Las tablas y el pool se documentan en
+`docs/PERSISTENCIA_POSTGRES_P4.md`; blobs, materialización y streaming privado,
+en `docs/PERSISTENCIA_S3_P5.md`.
 
 ## Render y recuperación
 

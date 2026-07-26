@@ -294,7 +294,7 @@ export async function createLocalAppServer(options = {}) {
       if (request.method === 'GET' && videoMatch) {
         const video = await manager.video(videoMatch[1]);
         if (!video) return sendNotFound(response);
-        streamVideoResponse(request, response, video);
+        await streamVideoResponse(request, response, video);
         return;
       }
       sendNotFound(response);

@@ -5,7 +5,8 @@ Fecha de consulta: 25 de julio de 2026.
 Estado: **propuesta para G0; nada instalado ni descargado**.
 
 Resolución posterior: G0 fue aprobado y P4 instaló exactamente `pg@8.22.0`;
-la evaluación del cliente S3 continúa sin ejecutar hasta P5.
+P5 instaló exactamente `@aws-sdk/client-s3@3.1095.0` y
+`@smithy/node-http-handler@4.9.11`.
 
 Esta evaluación cubre problema, insuficiencia de Node estándar, licencia,
 mantenimiento, tamaño/impacto, Windows/Linux, contenedor, riesgos y sustitución.
