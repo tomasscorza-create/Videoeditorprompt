@@ -1,4 +1,5 @@
 import { optional } from './dom.js';
+import { notify } from './notifications.js';
 import {
   EDITOR_WORKSPACE_EVENT,
   EDITOR_PLAYBACK_EVENT,
@@ -221,6 +222,10 @@ function renderLayerStack(
         'character',
         selection?.kind === 'element' && selection.elementId === element.id,
       );
+      // C2: el clip declara a qué elemento apunta para poder espejar la
+      // selección y el hover con el lienzo.
+      clip.dataset.scene = scene.id;
+      clip.dataset.element = element.id;
       const characterStart = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
       clip.addEventListener('click', () => clipSingleClick(characterStart, () => selectElement(scene.id, element.id), () => selectElementCore(scene.id, element.id)));
       clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
@@ -231,7 +236,11 @@ function renderLayerStack(
       acceptResourceDrop(clip, CHARACTER_DRAG_TYPE, (dataTransfer) => applyCharacterDrop(scene.id, element.id, dataTransfer));
       return [clip];
     });
-    rows.push(authoringTrack(`V${slot + 1}`, `Personaje ${slot + 1}`, totalWidth, clips));
+    const track = authoringTrack(`V${slot + 1}`, `Personaje ${slot + 1}`, totalWidth, clips);
+    // C6: soltar un personaje sobre la pista lo agrega a la escena de esa
+    // posición, con el mismo comando que usa el inspector.
+    acceptCharacterDropOnLane(track, project, positions, sceneWidths);
+    rows.push(track);
   }
   rows.push(trackDivider('AUDIO', 'Voces debajo de las capas visuales'));
   for (let slot = 0; slot < maximumCharacters; slot += 1) {
@@ -901,6 +910,67 @@ function sceneInsertButtons(
 }
 
 // ---- B5: soltar recursos de la biblioteca sobre clips ----
+
+// C6 — La pista de personajes acepta recursos soltados desde la biblioteca.
+// El clip existente ya acepta drop para *reemplazar*; la pista vacía *agrega*.
+function acceptCharacterDropOnLane(
+  row: HTMLElement,
+  project: ReturnType<ProjectStore['project']>,
+  positions: number[],
+  widths: number[],
+): void {
+  const lane = row.querySelector<HTMLElement>('.authoring-track-lane');
+  if (!lane) return;
+  const sceneAt = (event: DragEvent): { id: string; index: number } | null => {
+    const bounds = lane.getBoundingClientRect();
+    const x = event.clientX - bounds.left + lane.scrollLeft;
+    const index = positions.findIndex((left, position) => x >= left && x < left + widths[position]);
+    const scene = index >= 0 ? project.scenes[index] : null;
+    return scene ? { id: scene.id, index } : null;
+  };
+  lane.addEventListener('dragover', (event) => {
+    if (!event.dataTransfer?.types.includes(CHARACTER_DRAG_TYPE)) return;
+    if (event.target !== lane) return; // sobre un clip manda el clip.
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    lane.classList.add('is-drop-target');
+  });
+  lane.addEventListener('dragleave', () => lane.classList.remove('is-drop-target'));
+  lane.addEventListener('drop', (event) => {
+    lane.classList.remove('is-drop-target');
+    if (!event.dataTransfer?.types.includes(CHARACTER_DRAG_TYPE)) return;
+    if (event.target !== lane) return;
+    event.preventDefault();
+    const placement = readCharacterDrag(event.dataTransfer);
+    const scene = sceneAt(event);
+    if (!placement || !scene || !store) return;
+    const target = project.scenes[scene.index];
+    const existing = target.elements.filter((element) => element.type === 'character').length;
+    const elementId = nextElementId(`${target.id}-personaje`, target.elements.map((element) => element.id));
+    const error = store.dispatch({
+      type: 'add-character',
+      sceneId: target.id,
+      elementId,
+      resourceId: placement.resourceId,
+      x: existing % 2 === 0 ? 360 : 720,
+      y: 1180,
+      scale: 0.75,
+      zIndex: 20 + existing,
+    });
+    if (error) notify({ message: error, level: 'error' });
+    else selectElementCore(target.id, elementId);
+  });
+}
+
+function nextElementId(base: string, taken: readonly string[]): string {
+  let candidate = base;
+  let counter = 2;
+  while (taken.includes(candidate)) {
+    candidate = `${base}-${counter}`;
+    counter += 1;
+  }
+  return candidate;
+}
 
 function acceptResourceDrop(clip: HTMLElement, dragType: string, onDrop: (dataTransfer: DataTransfer) => void): void {
   clip.addEventListener('dragover', (event) => {

@@ -14,6 +14,13 @@ import type { ResourceEntry, ResourceType } from './types.js';
 type LibraryType = Extract<ResourceType, 'character' | 'background' | 'voice'>;
 const ACTIVE_LIBRARY_TAB_KEY = 'local-video.library-active-tab';
 
+/** C4: permite que otra superficie (el Director) pida mostrar un recurso. */
+export const REVEAL_RESOURCE_EVENT = 'local-video:reveal-resource';
+
+export function revealResource(resourceId: string): void {
+  window.dispatchEvent(new CustomEvent<string>(REVEAL_RESOURCE_EVENT, { detail: resourceId }));
+}
+
 export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   const root = optional<HTMLElement>('#resource-list');
   if (!root) return;
@@ -76,6 +83,34 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       render();
     });
   }
+
+  // C4: al pedir un recurso desde el Director se abre su pestaña, se limpia el
+  // filtro que pudiera ocultarlo y se destaca su tarjeta.
+  window.addEventListener(REVEAL_RESOURCE_EVENT, (event) => {
+    const resourceId = (event as CustomEvent<string>).detail;
+    const owner = (['character', 'background', 'voice'] as LibraryType[])
+      .find((type) => store.resources(type).some((resource) => resource.id === resourceId));
+    if (!owner) return;
+    if (owner !== activeType) {
+      activeType = owner;
+      sessionStorage.setItem(ACTIVE_LIBRARY_TAB_KEY, owner);
+      for (const item of document.querySelectorAll('.resource-tabs .tab')) {
+        const isOwner = (item as HTMLElement).dataset.resourceType === owner;
+        item.classList.toggle('is-active', isOwner);
+        item.setAttribute('aria-selected', String(isOwner));
+      }
+    }
+    if (filter) {
+      filter = '';
+      if (search) search.value = '';
+    }
+    render();
+    const card = root.querySelector<HTMLElement>(`[data-resource-id="${CSS.escape(resourceId)}"]`);
+    if (!card) return;
+    card.scrollIntoView({ block: 'nearest' });
+    card.classList.add('is-revealed');
+    card.addEventListener('animationend', () => card.classList.remove('is-revealed'), { once: true });
+  });
 
   registerButton?.addEventListener('click', () => registerFile?.click());
   registerFile?.addEventListener('change', async () => {
@@ -157,6 +192,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'resource-card';
+    card.dataset.resourceId = resource.id;
     card.title = resource.type === 'character'
       ? `Colocar ${resource.label} en el visor`
       : `Aplicar ${resource.label} a la escena seleccionada`;

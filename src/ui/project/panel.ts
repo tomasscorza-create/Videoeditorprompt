@@ -124,6 +124,9 @@ export function initProjectEditor(store: ProjectStore): void {
     number.textContent = `Escena ${index + 1}`;
     heading.append(number, title);
     const card = proposalCard();
+    // C2: anclas para que la selección de la timeline o el lienzo pueda
+    // localizar este bloque y destacarlo.
+    card.dataset.inspectorScene = scene.id;
     card.append(heading, ...dialogueScriptFields(scene));
     return card;
   }
@@ -139,6 +142,7 @@ export function initProjectEditor(store: ProjectStore): void {
       const fallbackName = speakerIndex >= 0 ? `Personaje ${speakerIndex + 1}` : `Personaje ${index + 1}`;
       const item = document.createElement('label');
       item.className = 'proposal-dialogue';
+      item.dataset.inspectorTurn = turn.id;
       const meta = document.createElement('span');
       meta.className = 'proposal-dialogue-meta';
       meta.textContent = `Personaje · ${character?.label ?? fallbackName}`;
@@ -247,7 +251,12 @@ export function initProjectEditor(store: ProjectStore): void {
         resourceId: resource.value,
       }));
 
-      fields.push(subheading(`Personaje ${characterNumber}`));
+      // C2: cada personaje queda en un grupo localizable desde timeline/lienzo.
+      const group = document.createElement('div');
+      group.className = 'inspector-element-group';
+      group.dataset.inspectorElement = element.id;
+      group.append(subheading(`Personaje ${characterNumber}`));
+      fields.push(group);
       const identityFields: HTMLElement[] = [field('Personaje', resource)];
       const selectedResource = characters.find((entry) => entry.id === element.resourceId);
       const animationPresets = readStringCapability(selectedResource?.capabilities, 'animationPresets');
@@ -264,8 +273,8 @@ export function initProjectEditor(store: ProjectStore): void {
         }));
         identityFields.push(field('Movimiento', animation));
       }
-      fields.push(controlGrid(...identityFields));
-      fields.push(controlGrid(
+      group.append(controlGrid(...identityFields));
+      group.append(controlGrid(
         transformField(scene, element, 'x', 'X', -1080, 2160, 1),
         transformField(scene, element, 'y', 'Y', -1920, 3840, 1),
         transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01),
@@ -276,7 +285,7 @@ export function initProjectEditor(store: ProjectStore): void {
       }), true);
       remove.disabled = scene.dialogue.some((turn) => turn.speakerElementId === element.id);
       if (remove.disabled) remove.title = 'Este personaje todavía tiene diálogos asignados.';
-      fields.push(remove);
+      group.append(remove);
     }
     const characterPicker = select(characters.map((entry) => ({ value: entry.id, label: entry.label })), characters[0]?.id ?? '');
     const add = actionButton('Agregar personaje', () => {

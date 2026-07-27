@@ -521,6 +521,14 @@
       </section>
     </div>
 
+    <dialog id="command-palette" class="modal command-palette" aria-label="Paleta de comandos">
+      <div class="modal-content">
+        <label class="visually-hidden" for="command-palette-input">Buscar una acción</label>
+        <input id="command-palette-input" type="text" placeholder="Buscar una acción… (Ctrl+K)" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="command-palette-list">
+        <div id="command-palette-list" class="command-palette-list" role="listbox" aria-label="Acciones disponibles"></div>
+      </div>
+    </dialog>
+
     <dialog id="projects-modal" class="modal projects-modal">
       <div class="modal-content">
         <header class="section-header">

@@ -1,6 +1,7 @@
 import { summarizeCommands } from '../command-labels.js';
 import { required } from '../dom.js';
 import { notify } from '../notifications.js';
+import { revealResource } from '../project/library.js';
 import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
 import { projectSelection } from '../project/selection.js';
@@ -434,8 +435,45 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     }
     const comparison = proposal ? compareCandidates(proposal.selection) : null;
     if (comparison) children.push(renderCandidateTable(comparison));
+    const context = proposal ? renderProposalContext(proposal.context) : null;
+    if (context) children.push(context);
     proposalQuality.replaceChildren(...children);
     proposalQuality.hidden = false;
+  }
+
+  // C4: qué recursos de la biblioteca consideró la IA. Cada chip lleva a su
+  // tarjeta, para que la conexión Director↔biblioteca sea navegable.
+  function renderProposalContext(context: DirectorProposal['context']): HTMLElement | null {
+    if (!context || context.resourceIds.length === 0) return null;
+    const details = document.createElement('details');
+    details.className = 'proposal-context';
+    const summary = document.createElement('summary');
+    summary.textContent = `Recursos elegidos (${context.resourceIds.length} de ${context.totalCatalogEntries})`;
+    details.append(summary);
+    const template = context.selectedTemplateId ?? context.recommendedTemplateId;
+    if (template) {
+      const line = document.createElement('p');
+      line.className = 'proposal-context-template';
+      line.textContent = `Plantilla base: ${template}`;
+      details.append(line);
+    }
+    const chips = document.createElement('div');
+    chips.className = 'proposal-context-chips';
+    for (const resourceId of context.resourceIds) {
+      const label = store?.resources('character').find((entry) => entry.id === resourceId)?.label
+        ?? store?.resources('background').find((entry) => entry.id === resourceId)?.label
+        ?? store?.resources('voice').find((entry) => entry.id === resourceId)?.label
+        ?? resourceId;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'proposal-context-chip';
+      chip.textContent = label;
+      chip.title = `Mostrar ${label} en la biblioteca`;
+      chip.addEventListener('click', () => revealResource(resourceId));
+      chips.append(chip);
+    }
+    details.append(chips);
+    return details;
   }
 
   // E2a: se muestra qué evaluó el juez. No se ofrece elegir otro candidato:
@@ -499,6 +537,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   }
 
   async function refreshGallery(resumeLastJob: boolean): Promise<void> {
+    // M3: esqueleto mientras llega la respuesta, en lugar de un texto de espera.
+    if (gallery.childElementCount === 0 || gallery.querySelector('.empty-state')) {
+      gallery.replaceChildren(skeleton(3, true));
+    }
     try {
       const jobs = await listRenderJobs();
       gallery.replaceChildren(...jobs.slice(0, 12).map(jobCard));
@@ -796,6 +838,19 @@ function hasAuthoredContent(store: ProjectStore | null): boolean {
 
 function isDirectorPage(value: string | undefined): value is DirectorPage {
   return DIRECTOR_PAGES.includes(value as DirectorPage);
+}
+
+/** Placeholder de carga: barras que ocupan el lugar del contenido real. */
+function skeleton(lines: number, asCards = false): HTMLElement {
+  const root = document.createElement('div');
+  root.className = 'skeleton';
+  root.setAttribute('aria-hidden', 'true');
+  for (let index = 0; index < lines; index += 1) {
+    const line = document.createElement('div');
+    line.className = asCards ? 'skeleton-line is-card' : 'skeleton-line';
+    root.append(line);
+  }
+  return root;
 }
 
 function humanState(state: RenderJob['state']): string {

@@ -11,6 +11,10 @@ import {
   type WorkspaceMode,
 } from './editor-workspace.js';
 
+// A2: recuerda el estado anterior para detectar el instante en que el render
+// pasa a estar vigente, que es cuando corresponde celebrarlo.
+let lastOutputState: 'missing' | 'current' | 'stale' | null = null;
+
 export function initViewerWorkspace(): void {
   const video = optional<HTMLVideoElement>('#director-result-video');
   if (video) bindEditorMedia(video);
@@ -79,7 +83,16 @@ function renderViewerWorkspace(): void {
       : outputState === 'stale' ? 'Cambios sin renderizar' : 'Sin render';
     status.classList.toggle('is-stale', outputState === 'stale');
     status.classList.toggle('is-missing', outputState === 'missing');
+    // A2: el paso a «render vigente» es el momento en que el trabajo terminó;
+    // se marca con una entrada animada en vez de un cambio mudo de texto.
+    if (outputState === 'current' && lastOutputState !== 'current') {
+      status.classList.remove('is-fresh');
+      void status.offsetWidth;
+      status.classList.add('is-fresh');
+      status.addEventListener('animationend', () => status.classList.remove('is-fresh'), { once: true });
+    }
   }
+  lastOutputState = outputState;
   const returnButton = optional<HTMLButtonElement>('#viewer-return-edit');
   if (returnButton) returnButton.hidden = state.mode !== 'editor' || state.surface !== 'playback';
   const download = optional<HTMLAnchorElement>('#director-result-download');

@@ -116,13 +116,39 @@ export function currentEditorOutput(): RenderedOutput | null {
   return editorOutputState() === 'current' ? output : null;
 }
 
-export function showWorkspaceMode(nextMode: WorkspaceMode): void {
-  mode = nextMode;
-  if (nextMode === 'creator') {
-    media?.pause();
-    surface = 'canvas';
+// M4 — Mejora progresiva: donde el navegador soporte View Transitions, el
+// cambio de superficie hace crossfade; donde no, el comportamiento es el de
+// siempre. El repintado ocurre síncrono en los listeners de `notify`, así que
+// basta con envolver la llamada.
+function withViewTransition(apply: () => void): void {
+  // Sin DOM (pruebas de módulos), sin soporte del navegador o con
+  // reduced-motion, se aplica el cambio directamente.
+  if (typeof document === 'undefined') {
+    apply();
+    return;
   }
-  notify();
+  const start = (document as Document & {
+    startViewTransition?: (callback: () => void) => unknown;
+  }).startViewTransition;
+  const reduced = typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (typeof start !== 'function' || reduced) {
+    apply();
+    return;
+  }
+  start.call(document, apply);
+}
+
+export function showWorkspaceMode(nextMode: WorkspaceMode): void {
+  withViewTransition(() => {
+    mode = nextMode;
+    if (nextMode === 'creator') {
+      media?.pause();
+      surface = 'canvas';
+    }
+    notify();
+  });
 }
 
 export function registerRenderedOutput(options: {
@@ -151,17 +177,21 @@ export function registerRenderedOutput(options: {
 }
 
 export function showEditorCanvas(): void {
-  media?.pause();
-  mode = 'editor';
-  surface = 'canvas';
-  notify();
+  withViewTransition(() => {
+    media?.pause();
+    mode = 'editor';
+    surface = 'canvas';
+    notify();
+  });
 }
 
 export async function showRenderedPlayback(): Promise<void> {
   if (!media || !currentEditorOutput()) return;
-  mode = 'editor';
-  surface = 'playback';
-  notify();
+  withViewTransition(() => {
+    mode = 'editor';
+    surface = 'playback';
+    notify();
+  });
   await media.play();
 }
 

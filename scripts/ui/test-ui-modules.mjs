@@ -24,6 +24,7 @@ const sources = [
   'src/ui/director/health-copy.ts',
   'src/ui/director/candidates-copy.ts',
   'src/ui/command-labels.ts',
+  'src/ui/command-registry.ts',
 ];
 const compile = spawnSync(process.execPath, [
   tsc,
@@ -95,6 +96,7 @@ const qualityCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'd
 const healthCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'health-copy.js')).href);
 const candidatesCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'candidates-copy.js')).href);
 const commandLabels = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'command-labels.js')).href);
+const commandRegistry = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'command-registry.js')).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 const fingerprint = await import(pathToFileURL(path.join(projectRoot, 'shared', 'project-fingerprint.js')).href);
 
@@ -512,6 +514,43 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('un empate se nombra como desempate', tie.verdict.includes('desempate'));
   check('sin totales no se inventa veredicto',
     compareCandidates({ bestOf: 2, winnerIndex: 0, judgeVersion: 1, scores: [scoreOf(7), scoreOf(6)], totals: null }).verdict === null);
+}
+
+// ---- command-registry.ts: búsqueda de la paleta de comandos (M2) ----
+{
+  const { fuzzyMatch, filterActions, groupActions, isAvailable } = commandRegistry;
+  check('una subsecuencia en orden coincide', fuzzyMatch('Nuevo proyecto', 'np') !== null);
+  check('un carácter ausente no coincide', fuzzyMatch('Nuevo proyecto', 'xyz') === null);
+  check('el orden importa', fuzzyMatch('Nuevo proyecto', 'pn') === null);
+  check('una consulta vacía coincide con todo', fuzzyMatch('lo que sea', '').score === 0);
+  check(
+    'el comienzo de palabra puntúa más que el medio',
+    fuzzyMatch('Nuevo proyecto', 'pro').score > fuzzyMatch('Comprobar', 'pro').score,
+  );
+
+  const acciones = [
+    { id: 'a', label: 'Renderizar video', group: 'Director', run: () => {} },
+    { id: 'b', label: 'Reproducir o pausar', group: 'Timeline', run: () => {} },
+    { id: 'c', label: 'Abrir configuración', group: 'Aplicación', keywords: ['tema'], run: () => {} },
+    { id: 'd', label: 'Deshacer', group: 'Timeline', unavailableReason: 'No hay nada que deshacer.', run: () => {} },
+  ];
+  check('sin consulta se listan todas las acciones', filterActions(acciones, '').length === 4);
+  check('la consulta filtra por etiqueta', filterActions(acciones, 'render').every((item) => item.action.id === 'a'));
+  check('una palabra clave encuentra la acción sin figurar en la etiqueta',
+    filterActions(acciones, 'tema').some((item) => item.action.id === 'c'));
+
+  const conNoDisponible = filterActions(acciones, 'e');
+  check('una acción no disponible sigue apareciendo', conNoDisponible.some((item) => item.action.id === 'd'));
+  check(
+    'las acciones disponibles se ordenan antes que las no disponibles',
+    conNoDisponible.findIndex((item) => !isAvailable(item.action)) === conNoDisponible.length - 1,
+  );
+  check('una acción sin motivo está disponible', isAvailable(acciones[0]) && !isAvailable(acciones[3]));
+
+  const grupos = groupActions(filterActions(acciones, ''));
+  check('las acciones se agrupan', grupos.length === 3);
+  check('el grupo conserva el orden de aparición', grupos[0].group === 'Director');
+  check('cada grupo lleva sus acciones', grupos[1].group === 'Timeline' && grupos[1].items.length === 2);
 }
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);
