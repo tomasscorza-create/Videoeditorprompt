@@ -36,10 +36,10 @@
   --danger: #ff7f88;
   --warning: #f2c879;
   --ok: #75d6a5;
-  --shadow: 0 1.5rem 4rem rgb(0 0 0 / .38);
+  --shadow: 0 2rem 5rem rgb(0 0 0 / .5);
   --input-bg: #111a16;
-  --panel-gradient: linear-gradient(145deg, #1d2c26 0%, #17221e 54%, #202c28 100%);
-  --panel-gradient-soft: linear-gradient(145deg, #23362e 0%, #1b2a24 58%, #26342f 100%);
+  --panel-gradient: linear-gradient(145deg, rgba(29, 44, 38, 0.75) 0%, rgba(23, 34, 30, 0.75) 54%, rgba(32, 44, 40, 0.75) 100%);
+  --panel-gradient-soft: linear-gradient(145deg, rgba(35, 54, 46, 0.75) 0%, rgba(27, 42, 36, 0.75) 58%, rgba(38, 52, 47, 0.75) 100%);
   --radius: .75rem;
   --radius-sm: .5rem;
   --director-width: 24rem;
@@ -72,7 +72,7 @@
   --transition-fast: .12s var(--ease-standard);
   --transition-base: .2s var(--ease-standard);
   /* Elevación (M5): dos niveles, no más. */
-  --shadow-raised: 0 .35rem 1rem rgb(0 0 0 / .18);
+  --shadow-raised: 0 .5rem 1.5rem rgb(0 0 0 / .3);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
 }
@@ -94,11 +94,11 @@
   --danger: #b3303e;
   --warning: #805a0d;
   --ok: #176e45;
-  --shadow: 0 1.2rem 3rem rgb(34 51 76 / .14);
+  --shadow: 0 1.5rem 4rem rgb(34 51 76 / .2);
   --input-bg: #f8fcfa;
-  --panel-gradient: linear-gradient(145deg, #fbfefc 0%, #edf8f1 52%, #e4f2eb 100%);
-  --panel-gradient-soft: linear-gradient(145deg, #f5fbf7 0%, #e5f3eb 56%, #dcece4 100%);
-  --shadow-raised: 0 .3rem .9rem rgb(34 51 76 / .12);
+  --panel-gradient: linear-gradient(145deg, rgba(251, 254, 252, 0.75) 0%, rgba(237, 248, 241, 0.75) 52%, rgba(228, 242, 235, 0.75) 100%);
+  --panel-gradient-soft: linear-gradient(145deg, rgba(245, 251, 247, 0.75) 0%, rgba(229, 243, 235, 0.75) 56%, rgba(220, 236, 228, 0.75) 100%);
+  --shadow-raised: 0 .4rem 1.2rem rgb(34 51 76 / .2);
 }
 
 /* === 2. Base (reset, elementos, foco) === */
@@ -136,8 +136,9 @@ button, .download-link {
   background: var(--surface-2);
 }
 
-button { cursor: pointer; }
-button:hover:not(:disabled) { border-color: var(--accent); background: var(--surface-3); }
+button { cursor: pointer; transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast); }
+button:hover:not(:disabled) { border-color: var(--accent); background: var(--surface-3); transform: translateY(-1px); box-shadow: var(--shadow-raised); }
+button:active:not(:disabled) { transform: translateY(1px); }
 button:disabled { cursor: not-allowed; opacity: .42; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -334,6 +335,8 @@ body:not(.is-resizing) .app-shell {
   padding: .55rem 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--panel-gradient);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .brand, .brand > div, .topbar-actions, .section-header, .action-row, .viewer-header, .viewer-footer, .timeline-header {
@@ -438,6 +441,8 @@ body:not(.is-resizing) .app-shell {
   border-radius: var(--radius);
   padding: .85rem;
   background: var(--panel-gradient);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   box-shadow: var(--shadow);
 }
 .create-popover {
@@ -451,6 +456,8 @@ body:not(.is-resizing) .app-shell {
   border-radius: var(--radius);
   padding: .65rem;
   background: var(--panel-gradient);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   box-shadow: var(--shadow);
 }
 .create-popover button {
@@ -652,6 +659,8 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel-gradient);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .workspace-panel {
