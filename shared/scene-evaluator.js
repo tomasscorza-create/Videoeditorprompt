@@ -1,3 +1,5 @@
+import { evaluateAnimationParams } from './animation-evaluator.js';
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -30,8 +32,14 @@ export function buildBlinkSchedule(durationSeconds, options) {
   return schedule;
 }
 
-export function evaluateScene(config, runtime, temporalData, timeSeconds) {
-  if (config.version === 2) return evaluateDialogueScene(config, runtime, temporalData, timeSeconds);
+/**
+ * `animation` es opcional y viene de `resolveAnimationScene`. Cuando falta, el
+ * estado devuelto es exactamente el de siempre, sin la clave `elements`: de eso
+ * depende que el `temporalHash` de los pilotos v2 no cambie. Las escenas v1
+ * heredadas no admiten pistas.
+ */
+export function evaluateScene(config, runtime, temporalData, timeSeconds, animation = null) {
+  if (config.version === 2) return evaluateDialogueScene(config, runtime, temporalData, timeSeconds, animation);
   return evaluateLegacyScene(config, runtime, temporalData, timeSeconds);
 }
 
@@ -79,10 +87,12 @@ function evaluateBackground(backgroundAnimation, time, duration) {
   };
 }
 
-function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
+function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds, animation = null) {
   const duration = runtime.audio.durationSeconds;
   const time = clamp(timeSeconds, 0, duration);
   const activeTurn = dialogueData.turns.find((turn) => time >= turn.startSeconds && time < turn.endSeconds);
+  const animatedParams = animation ? evaluateAnimationParams(animation, time) : null;
+  const elementParams = {};
   const characters = runtime.characters.map((characterRuntime) => {
     const transform = characterRuntime.transform;
     const entry = smoothstep(time / transform.entrySeconds);
@@ -104,13 +114,24 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
       && localTime < gestureCue.startSeconds + gestureCue.durationSeconds
       ? gestureCue.pose
       : 'neutral';
+    // Los parámetros son la fuente: primero la base (entrada, layout de turno y
+    // movimiento base), después la pista, que REEMPLAZA el valor base en vez de
+    // sumarse. La vista v2 de abajo se deriva de acá, así no hay dos cálculos.
+    const params = {
+      'position.x': layout ? layout.x : transform.fromX + (transform.toX - transform.fromX) * entry,
+      'position.y': (layout?.y ?? transform.baseY) + idle.y,
+      scale: (layout?.scale ?? transform.baseScale) + idle.scale,
+      opacity: clamp(time / 0.3, 0, 1),
+      ...(animatedParams?.[characterRuntime.id] ?? {}),
+    };
+    if (animation) elementParams[characterRuntime.id] = { params };
     return {
       id: characterRuntime.id,
       character: {
-        x: layout ? layout.x : transform.fromX + (transform.toX - transform.fromX) * entry,
-        y: (layout?.y ?? transform.baseY) + idle.y,
-        scale: (layout?.scale ?? transform.baseScale) + idle.scale,
-        opacity: clamp(time / 0.3, 0, 1),
+        x: params['position.x'],
+        y: params['position.y'],
+        scale: params.scale,
+        opacity: params.opacity,
       },
       eyes: blinking ? 'closed' : 'open',
       mouth: cue?.state ?? 'closed',
@@ -125,6 +146,9 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds) {
     activeTurnId: activeTurn?.id ?? null,
     subtitlePath: activeTurn?.subtitlePath ?? null,
     characters,
+    // Solo con animación: agregar la clave siempre cambiaría el temporalHash de
+    // todos los pilotos v2 sin que nada haya cambiado de verdad.
+    ...(animation ? { elements: elementParams } : {}),
   };
 }
 

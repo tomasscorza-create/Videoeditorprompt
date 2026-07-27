@@ -1,0 +1,93 @@
+{
+  "description": "Escena v2 ya medida, usada como baseline del gate de la Fase 2: agregar animación no puede cambiar lo que evaluateScene devuelve para una escena sin pistas.",
+  "config": {
+    "version": 2,
+    "video": { "width": 1080, "height": 1920, "fps": 30 }
+  },
+  "runtime": {
+    "audio": { "durationSeconds": 6.4 },
+    "backgroundAnimation": {
+      "camera": { "fromX": -40, "toX": 35, "fromY": -20, "toY": 18, "fromZoom": 1.02, "toZoom": 1.08 },
+      "layers": [
+        { "id": "cielo", "parallaxX": 0.2, "parallaxY": 0.15, "baseScale": 1.05 },
+        { "id": "estudio", "parallaxX": 0.6, "parallaxY": 0.45, "baseScale": 1.02 }
+      ]
+    },
+    "characters": [
+      {
+        "id": "personaje-a",
+        "transform": {
+          "entrySeconds": 0.6,
+          "fromX": -260,
+          "toX": -140,
+          "baseY": 210,
+          "baseScale": 1,
+          "bobPeriodSeconds": 3.1,
+          "bobAmplitude": 5,
+          "scalePulse": 0.004,
+          "idleProfile": "breathing",
+          "motionSeed": 4211
+        },
+        "blinks": [{ "start": 1.2, "end": 1.32 }, { "start": 4.05, "end": 4.17 }]
+      },
+      {
+        "id": "personaje-b",
+        "transform": {
+          "entrySeconds": 0.6,
+          "fromX": 260,
+          "toX": 150,
+          "baseY": 205,
+          "baseScale": 0.98,
+          "bobPeriodSeconds": 3.6,
+          "bobAmplitude": 4,
+          "scalePulse": 0.003,
+          "idleProfile": "sway",
+          "motionSeed": 881
+        },
+        "blinks": [{ "start": 2.4, "end": 2.52 }]
+      }
+    ]
+  },
+  "dialogueData": {
+    "turns": [
+      {
+        "id": "escena-1-t1",
+        "speakerId": "personaje-a",
+        "startSeconds": 0,
+        "endSeconds": 2.133,
+        "durationSeconds": 2.133,
+        "ttsText": "Hoy vemos como se mide el tiempo real de una voz",
+        "gesture": "neutral",
+        "subtitlePath": "subtitles/t1.png",
+        "mouthCues": [
+          { "start": 0, "end": 0.4, "state": "closed" },
+          { "start": 0.4, "end": 1.1, "state": "open" },
+          { "start": 1.1, "end": 1.7, "state": "medium" },
+          { "start": 1.7, "end": 2.133, "state": "closed" }
+        ]
+      },
+      {
+        "id": "escena-1-t2",
+        "speakerId": "personaje-b",
+        "startSeconds": 2.133,
+        "endSeconds": 6.4,
+        "durationSeconds": 4.267,
+        "ttsText": "Y ahora el dato que importa de verdad",
+        "gesture": "point",
+        "subtitlePath": "subtitles/t2.png",
+        "gestureCue": { "pose": "point", "startSeconds": 0.94, "durationSeconds": 1.2 },
+        "layout": [
+          { "characterId": "personaje-a", "x": -210, "y": 230, "scale": 0.92 },
+          { "characterId": "personaje-b", "x": 90, "y": 195, "scale": 1.06 }
+        ],
+        "mouthCues": [
+          { "start": 0, "end": 0.5, "state": "closed" },
+          { "start": 0.5, "end": 1.4, "state": "open" },
+          { "start": 1.4, "end": 2.2, "state": "round" },
+          { "start": 2.2, "end": 3.1, "state": "medium" },
+          { "start": 3.1, "end": 4.267, "state": "closed" }
+        ]
+      }
+    ]
+  }
+}

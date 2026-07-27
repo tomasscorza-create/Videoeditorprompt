@@ -412,6 +412,26 @@ guardan, publican y vuelven a abrir desde la biblioteca.
 **Gate:** pilotos v2 no cambian su `temporalHash`; fixtures V1 producen valores
 idénticos en dos ejecuciones.
 
+**Estado: ejecutada el 27 de julio de 2026.** `shared/animation-evaluator.js` y
+`shared/animation-contract.js`; 18 comprobaciones en `npm run anim:test-evaluator`.
+
+- El `temporalHash` de una escena v2 se congeló en una constante del test,
+  capturada **antes** de introducir la animación. `elements` solo aparece cuando
+  se evalúa con animación resuelta: agregar la clave siempre habría cambiado el
+  hash de todos los pilotos sin que nada cambiara de verdad.
+- La vista v2 se deriva de los parámetros, no de un cálculo aparte: primero se
+  arma `params` (entrada, layout de turno y movimiento base), después la pista
+  reemplaza el valor, y de ahí sale `characters[].character`.
+- El ancla de palabra se prorratea por cantidad de palabras sobre la duración
+  medida del turno, con el mismo criterio que `prepare-dialogue.mjs` ya usa para
+  los gestos. No hay alineación palabra por palabra: la precisión es la de un
+  prorrateo, y por eso el contrato empuja a anclar al turno cuando alcanza.
+- El vocabulario y el catálogo de errores se movieron a `shared/` porque el
+  evaluador y la interfaz no pueden importar ajv. La validación contra el schema
+  quedó en `scripts/animation/`, que reexporta el resto.
+- La comprobación de «fuera de escena» se hace en segundos y no en frames: la
+  cuantización sujeta los negativos a cero y taparía el error.
+
 ### Fase 3 — Contrato de compositor y PixiJS headless
 
 - Extraer el compositor actual detrás de contrato.
