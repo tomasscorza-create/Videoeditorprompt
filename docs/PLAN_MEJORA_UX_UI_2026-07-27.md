@@ -366,8 +366,32 @@ Cada ola es un punto de pausa válido: nada queda a medias entre olas.
    solo con teclado.
 4. Actualizar el estado de cada ítem en este documento al completarlo.
 
-## Vocabulario canónico (completar en E6)
+## Vocabulario canónico (resultado de E6)
+
+Auditoría del 27-07-2026 sobre `index.html` y todos los módulos de `src/ui`.
+El vocabulario ya estaba mayormente unificado; la tabla fija lo vigente y
+nombra lo que se corrigió.
 
 | Concepto | Término único | Prohibidos |
 |---|---|---|
-| _(rellenar al ejecutar E6)_ | | |
+| Guion generado por la IA, antes de aceptarlo | **Propuesta** | borrador, sugerencia, guion |
+| Lo que el usuario edita y se guarda | **Proyecto** | composición, documento |
+| Unidad narrativa del proyecto | **Escena** | secuencia, corte, plano |
+| Cada intervención hablada de una escena | **Diálogo** | turno, línea, parlamento, locución |
+| Proceso de generar el video final | **Render / renderizar** | exportación, exportar, publicar, generar video |
+| Archivo resultante | **MP4** | video final, salida, output, export |
+| Catálogo local de personajes, fondos y voces | **Biblioteca** | catálogo, assets, recursos externos |
+| Cada elemento de la biblioteca | **Recurso** | asset, ítem, material |
+| Tiempos calculados por palabras, sin audio | **Estimados / Sin medir** | aproximados, provisionales, tentativos |
+| Tiempos que salen del audio ya generado | **Medidos** | reales, definitivos, exactos |
+
+Correcciones aplicadas en E6:
+
+- **«Exportar» → «Render»** en el encabezado de la página de render, que
+  convivía con «Renderizar video» y «render» para el mismo concepto. El título
+  pasó de «Render local» a «Video final» para no repetir la palabra.
+- **«antes de exportar» → «antes de renderizar»** en la guía de primer uso.
+- El **voseo es consistente** en toda la UI: la única forma peninsular del repo
+  (`Elige`) está en un comentario de código, no en pantalla.
+- «Turno» no aparece en la interfaz (solo en el código y el motor); en pantalla
+  el término es siempre «diálogo».

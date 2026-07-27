@@ -1,4 +1,5 @@
 import { optional } from '../dom.js';
+import { notify } from '../notifications.js';
 import type { ProjectStore } from './store.js';
 import type { ElementView, SceneView, TurnView } from './types.js';
 import { PROJECT_SELECTION_EVENT, projectSelection, type ProjectSelection } from './selection.js';
@@ -19,11 +20,14 @@ export function initProjectEditor(store: ProjectStore): void {
   const proposalTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-proposal-tab]'));
   let activeProposalTab: ProposalTab = 'scene';
 
+  // U5: el rechazo del motor se notifica además de escribirse en el panel.
   function report(message: string | null, ok = false): void {
-    if (!status) return;
-    status.textContent = message ?? '';
-    status.classList.toggle('error', Boolean(message) && !ok);
-    status.classList.toggle('ok', Boolean(message) && ok);
+    if (status) {
+      status.textContent = message ?? '';
+      status.classList.toggle('error', Boolean(message) && !ok);
+      status.classList.toggle('ok', Boolean(message) && ok);
+    }
+    if (message && !ok) notify({ message, level: 'error' });
   }
 
   // Todo cambio pasa por un comando semántico; el error del motor se muestra tal cual.

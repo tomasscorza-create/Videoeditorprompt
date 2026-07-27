@@ -6,6 +6,7 @@ import { initResourceLibrary } from './project/library.js';
 import { initProjectEditor } from './project/panel.js';
 import { persistStore, restoreSession } from './project/persistence.js';
 import { initProjectTimeline } from './project/project-timeline.js';
+import { initOnboarding } from './onboarding.js';
 import { initProjectIdentity } from './project-identity.js';
 import { loadProjectStore, type ProjectStore } from './project/store.js';
 import { initSettingsModal, initTheme } from './theme.js';
@@ -73,6 +74,7 @@ function attachProjectUi(store: ProjectStore): void {
   let projectRevision = projectFingerprint(store.project());
   setActiveEditorProject(store.project().id, projectRevision);
   initProjectIdentity(store);
+  initOnboarding(store);
   initProjectFiles(store);
   initProjectEditor(store);
   initProjectTimeline(store);

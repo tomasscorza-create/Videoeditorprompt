@@ -58,6 +58,7 @@ export function initTimelineShell(): void {
   if (initialized) return;
   initialized = true;
 
+  initTimelineModeExplanation();
   optional<HTMLButtonElement>('#timeline-undo')?.addEventListener('click', () => store?.undo());
   optional<HTMLButtonElement>('#timeline-redo')?.addEventListener('click', () => store?.redo());
   optional<HTMLButtonElement>('#timeline-play')?.addEventListener('click', togglePlayback);
@@ -1413,6 +1414,58 @@ function setTimelineMode(measured: boolean, customLabel?: string): void {
     mode.textContent = customLabel ?? (measured ? 'Medido' : 'Sin medir');
     mode.classList.toggle('is-measured', measured);
   }
+  renderTimelineModeExplanation(measured);
+}
+
+// E4: el badge deja de ser jerga. Explica de dónde sale la duración y qué
+// hacer para verla real, con acción directa cuando el render está disponible.
+function renderTimelineModeExplanation(measured: boolean): void {
+  const popover = optional<HTMLElement>('#timeline-mode-popover');
+  if (!popover) return;
+  const title = document.createElement('strong');
+  title.textContent = measured ? 'Tiempos medidos' : 'Tiempos estimados';
+  const body = document.createElement('p');
+  body.textContent = measured
+    ? 'Estos tiempos salen del audio real generado en el último render: la duración de cada diálogo es la que va a tener el MP4.'
+    : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace al renderizar, cuando las voces se sintetizan.';
+  popover.replaceChildren(title, body);
+  if (!measured) {
+    const cta = document.createElement('button');
+    cta.type = 'button';
+    cta.className = 'text-button';
+    cta.textContent = 'Renderizar para medir';
+    cta.addEventListener('click', () => {
+      toggleTimelineModePopover(false);
+      optional<HTMLButtonElement>('#director-render')?.click();
+    });
+    popover.append(cta);
+  }
+}
+
+function toggleTimelineModePopover(open: boolean): void {
+  const popover = optional<HTMLElement>('#timeline-mode-popover');
+  const badge = optional<HTMLElement>('#timeline-mode');
+  if (!popover || !badge) return;
+  popover.hidden = !open;
+  badge.setAttribute('aria-expanded', String(open));
+}
+
+export function initTimelineModeExplanation(): void {
+  const badge = optional<HTMLButtonElement>('#timeline-mode');
+  const popover = optional<HTMLElement>('#timeline-mode-popover');
+  if (!badge || !popover) return;
+  badge.addEventListener('click', () => toggleTimelineModePopover(popover.hidden !== false));
+  document.addEventListener('pointerdown', (event) => {
+    if (popover.hidden || !(event.target instanceof Node)) return;
+    if (!popover.contains(event.target) && !badge.contains(event.target)) toggleTimelineModePopover(false);
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && popover.hidden === false) {
+      toggleTimelineModePopover(false);
+      badge.focus();
+    }
+  });
+  renderTimelineModeExplanation(isMeasured());
 }
 
 function setSummary(message: string): void {

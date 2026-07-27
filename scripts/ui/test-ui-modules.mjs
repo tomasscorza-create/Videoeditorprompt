@@ -22,6 +22,8 @@ const sources = [
   'src/ui/notifications-queue.ts',
   'src/ui/director/quality-copy.ts',
   'src/ui/director/health-copy.ts',
+  'src/ui/director/candidates-copy.ts',
+  'src/ui/command-labels.ts',
 ];
 const compile = spawnSync(process.execPath, [
   tsc,
@@ -91,6 +93,8 @@ const directorNavigation = await import(pathToFileURL(directorNavigationPath).hr
 const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'notifications-queue.js')).href);
 const qualityCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'quality-copy.js')).href);
 const healthCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'health-copy.js')).href);
+const candidatesCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'candidates-copy.js')).href);
+const commandLabels = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'command-labels.js')).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 const fingerprint = await import(pathToFileURL(path.join(projectRoot, 'shared', 'project-fingerprint.js')).href);
 
@@ -430,6 +434,84 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('con dos dependencias caídas el badge pide revisar', down.badge === 'Revisar');
   check('un render en curso avisa sin ser error', down.dependencies[2].state === 'warn');
   check('sin modelo conocido no se inventa identidad', down.modelIdentity === null);
+}
+
+// ---- command-labels.ts: qué cambió tras una edición IA (C3) y undo narrado (U1) ----
+{
+  const { describeCommand, describeCommands, summarizeCommands } = commandLabels;
+  const context = { sceneIds: ['s1', 's2', 's3'] };
+  check('un comando conocido se narra en lenguaje de usuario', describeCommand({ type: 'add-scene' }) === 'Agregó una escena');
+  check(
+    'el id de escena se traduce a su número',
+    describeCommand({ type: 'set-dialogue-turn', sceneId: 's2' }, context) === 'Cambió un diálogo de la escena 2',
+  );
+  check(
+    'sin contexto la escena no se inventa',
+    describeCommand({ type: 'set-dialogue-turn', sceneId: 's2' }) === 'Cambió un diálogo de una escena',
+  );
+  check(
+    'una escena ajena al proyecto no se numera',
+    describeCommand({ type: 'delete-scene', sceneId: 'otra' }, context) === 'Eliminó una escena',
+  );
+  check('un comando no mapeado degrada a texto legible, no a texto falso', describeCommand({ type: 'nuevo-comando' }) === 'Aplicó nuevo comando');
+  check('un comando sin tipo no rompe', describeCommand({}) === 'Aplicó un cambio');
+
+  const repeated = describeCommands(
+    [
+      { type: 'set-dialogue-turn', sceneId: 's1' },
+      { type: 'set-dialogue-turn', sceneId: 's1' },
+      { type: 'set-transition', sceneId: 's1' },
+    ],
+    context,
+  );
+  check('los cambios repetidos se agrupan con su cuenta', repeated[0] === 'Cambió un diálogo de la escena 1 (×2)');
+  check('los cambios distintos se listan aparte', repeated.length === 2);
+
+  const many = describeCommands(
+    ['s1', 's2', 's3', 's1', 's2'].map((sceneId, index) => ({ type: index % 2 ? 'set-scene-title' : 'set-transition', sceneId })),
+    context,
+    2,
+  );
+  check('una lista larga se recorta con un resumen del resto', many.length === 3 && many[2].includes('más'));
+
+  check('sin comandos se dice que no hubo cambios', summarizeCommands([]).includes('no encontró cambios'));
+  check(
+    'el resumen une los cambios en una línea',
+    summarizeCommands([{ type: 'add-scene' }, { type: 'reorder-scenes' }], context) === 'Agregó una escena · Reordenó las escenas',
+  );
+}
+
+// ---- candidates-copy.ts: comparación de candidatos (E2a) ----
+{
+  const { compareCandidates, strongestCriterion } = candidatesCopy;
+  const scoreOf = (base) => ({
+    relevance: base, hook: base, naturalness: base, progression: base,
+    ending: base, tone: base, tts: base, audiovisual: base,
+  });
+  check('sin scores no hay comparación', compareCandidates({ bestOf: 1, winnerIndex: 0, judgeVersion: 1, scores: null }) === null);
+  check(
+    'con un solo candidato no hay nada que comparar',
+    compareCandidates({ bestOf: 1, winnerIndex: 0, judgeVersion: 1, scores: [scoreOf(7)] }) === null,
+  );
+
+  const comparison = compareCandidates({
+    bestOf: 2,
+    winnerIndex: 1,
+    judgeVersion: 1,
+    scores: [scoreOf(6), { ...scoreOf(7), hook: 9 }],
+    totals: [48, 58],
+  });
+  check('se comparan los ocho criterios del juez', comparison.criteria.length === 8);
+  check('el ganador queda marcado', comparison.rows[1].winner && !comparison.rows[0].winner);
+  check('el veredicto explica el margen', comparison.verdict.includes('10'));
+  check('el criterio más fuerte del ganador se identifica', strongestCriterion(comparison) === 'Gancho');
+
+  const tie = compareCandidates({
+    bestOf: 2, winnerIndex: 0, judgeVersion: 1, scores: [scoreOf(7), scoreOf(7)], totals: [56, 56],
+  });
+  check('un empate se nombra como desempate', tie.verdict.includes('desempate'));
+  check('sin totales no se inventa veredicto',
+    compareCandidates({ bestOf: 2, winnerIndex: 0, judgeVersion: 1, scores: [scoreOf(7), scoreOf(6)], totals: null }).verdict === null);
 }
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);

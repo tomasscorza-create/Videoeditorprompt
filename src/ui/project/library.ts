@@ -1,4 +1,5 @@
 import { optional } from '../dom.js';
+import { notify } from '../notifications.js';
 import { importBackgroundResource } from '../director/api.js';
 import {
   CHARACTER_PLACEMENT_EVENT,
@@ -19,6 +20,12 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   const registerButton = optional<HTMLButtonElement>('#resource-register');
   const registerFile = optional<HTMLInputElement>('#resource-register-file');
   const libraryStatus = optional<HTMLElement>('#resource-library-status');
+  const search = optional<HTMLInputElement>('#resource-search');
+  let filter = '';
+  search?.addEventListener('input', () => {
+    filter = search.value.trim().toLowerCase();
+    render();
+  });
   window.addEventListener(CHARACTER_PLACEMENT_EVENT, () => {
     if (currentCharacterPlacement()) return;
     for (const item of root.querySelectorAll('.resource-card')) item.classList.remove('is-placement-source');
@@ -101,14 +108,49 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     }
   });
 
+  // U5: los fallos de la biblioteca también se notifican; el panel derecho
+  // puede estar colapsado cuando ocurren.
   function setLibraryStatus(message: string, isError: boolean): void {
-    if (!libraryStatus) return;
-    libraryStatus.textContent = message;
-    libraryStatus.classList.toggle('error', isError);
+    if (libraryStatus) {
+      libraryStatus.textContent = message;
+      libraryStatus.classList.toggle('error', isError);
+    }
+    if (isError) notify({ message, level: 'error' });
+  }
+
+  // U2: filtro en vivo por nombre y etiquetas, del lado del cliente.
+  function matchesFilter(resource: ResourceEntry): boolean {
+    if (!filter) return true;
+    const haystack = [resource.label, ...(resource.tags ?? [])].join(' ').toLowerCase();
+    return haystack.includes(filter);
   }
 
   function render(): void {
-    root!.replaceChildren(...store.resources(activeType).map(resourceCard));
+    const all = store.resources(activeType);
+    const visible = all.filter(matchesFilter);
+    if (visible.length > 0) {
+      root!.replaceChildren(...visible.map(resourceCard));
+      return;
+    }
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    if (all.length === 0) {
+      empty.textContent = 'No hay recursos de este tipo todavía.';
+      root!.replaceChildren(empty);
+      return;
+    }
+    empty.textContent = `Ningún recurso coincide con «${filter}».`;
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'text-button';
+    clear.textContent = 'Limpiar filtro';
+    clear.addEventListener('click', () => {
+      if (search) search.value = '';
+      filter = '';
+      render();
+      search?.focus();
+    });
+    root!.replaceChildren(empty, clear);
   }
 
   function resourceCard(resource: ResourceEntry): HTMLElement {

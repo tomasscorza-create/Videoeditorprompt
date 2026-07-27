@@ -1,3 +1,4 @@
+import { summarizeCommands } from '../command-labels.js';
 import { required } from '../dom.js';
 import { notify } from '../notifications.js';
 import { persistLastJobId, readLastJobId } from '../project/persistence.js';
@@ -22,6 +23,7 @@ import {
   type DirectorProposal,
   type RenderJob,
 } from './api.js';
+import { compareCandidates, strongestCriterion } from './candidates-copy.js';
 import { summarizeHealth, type DependencyView } from './health-copy.js';
 import { summarizeQuality } from './quality-copy.js';
 import {
@@ -170,11 +172,19 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       const templateDetail = !editing && templateId
         ? ` Plantilla base: ${templateId}.`
         : '';
-      report(editing
-        ? appliedCommands > 0
-          ? `${appliedCommands} cambio(s) aplicados por el Director.${contextDetail} El render quedó pendiente; podés deshacer desde la timeline.`
-          : `El Director no encontró cambios representables para aplicar.${contextDetail}`
-        : `Propuesta creada.${templateDetail}${contextDetail} Está lista para revisar y renderizar.`, true);
+      // C3: la respuesta trae los comandos exactos; se narran en vez de contarlos.
+      if (editing && 'commands' in result) {
+        const changes = summarizeCommands(result.commands, { sceneIds: store?.project().scenes.map((scene) => scene.id) });
+        report(appliedCommands > 0
+          ? `${changes}.${contextDetail} El render quedó pendiente; podés deshacer desde la timeline.`
+          : `El Director no encontró cambios representables para aplicar.${contextDetail}`, true);
+        notify({
+          message: appliedCommands > 0 ? `El Director cambió: ${changes}.` : 'El Director no encontró cambios para aplicar.',
+          level: appliedCommands > 0 ? 'success' : 'info',
+        });
+      } else {
+        report(`Propuesta creada.${templateDetail}${contextDetail} Está lista para revisar y renderizar.`, true);
+      }
     } catch (error) {
       reportError(error);
     } finally {
@@ -422,8 +432,70 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       clean.textContent = 'El revisor no encontró problemas en el guion.';
       children.push(clean);
     }
+    const comparison = proposal ? compareCandidates(proposal.selection) : null;
+    if (comparison) children.push(renderCandidateTable(comparison));
     proposalQuality.replaceChildren(...children);
     proposalQuality.hidden = false;
+  }
+
+  // E2a: se muestra qué evaluó el juez. No se ofrece elegir otro candidato:
+  // la API solo devuelve el proyecto del ganador (eso es E2b, con servidor).
+  function renderCandidateTable(comparison: NonNullable<ReturnType<typeof compareCandidates>>): HTMLElement {
+    const details = document.createElement('details');
+    details.className = 'candidate-comparison';
+    const summary = document.createElement('summary');
+    const strongest = strongestCriterion(comparison);
+    summary.textContent = comparison.verdict
+      ? `${comparison.verdict}${strongest ? ` Destacó en ${strongest.toLowerCase()}.` : ''}`
+      : `Se compararon ${comparison.rows.length} propuestas.`;
+    details.append(summary);
+
+    const table = document.createElement('table');
+    table.className = 'candidate-table';
+    const head = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    headRow.append(document.createElement('th'));
+    for (const row of comparison.rows) {
+      const cell = document.createElement('th');
+      cell.scope = 'col';
+      cell.textContent = row.winner ? `${row.name} ✓` : row.name;
+      if (row.winner) cell.className = 'is-winner';
+      headRow.append(cell);
+    }
+    head.append(headRow);
+    const body = document.createElement('tbody');
+    for (const [index, criterion] of comparison.criteria.entries()) {
+      const line = document.createElement('tr');
+      const label = document.createElement('th');
+      label.scope = 'row';
+      label.textContent = criterion;
+      line.append(label);
+      for (const row of comparison.rows) {
+        const cell = document.createElement('td');
+        cell.textContent = String(row.scores[index]?.value ?? '—');
+        if (row.winner) cell.className = 'is-winner';
+        line.append(cell);
+      }
+      body.append(line);
+    }
+    if (comparison.rows.some((row) => row.total !== null)) {
+      const totals = document.createElement('tr');
+      totals.className = 'candidate-total';
+      const label = document.createElement('th');
+      label.scope = 'row';
+      label.textContent = 'Total';
+      totals.append(label);
+      for (const row of comparison.rows) {
+        const cell = document.createElement('td');
+        cell.textContent = row.total === null ? '—' : String(Math.round(row.total * 10) / 10);
+        if (row.winner) cell.className = 'is-winner';
+        totals.append(cell);
+      }
+      body.append(totals);
+    }
+    table.append(head, body);
+    details.append(table);
+    return details;
   }
 
   async function refreshGallery(resumeLastJob: boolean): Promise<void> {
@@ -689,15 +761,32 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     status.classList.toggle('ok', ok);
   }
 
-  // Los errores viajan también por notificación: el panel puede estar
-  // colapsado o en otra página cuando ocurren.
+  // U5: todo error ofrece un siguiente paso. Cuando la causa es una
+  // dependencia local, el botón abre el diagnóstico (E3) en vez de dejar al
+  // usuario con un texto sin salida.
   function reportError(error: unknown): void {
     const detail = error instanceof Error && 'detail' in error
       ? (error as Error & { detail?: ApiError }).detail
       : null;
     const message = detail ? formatApiError(detail) : error instanceof Error ? error.message : String(error);
     report(message);
-    notify({ message, level: 'error' });
+    const isDependencyFailure = detail?.code === 'LOCAL_SERVICE_UNAVAILABLE'
+      || (detail?.code?.startsWith('OLLAMA') ?? false)
+      || (detail?.code?.startsWith('TTS') ?? false);
+    notify({
+      message,
+      level: 'error',
+      ...(isDependencyFailure
+        ? {
+          actionLabel: 'Ver diagnóstico',
+          onAction: () => {
+            void refreshHealth();
+            toggleHealthPopover(true);
+            healthBadge.focus();
+          },
+        }
+        : {}),
+    });
   }
 }
 

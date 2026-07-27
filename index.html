@@ -247,8 +247,8 @@
             <div id="director-page-render" class="director-page" role="tabpanel" aria-labelledby="director-page-render-tab" hidden>
               <header class="section-header compact">
                 <div>
-                  <span class="eyebrow">Exportar</span>
-                  <h2 id="render-title">Render local</h2>
+                  <span class="eyebrow">Render</span>
+                  <h2 id="render-title">Video final</h2>
                 </div>
               </header>
               <p id="render-readiness" class="render-readiness" role="status" aria-live="polite">Comprobando si el proyecto está listo para renderizar.</p>
@@ -310,6 +310,7 @@
                 <svg id="character-creator-canvas" viewBox="0 0 1080 1920" role="img" aria-label="Vista previa del personaje"></svg>
               </div>
             </div>
+            <aside id="onboarding" class="onboarding" aria-label="Cómo empezar" hidden></aside>
             <div id="preview-view" class="vertical-stage legacy-preview-view" aria-hidden="true" hidden>
               <div id="stage"></div>
               <div id="canvas-loading" class="canvas-loading" role="status">Cargando preview medido…</div>
@@ -363,6 +364,10 @@
               <button class="tab is-active" data-resource-type="character" type="button" role="tab" aria-selected="true" aria-controls="resource-list">Personajes</button>
               <button class="tab" data-resource-type="background" type="button" role="tab" aria-selected="false" aria-controls="resource-list">Fondos</button>
               <button class="tab" data-resource-type="voice" type="button" role="tab" aria-selected="false" aria-controls="resource-list">Voces</button>
+            </div>
+            <div class="resource-filter">
+              <label class="visually-hidden" for="resource-search">Buscar recursos</label>
+              <input id="resource-search" type="search" placeholder="Buscar por nombre o etiqueta" autocomplete="off">
             </div>
             <div id="resource-list" class="resource-list"><p class="empty-state">Abrí un proyecto para explorar recursos.</p></div>
           </section>
@@ -500,7 +505,8 @@
           </div>
           <div class="timeline-spacer"></div>
           <output id="timeline-timecode" class="timeline-timecode">00:00.000 / --:--.---</output>
-          <span id="timeline-mode" class="timeline-mode">Sin medir</span>
+          <button id="timeline-mode" class="timeline-mode" type="button" aria-expanded="false" aria-controls="timeline-mode-popover" title="Qué significa este modo">Sin medir</button>
+          <div id="timeline-mode-popover" class="timeline-mode-popover" role="dialog" aria-label="Modo de la timeline" hidden></div>
           <button id="timeline-shortcuts" class="timeline-tool" type="button" title="Ver atajos de timeline" aria-label="Ver atajos de timeline"><svg class="icon" aria-hidden="true"><use href="#ui-icon-keyboard"/></svg></button>
           <div class="timeline-tool-group" aria-label="Zoom">
             <button id="timeline-zoom-out" class="timeline-tool" type="button" title="Alejar (-)" aria-label="Alejar timeline"><svg class="icon" aria-hidden="true"><use href="#ui-icon-zoom-out"/></svg></button>
