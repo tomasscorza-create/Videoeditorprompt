@@ -502,6 +502,20 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .action-row { gap: .4rem; margin-top: .6rem; }
 .action-row > :first-child { flex: 1; }
 .director-primary-action button { width: 100%; min-height: 2.2rem; padding: .45rem .65rem; }
+.render-readiness {
+  min-height: 2.3rem;
+  margin: .35rem 0 0;
+  padding: .45rem .55rem;
+  border: 1px solid var(--border);
+  border-radius: .55rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: .68rem;
+  line-height: 1.35;
+}
+.render-readiness.is-ready { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.render-readiness.is-current { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--border)); }
+.render-readiness.is-blocked { color: var(--muted); }
 
 .primary-button {
   color: var(--accent-ink);
@@ -551,6 +565,18 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   background: var(--surface);
   box-shadow: 0 .12rem .4rem rgb(0 0 0 / .12);
 }
+.director-page-tab.has-pending-render::after,
+.director-page-tab.has-current-render::after {
+  content: "";
+  display: inline-block;
+  width: .36rem;
+  height: .36rem;
+  margin-left: .28rem;
+  border-radius: 50%;
+  background: var(--warning);
+  vertical-align: middle;
+}
+.director-page-tab.has-current-render::after { background: var(--ok); }
 .director-page-tab:disabled {
   color: color-mix(in srgb, var(--muted) 50%, transparent);
   background: transparent;
@@ -1020,6 +1046,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   white-space: nowrap;
 }
 .viewer-output-status.is-stale { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 60%, var(--border)); }
+.viewer-output-status.is-missing { color: var(--muted); border-color: var(--border-strong); }
 .download-link { flex: none; min-height: auto; padding: .4rem .55rem; color: var(--accent-ink); border-color: var(--accent); background: var(--accent); text-decoration: none; font-size: .7rem; font-weight: 700; }
 
 .resource-tabs { margin-bottom: .65rem; overflow-x: auto; }

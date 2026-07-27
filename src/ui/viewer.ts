@@ -2,6 +2,7 @@ import { optional } from './dom.js';
 import {
   bindEditorMedia,
   EDITOR_WORKSPACE_EVENT,
+  editorOutputState,
   editorWorkspace,
   registerRenderedOutput,
   showEditorCanvas,
@@ -29,6 +30,7 @@ export function showFinalVideo(options: {
   url: string;
   downloadName: string;
   timeline: MeasuredProjectTimeline | null;
+  projectRevision?: string | null;
   current: boolean;
   reveal?: boolean;
 }): void {
@@ -37,6 +39,7 @@ export function showFinalVideo(options: {
 
 function renderViewerWorkspace(): void {
   const state = editorWorkspace();
+  const outputState = editorOutputState();
   for (const mode of ['editor', 'creator'] as WorkspaceMode[]) {
     const active = state.mode === mode;
     const button = optional<HTMLButtonElement>(`#workspace-${mode}`);
@@ -58,17 +61,24 @@ function renderViewerWorkspace(): void {
     description.textContent = state.mode === 'creator'
       ? 'Construí un recurso animable y guardalo en la biblioteca local.'
       : state.surface === 'playback'
-        ? state.output?.stale
-          ? 'Reproduciendo la última exportación. El proyecto tiene cambios posteriores sin renderizar.'
+        ? outputState === 'stale'
+          ? 'Vista histórica: este MP4 no corresponde a la edición actual.'
           : 'Reproducción medida del proyecto. La timeline y el visor comparten el mismo transporte.'
-        : 'Seleccioná y arrastrá personajes. La duración real aparece cuando el proyecto se renderiza.';
+        : outputState === 'stale'
+          ? 'Vista editable actualizada. Hay cambios sin renderizar; el MP4 anterior no se usará para reproducir.'
+          : outputState === 'current'
+            ? 'Vista editable sincronizada con el render vigente.'
+            : 'Vista editable sin render. La duración real aparecerá al generar el primer MP4.';
   }
 
   const status = optional<HTMLElement>('#viewer-output-status');
   if (status) {
-    status.hidden = state.mode !== 'editor' || !state.output || state.output.stale;
-    status.textContent = 'Exportación actual';
-    status.classList.toggle('is-stale', Boolean(state.output?.stale));
+    status.hidden = state.mode !== 'editor' || !state.activeProjectId;
+    status.textContent = outputState === 'current'
+      ? 'Render vigente'
+      : outputState === 'stale' ? 'Cambios sin renderizar' : 'Sin render';
+    status.classList.toggle('is-stale', outputState === 'stale');
+    status.classList.toggle('is-missing', outputState === 'missing');
   }
   const returnButton = optional<HTMLButtonElement>('#viewer-return-edit');
   if (returnButton) returnButton.hidden = state.mode !== 'editor' || state.surface !== 'playback';
@@ -78,7 +88,9 @@ function renderViewerWorkspace(): void {
     if (state.output) {
       download.href = state.output.url;
       download.download = state.output.downloadName;
-      download.textContent = 'Descargar MP4';
+      download.textContent = outputState === 'stale' ? 'Descargar MP4 anterior' : 'Descargar MP4';
     }
   }
+  const video = optional<HTMLVideoElement>('#director-result-video');
+  if (video) video.controls = state.surface === 'playback' && outputState === 'stale';
 }

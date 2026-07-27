@@ -3,6 +3,8 @@ import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
 import { projectSelection } from '../project/selection.js';
 import { showFinalVideo } from '../viewer.js';
+import { EDITOR_WORKSPACE_EVENT, editorOutputState, editorWorkspace } from '../editor-workspace.js';
+import { projectFingerprint } from '../../../shared/project-fingerprint.js';
 import {
   cancelDirectorProposal,
   cancelRenderJob,
@@ -47,6 +49,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const progressRoot = required<HTMLElement>('#render-progress');
   const progressBar = required<HTMLElement>('#render-progress-bar');
   const progressLabel = required<HTMLElement>('#render-progress-label');
+  const renderReadiness = required<HTMLElement>('#render-readiness');
   const gallery = required<HTMLElement>('#render-job-gallery');
   const refreshJobs = required<HTMLButtonElement>('#jobs-refresh');
   const filesMenu = required<HTMLDetailsElement>('#files-menu');
@@ -68,7 +71,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   let pollTimer: number | null = null;
   let readyForProposal = false;
   let readyForRender = false;
-  const renderProjectSnapshots = new Map<string, string>();
+  let healthChecked = false;
   const subscribedStores = new WeakSet<ProjectStore>();
 
   root.hidden = false;
@@ -143,8 +146,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         ? ` Plantilla base: ${templateId}.`
         : '';
       report(editing
-        ? `${appliedCommands} cambio(s) aplicados por el Director.${contextDetail} Podés deshacerlos desde la timeline.`
-        : `Propuesta creada.${templateDetail}${contextDetail} Podés corregirla antes de renderizar.`, true);
+        ? appliedCommands > 0
+          ? `${appliedCommands} cambio(s) aplicados por el Director.${contextDetail} El render quedó pendiente; podés deshacer desde la timeline.`
+          : `El Director no encontró cambios representables para aplicar.${contextDetail}`
+        : `Propuesta creada.${templateDetail}${contextDetail} Está lista para revisar y renderizar.`, true);
     } catch (error) {
       reportError(error);
     } finally {
@@ -152,6 +157,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       setBusy(null);
     }
   });
+  window.addEventListener(EDITOR_WORKSPACE_EVENT, syncButtons);
 
   render.addEventListener('click', async () => {
     if (!store) {
@@ -166,7 +172,6 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     setBusy('render', 'Enviando el proyecto al pipeline local…');
     try {
       const job = await startRender(store.project());
-      renderProjectSnapshots.set(job.jobId, JSON.stringify(store.project()));
       currentJobId = job.jobId;
       persistLastJobId(job.jobId);
       transitionNavigation({ type: 'render-opened' });
@@ -291,6 +296,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   async function refreshHealth(): Promise<void> {
     try {
       const health = await getHealth();
+      healthChecked = true;
       readyForProposal = health.ollama.available && health.ollama.modelInstalled;
       readyForRender = health.tts.available;
       healthBadge.className = `health-badge ${readyForProposal && readyForRender ? 'is-ready' : 'is-error'}`;
@@ -307,6 +313,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       }
       syncButtons();
     } catch {
+      healthChecked = true;
       readyForProposal = false;
       readyForRender = false;
       healthBadge.className = 'health-badge is-error';
@@ -374,7 +381,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     card.append(icon, copy, state);
     if (job.result) {
       card.addEventListener('click', () => {
-        showCompleted(job, true);
+        const current = showCompleted(job, true, true);
+        if (!current) report('Mostrando un render anterior. La edición actual permanece sin renderizar.', true);
         filesMenu.open = false;
       });
     }
@@ -405,10 +413,12 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
 
   function reportJob(job: RenderJob): void {
     if (job.state === 'completed' && job.result) {
-      showCompleted(job, true);
+      const current = showCompleted(job, true);
       transitionNavigation({ type: 'render-completed' });
       syncDirectorMode();
-      report(`Video completado · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(2)} s.`, true);
+      report(current
+        ? `Video actualizado · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(2)} s.`
+        : 'El render terminó, pero corresponde a una versión anterior. Tus cambios actuales siguen pendientes.', true);
       return;
     }
     if (job.state === 'failed') {
@@ -429,19 +439,26 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     report(`Render ${job.jobId}: ${humanStage(progressState)}.`, true);
   }
 
-  function showCompleted(job: RenderJob, switchSource: boolean): void {
-    if (!job.result) return;
+  function showCompleted(job: RenderJob, switchSource: boolean, allowStaleReveal = false): boolean {
+    if (!job.result) return false;
+    const projectRevision = job.projectRevision ?? null;
+    const currentProject = store?.project();
+    const current = Boolean(currentProject
+      && job.projectId === currentProject.id
+      && projectRevision !== null
+      && projectRevision === projectFingerprint(currentProject));
     showFinalVideo({
       projectId: job.projectId,
       url: `${job.result.videoUrl}?v=${encodeURIComponent(job.updatedAt ?? '')}`,
       downloadName: job.result.downloadName,
       timeline: job.result.timeline ?? null,
-      current: job.projectId === store?.project().id
-        && renderProjectSnapshots.get(job.jobId) === JSON.stringify(store?.project()),
-      reveal: switchSource,
+      projectRevision,
+      current,
+      reveal: switchSource && (current || allowStaleReveal),
     });
     persistLastJobId(job.jobId);
     progressRoot.hidden = true;
+    return current;
   }
 
   function finishPolling(): void {
@@ -466,8 +483,57 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   function syncButtons(): void {
     const busy = busyMode !== null;
     generate.disabled = busy || !readyForProposal;
-    render.disabled = busy || store === null || !readyForRender;
+    const renderState = describeRenderAvailability();
+    render.disabled = !renderState.enabled;
+    render.textContent = renderState.label;
+    render.title = renderState.message;
+    renderReadiness.textContent = renderState.message;
+    renderReadiness.classList.toggle('is-ready', renderState.kind === 'ready');
+    renderReadiness.classList.toggle('is-current', renderState.kind === 'current');
+    renderReadiness.classList.toggle('is-blocked', renderState.kind === 'blocked');
+    const renderTab = pageTabs.find((candidate) => candidate.dataset.directorPage === 'render');
+    renderTab?.classList.toggle('has-pending-render', renderState.kind === 'ready');
+    renderTab?.classList.toggle('has-current-render', renderState.kind === 'current');
+    if (renderTab) renderTab.title = renderState.message;
     cancel.disabled = busyMode === 'ai' ? proposalController === null : busyMode === 'render' ? currentJobId === null : true;
+  }
+
+  function describeRenderAvailability(): {
+    enabled: boolean;
+    label: string;
+    message: string;
+    kind: 'ready' | 'current' | 'blocked';
+  } {
+    if (busyMode === 'render') {
+      return { enabled: false, label: 'Renderizando…', message: 'El video se está generando con la revisión enviada.', kind: 'blocked' };
+    }
+    if (busyMode === 'ai') {
+      return { enabled: false, label: 'Renderizar video', message: 'Esperá a que el Director termine de aplicar la propuesta.', kind: 'blocked' };
+    }
+    if (!store) {
+      return { enabled: false, label: 'Renderizar video', message: 'Creá o abrí un proyecto antes de renderizar.', kind: 'blocked' };
+    }
+    if (editorWorkspace().mode === 'creator') {
+      return { enabled: false, label: 'Renderizar video', message: 'Volvé al Editor de video para revisar y renderizar el proyecto.', kind: 'blocked' };
+    }
+    const validationError = store.validate();
+    if (validationError) {
+      return { enabled: false, label: 'Proyecto incompleto', message: `Completá el proyecto antes de renderizar: ${validationError}`, kind: 'blocked' };
+    }
+    if (!healthChecked) {
+      return { enabled: false, label: 'Comprobando motor…', message: 'Verificando que Piper y el servicio local estén disponibles.', kind: 'blocked' };
+    }
+    if (!readyForRender) {
+      return { enabled: false, label: 'Render no disponible', message: 'Piper no está disponible para generar voces y tiempos reales.', kind: 'blocked' };
+    }
+    const outputState = editorOutputState();
+    if (outputState === 'current') {
+      return { enabled: false, label: 'Video actualizado', message: 'El MP4 ya coincide con la edición actual. Hacé un cambio para habilitar otro render.', kind: 'current' };
+    }
+    if (outputState === 'stale') {
+      return { enabled: true, label: 'Actualizar render', message: 'Hay cambios posteriores al último MP4. Generá una versión actualizada.', kind: 'ready' };
+    }
+    return { enabled: true, label: 'Renderizar video', message: 'El proyecto todavía no tiene un MP4 generado.', kind: 'ready' };
   }
 
   function syncDirectorMode(): void {

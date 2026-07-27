@@ -86,6 +86,7 @@ const geometry = await import(pathToFileURL(geometryPath).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
 const directorNavigation = await import(pathToFileURL(directorNavigationPath).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
+const fingerprint = await import(pathToFileURL(path.join(projectRoot, 'shared', 'project-fingerprint.js')).href);
 
 let passed = 0;
 const check = (label, condition) => {
@@ -93,9 +94,16 @@ const check = (label, condition) => {
   passed += 1;
 };
 
+check(
+  'la revisión visual es determinista y sensible al proyecto',
+  fingerprint.projectFingerprint({ id: 'a', scenes: [] }) === fingerprint.projectFingerprint({ id: 'a', scenes: [] })
+    && fingerprint.projectFingerprint({ id: 'a', scenes: [] }) !== fingerprint.projectFingerprint({ id: 'b', scenes: [] }),
+);
+
 const appHtml = readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
 const projectPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'panel.ts'), 'utf8');
 const directorPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'panel.ts'), 'utf8');
+const timelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'timeline.ts'), 'utf8');
 check(
   'el Director expone un único control contextual de cancelación',
   (appHtml.match(/id="director-cancel"/g) ?? []).length === 1 && !appHtml.includes('director-proposal-cancel'),
@@ -142,6 +150,18 @@ check(
   }).includes('ruta'),
 );
 
+check(
+  'el render expone disponibilidad y evita repetir una exportación vigente',
+  appHtml.includes('id="render-readiness"')
+    && directorPanelSource.includes("outputState === 'current'")
+    && directorPanelSource.includes("label: 'Video actualizado'"),
+);
+check(
+  'la timeline solo transporta el render correspondiente a la edición actual',
+  timelineSource.includes('currentEditorOutput()')
+    && timelineSource.includes('el MP4 anterior quedó fuera del transporte'),
+);
+
 // ---- director/navigation.ts: recorrido inicial y modo de ajustes ----
 let directorState = directorNavigation.createDirectorNavigation(false);
 let directorPages = directorNavigation.describeDirectorPages(directorState);
@@ -171,7 +191,7 @@ let snap = workspace.editorWorkspace();
 check('inicia en editor/canvas', snap.mode === 'editor' && snap.surface === 'canvas');
 check('sin proyecto ni salida al inicio', snap.activeProjectId === null && snap.output === null);
 
-workspace.setActiveEditorProject('proyecto-1');
+workspace.setActiveEditorProject('proyecto-1', 'snapshot-a');
 check('registra el proyecto activo', workspace.editorWorkspace().activeProjectId === 'proyecto-1');
 
 workspace.registerRenderedOutput({
@@ -179,6 +199,7 @@ workspace.registerRenderedOutput({
   url: 'blob:video-1',
   downloadName: 'proyecto-1.mp4',
   timeline: { durationSeconds: 12.5, scenes: [] },
+  projectRevision: 'snapshot-a',
   current: true,
   reveal: true,
 });
@@ -186,19 +207,26 @@ snap = workspace.editorWorkspace();
 check('una salida vigente y revelada muestra playback', snap.surface === 'playback' && snap.output.stale === false);
 check('la duración medida tiene prioridad', snap.duration === 12.5);
 
-workspace.markEditorProjectChanged('proyecto-1');
+workspace.syncActiveEditorProject('proyecto-1', 'snapshot-b');
 snap = workspace.editorWorkspace();
 check('editar el proyecto activo marca la salida vencida', snap.output.stale === true);
 check('una salida vencida vuelve al lienzo', snap.surface === 'canvas');
+await workspace.showRenderedPlayback();
+check('el transporte no reproduce una salida vencida', workspace.editorWorkspace().surface === 'canvas' && video.paused === true);
+check('una salida vencida no cuenta como render actual', workspace.currentEditorOutput() === null && workspace.editorOutputState() === 'stale');
+
+workspace.syncActiveEditorProject('proyecto-1', 'snapshot-a');
+check('deshacer hasta la revisión renderizada recupera su vigencia', workspace.editorOutputState() === 'current');
 
 workspace.registerRenderedOutput({
   projectId: 'proyecto-1',
   url: 'blob:video-2',
   downloadName: 'proyecto-1.mp4',
   timeline: null,
+  projectRevision: 'snapshot-a',
   current: true,
 });
-workspace.setActiveEditorProject('proyecto-2');
+workspace.setActiveEditorProject('proyecto-2', 'snapshot-otro');
 check('cambiar de proyecto activo vence la salida', workspace.editorWorkspace().output.stale === true);
 
 workspace.showWorkspaceMode('creator');
