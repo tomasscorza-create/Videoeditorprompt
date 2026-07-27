@@ -1,0 +1,60 @@
+{
+  "version": 3,
+  "id": "mono-articulado-v1",
+  "kind": "character",
+  "canvas": { "width": 1080, "height": 1920 },
+  "pivot": { "x": 540, "y": 960 },
+  "sourceDefinition": "assets/character-definitions/mono-articulado-v1.json",
+  "variant": {
+    "id": "azul",
+    "label": "Mono articulado azul",
+    "palette": {
+      "outline": "#24150f",
+      "fur": "#9a5636",
+      "lightFur": "#d89a69",
+      "suit": "#24385f",
+      "shirt": "#f4e9d9",
+      "accent": "#e35b55",
+      "white": "#fffaf0",
+      "mouthDark": "#3a1720",
+      "tongue": "#ef7c78",
+      "shadow": "#0a102059"
+    }
+  },
+  "parts": [
+    { "id": "torso", "parentId": null, "pivot": { "x": 540, "y": 1160 }, "zIndex": 0, "layer": "torso.png" },
+    { "id": "shoulder_right", "parentId": "torso", "pivot": { "x": 742, "y": 1006 }, "zIndex": 5 },
+    { "id": "arm_right", "parentId": "shoulder_right", "pivot": { "x": 742, "y": 1006 }, "zIndex": 6, "layer": "arm_right.png" },
+    { "id": "head", "parentId": "torso", "pivot": { "x": 540, "y": 620 }, "zIndex": 10, "layer": "head.png" }
+  ],
+  "states": {
+    "eyes": { "open": "eyes_open.png", "closed": "eyes_closed.png" },
+    "mouth": {
+      "closed": "mouth_closed.png",
+      "medium": "mouth_medium.png",
+      "open": "mouth_open.png"
+    },
+    "hands": {
+      "neutral": "hand_neutral.png",
+      "point": "hand_point.png"
+    },
+    "thumbnails": {
+      "neutral": "pose_neutral.png",
+      "point": "pose_point.png"
+    }
+  },
+  "poses": [
+    { "id": "neutral", "handState": "neutral", "parts": [{ "partId": "arm_right", "rotationDegrees": 0 }] },
+    { "id": "point", "handState": "point", "parts": [{ "partId": "arm_right", "rotationDegrees": -55 }] }
+  ],
+  "parameters": [
+    { "id": "armRaise", "minimum": 0, "maximum": 1, "default": 0 }
+  ],
+  "bindings": [
+    { "parameterId": "armRaise", "partId": "arm_right", "channel": "rotationDegrees", "from": 0, "to": -95 }
+  ],
+  "provenance": {
+    "source": "Definición geométrica original del proyecto, derivada del mono paramétrico con el brazo separado en su propia pieza.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

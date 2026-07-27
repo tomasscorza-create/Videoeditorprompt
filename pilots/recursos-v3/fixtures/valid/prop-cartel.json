@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "id": "cartel-dato-v1",
+  "kind": "prop",
+  "canvas": { "width": 1080, "height": 1920 },
+  "pivot": { "x": 540, "y": 960 },
+  "sourceDefinition": "assets/prop-definitions/cartel-dato-v1.json",
+  "variant": {
+    "id": "base",
+    "label": "Cartel de dato",
+    "palette": {
+      "outline": "#24150f",
+      "board": "#f4e9d9",
+      "accent": "#e35b55",
+      "shadow": "#0a102059"
+    }
+  },
+  "parts": [
+    { "id": "board", "parentId": null, "pivot": { "x": 540, "y": 900 }, "zIndex": 0, "layer": "board.png" },
+    { "id": "handle", "parentId": "board", "pivot": { "x": 540, "y": 1180 }, "zIndex": 1, "layer": "handle.png" }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": {
+    "source": "Definición geométrica original del proyecto para el prop piloto.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

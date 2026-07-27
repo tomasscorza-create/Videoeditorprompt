@@ -16,15 +16,29 @@ const schemaPath = path.resolve(moduleDirectory, '..', '..', 'schema', 'animatio
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
 const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
 
-/** Parámetros animables V1 con su rango y a qué tipo de elemento aplican. */
+/**
+ * Parámetros animables V1 con su rango y a qué tipo de elemento aplican.
+ *
+ * `requiresResourceSupport` distingue los dos orígenes: los parámetros del
+ * transform del elemento están disponibles siempre, mientras que los que mueven
+ * una articulación solo existen si el recurso declara la pieza y el binding en
+ * su manifest v3. Sin ese flag, la Fase 1 tendría que repetir la lista.
+ */
 export const ANIMATION_PARAMETERS = Object.freeze({
-  'position.x': { unit: 'px', minimum: -1080, maximum: 2160, elementTypes: ['character', 'prop'] },
-  'position.y': { unit: 'px', minimum: -1920, maximum: 3840, elementTypes: ['character', 'prop'] },
-  scale: { unit: 'factor', exclusiveMinimum: 0, maximum: 10, elementTypes: ['character', 'prop'] },
-  rotationDegrees: { unit: 'grados', minimum: -180, maximum: 180, elementTypes: ['character', 'prop'] },
-  opacity: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character', 'prop'] },
-  armRaise: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character'] },
+  'position.x': { unit: 'px', minimum: -1080, maximum: 2160, elementTypes: ['character', 'prop'], requiresResourceSupport: false },
+  'position.y': { unit: 'px', minimum: -1920, maximum: 3840, elementTypes: ['character', 'prop'], requiresResourceSupport: false },
+  scale: { unit: 'factor', exclusiveMinimum: 0, maximum: 10, elementTypes: ['character', 'prop'], requiresResourceSupport: false },
+  rotationDegrees: { unit: 'grados', minimum: -180, maximum: 180, elementTypes: ['character', 'prop'], requiresResourceSupport: false },
+  opacity: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character', 'prop'], requiresResourceSupport: false },
+  armRaise: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
 });
+
+/** Parámetros que un recurso tiene que declarar para que estén disponibles. */
+export const RESOURCE_DECLARED_PARAMETERS = Object.freeze(
+  Object.entries(ANIMATION_PARAMETERS)
+    .filter(([, parameter]) => parameter.requiresResourceSupport)
+    .map(([id]) => id),
+);
 
 export const ANIMATION_INTERPOLATIONS = Object.freeze(['linear', 'ease', 'hold']);
 

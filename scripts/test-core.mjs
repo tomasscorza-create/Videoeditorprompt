@@ -9,6 +9,7 @@ const commands = [
   'stage2d:test-audio-mix',
   'stage2f:test-parametric',
   'stage2f:test-hash-baseline',
+  'stage2f:test-resource-manifest',
   'stage3a:test-project',
   'stage3a:test-compiler',
   'stage3a:test-assembly',

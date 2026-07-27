@@ -96,10 +96,13 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `schema/compiled-project.schema.json`: manifiesto versionado que vincula proyecto, hashes, escenas v2 compiladas y transiciones.
 - `schema/rendered-project.schema.json`: contrato v2 del manifiesto final con timeline medida por escena y turno, subtrabajos, outputs y verificación. `schema/rendered-project-v1.schema.json` conserva la validación histórica.
 - `schema/editor-command.schema.json`: vocabulario cerrado de operaciones semánticas soportadas por el editor local.
-- `schema/animation-scene.schema.json`: contrato aislado de la Fase 0 de animación (parámetros, anclas, interpolaciones, procedencia y límites). Todavía no lo consume nadie.
-- `scripts/animation/animation-contract.mjs`: validación de autoría, catálogo cerrado de errores, cuantización a frame y estado «requiere revisión».
+- `schema/animation-scene.schema.json`: contrato aislado de la Fase 0 de animación (pistas, keyframes, anclas, interpolaciones, procedencia y límites). El documento de pistas todavía no tiene consumidor.
+- `scripts/animation/animation-contract.mjs`: vocabulario congelado de parámetros, validación de autoría, catálogo cerrado de errores, cuantización a frame y estado «requiere revisión». `ANIMATION_PARAMETERS` es la única fuente del vocabulario y la lee el manifest v3.
 - `pilots/animacion-v1/`: fixtures válidos e inválidos del contrato de animación.
 - `docs/FASE_0_CONTRATO_ANIMACION_V1.md`: vocabulario congelado, errores y estado visible de timeline, inspector y lienzo.
+- `shared/shape-renderer.js`: único renderizador de primitivas, compartido por el Creador y el compilador de assets. El orden de atributos es contrato: la salida SVG tiene que quedar idéntica byte a byte.
+- `schema/resource-manifest-v3.schema.json` y `scripts/stage2f/resource-manifest.mjs`: manifest de recurso v3 (piezas con pivote y jerarquía, tipo `prop`, parámetros animables con bindings) y adaptador de lectura v2 → v3 sin pérdida.
+- `pilots/recursos-v3/`: fixtures del manifest v3 (un personaje articulado y un prop).
 - `schema/published-project-index.schema.json`: índice versionado de proyectos compatibles publicados para la UI.
 - `shared/project-editor.js`: estado inmutable, validación, comandos, undo/redo, catálogo y exportación del proyecto de autoría.
 - `scripts/stage3a/validate-video-project.mjs`: validación estructural, semántica y de recursos del proyecto editable.
@@ -187,6 +190,8 @@ npm run stage3b:test-editor # comandos, undo/redo, seguridad y exportación comp
 npm run stage3b:publish-project # publica el piloto compatible para la UI y el build
 npm run stage3b:test-publishing # índice, portabilidad, hashes y rechazo de proyectos incompatibles
 npm run anim:test-contract # vocabulario, límites, errores y estado de revisión de la animación V1
+npm run stage2f:test-hash-baseline     # los assets compilados siguen coincidiendo con los publicados
+npm run stage2f:test-resource-manifest # manifest de recurso v3 y adaptador de lectura v2 → v3
 npm run director:test-plan # contrato, catálogo, límites y normalización determinista
 npm run director:test-context # ranking, shortlist, plantillas y recursos requeridos
 npm run director:test-ollama # adaptador, salida estructurada, caché y fallos
@@ -236,7 +241,8 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 - El Director acepta tono, duración objetivo y cantidad de escenas como restricciones del JSON Schema; siguen siendo objetivos editoriales y la duración real solo existe después de Piper/FFprobe.
 - El servicio local acepta un solo render activo, recupera estados interrumpidos y no es un backend multiusuario ni una cola durable.
 - La UI usa verificación interactiva de una pasada; la CLI conserva la verificación completa de dos pasadas por defecto.
-- La animación por keyframes tiene su vocabulario, sus límites, sus errores y su estado visible congelados en la Fase 0, pero **no está implementada**: el contrato vive aislado, ningún consumidor lo lee y ni el evaluador ni la interfaz saben de pistas. `animationPreset` (`idle-calm`/`talk-calm`) sigue siendo movimiento base continuo, no un preset de keyframes.
+- La animación por keyframes tiene su vocabulario, sus límites, sus errores y su estado visible congelados en la Fase 0, pero **no está implementada**: ni el evaluador ni la interfaz saben de pistas. `animationPreset` (`idle-calm`/`talk-calm`) sigue siendo movimiento base continuo, no un preset de keyframes.
+- El manifest v3 permite **declarar** piezas articuladas, props y parámetros con bindings, pero **ningún recurso publicado los usa**: los ocho personajes vigentes son v2, así que el adaptador les devuelve `parameters: []` y `armRaise` no está disponible en ninguno. El compilador todavía no sabe generar recursos v3.
 - La timeline muestra capas estructurales y permite selección/navegación, pero cortar o estirar clips, keyframes libres y mezcla editable de música/SFX siguen fuera de alcance. El runtime ya admite una pista musical opcional por video con loop y ducking fijo; todavía no hay clips musicales editables ni SFX puntuales.
 - `public/projects` es una publicación regenerable para la UI, no almacenamiento del motor. Solo lista proyectos aceptados por 3A y 3B.0; debe regenerarse antes del build que se quiera distribuir.
 - 3A.1 solo compila escenas con exactamente dos personajes, al menos dos turnos, pose inicial neutral, ancla central, rotación 0 y opacidad 1. Texto, imágenes y otros transforms se rechazan explícitamente hasta que el runtime pueda representarlos.
