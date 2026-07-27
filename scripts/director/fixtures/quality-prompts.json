@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "cases": [
+    { "id": "edu-08-1", "prompt": "Explicá por qué una contraseña larga puede seguir siendo débil.", "tone": "educational", "targetDurationSeconds": 8, "sceneCount": 1 },
+    { "id": "edu-30-3", "prompt": "Enseñá tres formas prácticas de verificar una respuesta de inteligencia artificial.", "tone": "educational", "targetDurationSeconds": 30, "sceneCount": 3 },
+    { "id": "edu-60-4", "prompt": "Explicá cómo funciona una copia de seguridad siguiendo un caso cotidiano.", "tone": "educational", "targetDurationSeconds": 60, "sceneCount": 4 },
+    { "id": "ironic-15-2", "prompt": "Mostrá con humor seco por qué comprar herramientas no reemplaza practicar.", "tone": "ironic", "targetDurationSeconds": 15, "sceneCount": 2 },
+    { "id": "ironic-30-3", "prompt": "Contrastá la promesa de productividad perfecta con una agenda que nadie usa.", "tone": "ironic", "targetDurationSeconds": 30, "sceneCount": 3 },
+    { "id": "ironic-90-4", "prompt": "Contá los errores de alguien que automatiza todo antes de entender el proceso.", "tone": "ironic", "targetDurationSeconds": 90, "sceneCount": 4 },
+    { "id": "serious-08-1", "prompt": "Advertí sobre compartir datos personales sin revisar permisos.", "tone": "serious", "targetDurationSeconds": 8, "sceneCount": 1 },
+    { "id": "serious-30-2", "prompt": "Explicá qué hacer antes de confiar en una copia de seguridad.", "tone": "serious", "targetDurationSeconds": 30, "sceneCount": 2 },
+    { "id": "serious-60-3", "prompt": "Presentá un incidente de seguridad, su causa y una medida preventiva.", "tone": "serious", "targetDurationSeconds": 60, "sceneCount": 3 },
+    { "id": "energetic-15-1", "prompt": "Motivá a empezar una tarea postergada con un primer paso de treinta segundos.", "tone": "energetic", "targetDurationSeconds": 15, "sceneCount": 1 },
+    { "id": "energetic-30-3", "prompt": "Dá tres acciones rápidas para ordenar una mañana caótica.", "tone": "energetic", "targetDurationSeconds": 30, "sceneCount": 3 },
+    { "id": "energetic-60-4", "prompt": "Convertí una idea de proyecto en cuatro avances pequeños y verificables.", "tone": "energetic", "targetDurationSeconds": 60, "sceneCount": 4 },
+    { "id": "inspirational-15-2", "prompt": "Animá a continuar un proyecto después de una primera prueba imperfecta.", "tone": "inspirational", "targetDurationSeconds": 15, "sceneCount": 2 },
+    { "id": "inspirational-30-3", "prompt": "Mostrá cómo medir el progreso contra el propio punto de partida.", "tone": "inspirational", "targetDurationSeconds": 30, "sceneCount": 3 },
+    { "id": "inspirational-90-4", "prompt": "Narrá una transformación gradual desde la duda hasta publicar un primer trabajo.", "tone": "inspirational", "targetDurationSeconds": 90, "sceneCount": 4 }
+  ]
+}

@@ -20,6 +20,12 @@ import {
   DIRECTOR_CONTEXT_VERSION,
   loadNarrativeTemplates,
 } from './director-context.mjs';
+import {
+  analyzeDirectorPlanQuality,
+  candidateStrategy,
+  editorialWordBudgets,
+  qualityRepairFeedback,
+} from './plan-quality.mjs';
 
 export { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL };
 const MAX_PROMPT_LENGTH = 2000;
@@ -31,6 +37,7 @@ export async function createDirectorProposal(options) {
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
   const catalog = options.catalog || loadAuthoringCatalog(assetsRoot);
   const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
+  const modelIdentity = normalizeModelIdentity(options.modelIdentity, model);
   // El proveedor concentra toda la especificidad de la IA (D1/D2). La clave de
   // caché incorpora su nombre para no mezclar resultados entre proveedores.
   const provider = resolveDirectorProvider(options.provider, {
@@ -63,6 +70,7 @@ export async function createDirectorProposal(options) {
     provider: provider.name,
     prompt,
     model,
+    modelIdentity,
     temperature,
     variant,
     think,
@@ -99,6 +107,7 @@ export async function createDirectorProposal(options) {
 
   const timeoutMs = integerOption(options.timeoutMs, think ? 300_000 : 240_000, 1_000, 300_000);
 
+  const generationStartedAt = Date.now();
   const candidates = [];
   for (let candidateIndex = 0; candidateIndex < bestOf; candidateIndex += 1) {
     candidates.push(await generateCandidate({
@@ -118,24 +127,74 @@ export async function createDirectorProposal(options) {
       timeoutMs,
       promptHash: cacheKey,
       seedKey: hashJson({ cacheKey, candidateIndex, variant: variant + candidateIndex }),
+      strategy: candidateStrategy(candidateIndex),
     }));
   }
 
   let selection = defaultSelection();
+  let qualityEscalations = 0;
   if (bestOf > 1) {
-    const judged = await judgeDirectorPlans({
+    let judged = await judgeDirectorPlans({
       provider,
       plans: candidates.map((candidate) => candidate.plan),
+      prompt,
+      constraints,
+      templates: directorContext.templates,
       model,
       signal: options.signal,
       timeoutMs,
       seed: seedFrom(hashJson({ cacheKey, judgeVersion: PLAN_JUDGE_VERSION })),
     });
+    if (!judged.qualityFloorMet) {
+      qualityEscalations += 1;
+      const revisionIndex = judged.winnerIndex;
+      candidates[revisionIndex] = await generateCandidate({
+        provider,
+        schema,
+        signal: options.signal,
+        catalog,
+        directorContext,
+        assetsRoot,
+        resourceCatalog: options.resourceCatalog,
+        prompt,
+        variant: variant + revisionIndex,
+        constraints,
+        model,
+        temperature,
+        think,
+        timeoutMs,
+        promptHash: cacheKey,
+        seedKey: hashJson({ cacheKey, revisionIndex, qualityEscalations }),
+        strategy: candidateStrategy(revisionIndex),
+        initialFeedback: judgeRepairFeedback(judged),
+      });
+      judged = await judgeDirectorPlans({
+        provider,
+        plans: candidates.map((candidate) => candidate.plan),
+        prompt,
+        constraints,
+        templates: directorContext.templates,
+        model,
+        signal: options.signal,
+        timeoutMs,
+        seed: seedFrom(hashJson({ cacheKey, judgeVersion: PLAN_JUDGE_VERSION, qualityEscalations })),
+      });
+      if (!judged.qualityFloorMet) {
+        directorError(
+          'DIRECTOR_QUALITY_FLOOR_NOT_MET',
+          'Las propuestas generadas no alcanzaron el umbral mínimo de calidad.',
+          `score=${judged.maximumTotal}; floor=${judged.qualityFloor}`,
+        );
+      }
+    }
     selection = {
       bestOf,
       winnerIndex: judged.winnerIndex,
       judgeVersion: PLAN_JUDGE_VERSION,
       scores: judged.scores,
+      totals: judged.totals,
+      qualityFloor: judged.qualityFloor,
+      qualityFloorMet: judged.qualityFloorMet,
       usage: judged.usage,
     };
   }
@@ -147,23 +206,29 @@ export async function createDirectorProposal(options) {
     selectedTemplateId: selected.plan.narrativeTemplateId,
   };
   const cached = {
-    version: 1,
+    version: 2,
     directorVersion: DIRECTOR_PIPELINE_VERSION,
     provider: provider.name,
     model,
+    modelIdentity,
     plan: selected.plan,
     project: selected.normalized.project,
     semanticHash: selected.normalized.semanticHash,
     budget: selected.normalized.budget,
     repairAttempts,
+    quality: selected.quality,
+    candidateQuality: candidates.map((candidate) => candidate.quality),
     selection,
     context: resolvedContext,
     usage: {
       think,
-      generationCount: bestOf,
-      promptEvalCount: selected.usage?.promptEvalCount ?? null,
-      evalCount: selected.usage?.evalCount ?? null,
-      totalDurationNanoseconds: selected.usage?.totalDurationNanoseconds ?? null,
+      generationCount: bestOf + qualityEscalations,
+      qualityEscalations,
+      promptEvalCount: sumUsage(candidates, 'promptEvalCount'),
+      evalCount: sumUsage(candidates, 'evalCount'),
+      totalDurationNanoseconds: sumUsage(candidates, 'totalDurationNanoseconds'),
+      elapsedMilliseconds: Date.now() - generationStartedAt,
+      candidateElapsedMilliseconds: candidates.map((candidate) => candidate.elapsedMilliseconds),
     },
   };
   writeJson(cachePath, cached);
@@ -197,19 +262,22 @@ async function generateCandidate({
   timeoutMs,
   promptHash,
   seedKey,
+  strategy,
+  initialFeedback = null,
 }) {
+  const startedAt = Date.now();
   let plan;
   let normalized;
   let usage = null;
   let repairAttempts = 0;
-  let feedback = null;
+  let feedback = initialFeedback;
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
     const result = await provider.generatePlan({
       schema,
       signal,
       messages: [
         { role: 'system', content: buildSystemPrompt(directorContext) },
-        { role: 'user', content: buildUserPrompt(prompt, variant, constraints, feedback) },
+        { role: 'user', content: buildUserPrompt(prompt, variant, constraints, strategy, feedback) },
       ],
       options: {
         model,
@@ -226,35 +294,49 @@ async function generateCandidate({
     try {
       plan = JSON.parse(result.content);
     } catch (error) {
-      throw new PipelineError({
+      const invalidJson = new PipelineError({
         code: 'OLLAMA_RESPONSE_JSON_INVALID',
         stage: 'directing',
         message: 'El proveedor de IA devolvió contenido que no es JSON válido.',
         technicalDetail: error instanceof Error ? error.message : String(error),
         suggestedAction: 'Reintentá la propuesta o verificá el soporte de salidas estructuradas del modelo.',
       });
-    }
-    if (plan.narrativeTemplateId === undefined) {
-      plan.narrativeTemplateId = directorContext.summary.recommendedTemplateId;
-    } else if (!directorContext.templates.some((template) => template.id === plan.narrativeTemplateId)) {
-      directorError('DIRECTOR_TEMPLATE_INVALID', 'El proveedor eligió una plantilla fuera de la shortlist.');
+      if (attempt === MAX_REPAIR_ATTEMPTS) throw invalidJson;
+      repairAttempts += 1;
+      feedback = 'devolvé solamente un objeto JSON que cumpla exactamente el esquema.';
+      continue;
     }
     try {
+      if (plan.narrativeTemplateId === undefined) {
+        plan.narrativeTemplateId = directorContext.summary.recommendedTemplateId;
+      } else if (!directorContext.templates.some((template) => template.id === plan.narrativeTemplateId)) {
+        directorError('DIRECTOR_TEMPLATE_INVALID', 'El proveedor eligió una plantilla fuera de la shortlist.');
+      }
       normalized = normalizeDirectorPlan(plan, catalog, {
         assetsRoot,
         promptHash,
         resourceCatalog,
       });
+      const quality = analyzeDirectorPlanQuality(plan, { prompt, constraints });
+      if (!quality.passed) qualityError(quality);
       usage = result.usage || null;
       break;
     } catch (error) {
-      const budgetExceeded = error instanceof PipelineError && error.code === 'DIRECTOR_DURATION_BUDGET_EXCEEDED';
-      if (!budgetExceeded || attempt === MAX_REPAIR_ATTEMPTS) throw error;
+      if (!isRepairableDirectorError(error) || attempt === MAX_REPAIR_ATTEMPTS) throw error;
       repairAttempts += 1;
-      feedback = budgetRepairFeedback(error);
+      feedback = repairFeedback(error);
     }
   }
-  return { plan, normalized, usage, repairAttempts };
+  const quality = analyzeDirectorPlanQuality(plan, { prompt, constraints });
+  return {
+    plan,
+    normalized,
+    quality,
+    usage,
+    repairAttempts,
+    strategy: strategy.id,
+    elapsedMilliseconds: Date.now() - startedAt,
+  };
 }
 
 function defaultSelection() {
@@ -263,6 +345,9 @@ function defaultSelection() {
     winnerIndex: 0,
     judgeVersion: null,
     scores: null,
+    totals: null,
+    qualityFloor: null,
+    qualityFloorMet: true,
     usage: null,
   };
 }
@@ -366,15 +451,20 @@ function buildSystemPrompt(directorContext) {
   ].join('\n');
 }
 
-function buildUserPrompt(prompt, variant, constraints, feedback = null) {
+function buildUserPrompt(prompt, variant, constraints, strategy, feedback = null) {
   const requested = [
     constraints.tone ? `tono=${constraints.tone}` : null,
     constraints.targetDurationSeconds ? `duración objetivo=${constraints.targetDurationSeconds} segundos` : null,
     constraints.sceneCount ? `escenas=${constraints.sceneCount}` : null,
   ].filter(Boolean).join(', ');
+  const sceneCount = constraints.sceneCount || 2;
+  const targetDurationSeconds = constraints.targetDurationSeconds || 30;
+  const budgets = editorialWordBudgets(targetDurationSeconds, sceneCount);
   return [
     `Idea del video: ${prompt}`,
     `Variante solicitada: ${variant}.`,
+    `Estrategia creativa: ${strategy.instruction}`,
+    `Presupuesto editorial aproximado: máximo ${budgets.maximumWords} palabras; por escena ${budgets.scenes.map((scene) => `${scene.scene}:${scene.maximumWords}`).join(', ')}.`,
     requested ? `Parámetros editoriales obligatorios: ${requested}.` : null,
     'Creá un gancho claro, desarrollo breve y cierre útil o memorable.',
     feedback ? `Corrección obligatoria: ${feedback}` : null,
@@ -390,6 +480,75 @@ function budgetRepairFeedback(error) {
     return `el guion anterior tenía ${words} palabras y el máximo es ${maximum}: recortá al menos ${overflow} palabras manteniendo el gancho inicial y el cierre.`;
   }
   return 'el guion anterior excedió el presupuesto de palabras: recortá el diálogo manteniendo el gancho inicial y el cierre.';
+}
+
+function repairFeedback(error) {
+  if (error?.code === 'DIRECTOR_DURATION_BUDGET_EXCEEDED') return budgetRepairFeedback(error);
+  if (error?.code === 'DIRECTOR_QUALITY_FLOOR_NOT_MET' && error.quality) {
+    return qualityRepairFeedback(error.quality);
+  }
+  const messages = {
+    DIRECTOR_PLAN_SCHEMA_INVALID: 'corregí la estructura y completá únicamente las propiedades admitidas por el esquema.',
+    DIRECTOR_TEMPLATE_INVALID: 'elegí una plantilla incluida en la shortlist.',
+    DIRECTOR_RESOURCE_INVALID: 'usá únicamente IDs de recursos incluidos en la shortlist y del tipo correcto.',
+    DIRECTOR_RESOURCE_UNSUPPORTED: 'elegí capacidades que el recurso seleccionado declare explícitamente.',
+    DIRECTOR_CAST_INVALID: 'usá dos personajes y dos voces diferentes.',
+    DIRECTOR_TRANSITION_INVALID: 'usá fundidos entre 0.15 y 1 segundo, o corte con duración cero.',
+    DIRECTOR_GESTURE_TIMING_INVALID: 'ubicá gestureAtWord dentro de las palabras reales del turno.',
+    DIRECTOR_SCENE_DIALOGUE_INVALID: 'incluí al menos un turno de cada personaje en cada escena.',
+  };
+  return messages[error?.code] || 'corregí el plan para que cumpla todas las restricciones indicadas.';
+}
+
+function isRepairableDirectorError(error) {
+  return error instanceof PipelineError && new Set([
+    'DIRECTOR_PLAN_SCHEMA_INVALID',
+    'DIRECTOR_TEMPLATE_INVALID',
+    'DIRECTOR_RESOURCE_INVALID',
+    'DIRECTOR_RESOURCE_UNSUPPORTED',
+    'DIRECTOR_CAST_INVALID',
+    'DIRECTOR_TRANSITION_INVALID',
+    'DIRECTOR_GESTURE_TIMING_INVALID',
+    'DIRECTOR_SCENE_DIALOGUE_INVALID',
+    'DIRECTOR_DURATION_BUDGET_EXCEEDED',
+    'DIRECTOR_QUALITY_FLOOR_NOT_MET',
+  ]).has(error.code);
+}
+
+function qualityError(quality) {
+  const error = new PipelineError({
+    code: 'DIRECTOR_QUALITY_FLOOR_NOT_MET',
+    stage: 'directing',
+    message: 'La propuesta no alcanzó el umbral mínimo de calidad.',
+    technicalDetail: `score=${quality.score}; floor=${quality.floor}; issues=${quality.issues.map((issue) => issue.code).join(',')}`,
+    suggestedAction: 'Regenerá la propuesta o ajustá la idea y sus restricciones.',
+  });
+  error.quality = quality;
+  throw error;
+}
+
+function judgeRepairFeedback(judged) {
+  const score = judged.scores[judged.winnerIndex];
+  const weakest = Object.entries(score)
+    .sort((left, right) => left[1] - right[1])
+    .slice(0, 3)
+    .map(([key]) => key)
+    .join(', ');
+  return `el juez detectó calidad insuficiente. Reescribí el plan completo mejorando especialmente: ${weakest}.`;
+}
+
+function sumUsage(candidates, key) {
+  const values = candidates.map((candidate) => candidate.usage?.[key]).filter(Number.isFinite);
+  return values.length ? values.reduce((total, value) => total + value, 0) : null;
+}
+
+function normalizeModelIdentity(value, model) {
+  if (!value || typeof value !== 'object') return { model, digest: null, runtimeVersion: null };
+  return {
+    model,
+    digest: typeof value.digest === 'string' ? value.digest : null,
+    runtimeVersion: typeof value.runtimeVersion === 'string' ? value.runtimeVersion : null,
+  };
 }
 
 function validateDirectorConstraints(value) {

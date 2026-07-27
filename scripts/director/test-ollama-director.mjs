@@ -61,6 +61,17 @@ const fakeFetch = async (url, options = {}) => {
   return response({ error: 'not found' }, 404);
 };
 
+const judgeScore = (value) => ({
+  relevance: value,
+  hook: value,
+  naturalness: value,
+  progression: value,
+  ending: value,
+  tone: value,
+  tts: value,
+  audiovisual: value,
+});
+
 const cacheRoot = mkdtempSync(path.join(os.tmpdir(), 'local-video-director-'));
 const health = await inspectOllama({ fetchImpl: fakeFetch });
 assert.equal(health.modelInstalled, true);
@@ -189,16 +200,19 @@ const bestOfFetch = async (url, options = {}) => {
   const request = JSON.parse(options.body);
   if (request.format.properties?.winnerIndex) {
     assert.equal(request.think, false);
-    const judgedCandidates = JSON.parse(request.messages[1].content).candidates;
+    const judgeRequest = JSON.parse(request.messages[1].content);
+    const judgedCandidates = judgeRequest.candidates;
     assert.equal(judgedCandidates.length, 2);
+    assert.ok(judgeRequest.request.idea.includes('colaborar'));
+    assert.equal(judgeRequest.request.templates.length, 3);
     assert.equal('characterResourceId' in judgedCandidates[0], false);
     return response({
       message: {
         content: JSON.stringify({
           winnerIndex: 1,
           scores: [
-            { hook: 1, naturalness: 2, ending: 2, variety: 2 },
-            { hook: 3, naturalness: 3, ending: 3, variety: 3 },
+            judgeScore(1),
+            judgeScore(3),
           ],
         }),
       },
@@ -225,7 +239,7 @@ assert.deepEqual(candidateVariants, [10, 11]);
 assert.equal(bestOfResult.plan.title, alternativePlan.title);
 assert.equal(bestOfResult.selection.bestOf, 2);
 assert.equal(bestOfResult.selection.winnerIndex, 1);
-assert.equal(bestOfResult.selection.judgeVersion, 1);
+assert.equal(bestOfResult.selection.judgeVersion, 2);
 assert.equal(bestOfResult.selection.scores[1].hook, 3);
 assert.equal(bestOfResult.usage.generationCount, 2);
 
