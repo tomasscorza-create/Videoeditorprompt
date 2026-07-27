@@ -67,6 +67,13 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       // El recurso sigue disponible aunque su miniatura no pueda cargarse.
     }
   }));
+  function updateRegisterButton() {
+    if (!registerButton) return;
+    if (activeType === 'background') registerButton.textContent = 'Agregar fondo';
+    else if (activeType === 'character') registerButton.textContent = 'Crear personaje';
+    else if (activeType === 'voice') registerButton.textContent = 'Agregar voz';
+  }
+  updateRegisterButton();
 
   for (const tab of document.querySelectorAll<HTMLButtonElement>('.resource-tabs .tab')) {
     const isActive = tab.dataset.resourceType === activeType;
@@ -80,6 +87,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
         item.classList.toggle('is-active', item === tab);
         item.setAttribute('aria-selected', String(item === tab));
       }
+      updateRegisterButton();
       render();
     });
   }
@@ -99,6 +107,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
         item.classList.toggle('is-active', isOwner);
         item.setAttribute('aria-selected', String(isOwner));
       }
+      updateRegisterButton();
     }
     if (filter) {
       filter = '';
@@ -112,7 +121,15 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     card.addEventListener('animationend', () => card.classList.remove('is-revealed'), { once: true });
   });
 
-  registerButton?.addEventListener('click', () => registerFile?.click());
+  registerButton?.addEventListener('click', () => {
+    if (activeType === 'background') {
+      registerFile?.click();
+    } else if (activeType === 'character') {
+      optional<HTMLElement>('#workspace-creator')?.click();
+    } else if (activeType === 'voice') {
+      notify('La carga de voces se habilitará en una próxima etapa.', 'info');
+    }
+  });
   registerFile?.addEventListener('change', async () => {
     const file = registerFile.files?.[0];
     registerFile.value = '';
