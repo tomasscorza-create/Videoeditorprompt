@@ -48,12 +48,16 @@ export async function assertDirectorProviderContract({ makeProvider, schema }) {
   assert.equal(typeof health.modelInstalled, 'boolean');
   assert.equal(health.model, 'modelo-x');
   assert.ok('version' in health, 'inspect() debe declarar version (puede ser null)');
+  assert.equal(health.digest, 'sha256:modelo-x');
   checks += 1;
 
   const controller = new AbortController();
   const pending = makeProvider('abort').generatePlan({ ...baseCall, signal: controller.signal });
   controller.abort();
-  await assert.rejects(() => pending, (error) => error instanceof PipelineError);
+  await assert.rejects(
+    () => pending,
+    (error) => error instanceof PipelineError && error.code === 'OLLAMA_CANCELLED',
+  );
   checks += 1;
 
   await assert.rejects(

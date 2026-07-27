@@ -109,8 +109,9 @@ export async function createDirectorProposal(options) {
 
   const generationStartedAt = Date.now();
   const candidates = [];
+  const generationRuns = [];
   for (let candidateIndex = 0; candidateIndex < bestOf; candidateIndex += 1) {
-    candidates.push(await generateCandidate({
+    const candidate = await generateCandidate({
       provider,
       schema,
       signal: options.signal,
@@ -128,7 +129,9 @@ export async function createDirectorProposal(options) {
       promptHash: cacheKey,
       seedKey: hashJson({ cacheKey, candidateIndex, variant: variant + candidateIndex }),
       strategy: candidateStrategy(candidateIndex),
-    }));
+    });
+    candidates.push(candidate);
+    generationRuns.push(candidate);
   }
 
   let selection = defaultSelection();
@@ -148,7 +151,7 @@ export async function createDirectorProposal(options) {
     if (!judged.qualityFloorMet) {
       qualityEscalations += 1;
       const revisionIndex = judged.winnerIndex;
-      candidates[revisionIndex] = await generateCandidate({
+      const revisedCandidate = await generateCandidate({
         provider,
         schema,
         signal: options.signal,
@@ -168,6 +171,8 @@ export async function createDirectorProposal(options) {
         strategy: candidateStrategy(revisionIndex),
         initialFeedback: judgeRepairFeedback(judged),
       });
+      candidates[revisionIndex] = revisedCandidate;
+      generationRuns.push(revisedCandidate);
       judged = await judgeDirectorPlans({
         provider,
         plans: candidates.map((candidate) => candidate.plan),
@@ -199,7 +204,7 @@ export async function createDirectorProposal(options) {
     };
   }
   const selected = candidates[selection.winnerIndex];
-  const repairAttempts = candidates.reduce((total, candidate) => total + candidate.repairAttempts, 0);
+  const repairAttempts = generationRuns.reduce((total, candidate) => total + candidate.repairAttempts, 0);
 
   const resolvedContext = {
     ...directorContext.summary,
@@ -222,13 +227,13 @@ export async function createDirectorProposal(options) {
     context: resolvedContext,
     usage: {
       think,
-      generationCount: bestOf + qualityEscalations,
+      generationCount: generationRuns.length,
       qualityEscalations,
-      promptEvalCount: sumUsage(candidates, 'promptEvalCount'),
-      evalCount: sumUsage(candidates, 'evalCount'),
-      totalDurationNanoseconds: sumUsage(candidates, 'totalDurationNanoseconds'),
+      promptEvalCount: sumUsage(generationRuns, 'promptEvalCount'),
+      evalCount: sumUsage(generationRuns, 'evalCount'),
+      totalDurationNanoseconds: sumUsage(generationRuns, 'totalDurationNanoseconds'),
       elapsedMilliseconds: Date.now() - generationStartedAt,
-      candidateElapsedMilliseconds: candidates.map((candidate) => candidate.elapsedMilliseconds),
+      candidateElapsedMilliseconds: generationRuns.map((candidate) => candidate.elapsedMilliseconds),
     },
   };
   writeJson(cachePath, cached);

@@ -31,7 +31,7 @@ const plan = {
 let chatRequests = 0;
 const fakeFetch = async (url, options = {}) => {
   if (url.endsWith('/api/version')) return response({ version: 'test' });
-  if (url.endsWith('/api/tags')) return response({ models: [{ name: 'qwen3:8b' }] });
+  if (url.endsWith('/api/tags')) return response({ models: [{ name: 'qwen3:8b', digest: 'sha256:qwen3-test' }] });
   if (url.endsWith('/api/chat')) {
     chatRequests += 1;
     const request = JSON.parse(options.body);
@@ -75,6 +75,7 @@ const judgeScore = (value) => ({
 const cacheRoot = mkdtempSync(path.join(os.tmpdir(), 'local-video-director-'));
 const health = await inspectOllama({ fetchImpl: fakeFetch });
 assert.equal(health.modelInstalled, true);
+assert.equal(health.digest, 'sha256:qwen3-test');
 const first = await createDirectorProposal({
   prompt: 'Explicá de forma breve cómo colaborar con inteligencia artificial.',
   fetchImpl: fakeFetch,
@@ -157,6 +158,22 @@ const noThinkResult = await createDirectorProposal({
   cacheRoot, useCache: false,
 });
 assert.notEqual(thinkResult.cacheKey, noThinkResult.cacheKey);
+
+const identityA = await createDirectorProposal({
+  prompt: 'Explicá cómo identificar exactamente un modelo local.',
+  modelIdentity: { digest: 'sha256:a', runtimeVersion: 'test' },
+  fetchImpl: fakeFetch,
+  cacheRoot,
+  useCache: false,
+});
+const identityB = await createDirectorProposal({
+  prompt: 'Explicá cómo identificar exactamente un modelo local.',
+  modelIdentity: { digest: 'sha256:b', runtimeVersion: 'test' },
+  fetchImpl: fakeFetch,
+  cacheRoot,
+  useCache: false,
+});
+assert.notEqual(identityA.cacheKey, identityB.cacheKey);
 
 await assert.rejects(
   () => createDirectorProposal({ prompt: 'Idea válida', think: 'sí', fetchImpl: fakeFetch, cacheRoot }),
@@ -255,6 +272,39 @@ assert.equal(cachedBestOf.cacheHit, true);
 assert.equal(bestOfCalls, 3);
 assert.deepEqual(cachedBestOf.selection, bestOfResult.selection);
 
+let escalationCalls = 0;
+let judgeRounds = 0;
+const escalationFetch = async (url, options = {}) => {
+  if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+  escalationCalls += 1;
+  const request = JSON.parse(options.body);
+  if (request.format.properties?.winnerIndex) {
+    judgeRounds += 1;
+    return response({
+      message: {
+        content: JSON.stringify({
+          winnerIndex: 0,
+          scores: judgeRounds === 1
+            ? [judgeScore(1), judgeScore(1)]
+            : [judgeScore(3), judgeScore(1)],
+        }),
+      },
+    });
+  }
+  return response({ message: { content: JSON.stringify(escalationCalls % 2 ? plan : alternativePlan) } });
+};
+const escalated = await createDirectorProposal({
+  prompt: 'Explicá cómo colaborar con inteligencia artificial y conservar el criterio.',
+  bestOf: 2,
+  fetchImpl: escalationFetch,
+  cacheRoot,
+  useCache: false,
+});
+assert.equal(escalationCalls, 5);
+assert.equal(escalated.usage.qualityEscalations, 1);
+assert.equal(escalated.usage.generationCount, 3);
+assert.equal(escalated.selection.qualityFloorMet, true);
+
 await assert.rejects(
   () => createDirectorProposal({
     prompt: 'Compará demasiadas variantes.',
@@ -317,6 +367,48 @@ assert.equal(repairCalls, 2);
 assert.equal(repaired.repairAttempts, 1);
 assert.equal(repaired.cacheHit, false);
 
+const invalidGesturePlan = structuredClone(plan);
+invalidGesturePlan.scenes[0].dialogue[0].gestureAtWord = 99;
+let generalizedRepairCalls = 0;
+const generalizedRepair = await createDirectorProposal({
+  prompt: 'Explicá cómo colaborar con inteligencia artificial de forma responsable.',
+  cacheRoot,
+  useCache: false,
+  fetchImpl: async (url, options = {}) => {
+    if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+    generalizedRepairCalls += 1;
+    const content = generalizedRepairCalls === 1
+      ? '{json incompleto'
+      : JSON.stringify(generalizedRepairCalls === 2 ? invalidGesturePlan : plan);
+    return response({ message: { content } });
+  },
+});
+assert.equal(generalizedRepairCalls, 3);
+assert.equal(generalizedRepair.repairAttempts, 2);
+
+const weakQualityPlan = structuredClone(plan);
+weakQualityPlan.title = 'Otro asunto';
+weakQualityPlan.scenes[0].title = 'Inicio';
+weakQualityPlan.scenes[0].purpose = 'Relleno';
+weakQualityPlan.scenes[0].dialogue[0].text = 'Hola.';
+weakQualityPlan.scenes[0].dialogue[1].text = 'Hola.';
+let qualityRepairCalls = 0;
+const qualityRepaired = await createDirectorProposal({
+  prompt: 'Explicá cómo colaborar con inteligencia artificial de forma responsable.',
+  cacheRoot,
+  useCache: false,
+  fetchImpl: async (url, options = {}) => {
+    if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
+    qualityRepairCalls += 1;
+    return response({
+      message: { content: JSON.stringify(qualityRepairCalls === 1 ? weakQualityPlan : plan) },
+    });
+  },
+});
+assert.equal(qualityRepairCalls, 2);
+assert.equal(qualityRepaired.repairAttempts, 1);
+assert.equal(qualityRepaired.quality.passed, true);
+
 let failCalls = 0;
 const failFetch = async (url, options = {}) => {
   if (!url.endsWith('/api/chat')) return fakeFetch(url, options);
@@ -334,7 +426,7 @@ assert.equal(failCalls, 3);
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 60,
+  passed: 73,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

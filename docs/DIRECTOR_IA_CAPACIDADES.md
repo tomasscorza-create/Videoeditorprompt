@@ -73,6 +73,27 @@ Calidad de generación:
   defecto. Puede ajustarse con `LOCAL_VIDEO_OLLAMA_KEEP_ALIVE` usando `0` o una
   duración acotada como `30s`, `10m` o `1h`.
 
+Mejoras de calidad v12:
+
+- **Variantes deliberadamente distintas**: los tres candidatos usan estrategias
+  directo-práctica, contraste y ejemplo concreto; no dependen solo de otra seed.
+- **Presupuesto editorial distribuido**: el prompt recibe máximo global y guía
+  por escena/turno. La duración real continúa proviniendo del WAV y FFprobe.
+- **Preflight determinista**: `plan-quality.mjs` detecta gancho/cierre débiles,
+  baja cobertura temática, repetición, escenas desequilibradas y fricción TTS.
+  Una propuesta bajo 55/100 se repara antes de ser candidata.
+- **Juez v2**: recibe idea, restricciones, plantillas, cast y dirección completa.
+  Puntúa relevancia, gancho, naturalidad, progresión, cierre, tono, TTS y
+  audiovisual. Si todos quedan bajo el umbral, revisa al mejor y vuelve a juzgar.
+- **Reparación ampliada**: además del presupuesto, repara errores de schema,
+  recursos/capacidades, cast, transición, gesto, estructura, plantilla y calidad.
+- **Identidad y métricas**: la caché incorpora digest del modelo y versión de
+  Ollama cuando están disponibles. Se informan tiempos por candidato, tokens,
+  reparaciones, escaladas y puntuaciones.
+- **Corpus de regresión**: `director:test-quality` valida heurísticas y cobertura
+  del corpus. `director:benchmark-quality` ejecuta el corpus contra Ollama; admite
+  `--limit=N` para una pasada acotada.
+
 ## Edición (instrucción → comandos) · `project-editor-director.mjs`
 
 El schema de edición cubre todo el editor (20 comandos). IDs existentes como enum
@@ -88,6 +109,11 @@ del proyecto real; IDs nuevos como patrón portable.
 - **Resumen para la IA** (`summarizeProject`): incluye pose, animación, escala,
   profundidad, gesto, timing, ritmo, layout, pausa y transición por escena,
   compacto para el modelo 8B.
+- **Selección contextual**: escena, personaje o turno seleccionado se envía como
+  alcance explícito cuando existe.
+- **Aplicación segura**: el servidor simula el lote completo antes de cachearlo.
+  La UI lo aplica atómicamente y rechaza el resultado si el proyecto cambió
+  mientras el modelo estaba trabajando.
 
 ## Reglas duras
 

@@ -61,11 +61,15 @@ export function createOllamaProvider(config = {}) {
         requestJson(fetchImpl, `${baseUrl}/api/version`, { timeoutMs: timeoutMs ?? 5000, errorCode: 'OLLAMA_UNAVAILABLE' }),
         requestJson(fetchImpl, `${baseUrl}/api/tags`, { timeoutMs: timeoutMs ?? 5000, errorCode: 'OLLAMA_UNAVAILABLE' }),
       ]);
+      const installedModel = Array.isArray(tags.models)
+        ? tags.models.find((entry) => entry.name === requestedModel || entry.model === requestedModel)
+        : null;
       return {
         available: true,
         version: version.version || null,
         model: requestedModel,
-        modelInstalled: Array.isArray(tags.models) && tags.models.some((entry) => entry.name === requestedModel || entry.model === requestedModel),
+        modelInstalled: Boolean(installedModel),
+        digest: typeof installedModel?.digest === 'string' ? installedModel.digest : null,
       };
     },
   };
@@ -82,9 +86,16 @@ function normalizeKeepAlive(value) {
 
 async function requestJson(fetchImpl, url, options) {
   const controller = new AbortController();
-  const abortFromCaller = () => controller.abort();
+  let abortReason = null;
+  const abortFromCaller = () => {
+    abortReason = 'caller';
+    controller.abort();
+  };
   options.signal?.addEventListener('abort', abortFromCaller, { once: true });
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+  const timeout = setTimeout(() => {
+    abortReason = 'timeout';
+    controller.abort();
+  }, options.timeoutMs);
   try {
     const response = await fetchImpl(url, {
       method: options.method || 'GET',
@@ -115,11 +126,15 @@ async function requestJson(fetchImpl, url, options) {
     }
   } catch (error) {
     if (error instanceof PipelineError) throw error;
-    const timedOut = error?.name === 'AbortError';
+    const aborted = error?.name === 'AbortError';
+    const cancelled = aborted && abortReason === 'caller';
+    const timedOut = aborted && !cancelled;
     throw new PipelineError({
-      code: timedOut ? 'OLLAMA_TIMEOUT' : options.errorCode,
+      code: cancelled ? 'OLLAMA_CANCELLED' : timedOut ? 'OLLAMA_TIMEOUT' : options.errorCode,
       stage: 'directing',
-      message: timedOut ? 'Ollama agotó el tiempo permitido.' : 'No se pudo conectar con Ollama.',
+      message: cancelled
+        ? 'La operación del Director fue cancelada.'
+        : timedOut ? 'Ollama agotó el tiempo permitido.' : 'No se pudo conectar con Ollama.',
       cause: error,
       suggestedAction: 'Iniciá Ollama, verificá qwen3:8b y volvé a intentar.',
     });

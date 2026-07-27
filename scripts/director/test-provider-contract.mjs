@@ -18,7 +18,7 @@ function jsonResponse(value, status = 200) {
 function makeFetch(behavior) {
   return async (url, options = {}) => {
     if (url.endsWith('/api/version')) return jsonResponse({ version: 'test' });
-    if (url.endsWith('/api/tags')) return jsonResponse({ models: [{ name: 'modelo-x' }] });
+    if (url.endsWith('/api/tags')) return jsonResponse({ models: [{ name: 'modelo-x', digest: 'sha256:modelo-x' }] });
     if (behavior === 'error') return jsonResponse({ error: 'boom' }, 500);
     if (behavior === 'abort') {
       return new Promise((_resolve, reject) => {

@@ -51,6 +51,7 @@
     "director:test-plan": "node scripts/director/test-director-plan.mjs",
     "director:test-context": "node scripts/director/test-director-context.mjs",
     "director:test-quality": "node scripts/director/test-director-quality.mjs",
+    "director:benchmark-quality": "node scripts/director/benchmark-director-quality.mjs",
     "director:test-ollama": "node scripts/director/test-ollama-director.mjs",
     "director:test-editor": "node scripts/director/test-project-editor-director.mjs",
     "director:test-provider-contract": "node scripts/director/test-provider-contract.mjs",
