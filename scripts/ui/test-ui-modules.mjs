@@ -95,6 +95,7 @@ const check = (label, condition) => {
 
 const appHtml = readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
 const projectPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'panel.ts'), 'utf8');
+const directorPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'panel.ts'), 'utf8');
 check(
   'el Director expone un único control contextual de cancelación',
   (appHtml.match(/id="director-cancel"/g) ?? []).length === 1 && !appHtml.includes('director-proposal-cancel'),
@@ -105,6 +106,22 @@ check(
   !projectPanelSource.includes("actionButton('Nueva escena'")
     && !projectPanelSource.includes("actionButton('Duplicar'")
     && !projectPanelSource.includes("actionButton('Eliminar',"),
+);
+check(
+  'Escena edita el guion sin exponer personaje ni voz',
+  !projectPanelSource.includes('set-dialogue-speaker')
+    && !projectPanelSource.includes('voiceSelect')
+    && projectPanelSource.includes('proposal-dialogue-meta'),
+);
+check(
+  'la propuesta recorre todas las escenas en sus editores enfocados',
+  projectPanelSource.includes('project.scenes.map((scene, index)')
+    && projectPanelSource.includes('store.project().scenes.map((scene, index)'),
+);
+check(
+  'la cabecera del Director usa y permite editar el título real del proyecto',
+  directorPanelSource.includes("proposalTitle.value = store?.project().title?.trim()")
+    && directorPanelSource.includes("store.dispatch({ type: 'set-project-title', title })"),
 );
 
 check(

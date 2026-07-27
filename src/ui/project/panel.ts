@@ -76,21 +76,21 @@ export function initProjectEditor(store: ProjectStore): void {
 
   function renderInspector(): void {
     const project = store.project();
-    const scene = project.scenes.find((item) => item.id === store.selectedSceneId());
+    const selectedScene = project.scenes.find((item) => item.id === store.selectedSceneId());
     const selection = projectSelection();
-    if (selection && selection.sceneId === scene?.id) {
+    if (selection && selection.sceneId === selectedScene?.id) {
       activeProposalTab = selection.kind === 'element' ? 'elements' : 'scene';
     }
     syncProposalTabs();
-    if (!scene) {
-      inspector!.replaceChildren(note('No hay escena seleccionada.'));
+    if (project.scenes.length === 0) {
+      inspector!.replaceChildren(note('No hay escenas disponibles.'));
       return;
     }
     const sectionFactories: Record<ProposalTab, () => HTMLElement> = {
-      scene: () => sceneSection(scene),
-      elements: () => elementsSection(scene),
-      background: () => backgroundSection(scene),
-      transition: () => transitionSection(scene),
+      scene: () => sceneSection(),
+      elements: () => elementsSection(),
+      background: () => backgroundSection(),
+      transition: () => transitionSection(),
     };
     inspector!.replaceChildren(...(status ? [status] : []), sectionFactories[activeProposalTab]());
   }
@@ -109,94 +109,59 @@ export function initProjectEditor(store: ProjectStore): void {
     renderInspector();
   }
 
-  function sceneSection(scene: SceneView): HTMLElement {
+  function sceneSection(): HTMLElement {
     const project = store.project();
-    const projectTitle = document.createElement('input');
-    projectTitle.type = 'text';
-    projectTitle.value = project.title;
-    projectTitle.maxLength = 120;
-    projectTitle.addEventListener('change', () => {
-      const title = projectTitle.value.trim();
-      if (title) send({ type: 'set-project-title', title });
-    });
+    return focusedView(project.scenes.map((scene, index) => sceneScriptCard(scene, index)));
+  }
 
-    const sceneSelector = select(
-      project.scenes.map((item, index) => ({ value: item.id, label: `Escena ${index + 1} · ${item.title}` })),
-      scene.id,
-    );
-    sceneSelector.addEventListener('change', () => send({ type: 'select-scene', sceneId: sceneSelector.value }));
-
-    const sceneTitle = document.createElement('input');
-    sceneTitle.type = 'text';
-    sceneTitle.value = scene.title;
-    sceneTitle.maxLength = 120;
-    sceneTitle.addEventListener('change', () => {
-      const title = sceneTitle.value.trim();
-      if (title) send({ type: 'set-scene-title', sceneId: scene.id, title });
+  function sceneScriptCard(scene: SceneView, index: number): HTMLElement {
+    const title = document.createElement('input');
+    title.type = 'text';
+    title.value = scene.title;
+    title.maxLength = 120;
+    title.setAttribute('aria-label', `Título de la escena ${index + 1}`);
+    title.addEventListener('change', () => {
+      const value = title.value.trim();
+      if (value) send({ type: 'set-scene-title', sceneId: scene.id, title: value });
     });
-    return group('Escena', [
-      field('Título del proyecto', projectTitle),
-      field('Escena a editar', sceneSelector),
-      field('Título de la escena', sceneTitle),
-      ...dialogueScriptFields(scene),
-    ]);
+    const heading = document.createElement('header');
+    heading.className = 'proposal-card-heading';
+    const number = document.createElement('span');
+    number.className = 'eyebrow';
+    number.textContent = `Escena ${index + 1}`;
+    heading.append(number, title);
+    const card = proposalCard();
+    card.append(heading, ...dialogueScriptFields(scene));
+    return card;
   }
 
   function dialogueScriptFields(scene: SceneView): HTMLElement[] {
     const characters = store.resources('character');
-    const voices = store.resources('voice');
-    const sceneCharacters = scene.elements.filter((element) => element.type === 'character');
-    const fields: HTMLElement[] = [subheading('Guion y diálogos')];
+    const fields: HTMLElement[] = [];
 
     for (const [index, turn] of scene.dialogue.entries()) {
       const speaker = scene.elements.find((element) => element.id === turn.speakerElementId);
       const character = characters.find((resource) => resource.id === speaker?.resourceId);
       const speakerIndex = scene.elements.findIndex((element) => element.id === turn.speakerElementId);
       const fallbackName = speakerIndex >= 0 ? `Personaje ${speakerIndex + 1}` : `Personaje ${index + 1}`;
-      fields.push(subheading(character?.label ?? fallbackName));
-      fields.push(field('Diálogo', dialogueText(scene, turn)));
-      const speakerSelect = select(sceneCharacters.map((element, characterIndex) => {
-        const resource = characters.find((candidate) => candidate.id === element.resourceId);
-        return { value: element.id, label: resource?.label ?? `Personaje ${characterIndex + 1}` };
-      }), turn.speakerElementId);
-      speakerSelect.addEventListener('change', () => send({
-        type: 'set-dialogue-speaker', sceneId: scene.id, turnId: turn.id, speakerElementId: speakerSelect.value,
-      }));
-      const voiceSelect = select(voices.map((voice) => ({ value: voice.id, label: voice.label })), turn.voiceId);
-      voiceSelect.addEventListener('change', () => send({
-        type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, voiceId: voiceSelect.value,
-      }));
-      const row = document.createElement('div');
-      row.className = 'inspector-inline-fields';
-      row.append(field('Personaje', speakerSelect), field('Voz', voiceSelect));
-      fields.push(row);
-      fields.push(actionButton('Eliminar diálogo', () => send({
-        type: 'delete-dialogue-turn', sceneId: scene.id, turnId: turn.id,
-      }), true));
+      const item = document.createElement('label');
+      item.className = 'proposal-dialogue';
+      const meta = document.createElement('span');
+      meta.className = 'proposal-dialogue-meta';
+      meta.textContent = `Personaje · ${character?.label ?? fallbackName}`;
+      item.append(meta, dialogueText(scene, turn));
+      fields.push(item);
     }
 
-    fields.push(actionButton('Agregar diálogo', () => {
-      const speaker = sceneCharacters[scene.dialogue.length % Math.max(1, sceneCharacters.length)];
-      const voice = voices[scene.dialogue.length % Math.max(1, voices.length)];
-      if (!speaker || !voice) {
-        report('Agregá al menos un personaje y una voz antes de crear diálogo.');
-        return;
-      }
-      send({
-        type: 'add-dialogue-turn',
-        sceneId: scene.id,
-        turnId: nextId(`${scene.id}-turno`, scene.dialogue.map((turn) => turn.id)),
-        speakerElementId: speaker.id,
-        text: 'Nuevo diálogo',
-        voiceId: voice.id,
-        gestureId: 'neutral',
-        gapAfterSeconds: 0.25,
-      });
-    }));
+    if (fields.length === 0) fields.push(note('Esta escena todavía no tiene diálogos.'));
     return fields;
   }
 
-  function backgroundSection(scene: SceneView): HTMLElement {
+  function backgroundSection(): HTMLElement {
+    return focusedView(store.project().scenes.map((scene, index) => backgroundCard(scene, index)));
+  }
+
+  function backgroundCard(scene: SceneView, index: number): HTMLElement {
     const backgrounds = store.resources('background');
     const resource = select(
       backgrounds.map((entry) => ({ value: entry.id, label: entry.label })),
@@ -214,11 +179,19 @@ export function initProjectEditor(store: ProjectStore): void {
     });
     resource.addEventListener('change', apply);
     camera.addEventListener('change', apply);
-    return group('Fondo', [field('Recurso', resource), field('Cámara', camera)]);
+    return sceneControlCard(scene, index, [
+      controlGrid(field('Fondo', resource), field('Cámara', camera)),
+    ]);
   }
 
-  function transitionSection(scene: SceneView): HTMLElement {
-    const isLast = store.project().scenes.at(-1)?.id === scene.id;
+  function transitionSection(): HTMLElement {
+    const scenes = store.project().scenes;
+    const cards = scenes.slice(0, -1).map((scene, index) => transitionCard(scene, index));
+    if (cards.length === 0) return focusedView([note('Hace falta más de una escena para configurar una transición.')]);
+    return focusedView(cards);
+  }
+
+  function transitionCard(scene: SceneView, index: number): HTMLElement {
     const preset = select(TRANSITIONS.map((value) => ({
       value,
       label: value === 'cut' ? 'Corte' : 'Fundido',
@@ -250,17 +223,16 @@ export function initProjectEditor(store: ProjectStore): void {
     preset.addEventListener('change', apply);
     duration.addEventListener('change', apply);
 
-    if (isLast) {
-      preset.disabled = true;
-      duration.disabled = true;
-    }
-
-    const fields = [field('Preset', preset), field('Duración (s)', duration)];
-    if (isLast) fields.push(note('La última escena no tiene transición siguiente.'));
-    return group('Transición', fields);
+    return sceneControlCard(scene, index, [
+      controlGrid(field('Tipo', preset), field('Duración (s)', duration)),
+    ]);
   }
 
-  function elementsSection(scene: SceneView): HTMLElement {
+  function elementsSection(): HTMLElement {
+    return focusedView(store.project().scenes.map((scene, index) => elementsCard(scene, index)));
+  }
+
+  function elementsCard(scene: SceneView, index: number): HTMLElement {
     const characters = store.resources('character');
     const fields: HTMLElement[] = [];
     let characterNumber = 0;
@@ -283,7 +255,7 @@ export function initProjectEditor(store: ProjectStore): void {
       }));
 
       fields.push(subheading(`Personaje ${characterNumber}`));
-      fields.push(field('Personaje', resource));
+      const identityFields: HTMLElement[] = [field('Personaje', resource)];
       const selectedResource = characters.find((entry) => entry.id === element.resourceId);
       const animationPresets = readStringCapability(selectedResource?.capabilities, 'animationPresets');
       if (animationPresets.length > 0) {
@@ -297,12 +269,15 @@ export function initProjectEditor(store: ProjectStore): void {
           elementId: element.id,
           animationPreset: animation.value,
         }));
-        fields.push(field('Movimiento', animation));
+        identityFields.push(field('Movimiento', animation));
       }
-      fields.push(transformField(scene, element, 'x', 'X', -1080, 2160, 1));
-      fields.push(transformField(scene, element, 'y', 'Y', -1920, 3840, 1));
-      fields.push(transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01));
-      fields.push(transformField(scene, element, 'zIndex', 'Orden de capa', -1000, 1000, 1));
+      fields.push(controlGrid(...identityFields));
+      fields.push(controlGrid(
+        transformField(scene, element, 'x', 'X', -1080, 2160, 1),
+        transformField(scene, element, 'y', 'Y', -1920, 3840, 1),
+        transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01),
+        transformField(scene, element, 'zIndex', 'Capa', -1000, 1000, 1),
+      ));
       const remove = actionButton('Quitar personaje', () => send({
         type: 'delete-element', sceneId: scene.id, elementId: element.id,
       }), true);
@@ -327,7 +302,7 @@ export function initProjectEditor(store: ProjectStore): void {
       });
     });
     fields.push(subheading('Agregar desde la biblioteca'), field('Personaje', characterPicker), add);
-    return group('Personajes y elementos', fields);
+    return sceneControlCard(scene, index, fields);
   }
 
   function transformField(
@@ -356,7 +331,8 @@ export function initProjectEditor(store: ProjectStore): void {
 
   function dialogueText(scene: SceneView, turn: TurnView): HTMLTextAreaElement {
     const area = document.createElement('textarea');
-    area.rows = 3;
+    area.className = 'proposal-dialogue-text';
+    area.rows = dialogueRows(turn.text);
     area.maxLength = 500;
     area.value = turn.text;
     area.addEventListener('change', () => {
@@ -382,27 +358,43 @@ function isProposalTab(value: string | undefined): value is ProposalTab {
   return PROPOSAL_TABS.some((tab) => tab === value);
 }
 
-function group(title: string, children: HTMLElement[]): HTMLElement {
+function focusedView(children: HTMLElement[]): HTMLElement {
+  const view = document.createElement('div');
+  view.className = 'proposal-focused-view';
+  view.append(...children);
+  return view;
+}
+
+function proposalCard(): HTMLElement {
   const section = document.createElement('section');
-  section.className = 'inspector-group';
-  const heading = document.createElement('h3');
-  heading.textContent = title;
-  heading.tabIndex = 0;
-  heading.setAttribute('role', 'button');
-  heading.setAttribute('aria-expanded', 'true');
-  const toggle = (): void => {
-    const collapsed = section.classList.toggle('is-collapsed');
-    heading.setAttribute('aria-expanded', String(!collapsed));
-  };
-  heading.addEventListener('click', toggle);
-  heading.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      toggle();
-    }
-  });
-  section.append(heading, ...children);
+  section.className = 'proposal-focus-card';
   return section;
+}
+
+function sceneControlCard(scene: SceneView, index: number, children: HTMLElement[]): HTMLElement {
+  const card = proposalCard();
+  const heading = document.createElement('header');
+  heading.className = 'proposal-control-heading';
+  const number = document.createElement('span');
+  number.className = 'eyebrow';
+  number.textContent = `Escena ${index + 1}`;
+  const title = document.createElement('strong');
+  title.textContent = scene.title;
+  heading.append(number, title);
+  card.append(heading, ...children);
+  return card;
+}
+
+function controlGrid(...controls: HTMLElement[]): HTMLElement {
+  const grid = document.createElement('div');
+  grid.className = 'proposal-control-grid';
+  grid.append(...controls);
+  return grid;
+}
+
+function dialogueRows(text: string): number {
+  const rows = text.split(/\r?\n/).reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 34)), 0);
+  return Math.min(18, Math.max(3, rows));
 }
 
 function isTyping(target: EventTarget | null): boolean {

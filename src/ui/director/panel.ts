@@ -52,7 +52,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const promptLabel = required<HTMLElement>('#director-prompt-label');
   const constraintsRoot = required<HTMLElement>('#director-constraints');
   const proposalKind = required<HTMLElement>('#proposal-kind');
-  const proposalTitle = required<HTMLElement>('#proposal-title');
+  const proposalTitle = required<HTMLInputElement>('#proposal-title');
   const pageTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-director-page]'));
   const pagePanels = new Map<DirectorPage, HTMLElement>(
     DIRECTOR_PAGES.map((page) => [page, required<HTMLElement>(`#director-page-${page}`)] as [DirectorPage, HTMLElement]),
@@ -171,6 +171,20 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     }
   });
 
+  proposalTitle.addEventListener('change', () => {
+    if (!store) return;
+    const title = proposalTitle.value.trim();
+    if (!title) {
+      syncProjectHeading();
+      return;
+    }
+    const error = store.dispatch({ type: 'set-project-title', title });
+    if (error) {
+      report(error);
+      syncProjectHeading();
+    }
+  });
+
   cancel.addEventListener('click', async () => {
     if (proposalController) {
       cancel.disabled = true;
@@ -224,6 +238,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         type: 'project-availability-changed',
         available: hasAuthoredContent(target),
       });
+      syncProjectHeading();
       syncButtons();
     });
   }
@@ -454,9 +469,14 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       : 'Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA.';
     generate.textContent = editing ? 'Aplicar cambio con IA' : 'Crear propuesta';
     proposalKind.textContent = editing ? 'Proyecto' : 'Propuesta';
-    proposalTitle.textContent = editing ? 'Escenas y ajustes' : 'Revisar y ajustar';
+    syncProjectHeading();
     root.classList.toggle('is-editing-project', editing);
     syncPageNavigation();
+  }
+
+  function syncProjectHeading(): void {
+    proposalTitle.value = store?.project().title?.trim()
+      || (navigation.mode === 'editing' ? 'Proyecto sin título' : 'Revisar y ajustar');
   }
 
   function report(message: string, ok = false): void {

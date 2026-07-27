@@ -101,7 +101,9 @@ Es el punto de entrada y comando del flujo creativo.
 - `Estado actual` no duplica acciones estructurales de escenas: insertar, duplicar y eliminar permanecen en la timeline.
 - La edición interna de la propuesta se separa en pestañas de nombres directos —escena, personajes, fondo y transición— para evitar un formulario vertical único.
 - Estas pestañas forman una única fila compacta dentro de `Propuesta` o `Estado actual`; todo el contenido inferior pertenece a la pestaña activa.
-- El título del proyecto, la selección de escena y el guion editable viven dentro de `Escena`. El guion identifica al personaje y solo expone su texto; voz, gesto y pausa no forman parte de este editor simple.
+- El título del proyecto se muestra junto a `Proyecto` o `Propuesta` en la cabecera de la subpágina.
+- `Escena` muestra todas las escenas en orden, cada una con su título y sus diálogos completos. Solo permite editar esos textos; una línea pequeña identifica el personaje de cada turno sin exponer cambios de personaje, voz, gesto o pausa.
+- `Personajes`, `Fondo` y `Transición` recorren las escenas con el mismo patrón visual y solo exponen controles de su propia categoría.
 - La propuesta no mantiene una cabecera paralela de acciones o reordenamiento.
 - La propuesta prioriza decisiones creativas; no muestra descargas técnicas ni explicaciones internas del pipeline.
 - La biblioteca persistente de videos terminados pertenece a `Archivos > Videos creados` en el encabezado, no al panel del Director.
