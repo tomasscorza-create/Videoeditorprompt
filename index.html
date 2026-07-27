@@ -29,6 +29,28 @@
     </style>
   </head>
   <body>
+    <!-- Sprite de iconos. Trazo simple sobre viewBox 24x24; heredan el color del
+         botón vía currentColor. Los botones conservan su aria-label: cada <svg>
+         de uso va con aria-hidden. -->
+    <svg class="icon-sprite" hidden aria-hidden="true">
+      <symbol id="icon-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></symbol>
+      <symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></symbol>
+      <symbol id="icon-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></symbol>
+      <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6L19 12z"/></symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 5h3.2v14H7.5zM13.3 5h3.2v14h-3.2z"/></symbol>
+      <symbol id="icon-clip-previous" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2.2v12H6z"/><path d="M19 6l-9 6 9 6z"/></symbol>
+      <symbol id="icon-clip-next" viewBox="0 0 24 24" fill="currentColor"><path d="M15.8 6H18v12h-2.2z"/><path d="M5 6l9 6-9 6z"/></symbol>
+      <symbol id="icon-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h11a5 5 0 0 1 0 10H8"/><path d="M8 4 4 8l4 4"/></symbol>
+      <symbol id="icon-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H9a5 5 0 0 0 0 10h7"/><path d="M16 4l4 4-4 4"/></symbol>
+      <symbol id="icon-snap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 20.5 12 12 20.5 3.5 12z"/><path d="M12 8.5v7"/></symbol>
+      <symbol id="icon-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="18" height="11" rx="2"/><path d="M7 10.5h.01M11 10.5h.01M15 10.5h.01M17.5 10.5h.01M7.5 14h9"/></symbol>
+      <symbol id="icon-zoom-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5 16 16M11 8v6M8 11h6"/></symbol>
+      <symbol id="icon-zoom-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5 16 16M8 11h6"/></symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2.8M12 18.7v2.8M4.5 4.5l2 2M17.5 17.5l2 2M2.5 12h2.8M18.7 12h2.8M4.5 19.5l2-2M17.5 6.5l2-2"/></symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    </svg>
+
     <div class="app-shell">
       <header class="topbar">
         <div class="brand">
@@ -70,7 +92,7 @@
         </div>
         <div class="topbar-actions">
           <span id="save-status" class="save-status">Guardado local automático</span>
-          <button id="settings-open" class="icon-button" type="button" aria-label="Configuración" title="Configuración">⚙</button>
+          <button id="settings-open" class="icon-button" type="button" aria-label="Configuración" title="Configuración"><svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg></button>
         </div>
       </header>
 
@@ -109,7 +131,7 @@
               </div>
               <div class="section-header-actions">
                 <span id="director-health-badge" class="health-badge is-checking">Comprobando</span>
-                <button id="director-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel izquierdo" title="Ocultar panel">◀</button>
+                <button id="director-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel izquierdo" title="Ocultar panel"><svg class="icon" aria-hidden="true"><use href="#icon-chevron-left"/></svg></button>
               </div>
             </header>
 
@@ -238,9 +260,9 @@
         ></div>
 
         <section class="viewer-column" aria-label="Visor del proyecto">
-          <button id="director-expand" class="expand-button expand-left" type="button" aria-label="Mostrar panel izquierdo" title="Mostrar panel" hidden>▶</button>
-          <button id="inspector-expand" class="expand-button expand-right" type="button" aria-label="Mostrar panel derecho" title="Mostrar panel" hidden>◀</button>
-          <button id="timeline-expand" class="expand-button expand-bottom" type="button" aria-label="Mostrar timeline" title="Mostrar timeline" hidden>▲</button>
+          <button id="director-expand" class="expand-button expand-left" type="button" aria-label="Mostrar panel izquierdo" title="Mostrar panel" hidden><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></button>
+          <button id="inspector-expand" class="expand-button expand-right" type="button" aria-label="Mostrar panel derecho" title="Mostrar panel" hidden><svg class="icon" aria-hidden="true"><use href="#icon-chevron-left"/></svg></button>
+          <button id="timeline-expand" class="expand-button expand-bottom" type="button" aria-label="Mostrar timeline" title="Mostrar timeline" hidden><svg class="icon" aria-hidden="true"><use href="#icon-chevron-up"/></svg></button>
 
           <header class="viewer-header">
             <div class="viewer-title-block">
@@ -318,7 +340,7 @@
               </div>
               <div class="section-header-actions">
                 <button id="resource-register" class="text-button" type="button">Agregar fondo</button>
-                <button id="inspector-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel derecho" title="Ocultar panel">▶</button>
+                <button id="inspector-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel derecho" title="Ocultar panel"><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></button>
               </div>
               <input id="resource-register-file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
             </header>
@@ -336,7 +358,7 @@
                 <span class="eyebrow">Crear</span>
                 <h2 id="character-creator-title">Personaje animable</h2>
               </div>
-              <button id="character-creator-close" class="icon-button" type="button" aria-label="Cerrar diseñador">×</button>
+              <button id="character-creator-close" class="icon-button" type="button" aria-label="Cerrar diseñador"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
             </header>
             <p class="muted">Elegí una plantilla rápida o construí un personaje por piezas semánticas. Ambos caminos producen un rig animable.</p>
             <div class="tabs" data-variant="segmented" role="tablist" aria-label="Modo de creación">
@@ -446,17 +468,17 @@
             <h2 id="timeline-title">Video y audio</h2>
           </div>
           <div class="timeline-tool-group" aria-label="Historial">
-            <button id="timeline-undo" class="timeline-tool" type="button" disabled title="Deshacer (Ctrl+Z)" aria-label="Deshacer">↶</button>
-            <button id="timeline-redo" class="timeline-tool" type="button" disabled title="Rehacer (Ctrl+Y)" aria-label="Rehacer">↷</button>
+            <button id="timeline-undo" class="timeline-tool" type="button" disabled title="Deshacer (Ctrl+Z)" aria-label="Deshacer"><svg class="icon" aria-hidden="true"><use href="#icon-undo"/></svg></button>
+            <button id="timeline-redo" class="timeline-tool" type="button" disabled title="Rehacer (Ctrl+Y)" aria-label="Rehacer"><svg class="icon" aria-hidden="true"><use href="#icon-redo"/></svg></button>
           </div>
           <div class="timeline-tool-group transport-tools" aria-label="Transporte">
-            <button id="timeline-previous" class="timeline-tool" type="button" disabled title="Clip anterior (↑)" aria-label="Clip anterior">◀</button>
-            <button id="timeline-play" class="timeline-play" type="button" disabled title="Reproducir o pausar (Espacio)" aria-label="Reproducir o pausar">▶</button>
-            <button id="timeline-next" class="timeline-tool" type="button" disabled title="Clip siguiente (↓)" aria-label="Clip siguiente">▶</button>
+            <button id="timeline-previous" class="timeline-tool" type="button" disabled title="Clip anterior (↑)" aria-label="Clip anterior"><svg class="icon" aria-hidden="true"><use href="#icon-clip-previous"/></svg></button>
+            <button id="timeline-play" class="timeline-play" type="button" disabled title="Reproducir o pausar (Espacio)" aria-label="Reproducir o pausar"><svg class="icon" aria-hidden="true"><use href="#icon-play"/></svg></button>
+            <button id="timeline-next" class="timeline-tool" type="button" disabled title="Clip siguiente (↓)" aria-label="Clip siguiente"><svg class="icon" aria-hidden="true"><use href="#icon-clip-next"/></svg></button>
             <button id="timeline-mute" class="timeline-tool" type="button" disabled aria-pressed="false" title="Silenciar exportación (M)" aria-label="Silenciar exportación">M</button>
           </div>
           <div class="timeline-tool-group" aria-label="Ajuste temporal">
-            <button id="timeline-snap" class="timeline-tool is-active" type="button" aria-pressed="true" title="Ajuste magnético (S)" aria-label="Ajuste magnético">⌑</button>
+            <button id="timeline-snap" class="timeline-tool is-active" type="button" aria-pressed="true" title="Ajuste magnético (S)" aria-label="Ajuste magnético"><svg class="icon" aria-hidden="true"><use href="#icon-snap"/></svg></button>
           </div>
           <div class="timeline-tool-group" aria-label="Editar selección">
             <button id="timeline-duplicate" class="timeline-tool" type="button" disabled title="Duplicar escena seleccionada" aria-label="Duplicar escena">Duplicar</button>
@@ -465,12 +487,12 @@
           <div class="timeline-spacer"></div>
           <output id="timeline-timecode" class="timeline-timecode">00:00.000 / --:--.---</output>
           <span id="timeline-mode" class="timeline-mode">Sin medir</span>
-          <button id="timeline-shortcuts" class="timeline-tool" type="button" title="Ver atajos de timeline" aria-label="Ver atajos de timeline">⌨</button>
+          <button id="timeline-shortcuts" class="timeline-tool" type="button" title="Ver atajos de timeline" aria-label="Ver atajos de timeline"><svg class="icon" aria-hidden="true"><use href="#icon-keyboard"/></svg></button>
           <div class="timeline-tool-group" aria-label="Zoom">
-            <button id="timeline-zoom-out" class="timeline-tool" type="button" title="Alejar (-)" aria-label="Alejar timeline">−</button>
+            <button id="timeline-zoom-out" class="timeline-tool" type="button" title="Alejar (-)" aria-label="Alejar timeline"><svg class="icon" aria-hidden="true"><use href="#icon-zoom-out"/></svg></button>
             <button id="timeline-fit" class="timeline-tool" type="button" title="Ajustar al ancho (F)" aria-label="Ajustar timeline al ancho">Ajustar</button>
-            <button id="timeline-zoom-in" class="timeline-tool" type="button" title="Acercar (+)" aria-label="Acercar timeline">+</button>
-            <button id="timeline-collapse" class="timeline-tool collapse-button" type="button" title="Ocultar timeline" aria-label="Ocultar timeline">▼</button>
+            <button id="timeline-zoom-in" class="timeline-tool" type="button" title="Acercar (+)" aria-label="Acercar timeline"><svg class="icon" aria-hidden="true"><use href="#icon-zoom-in"/></svg></button>
+            <button id="timeline-collapse" class="timeline-tool collapse-button" type="button" title="Ocultar timeline" aria-label="Ocultar timeline"><svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"/></svg></button>
           </div>
         </header>
 
@@ -483,7 +505,7 @@
       <div class="modal-content">
         <header class="section-header">
           <div><span class="eyebrow">Archivos</span><h2>Mis proyectos editables</h2></div>
-          <button id="projects-close" class="icon-button" type="button" aria-label="Cerrar">×</button>
+          <button id="projects-close" class="icon-button" type="button" aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
         </header>
         <p class="muted">Estos proyectos se guardan de forma durable en el equipo y pueden seguir editándose después del render.</p>
         <div id="saved-project-list" class="saved-project-list"></div>
@@ -492,7 +514,7 @@
 
     <dialog id="settings-modal" class="modal">
       <div class="modal-content">
-        <header class="section-header"><h2>Configuración</h2><button id="settings-close" class="icon-button" aria-label="Cerrar">×</button></header>
+        <header class="section-header"><h2>Configuración</h2><button id="settings-close" class="icon-button" aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button></header>
         <label class="field" for="theme-select">
           <span>Tema visual</span>
           <select id="theme-select"><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option></select>
@@ -505,7 +527,7 @@
       <div class="modal-content">
         <header class="section-header">
           <div><span class="eyebrow">Timeline</span><h2>Atajos de reproducción</h2></div>
-          <button id="timeline-shortcuts-close" class="icon-button" aria-label="Cerrar">×</button>
+          <button id="timeline-shortcuts-close" class="icon-button" aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
         </header>
         <dl class="shortcut-list">
           <div><dt>Espacio</dt><dd>Reproducir / pausar</dd></div>

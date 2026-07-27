@@ -192,6 +192,15 @@ h1, h2 { font-size: var(--fs-xl); }
   height: 2rem;
 }
 
+/* Iconos del sprite: heredan color y escalan con el font-size del botón. */
+.icon {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  pointer-events: none;
+}
+.icon-sprite { display: none; }
+
 /* Componente único de tabs — variantes: segmented | underline | ghost */
 .tabs { min-width: 0; margin: 0; }
 .tabs[data-variant="segmented"] {
