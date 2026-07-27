@@ -19,6 +19,7 @@ const sources = [
   'src/ui/timeline-geometry.ts',
   'src/ui/director/api.ts',
   'src/ui/director/navigation.ts',
+  'src/ui/notifications-queue.ts',
 ];
 const compile = spawnSync(process.execPath, [
   tsc,
@@ -85,6 +86,7 @@ const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
 const directorNavigation = await import(pathToFileURL(directorNavigationPath).href);
+const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'notifications-queue.js')).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 const fingerprint = await import(pathToFileURL(path.join(projectRoot, 'shared', 'project-fingerprint.js')).href);
 
@@ -317,5 +319,42 @@ const rect = geometry.turnClipRect(2, 1.5, 60, 4);
 check('el clip medido arranca en start * pps', rect.left === 120);
 check('el ancho del clip medido es duración * pps', rect.width === 90);
 check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.01, 60, 4).width === 4);
+
+// ---- notifications-queue.ts: cola de notificaciones transitorias (M1) ----
+{
+  const { createNotificationQueue, pushNotification, dismissNotification, isPersistent, MAX_VISIBLE } = notificationsQueue;
+  const empty = createNotificationQueue();
+  check('la cola nace vacía', empty.items.length === 0);
+
+  const first = pushNotification(empty, { message: 'Guardado' });
+  check('encolar agrega la notificación', first.state.items.length === 1 && first.notification.message === 'Guardado');
+  check('el nivel por omisión es informativo', first.notification.level === 'info');
+  check('encolar no muta el estado anterior', empty.items.length === 0);
+  check('los ids no se repiten', pushNotification(first.state, { message: 'B' }).notification.id !== first.notification.id);
+
+  check('los errores no se autodescartan', isPersistent(pushNotification(empty, { message: 'X', level: 'error' }).notification));
+  check('la información sí se autodescarta', !isPersistent(pushNotification(empty, { message: 'X' }).notification));
+  check(
+    'una duración explícita gana sobre la del nivel',
+    pushNotification(empty, { message: 'X', level: 'error', durationMs: 1000 }).notification.durationMs === 1000,
+  );
+
+  let overflow = createNotificationQueue();
+  for (let i = 0; i < MAX_VISIBLE + 3; i += 1) overflow = pushNotification(overflow, { message: `n${i}` }).state;
+  check('la cola no supera el máximo visible', overflow.items.length === MAX_VISIBLE);
+  check('al desbordar sobrevive la más reciente', overflow.items[overflow.items.length - 1].message === `n${MAX_VISIBLE + 2}`);
+  check('al desbordar se descarta la más vieja', !overflow.items.some((item) => item.message === 'n0'));
+
+  const keyed = pushNotification(pushNotification(empty, { message: 'Render 10%', dedupeKey: 'render' }).state, {
+    message: 'Render 80%',
+    dedupeKey: 'render',
+  });
+  check('una clave repetida reemplaza en vez de apilar', keyed.state.items.length === 1);
+  check('la clave repetida conserva el mensaje nuevo', keyed.state.items[0].message === 'Render 80%');
+
+  const dismissed = dismissNotification(first.state, first.notification.id);
+  check('descartar quita la notificación', dismissed.items.length === 0);
+  check('descartar un id inexistente no cambia el estado', dismissNotification(first.state, 999) === first.state);
+}
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);

@@ -1,4 +1,5 @@
 import { required } from '../dom.js';
+import { notify } from '../notifications.js';
 import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
 import { projectSelection } from '../project/selection.js';
@@ -51,6 +52,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const progressLabel = required<HTMLElement>('#render-progress-label');
   const renderReadiness = required<HTMLElement>('#render-readiness');
   const gallery = required<HTMLElement>('#render-job-gallery');
+  const renderIndicator = required<HTMLButtonElement>('#render-indicator');
+  const renderIndicatorLabel = required<HTMLElement>('#render-indicator-label');
   const refreshJobs = required<HTMLButtonElement>('#jobs-refresh');
   const filesMenu = required<HTMLDetailsElement>('#files-menu');
   const promptLabel = required<HTMLElement>('#director-prompt-label');
@@ -91,6 +94,11 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     }
   });
   refreshJobs.addEventListener('click', () => void refreshGallery(false));
+  // C5: el render sigue visible aunque el panel esté colapsado o en otra página.
+  renderIndicator.addEventListener('click', () => {
+    transitionNavigation({ type: 'render-opened' });
+    root.scrollIntoView({ block: 'nearest' });
+  });
   document.addEventListener('pointerdown', (event) => {
     if (filesMenu.open && event.target instanceof Node && !filesMenu.contains(event.target)) filesMenu.open = false;
   });
@@ -402,19 +410,32 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       const current = showCompleted(job, true);
       transitionNavigation({ type: 'render-completed' });
       syncDirectorMode();
-      report(current
-        ? `Video actualizado · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(2)} s.`
-        : 'El render terminó, pero corresponde a una versión anterior. Tus cambios actuales siguen pendientes.', true);
+      hideRenderIndicator();
+      const message = current
+        ? `Video listo · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(2)} s.`
+        : 'El render terminó, pero corresponde a una versión anterior. Tus cambios actuales siguen pendientes.';
+      report(message, true);
+      notify({
+        message,
+        level: current ? 'success' : 'info',
+        actionLabel: 'Ver video',
+        onAction: () => showCompleted(job, true, true),
+      });
       return;
     }
     if (job.state === 'failed') {
       progressRoot.hidden = true;
-      report(formatApiError(job.error || { message: 'El render falló.' }));
+      hideRenderIndicator();
+      const message = formatApiError(job.error || { message: 'El render falló.' });
+      report(message);
+      notify({ message, level: 'error' });
       return;
     }
     if (job.state === 'cancelled') {
       progressRoot.hidden = true;
+      hideRenderIndicator();
       report('Render cancelado.');
+      notify({ message: 'Render cancelado.', level: 'info' });
       return;
     }
     const progressState = typeof job.progress?.state === 'string' ? job.progress.state : job.stage;
@@ -422,7 +443,18 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     progressRoot.hidden = false;
     progressBar.style.width = `${progress}%`;
     progressLabel.textContent = `${progress}% · ${humanStage(progressState)}`;
+    showRenderIndicator(`${progress}% · ${humanStage(progressState)}`);
     report(`Render ${job.jobId}: ${humanStage(progressState)}.`, true);
+  }
+
+  function showRenderIndicator(label: string): void {
+    renderIndicator.hidden = false;
+    renderIndicatorLabel.textContent = label;
+    renderIndicator.title = `Render en curso: ${label}. Abrir la página Render.`;
+  }
+
+  function hideRenderIndicator(): void {
+    renderIndicator.hidden = true;
   }
 
   function showCompleted(job: RenderJob, switchSource: boolean, allowStaleReveal = false): boolean {
@@ -451,6 +483,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     if (pollTimer !== null) window.clearTimeout(pollTimer);
     pollTimer = null;
     currentJobId = null;
+    hideRenderIndicator();
     setBusy(null);
   }
 
@@ -547,11 +580,15 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     status.classList.toggle('ok', ok);
   }
 
+  // Los errores viajan también por notificación: el panel puede estar
+  // colapsado o en otra página cuando ocurren.
   function reportError(error: unknown): void {
     const detail = error instanceof Error && 'detail' in error
       ? (error as Error & { detail?: ApiError }).detail
       : null;
-    report(detail ? formatApiError(detail) : error instanceof Error ? error.message : String(error));
+    const message = detail ? formatApiError(detail) : error instanceof Error ? error.message : String(error);
+    report(message);
+    notify({ message, level: 'error' });
   }
 }
 
