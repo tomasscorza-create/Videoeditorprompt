@@ -31,6 +31,7 @@ export interface MeasuredProjectTimeline {
 
 export interface RenderedOutput {
   projectId: string;
+  projectRevision: string | null;
   downloadName: string;
   url: string;
   timeline: MeasuredProjectTimeline | null;
@@ -55,6 +56,7 @@ export const EDITOR_PLAYBACK_EVENT = 'local-video:editor-playback';
 let mode: WorkspaceMode = 'editor';
 let surface: EditorSurface = 'canvas';
 let activeProjectId: string | null = null;
+let activeProjectRevision: string | null = null;
 let output: RenderedOutput | null = null;
 let media: HTMLVideoElement | null = null;
 let mediaBound = false;
@@ -86,17 +88,32 @@ export function bindEditorMedia(video: HTMLVideoElement): void {
   notify();
 }
 
-export function setActiveEditorProject(projectId: string): void {
+export function setActiveEditorProject(projectId: string, projectRevision: string | null = null): void {
   activeProjectId = projectId;
-  if (output && output.projectId !== projectId) output = { ...output, stale: true };
+  activeProjectRevision = projectRevision;
+  syncOutputFreshness();
   notify();
 }
 
-export function markEditorProjectChanged(projectId: string): void {
-  if (projectId !== activeProjectId || !output || output.stale) return;
-  output = { ...output, stale: true };
-  if (surface === 'playback') showEditorCanvas();
-  else notify();
+export function syncActiveEditorProject(projectId: string, projectRevision: string): void {
+  activeProjectId = projectId;
+  activeProjectRevision = projectRevision;
+  const wasStale = output?.stale;
+  syncOutputFreshness();
+  if (output?.stale && surface === 'playback') {
+    showEditorCanvas();
+    return;
+  }
+  if (wasStale !== output?.stale) notify();
+}
+
+export function editorOutputState(): 'missing' | 'current' | 'stale' {
+  if (!output) return 'missing';
+  return output.stale || output.projectId !== activeProjectId ? 'stale' : 'current';
+}
+
+export function currentEditorOutput(): RenderedOutput | null {
+  return editorOutputState() === 'current' ? output : null;
 }
 
 export function showWorkspaceMode(nextMode: WorkspaceMode): void {
@@ -113,6 +130,7 @@ export function registerRenderedOutput(options: {
   url: string;
   downloadName: string;
   timeline: MeasuredProjectTimeline | null;
+  projectRevision?: string | null;
   current: boolean;
   reveal?: boolean;
 }): void {
@@ -121,6 +139,7 @@ export function registerRenderedOutput(options: {
   media.load();
   output = {
     projectId: options.projectId,
+    projectRevision: options.projectRevision ?? null,
     url: options.url,
     downloadName: options.downloadName,
     timeline: options.timeline,
@@ -139,7 +158,7 @@ export function showEditorCanvas(): void {
 }
 
 export async function showRenderedPlayback(): Promise<void> {
-  if (!media || !output) return;
+  if (!media || !currentEditorOutput()) return;
   mode = 'editor';
   surface = 'playback';
   notify();
@@ -147,7 +166,7 @@ export async function showRenderedPlayback(): Promise<void> {
 }
 
 export async function toggleEditorPlayback(): Promise<void> {
-  if (!media || !output) return;
+  if (!media || !currentEditorOutput()) return;
   if (surface !== 'playback') {
     await showRenderedPlayback();
     return;
@@ -157,13 +176,13 @@ export async function toggleEditorPlayback(): Promise<void> {
 }
 
 export function seekEditorPlayback(timeSeconds: number): void {
-  if (!media || !output) return;
+  if (!media || !currentEditorOutput()) return;
   media.currentTime = Math.max(0, Math.min(editorWorkspace().duration, timeSeconds));
   notify();
 }
 
 export function toggleEditorMute(): void {
-  if (!media || !output) return;
+  if (!media || !currentEditorOutput()) return;
   media.muted = !media.muted;
   notify();
 }
@@ -174,4 +193,16 @@ function notify(): void {
 
 function notifyPlayback(): void {
   window.dispatchEvent(new CustomEvent(EDITOR_PLAYBACK_EVENT));
+}
+
+function syncOutputFreshness(): void {
+  if (!output) return;
+  const matchesProject = output.projectId === activeProjectId;
+  const matchesRevision = output.projectRevision !== null
+    && activeProjectRevision !== null
+    && output.projectRevision === activeProjectRevision;
+  output = {
+    ...output,
+    stale: !matchesProject || (output.projectRevision !== null && !matchesRevision) || output.stale && output.projectRevision === null,
+  };
 }

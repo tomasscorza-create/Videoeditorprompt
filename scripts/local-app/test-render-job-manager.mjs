@@ -6,6 +6,7 @@ import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { projectRoot } from '../stage1/common.mjs';
 import { createRenderJobManager, publicTimeline, resolveVideoByteRange } from './render-job-manager.mjs';
+import { projectFingerprint } from '../../shared/project-fingerprint.js';
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'local-video-render-manager-'));
 const project = JSON.parse(readFileSync(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'), 'utf8'));
@@ -35,6 +36,7 @@ const manager = await createRenderJobManager({
 
 const job = await manager.create(project);
 assert.equal(job.state, 'rendering');
+assert.equal(job.projectRevision, projectFingerprint(project));
 assert.equal(manager.activeJobId, job.jobId);
 assert.equal(spawned.executable, process.execPath);
 assert.equal(spawned.options.shell, false);
@@ -189,7 +191,7 @@ await assert.rejects(
 );
 
 rmSync(root, { recursive: true, force: true });
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 40, failed: 0, jobId: job.jobId })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 41, failed: 0, jobId: job.jobId })}\n`);
 
 async function waitFor(predicate, timeoutMs = 3000) {
   const deadline = Date.now() + timeoutMs;

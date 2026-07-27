@@ -12,7 +12,8 @@ import { initTimelineShell } from './timeline.js';
 import { initViewerWorkspace } from './viewer.js';
 import { initCharacterCreator } from './character-creator.js';
 import { initProjectFiles } from './project/files.js';
-import { markEditorProjectChanged, setActiveEditorProject } from './editor-workspace.js';
+import { setActiveEditorProject, syncActiveEditorProject } from './editor-workspace.js';
+import { projectFingerprint } from '../../shared/project-fingerprint.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -66,20 +67,20 @@ function showRecoveryWarnings(warnings: readonly string[]): void {
 }
 
 function attachProjectUi(store: ProjectStore): void {
-  setActiveEditorProject(store.project().id);
+  let projectRevision = projectFingerprint(store.project());
+  setActiveEditorProject(store.project().id, projectRevision);
   initProjectFiles(store);
   initProjectEditor(store);
   initProjectTimeline(store);
   void initCompositionPreview(store);
   void initResourceLibrary(store);
   persistStore(store);
-  let projectSnapshot = JSON.stringify(store.project());
   store.subscribe(() => {
     persistStore(store);
-    const nextSnapshot = JSON.stringify(store.project());
-    if (nextSnapshot !== projectSnapshot) {
-      projectSnapshot = nextSnapshot;
-      markEditorProjectChanged(store.project().id);
+    const nextRevision = projectFingerprint(store.project());
+    if (nextRevision !== projectRevision) {
+      projectRevision = nextRevision;
+      syncActiveEditorProject(store.project().id, nextRevision);
     }
     const status = optional<HTMLElement>('#save-status');
     if (status) status.textContent = `Guardado ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;

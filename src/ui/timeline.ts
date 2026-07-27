@@ -2,6 +2,8 @@ import { optional } from './dom.js';
 import {
   EDITOR_WORKSPACE_EVENT,
   EDITOR_PLAYBACK_EVENT,
+  currentEditorOutput,
+  editorOutputState,
   editorWorkspace,
   seekEditorPlayback,
   showEditorCanvas,
@@ -138,6 +140,7 @@ function renderProject(): void {
     return;
   }
   const measured = compatibleTimeline(project.scenes);
+  const outputState = editorOutputState();
   const scale = pixelsPerSecond / DEFAULT_PIXELS_PER_SECOND;
   let positions: number[] = [];
   let sceneWidths: number[] = [];
@@ -152,11 +155,13 @@ function renderProject(): void {
       cursor += width + 4;
     }
   }
-  setTimelineMode(Boolean(measured));
+  setTimelineMode(Boolean(measured), !measured && outputState === 'stale' ? 'Cambios pendientes' : undefined);
   renderLayerStack(project, positions, sceneWidths, measured);
   setSummary(measured
     ? `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · capas editables alineadas con la exportación actual.`
-    : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`);
+    : outputState === 'stale'
+      ? `${project.scenes.length} escena(s) · cambios sin renderizar · el MP4 anterior quedó fuera del transporte.`
+      : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`);
 }
 
 function renderLayerStack(
@@ -175,7 +180,7 @@ function renderLayerStack(
   }
   root.style.setProperty('--timeline-grid-size', `${pixelsPerSecond}px`);
   const totalWidth = Math.max(640, (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0));
-  const output = editorWorkspace().output;
+  const output = currentEditorOutput();
   // Onda real solo en modo medido (hay MP4 vigente); se decodifica una vez por url.
   const waveform = measured && output ? requestWaveform(output.url, render) : null;
   const rows: HTMLElement[] = [
@@ -1299,7 +1304,7 @@ function handleShortcut(event: KeyboardEvent): void {
     }
   }
   if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
-  const hasOutput = Boolean(editorWorkspace().output);
+  const hasOutput = Boolean(currentEditorOutput());
   if (event.code === 'Space' && hasOutput) {
     event.preventDefault();
     togglePlayback();
@@ -1360,7 +1365,7 @@ function updateToolbar(): void {
   const measured = isMeasured();
   const creator = editorWorkspace().mode === 'creator';
   const hasNavigation = !creator && Boolean(store?.project().scenes.length);
-  const hasOutput = !creator && Boolean(editorWorkspace().output);
+  const hasOutput = !creator && Boolean(currentEditorOutput());
   const undo = optional<HTMLButtonElement>('#timeline-undo');
   const redo = optional<HTMLButtonElement>('#timeline-redo');
   const play = optional<HTMLButtonElement>('#timeline-play');
@@ -1428,11 +1433,11 @@ function followPlayhead(): void {
 }
 
 function activeMedia(): HTMLMediaElement | null {
-  return editorWorkspace().output ? editorWorkspace().media : null;
+  return currentEditorOutput() ? editorWorkspace().media : null;
 }
 
 function activeDuration(): number {
-  return editorWorkspace().output ? editorWorkspace().duration : 0;
+  return currentEditorOutput() ? editorWorkspace().duration : 0;
 }
 
 function isMeasured(): boolean {

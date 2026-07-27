@@ -11,6 +11,7 @@ const completedJob = {
   version: 1,
   jobId: 'render-test-01',
   projectId: project.id,
+  projectRevision: 'project-v1-test',
   state: 'completed',
   stage: 'project_pipeline',
   createdAt: new Date(0).toISOString(),

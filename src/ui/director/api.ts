@@ -87,6 +87,7 @@ export interface RenderJob {
   version: number;
   jobId: string;
   projectId: string;
+  projectRevision?: string;
   state: 'queued' | 'rendering' | 'completed' | 'failed' | 'cancelled';
   stage: string;
   createdAt: string;
