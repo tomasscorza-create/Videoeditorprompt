@@ -1,9 +1,75 @@
 # Plan de acción — capacidades creativas editables V1
 
 Fecha: 27 de julio de 2026  
-Estado: propuesta lista para revisión; no autoriza por sí sola la implementación  
+Estado: **en ejecución.** Ver «Estado de ejecución» abajo antes de retomar  
 Ámbito: aplicación local, motor, Editor, Creador, timeline y Director IA  
 Documento relacionado: `docs/PLAN_DE_ACCION_CREADOR_ELEMENTOS_2026-07-26.md`
+
+
+## 0. Estado de ejecución y por dónde seguir
+
+Actualizado el 27 de julio de 2026. Cada fase tiene su propio bloque de estado más
+abajo con el detalle; esto es el mapa.
+
+| Fase | Estado | Commits |
+| --- | --- | --- |
+| 0 · Contrato y prototipo | Hecha | `1a0d996` |
+| 1 · Creador y recurso v3 | Hecha | `8c54fd9`, `a947387`, `20dfbda` |
+| 2 · Evaluador paramétrico | Hecha | `94a3163` |
+| 3 · Compositor | **Parcial** | `e459a32` |
+| 4 · Edición visible | **Parcial** | `5b83df4`, `e7a0364` |
+| 5 · Presets editables | Hecha | `a709442` |
+| 6 · Director IA | Sin empezar | — |
+| 7 · Gate humano | Sin empezar | — |
+
+### El próximo paso
+
+**La fila de animación en la timeline** (`src/ui/timeline.ts`), y después el
+inspector de keyframe y el modo animación del lienzo.
+
+El estado visible ya está dibujado y especificado en
+`docs/FASE_0_CONTRATO_ANIMACION_V1.md`, secciones 5, 6 y 7: no hay que volver a
+decidir cómo se ve, solo construirlo.
+
+Todo el motor debajo ya existe —vocabulario, evaluador, pistas en el proyecto,
+comandos con undo/redo y presets—. **Lo que falta es casi todo interfaz: hoy no
+se puede animar nada desde la aplicación.**
+
+### Pendientes concretos, en orden de dependencia
+
+1. **Fase 4 — interfaz.** Fila de animación en la timeline con sus keyframes,
+   inspector de keyframe, modo animación del lienzo, y transiciones `cut`/`fade`
+   como bloques editables. Es el tramo más grande que queda.
+2. **Fase 4 — render.** El exportador todavía no lee `tracks`: hoy el movimiento
+   sale de expresiones FFmpeg armadas por `createFfmpegMotionExpressions`. Sin
+   esto, lo que se anime no aparece en el MP4 y el gate de la fase no cierra.
+3. **Fase 3 — compositor headless.** Spike trabado en
+   `scripts/compositor/pixi-compositor.mjs`, con el síntoma exacto anotado en su
+   encabezado. Hasta que ande, los dos recursos v3 (`mono-articulado-azul-v1` y
+   `cartel-dato-v1`) no se pueden renderizar, y por eso siguen deliberadamente
+   fuera del catálogo de autoría y de la biblioteca.
+4. **Fase 3 — extraer el compositor FFmpeg** detrás del contrato, más frames
+   dorados, comparación por SSIM y doble ejecución. Exige re-verificar la salida
+   byte a byte del render v2, que necesita una corrida completa con Piper.
+5. **Fase 5 — aplicar presets desde el inspector y la biblioteca.** Depende de (1).
+6. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
+   elemento y la explicación humana antes de aplicar. `apply-animation-preset` ya
+   existe en el contrato de comandos.
+7. **Fase 7 — gate humano.**
+
+### Deudas anotadas que no bloquean
+
+- Renombrar `animationPreset` (`idle-calm` / `talk-calm`) a `baseMotionId`: es
+  **movimiento base** continuo, no un preset de keyframes. Atado a la Fase 4,
+  cuando haga falta un adaptador de lectura de todos modos.
+- El compilador v1 → v2 **sobrescribe** el catálogo de assets en vez de
+  fusionarlo: regenerar el mono borraría `conejo-traje-v1`. El compilador v3 sí
+  fusiona, y hay un test que lo cubre.
+- El ancla de palabra es un **prorrateo** por cantidad de palabras sobre la
+  duración medida del turno, no alineación real: Piper no devuelve tiempos por
+  palabra.
+- El límite de 8 pistas por elemento es letra muerta mientras haya 6 parámetros y
+  una sola pista por parámetro; el que muerde es el de 256 keyframes por escena.
 
 ## 1. Decisión de producto
 
@@ -400,6 +466,24 @@ Decisiones que el plan dejaba abiertas y quedaron cerradas en Fase 0:
 
 **Gate:** recursos existentes conservan sus hashes/salida; los dos pilotos se
 guardan, publican y vuelven a abrir desde la biblioteca.
+
+**Estado: hecha al 27 de julio de 2026, con la mitad del gate abierta a propósito.**
+
+- Renderizador de primitivas unificado entre el Creador y el compilador de assets;
+  guardia nueva `stage2f:test-hash-baseline` que compara contra los PNG y manifests
+  ya commiteados, porque el test de determinismo vigente comparaba dos corridas
+  entre sí y una regresión habría pasado desapercibida.
+- Manifest de recurso v3 con piezas, pivote, jerarquía, tipo `prop` y parámetros
+  con bindings, más el adaptador de lectura v2 → v3 sin pérdida.
+- Dos pilotos generados de verdad: `mono-articulado-azul-v1` (brazo derecho como
+  pieza propia, pivote en el hombro, declara `armRaise`) y `cartel-dato-v1`.
+- Prueba de fidelidad: con el brazo sin rotar, `pose_neutral.png` del piloto es
+  **idéntico byte a byte** al del recurso v2 publicado.
+
+Lo que quedó abierto y por qué: los dos pilotos **no** se publican en el catálogo
+de autoría ni en la biblioteca. El pipeline de render lee manifests v2, así que
+ofrecerlos dejaría colocar en una escena algo que después no renderiza. Se exponen
+cuando exista el compositor de la Fase 3.
 
 ### Fase 2 — Evaluador paramétrico compatible
 
