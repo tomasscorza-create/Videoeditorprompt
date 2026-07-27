@@ -15,8 +15,11 @@ const MAX_REQUEST_LENGTH = 1200;
 const DIRECTOR_TEXT_MAX_LENGTH = 300;
 
 export async function editProjectWithDirector(options) {
+  const startedAt = Date.now();
   const instruction = validateInstruction(options.instruction);
   const state = createProjectEditor(options.project, options.catalog);
+  const selection = normalizeEditSelection(options.selection, state.project);
+  const baseProjectRevision = hashJson(state.project);
   const directorContext = buildDirectorContext({
     prompt: instruction,
     catalog: state.catalog,
@@ -25,6 +28,7 @@ export async function editProjectWithDirector(options) {
   });
   const schema = commandBatchSchema(state.project, directorContext.catalog);
   const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
+  const modelIdentity = normalizeModelIdentity(options.modelIdentity, model);
   // El proveedor concentra la especificidad de la IA (D1/D2); su nombre entra en
   // la clave de caché.
   const provider = resolveDirectorProvider(options.provider, {
@@ -39,10 +43,13 @@ export async function editProjectWithDirector(options) {
     catalog: hashJson(state.catalog),
     context: hashJson(directorContext.summary),
     model,
+    modelIdentity,
+    selection,
   });
   const cacheRoot = ensureDirectory(path.resolve(options.cacheRoot || path.join(projectRoot, '.local-video', 'director-edit-cache')));
   const cachePath = path.join(cacheRoot, `${cacheKey}.json`);
   let commands;
+  let usage = null;
   let cacheHit = false;
   if (options.useCache !== false && existsSync(cachePath)) {
     commands = readJson(cachePath).commands;
@@ -64,6 +71,7 @@ export async function editProjectWithDirector(options) {
             'Usá IDs nuevos y portables (letras, números, guiones) para escenas y turnos que crees.',
             'No inventes IDs de recursos ni propiedades. No escribas explicaciones.',
             'Si la petición no se puede representar, devolvé commands vacío.',
+            selection ? `Selección y alcance actuales: ${JSON.stringify(selection)}` : 'No hay una selección puntual activa.',
             `Proyecto actual: ${JSON.stringify(summarizeProject(state.project))}`,
           ].join('\n'),
         },
@@ -78,12 +86,30 @@ export async function editProjectWithDirector(options) {
       throw directorEditError('DIRECTOR_EDIT_JSON_INVALID', 'La IA no devolvió comandos JSON válidos.');
     }
     commands = parsed.commands;
-    writeJson(cachePath, { version: 1, commands });
+    usage = result.usage || null;
   }
   if (!Array.isArray(commands) || commands.length > 12) throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA devolvió una lista de cambios inválida.');
   let next = state;
   for (const command of commands) next = applyProjectEditorCommand(next, command);
-  return { version: 1, model, cacheHit, commands, project: next.project, context: directorContext.summary };
+  if (!cacheHit) writeJson(cachePath, { version: 2, commands });
+  return {
+    version: 2,
+    model,
+    modelIdentity,
+    cacheHit,
+    commands,
+    status: commands.length ? 'applied' : 'no-change',
+    project: next.project,
+    baseProjectRevision,
+    projectRevision: hashJson(next.project),
+    context: directorContext.summary,
+    usage: {
+      promptEvalCount: usage?.promptEvalCount ?? null,
+      evalCount: usage?.evalCount ?? null,
+      totalDurationNanoseconds: usage?.totalDurationNanoseconds ?? null,
+      elapsedMilliseconds: Date.now() - startedAt,
+    },
+  };
 }
 
 function collectProjectResourceIds(project) {
@@ -252,6 +278,39 @@ function validateInstruction(value) {
   const instruction = value.trim();
   if (instruction.length < 3 || instruction.length > MAX_REQUEST_LENGTH) throw directorEditError('DIRECTOR_EDIT_PROMPT_INVALID', 'La petición debe tener entre 3 y 1200 caracteres.');
   return instruction;
+}
+
+function normalizeEditSelection(value, project) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'La selección de edición no es válida.');
+  }
+  const kind = ['scene', 'element', 'dialogue'].includes(value.kind) ? value.kind : null;
+  const scene = project.scenes.find((entry) => entry.id === value.sceneId);
+  if (!kind || !scene) {
+    throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'La selección ya no existe en el proyecto.');
+  }
+  if (kind === 'element' && !scene.elements.some((entry) => entry.id === value.elementId)) {
+    throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'El elemento seleccionado ya no existe.');
+  }
+  if (kind === 'dialogue' && !scene.dialogue.some((entry) => entry.id === value.turnId)) {
+    throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'El diálogo seleccionado ya no existe.');
+  }
+  return {
+    kind,
+    sceneId: scene.id,
+    ...(kind === 'element' ? { elementId: value.elementId } : {}),
+    ...(kind === 'dialogue' ? { turnId: value.turnId } : {}),
+  };
+}
+
+function normalizeModelIdentity(value, model) {
+  if (!value || typeof value !== 'object') return { model, digest: null, runtimeVersion: null };
+  return {
+    model,
+    digest: typeof value.digest === 'string' ? value.digest : null,
+    runtimeVersion: typeof value.runtimeVersion === 'string' ? value.runtimeVersion : null,
+  };
 }
 
 function hashJson(value) {

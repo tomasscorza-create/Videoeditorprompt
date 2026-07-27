@@ -47,6 +47,54 @@ try {
   assert.equal(calls, 1);
   await assert.rejects(() => editProjectWithDirector({ instruction: 'x', project, catalog, cacheRoot, fetchImpl }));
 
+  let selectedPrompt = '';
+  const selected = await editProjectWithDirector({
+    instruction: 'Cambiá solamente el diálogo seleccionado.',
+    project,
+    catalog,
+    cacheRoot,
+    useCache: false,
+    selection: { kind: 'dialogue', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01' },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      selectedPrompt = request.messages[0].content;
+      return new Response(JSON.stringify({
+        message: { content: JSON.stringify({ commands: [] }) },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    },
+  });
+  assert.equal(selected.status, 'no-change');
+  assert.ok(selectedPrompt.includes('turno-presentacion-01'));
+  assert.equal(selected.baseProjectRevision, selected.projectRevision);
+
+  let invalidCacheCalls = 0;
+  const invalidThenValidFetch = async () => {
+    invalidCacheCalls += 1;
+    const commands = invalidCacheCalls === 1
+      ? [{ type: 'delete-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-inexistente' }]
+      : [{ type: 'set-project-title', title: 'Título validado antes de cachear' }];
+    return new Response(
+      JSON.stringify({ message: { content: JSON.stringify({ commands }) } }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+  await assert.rejects(() => editProjectWithDirector({
+    instruction: 'Probá la validación previa a la caché.',
+    project,
+    catalog,
+    cacheRoot,
+    fetchImpl: invalidThenValidFetch,
+  }));
+  const recoveredCache = await editProjectWithDirector({
+    instruction: 'Probá la validación previa a la caché.',
+    project,
+    catalog,
+    cacheRoot,
+    fetchImpl: invalidThenValidFetch,
+  });
+  assert.equal(invalidCacheCalls, 2);
+  assert.equal(recoveredCache.project.title, 'Título validado antes de cachear');
+
   // Helper: corre un lote de comandos fijos sin caché (aisla cada caso).
   const runEdit = (commands) => editProjectWithDirector({
     instruction: 'Instrucción de prueba estructural.',
@@ -116,7 +164,7 @@ try {
     (error) => error.code === 'EDITOR_TURN_NOT_FOUND',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 31, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 38, failed: 0 })}\n`);
 } finally {
   rmSync(cacheRoot, { recursive: true, force: true });
 }

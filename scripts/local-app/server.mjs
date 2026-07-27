@@ -215,6 +215,7 @@ export async function createLocalAppServer(options = {}) {
         directorController = new AbortController();
         let proposal;
         try {
+          const modelInspection = await inspectDirectorIdentity(ollamaInspector, body.model);
           proposal = await director({
             prompt: body.prompt,
             variant: body.variant,
@@ -222,6 +223,8 @@ export async function createLocalAppServer(options = {}) {
             provider: body.provider,
             think: body.think,
             bestOf: body.bestOf,
+            model: body.model,
+            modelIdentity: modelInspection,
             assetsRoot,
             catalog: currentCatalog(),
             resourceCatalog: library.catalogRelative,
@@ -238,6 +241,12 @@ export async function createLocalAppServer(options = {}) {
           project: proposal.project,
           budget: proposal.budget,
           selection: proposal.selection,
+          context: proposal.context,
+          quality: proposal.quality,
+          candidateQuality: proposal.candidateQuality,
+          repairAttempts: proposal.repairAttempts,
+          usage: proposal.usage,
+          modelIdentity: proposal.modelIdentity,
         });
         return;
       }
@@ -256,10 +265,14 @@ export async function createLocalAppServer(options = {}) {
         const body = await readJsonBody(request);
         directorController = new AbortController();
         try {
+          const modelInspection = await inspectDirectorIdentity(ollamaInspector, body.model);
           const result = await projectDirector({
             instruction: body.instruction,
             project: body.project,
             provider: body.provider,
+            model: body.model,
+            modelIdentity: modelInspection,
+            selection: body.selection,
             catalog: currentCatalog(),
             signal: directorController.signal,
           });
@@ -358,6 +371,18 @@ export async function createLocalAppServer(options = {}) {
       }
     },
   };
+}
+
+async function inspectDirectorIdentity(inspector, model) {
+  try {
+    const result = await inspector({ model });
+    return {
+      digest: typeof result?.digest === 'string' ? result.digest : null,
+      runtimeVersion: typeof result?.version === 'string' ? result.version : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function readJsonBody(request) {

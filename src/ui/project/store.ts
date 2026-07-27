@@ -50,6 +50,7 @@ export interface ProjectStore {
   canRedo(): boolean;
   /** Devuelve null si el comando se aplicó, o un mensaje si el motor lo rechazó. */
   dispatch(command: Record<string, unknown>): string | null;
+  dispatchBatch(commands: Array<Record<string, unknown>>): string | null;
   undo(): void;
   redo(): void;
   resources(type: ResourceType): ResourceEntry[];
@@ -104,6 +105,17 @@ export function createStore(initial: EditorState, revision = 'unknown', warnings
     replaceProject(project) {
       try {
         current = createProjectEditor(project, current.catalog);
+        notify();
+        return null;
+      } catch (error) {
+        return describeError(error);
+      }
+    },
+    dispatchBatch(commands) {
+      try {
+        let next = current;
+        for (const command of commands) next = applyProjectEditorCommand(next, command);
+        current = next;
         notify();
         return null;
       } catch (error) {

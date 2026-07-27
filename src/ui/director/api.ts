@@ -8,6 +8,7 @@ export interface LocalHealth {
     modelInstalled: boolean;
     model?: string;
     version?: string;
+    digest?: string | null;
     error?: ApiError;
   };
   tts: { available: boolean };
@@ -18,6 +19,7 @@ export interface DirectorProposal {
   version: number;
   cacheHit: boolean;
   model: string;
+  modelIdentity?: { model: string; digest: string | null; runtimeVersion: string | null };
   plan: {
     title: string;
     tone: string;
@@ -30,9 +32,43 @@ export interface DirectorProposal {
     bestOf: number;
     winnerIndex: number;
     judgeVersion: number | null;
-    scores: Array<{ hook: number; naturalness: number; ending: number; variety: number }> | null;
+    scores: Array<{
+      relevance: number;
+      hook: number;
+      naturalness: number;
+      progression: number;
+      ending: number;
+      tone: number;
+      tts: number;
+      audiovisual: number;
+    }> | null;
+    totals?: number[] | null;
+    qualityFloor?: number | null;
+    qualityFloorMet?: boolean;
   };
   context: DirectorContextSummary;
+  quality?: DirectorQualityReport;
+  candidateQuality?: DirectorQualityReport[];
+  repairAttempts?: number;
+  usage?: {
+    think: boolean;
+    generationCount: number;
+    qualityEscalations: number;
+    promptEvalCount: number | null;
+    evalCount: number | null;
+    totalDurationNanoseconds: number | null;
+    elapsedMilliseconds: number;
+    candidateElapsedMilliseconds: number[];
+  };
+}
+
+export interface DirectorQualityReport {
+  version: number;
+  score: number;
+  floor: number;
+  passed: boolean;
+  issues: Array<{ code: string; penalty: number; instruction: string }>;
+  metrics: Record<string, unknown>;
 }
 
 export interface DirectorContextSummary {
@@ -171,18 +207,34 @@ export async function createProposal(
   });
 }
 
-export async function editProjectWithAi(instruction: string, project: unknown): Promise<{
+export async function editProjectWithAi(
+  instruction: string,
+  project: unknown,
+  selection?: Record<string, unknown> | null,
+  signal?: AbortSignal,
+): Promise<{
   version: number;
   model: string;
   cacheHit: boolean;
   commands: Array<Record<string, unknown>>;
   project: unknown;
+  baseProjectRevision: string;
+  projectRevision: string;
   context: DirectorContextSummary;
+  status?: 'applied' | 'no-change';
+  modelIdentity?: { model: string; digest: string | null; runtimeVersion: string | null };
+  usage?: {
+    promptEvalCount: number | null;
+    evalCount: number | null;
+    totalDurationNanoseconds: number | null;
+    elapsedMilliseconds: number;
+  };
 }> {
   return apiRequest('/api/director/edits', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ instruction, project }),
+    body: JSON.stringify({ instruction, project, selection }),
+    signal,
   });
 }
 

@@ -1,6 +1,7 @@
 import { required } from '../dom.js';
 import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
+import { projectSelection } from '../project/selection.js';
 import { showFinalVideo } from '../viewer.js';
 import {
   cancelDirectorProposal,
@@ -101,6 +102,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       return;
     }
     const editing = navigation.mode === 'editing';
+    const editingProject = editing && store ? structuredClone(store.project()) : null;
     if (!editing && store?.canUndo() && !window.confirm('Crear otra propuesta reemplazará tus cambios manuales y el historial de deshacer. ¿Continuar?')) {
       return;
     }
@@ -112,14 +114,15 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       : 'El Director IA está preparando la propuesta. Puede tardar entre uno y cuatro minutos en CPU.');
     try {
       const result = editing && store
-        ? await editProjectWithAi(value, store.project())
+        ? await editProjectWithAi(value, editingProject, projectSelection(), proposalController.signal)
         : await createProposal(value, variant, readConstraints(), generation, proposalController.signal);
       const appliedCommands = 'commands' in result ? result.commands.length : 0;
       if (editing && store && 'commands' in result) {
-        for (const command of result.commands) {
-          const commandError = store.dispatch(command);
-          if (commandError) throw new Error(commandError);
+        if (JSON.stringify(store.project()) !== JSON.stringify(editingProject)) {
+          throw new Error('El proyecto cambió mientras el Director trabajaba. Repetí la petición sobre la versión actual.');
         }
+        const commandError = store.dispatchBatch(result.commands);
+        if (commandError) throw new Error(commandError);
       } else if (store) {
         const replacementError = store.replaceProject(result.project);
         if (replacementError) throw new Error(replacementError);

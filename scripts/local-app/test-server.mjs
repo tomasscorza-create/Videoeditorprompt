@@ -78,9 +78,11 @@ const library = {
 };
 let receivedConstraints = null;
 let receivedGenerationOptions = null;
-const director = async ({ prompt, signal, constraints, think, bestOf }) => {
+let receivedModelIdentity = null;
+const director = async ({ prompt, signal, constraints, think, bestOf, modelIdentity }) => {
   receivedConstraints = constraints;
   receivedGenerationOptions = { think, bestOf };
+  receivedModelIdentity = modelIdentity;
   if (prompt === 'slow') {
     await new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })), { once: true });
@@ -142,7 +144,13 @@ const app = await createLocalAppServer({
     project: { ...value, title: instruction },
   }),
   projects,
-  ollamaInspector: async () => ({ available: true, modelInstalled: true, model: 'qwen3:8b', version: 'test' }),
+  ollamaInspector: async () => ({
+    available: true,
+    modelInstalled: true,
+    model: 'qwen3:8b',
+    version: 'test',
+    digest: 'sha256:qwen3-test',
+  }),
 });
 assert.equal(app.persistence, 'filesystem');
 await assert.rejects(
@@ -236,6 +244,7 @@ const constrainedProposalResponse = await request('/api/director/proposals', {
 assert.equal(constrainedProposalResponse.status, 200);
 assert.deepEqual(receivedConstraints, { tone: 'serious', targetDurationSeconds: 30, sceneCount: 2 });
 assert.deepEqual(receivedGenerationOptions, { think: true, bestOf: 2 });
+assert.deepEqual(receivedModelIdentity, { digest: 'sha256:qwen3-test', runtimeVersion: 'test' });
 
 const editResponse = await request('/api/director/edits', {
   method: 'POST',
