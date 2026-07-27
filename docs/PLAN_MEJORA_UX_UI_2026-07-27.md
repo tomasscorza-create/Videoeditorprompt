@@ -1,7 +1,8 @@
 # Plan de acción 2 — Mejora UX/UI: conectado, entendible, moderno, agradable, usable
 
-Carril: Claude (UX/UI) · Rama: `main` · Estado general: **pendiente; empieza al
-cerrar el plan 1**.
+Carril: Claude (UX/UI) · Rama: `main` · Estado general: **4 olas ejecutadas el
+27-07-2026** (`f8761ba` → `74884ec`). Quedan solo los ítems marcados
+**[servidor]**, que esperan endpoint acordado.
 
 > Segundo plan de la serie. El plan 1 (`docs/PLAN_SANEAMIENTO_UX_UI_2026-07-27.md`)
 > sanea la deuda técnica del sistema visual; este plan 2 **eleva la experiencia**:
@@ -336,15 +337,51 @@ criterio de aceptación).
 
 ## Orden recomendado
 
-| Ola | Ítems | Criterio |
-|---|---|---|
-| 1 — Fundaciones + victorias rápidas | M1 (toasts) → C1 (identidad) → E1 (calidad) → E3 (salud) → C5 (render global) | Máximo impacto/esfuerzo; M1 desbloquea el resto |
-| 2 — Comprensión y flujo | C3 (qué cambió) → U5 (errores accionables) → E4 (modos) → E5 (primer uso) → E2a (candidatos) → U2 (buscar) → E6 (copy) | El sistema se explica solo |
-| 3 — Conexión profunda y modernización | M2 (paleta) → C2 (selección espejada) → C4 (contexto IA) → C6 (drop en timeline) → M3 (micro-interacciones) → A2 (momento render) → M4/M5 | Se siente un solo sistema, actual |
-| 4 — Profundidad y opcionales | U1 (undo narrado) → U3 (teclado timeline) → U4 (zoom lienzo) → A1 (tema claro) → A3 (acento) | Refinamiento |
-| Coordinación [servidor] | A4 (voces), E2b (elegir candidato), U6 (historial) | Solo con endpoint acordado |
+| Ola | Ítems | Criterio | Estado |
+|---|---|---|---|
+| 1 — Fundaciones + victorias rápidas | M1 (toasts) → C1 (identidad) → E1 (calidad) → E3 (salud) → C5 (render global) | Máximo impacto/esfuerzo; M1 desbloquea el resto | **hecha** (`f8761ba`, `c7f3bb1`) |
+| 2 — Comprensión y flujo | C3 (qué cambió) → U5 (errores accionables) → E4 (modos) → E5 (primer uso) → E2a (candidatos) → U2 (buscar) → E6 (copy) | El sistema se explica solo | **hecha** (`2c7c742`) |
+| 3 — Conexión profunda y modernización | M2 (paleta) → C2 (selección espejada) → C4 (contexto IA) → C6 (drop en timeline) → M3 (micro-interacciones) → A2 (momento render) → M4/M5 | Se siente un solo sistema, actual | **hecha** (`91d45cc`) |
+| 4 — Profundidad y opcionales | U1 (undo narrado) → U3 (teclado timeline) → U4 (zoom lienzo) → A1 (tema claro) → A3 (acento) | Refinamiento | **hecha** (`74884ec`) |
+| Coordinación [servidor] | A4 (voces), E2b (elegir candidato), U6 (historial) | Solo con endpoint acordado | **pendiente** |
 
 Cada ola es un punto de pausa válido: nada queda a medias entre olas.
+
+## Estado de cierre (27-07-2026)
+
+Los tres ítems **[servidor]** siguen sin implementar, por decisión del propio
+plan: A4 (escuchar voces) necesita `GET /api/library/voices/:id/sample`, E2b
+(elegir candidato) necesita que la API devuelva los proyectos de todos los
+candidatos, y U6 (historial de versiones) necesita definir retención. **La UI no
+simula ninguna de las tres**: E2a muestra la tabla comparativa sin ofrecer
+selección, y las tarjetas de voz quedaron como estaban.
+
+### Decisiones tomadas durante la ejecución
+
+- **E1**: el score de calidad es sobre 100, no sobre 10 como sugería el ejemplo
+  del plan. Se muestra tal cual lo calcula `plan-quality.mjs`.
+- **C3/U1**: el historial del motor guarda proyectos, no comandos, así que el
+  store de UI lleva las etiquetas en paralelo y las expone con
+  `pendingUndoLabel()`. El plan preveía este caso («si no la expone, solo el
+  toast»); llevarlas en el store permitió cumplir también la parte del `title`.
+- **U4**: el zoom usa `transform` sobre el stage y arrastre para desplazar la
+  vista. Se verificó que el arrastre de personajes no se rompe, porque calcula
+  con `getBoundingClientRect`, que ya refleja la transformación.
+- **A1**: la auditoría encontró 16 pares por debajo de AA en el tema claro
+  (ninguno en el oscuro, salvo `danger` sobre `surface-3` en 4.44). Se
+  corrigieron con ajustes mínimos de luminosidad y quedó una guardia
+  permanente.
+- **M1**: los estados persistentes de página no migraron a toasts, como pedía el
+  plan; sí lo hicieron los errores del Director, la biblioteca y el inspector,
+  que antes se perdían con el panel colapsado.
+
+### Guardias nuevas en `npm test` (de 29 a 30 suites)
+
+`ui:check-contrast` verifica 72 pares texto/fondo en ambos temas y en los cuatro
+acentos. Se suma a `ui:check-css` y `ui:check-ids` del plan 1.
+`ui:test-modules` pasó de 80 a 158 checks: toda la lógica pura nueva (cola de
+notificaciones, etiquetas de comando, calidad, salud, candidatos, registro de la
+paleta y etiquetas de undo) entró con pruebas.
 
 ## Qué NO hace este plan
 
