@@ -310,6 +310,12 @@
                 <svg id="character-creator-canvas" viewBox="0 0 1080 1920" role="img" aria-label="Vista previa del personaje"></svg>
               </div>
             </div>
+            <div id="composition-zoom-controls" class="composition-zoom-controls" role="group" aria-label="Zoom del lienzo" hidden>
+              <button id="composition-zoom-out" class="timeline-tool" type="button" aria-label="Alejar el lienzo" title="Alejar (Ctrl + rueda)"><svg class="icon" aria-hidden="true"><use href="#ui-icon-zoom-out"/></svg></button>
+              <output id="composition-zoom-level" class="composition-zoom-level">100%</output>
+              <button id="composition-zoom-in" class="timeline-tool" type="button" aria-label="Acercar el lienzo" title="Acercar (Ctrl + rueda)"><svg class="icon" aria-hidden="true"><use href="#ui-icon-zoom-in"/></svg></button>
+              <button id="composition-zoom-fit" class="timeline-tool" type="button" aria-label="Volver al encuadre completo" title="Encuadre completo (doble clic)">Ajustar</button>
+            </div>
             <aside id="onboarding" class="onboarding" aria-label="Cómo empezar" hidden></aside>
             <div id="preview-view" class="vertical-stage legacy-preview-view" aria-hidden="true" hidden>
               <div id="stage"></div>
@@ -517,6 +523,7 @@
         </header>
 
         <div id="timeline-layer-stack" class="timeline-layer-stack" aria-label="Capas de la escena seleccionada"></div>
+        <p id="timeline-live" class="visually-hidden" role="status" aria-live="polite"></p>
         <p id="timeline-summary" class="timeline-summary">Abrí un proyecto para ver sus escenas y diálogos.</p>
       </section>
     </div>
@@ -546,6 +553,15 @@
         <label class="field" for="theme-select">
           <span>Tema visual</span>
           <select id="theme-select"><option value="system">Sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option></select>
+        </label>
+        <label class="field" for="accent-select">
+          <span>Color de acento</span>
+          <select id="accent-select">
+            <option value="green">Verde</option>
+            <option value="blue">Azul</option>
+            <option value="amber">Ámbar</option>
+            <option value="violet">Violeta</option>
+          </select>
         </label>
         <p class="muted">Los proyectos se guardan automáticamente en este navegador.</p>
       </div>

@@ -92,6 +92,7 @@
     "ui:test-modules": "node scripts/ui/test-ui-modules.mjs",
     "ui:check-css": "node scripts/ui/check-critical-css.mjs",
     "ui:check-ids": "node scripts/ui/check-dom-ids.mjs",
+    "ui:check-contrast": "node scripts/ui/check-contrast.mjs",
     "local:clean": "node scripts/local-app/retention.mjs"
   },
   "dependencies": {

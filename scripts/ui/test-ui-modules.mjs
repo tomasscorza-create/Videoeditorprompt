@@ -553,4 +553,21 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('cada grupo lleva sus acciones', grupos[1].group === 'Timeline' && grupos[1].items.length === 2);
 }
 
+// ---- store.ts: etiquetas de undo/redo (U1) ----
+{
+  const base = storeModule.createStore(engine.createProjectEditor(project, catalog));
+  check('sin ediciones no hay nada que deshacer', base.pendingUndoLabel() === null);
+  const scene = base.project().scenes[0];
+  base.dispatch({ type: 'set-scene-title', sceneId: scene.id, title: 'Otro nombre' });
+  check('tras editar se sabe qué se desharía', base.pendingUndoLabel() === 'Renombró la escena 1');
+  check('todavía no hay nada que rehacer', base.pendingRedoLabel() === null);
+  base.undo();
+  check('al deshacer, la etiqueta pasa al lado de rehacer', base.pendingRedoLabel() === 'Renombró la escena 1');
+  check('sin más historial no se inventa una etiqueta de deshacer', base.pendingUndoLabel() === null);
+  base.redo();
+  check('al rehacer, la etiqueta vuelve al lado de deshacer', base.pendingUndoLabel() === 'Renombró la escena 1');
+  base.dispatch({ type: 'set-scene-title', sceneId: scene.id, title: 'Tercero' });
+  check('una edición nueva descarta la pila de rehacer', base.pendingRedoLabel() === null);
+}
+
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);

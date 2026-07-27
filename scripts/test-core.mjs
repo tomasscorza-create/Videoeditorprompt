@@ -33,6 +33,7 @@ const commands = [
   'ui:test-modules',
   'ui:check-css',
   'ui:check-ids',
+  'ui:check-contrast',
 ];
 
 for (const command of commands) {

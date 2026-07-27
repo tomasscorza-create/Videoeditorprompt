@@ -9,6 +9,7 @@ import {
   validateRenderableProject,
   type EditorState,
 } from '../../../shared/project-editor.js';
+import { describeCommand } from '../command-labels.js';
 import type { ProjectView, ResourceEntry, ResourceType } from './types.js';
 
 // La UI solo consume proyectos PUBLICADOS por scripts/stage3b/publish-project.mjs.
@@ -59,6 +60,15 @@ export interface ProjectStore {
   /** Devuelve null si el proyecto es válido, o el mensaje de error del motor. */
   validate(): string | null;
   subscribe(listener: () => void): void;
+  /**
+   * U1 — Qué se desharía o rehría ahora, en lenguaje de usuario. El historial
+   * del motor guarda proyectos, no comandos, así que estas etiquetas se llevan
+   * acá, en el único punto por el que pasan todos los comandos. Devuelve null
+   * cuando no hay nada que deshacer o cuando el registro se perdió: nunca
+   * inventa una descripción.
+   */
+  pendingUndoLabel(): string | null;
+  pendingRedoLabel(): string | null;
 }
 
 function describeError(error: unknown): string {
@@ -74,6 +84,12 @@ export function createStore(initial: EditorState, revision = 'unknown', warnings
   let current = initial;
   const listeners: Array<() => void> = [];
   const notify = (): void => { for (const listener of listeners) listener(); };
+  // Etiquetas en paralelo al historial del motor. Se mueven entre pilas junto
+  // con undo/redo, de modo que la que está arriba corresponde siempre al
+  // próximo paso a revertir.
+  const undoLabels: string[] = [];
+  const redoLabels: string[] = [];
+  const sceneIds = (): string[] => (current.project as unknown as ProjectView).scenes.map((scene) => scene.id);
 
   return {
     getState: () => current,
@@ -85,7 +101,10 @@ export function createStore(initial: EditorState, revision = 'unknown', warnings
     canRedo: () => current.future.length > 0,
     dispatch(command) {
       try {
+        const label = describeCommand(command, { sceneIds: sceneIds() });
         current = applyProjectEditorCommand(current, command);
+        undoLabels.push(label);
+        redoLabels.length = 0;
         notify();
         return null;
       } catch (error) {
@@ -93,13 +112,21 @@ export function createStore(initial: EditorState, revision = 'unknown', warnings
       }
     },
     undo() {
+      if (current.past.length === 0) return;
       current = undoProjectEditor(current);
+      const label = undoLabels.pop();
+      if (label !== undefined) redoLabels.push(label);
       notify();
     },
     redo() {
+      if (current.future.length === 0) return;
       current = redoProjectEditor(current);
+      const label = redoLabels.pop();
+      if (label !== undefined) undoLabels.push(label);
       notify();
     },
+    pendingUndoLabel: () => (current.past.length > 0 ? undoLabels.at(-1) ?? null : null),
+    pendingRedoLabel: () => (current.future.length > 0 ? redoLabels.at(-1) ?? null : null),
     resources: (type) => listEditorResources(current, type) as unknown as ResourceEntry[],
     exportJson: () => exportEditorProject(current),
     replaceProject(project) {
@@ -113,9 +140,14 @@ export function createStore(initial: EditorState, revision = 'unknown', warnings
     },
     dispatchBatch(commands) {
       try {
+        const context = { sceneIds: sceneIds() };
         let next = current;
         for (const command of commands) next = applyProjectEditorCommand(next, command);
         current = next;
+        // Cada comando del lote entra por separado en el historial del motor,
+        // así que se registra una etiqueta por comando.
+        for (const command of commands) undoLabels.push(describeCommand(command, context));
+        redoLabels.length = 0;
         notify();
         return null;
       } catch (error) {

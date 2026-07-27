@@ -60,8 +60,8 @@ export function initTimelineShell(): void {
   initialized = true;
 
   initTimelineModeExplanation();
-  optional<HTMLButtonElement>('#timeline-undo')?.addEventListener('click', () => store?.undo());
-  optional<HTMLButtonElement>('#timeline-redo')?.addEventListener('click', () => store?.redo());
+  optional<HTMLButtonElement>('#timeline-undo')?.addEventListener('click', narratedUndo);
+  optional<HTMLButtonElement>('#timeline-redo')?.addEventListener('click', narratedRedo);
   optional<HTMLButtonElement>('#timeline-play')?.addEventListener('click', togglePlayback);
   optional<HTMLButtonElement>('#timeline-previous')?.addEventListener('click', () => jumpBoundary(-1));
   optional<HTMLButtonElement>('#timeline-next')?.addEventListener('click', () => jumpBoundary(1));
@@ -302,6 +302,7 @@ function renderLayerStack(
   playhead.hidden = !measured;
   rows.push(playhead);
   root.replaceChildren(...rows);
+  syncClipRoving();
   // Dibujar ondas y filmstrips después de adjuntar: recién ahí los canvas tienen tamaño.
   if (waveform) drawWaveforms(root, waveform);
   if (measured && output) drawFilmstrips(root, output.url);
@@ -363,9 +364,53 @@ function drawWaveforms(root: HTMLElement, waveform: WaveformPeaks): void {
   });
 }
 
+// U3 — Los clips forman un único recorrido por teclado (roving tabindex):
+// Tab entra a la timeline, las flechas se mueven entre clips y Enter abre el
+// elemento en el inspector. Se anuncia cada movimiento por `aria-live`.
+function announceTimeline(message: string): void {
+  const region = optional<HTMLElement>('#timeline-live');
+  if (region) region.textContent = message;
+}
+
+function timelineClips(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('.timeline-layer-stack .authoring-clip')];
+}
+
+function focusClip(clip: HTMLElement): void {
+  for (const other of timelineClips()) other.tabIndex = other === clip ? 0 : -1;
+  clip.focus();
+  clip.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  announceTimeline(`${clip.querySelector('strong')?.textContent ?? 'Clip'}. ${clip.querySelector('small')?.textContent ?? ''}`);
+}
+
+function bindClipKeyboard(clip: HTMLElement): void {
+  clip.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const clips = timelineClips();
+    const index = clips.indexOf(clip);
+    if (index < 0) return;
+    event.preventDefault();
+    const next = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? clips.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + clips.length) % clips.length;
+    const target = clips[next];
+    if (target) focusClip(target);
+  });
+}
+
+function syncClipRoving(): void {
+  const clips = timelineClips();
+  if (clips.length === 0) return;
+  const selected = clips.find((clip) => clip.classList.contains('is-selected')) ?? clips[0];
+  for (const clip of clips) clip.tabIndex = clip === selected ? 0 : -1;
+}
+
 function authoringTrack(code: string, label: string, width: number, clips: HTMLElement[]): HTMLElement {
   const row = document.createElement('div');
   row.className = 'authoring-track-row';
+  for (const clip of clips) bindClipKeyboard(clip);
   const heading = document.createElement('div');
   heading.className = 'authoring-track-label';
   heading.innerHTML = `<strong>${code}</strong><span>${label}</span>`;
@@ -1360,12 +1405,12 @@ function handleShortcut(event: KeyboardEvent): void {
     const key = event.key.toLowerCase();
     if (key === 'z' && !event.shiftKey) {
       event.preventDefault();
-      if (store?.canUndo()) store.undo();
+      narratedUndo();
       return;
     }
     if (key === 'y' || (key === 'z' && event.shiftKey)) {
       event.preventDefault();
-      if (store?.canRedo()) store.redo();
+      narratedRedo();
       return;
     }
     if (key === 'b') {
@@ -1445,8 +1490,17 @@ function updateToolbar(): void {
   const duplicate = optional<HTMLButtonElement>('#timeline-duplicate');
   const remove = optional<HTMLButtonElement>('#timeline-delete');
   const snap = optional<HTMLButtonElement>('#timeline-snap');
-  if (undo) undo.disabled = !store?.canUndo();
-  if (redo) redo.disabled = !store?.canRedo();
+  // U1: el botón anticipa qué se va a revertir cuando el store lo sabe.
+  if (undo) {
+    undo.disabled = !store?.canUndo();
+    const pending = store?.pendingUndoLabel();
+    undo.title = pending ? `Deshacer: ${pending.toLowerCase()} (Ctrl+Z)` : 'Deshacer (Ctrl+Z)';
+  }
+  if (redo) {
+    redo.disabled = !store?.canRedo();
+    const pending = store?.pendingRedoLabel();
+    redo.title = pending ? `Rehacer: ${pending.toLowerCase()} (Ctrl+Y)` : 'Rehacer (Ctrl+Y)';
+  }
   if (play) play.disabled = !hasOutput;
   if (previous) previous.disabled = !hasNavigation;
   if (next) next.disabled = !hasNavigation;
@@ -1476,6 +1530,23 @@ function updateTimecode(): void {
   output.textContent = isMeasured()
     ? `${formatTimecode(currentTime)} / ${formatTimecode(activeDuration())}`
     : '--:--.--- / --:--.---';
+}
+
+// U1 — Nunca un undo a ciegas: se dice qué se deshizo. Si el store no tiene la
+// etiqueta (historial recuperado de otra sesión), el mensaje es genérico pero
+// verdadero en lugar de inventar un cambio.
+function narratedUndo(): void {
+  if (!store?.canUndo()) return;
+  const label = store.pendingUndoLabel();
+  store.undo();
+  notify({ message: label ? `Deshecho: ${label.toLowerCase()}.` : 'Se deshizo el último cambio.' });
+}
+
+function narratedRedo(): void {
+  if (!store?.canRedo()) return;
+  const label = store.pendingRedoLabel();
+  store.redo();
+  notify({ message: label ? `Rehecho: ${label.toLowerCase()}.` : 'Se rehízo el último cambio.' });
 }
 
 function setTimelineMode(measured: boolean, customLabel?: string): void {

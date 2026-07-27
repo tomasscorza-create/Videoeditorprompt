@@ -33,7 +33,7 @@
   --muted: #9aafa5;
   --accent: #72dfbc;
   --accent-ink: #06251c;
-  --danger: #ff7c86;
+  --danger: #ff7f88;
   --warning: #f2c879;
   --ok: #75d6a5;
   --shadow: 0 1.5rem 4rem rgb(0 0 0 / .38);
@@ -86,12 +86,14 @@
   --border: #bed0c6;
   --border-strong: #8daa9a;
   --text: #1b2a23;
-  --muted: #5e7469;
-  --accent: #15856d;
+  /* A1: estos cinco se oscurecieron lo justo para alcanzar contraste AA (4.5)
+     sobre las cinco superficies claras. Verificado con el cálculo WCAG. */
+  --muted: #51655b;
+  --accent: #116d59;
   --accent-ink: #fff;
-  --danger: #bd3341;
-  --warning: #8c620e;
-  --ok: #19764a;
+  --danger: #b3303e;
+  --warning: #805a0d;
+  --ok: #176e45;
   --shadow: 0 1.2rem 3rem rgb(34 51 76 / .14);
   --input-bg: #f8fcfa;
   --panel-gradient: linear-gradient(145deg, #fbfefc 0%, #edf8f1 52%, #e4f2eb 100%);
@@ -100,6 +102,15 @@
 }
 
 /* === 2. Base (reset, elementos, foco) === */
+
+/* A3 — Presets de acento. Cada tema define su par acento/tinta para conservar
+   el contraste: el mismo color no sirve sobre fondo claro y sobre fondo oscuro. */
+:root[data-accent="blue"] { --accent: #7cc0f8; --accent-ink: #052034; }
+:root[data-accent="amber"] { --accent: #f2c268; --accent-ink: #2e1e02; }
+:root[data-accent="violet"] { --accent: #c0a8f5; --accent-ink: #1e1038; }
+:root[data-theme="light"][data-accent="blue"] { --accent: #1164a1; --accent-ink: #fff; }
+:root[data-theme="light"][data-accent="amber"] { --accent: #855708; --accent-ink: #fff; }
+:root[data-theme="light"][data-accent="violet"] { --accent: #6742b8; --accent-ink: #fff; }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -1078,6 +1089,33 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   backdrop-filter: blur(10px);
 }
 .onboarding[hidden] { display: none; }
+
+/* U4 — zoom del lienzo: solo vista, nunca datos del proyecto. */
+.composition-zoom-controls {
+  position: absolute;
+  right: .6rem;
+  bottom: .6rem;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: .15rem;
+  padding: .2rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(10px);
+}
+.composition-zoom-controls[hidden] { display: none; }
+.composition-zoom-level {
+  min-width: 2.8rem;
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: var(--fs-2xs);
+  text-align: center;
+}
+.viewer-stage-wrap.is-panning { cursor: grabbing; }
+#composition-view { transition: transform var(--transition-base); }
+.viewer-stage-wrap.is-panning #composition-view { transition: none; }
 .onboarding > header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .onboarding > header strong { font-size: var(--fs-lg); }
 .onboarding-close { min-width: 1.7rem; min-height: 1.7rem; padding: .2rem; border-color: transparent; background: transparent; color: var(--muted); }
@@ -1897,7 +1935,8 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   .proposal-focus-card.is-selection-pulse { animation: none; }
   .skeleton-line, .resource-card.is-revealed { animation: none; }
   .resource-card:hover:not(:disabled), .render-job-card:hover:not(:disabled) { transform: none; }
-  .vertical-stage { transition: none; }
+  .vertical-stage, #composition-view { transition: none; }
+  .viewer-output-status.is-fresh { animation: none; }
 }
 
 @media (max-width: 1100px) {

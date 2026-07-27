@@ -3,6 +3,7 @@ import { optional } from './dom.js';
 import { initDirectorUi } from './director/panel.js';
 import { initWorkspaceResize } from './layout-resize.js';
 import { initCompositionPreview } from './project/composition.js';
+import { initCompositionZoom } from './project/composition-zoom.js';
 import { initResourceLibrary } from './project/library.js';
 import { initProjectEditor } from './project/panel.js';
 import { persistStore, restoreSession } from './project/persistence.js';
@@ -28,6 +29,7 @@ export function initShellUi(): void {
   initTablists();
   initCommandPalette();
   initSelectionMirror();
+  initCompositionZoom();
   initSettingsModal();
   initWorkspaceResize();
   initViewerWorkspace();
