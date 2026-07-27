@@ -38,7 +38,9 @@ const fakeFetch = async (url, options = {}) => {
     assert.equal(request.model, 'qwen3:8b');
     assert.equal(request.stream, false);
     assert.equal(request.keep_alive, '10m');
-    assert.equal(request.format.$defs.castMember.properties.characterResourceId.enum.length, 8);
+    assert.equal(request.format.$defs.castMember.properties.characterResourceId.enum.length, 6);
+    assert.equal(request.format.properties.narrativeTemplateId.enum.length, 3);
+    assert.ok(request.format.required.includes('narrativeTemplateId'));
     assert.equal(request.format.$defs.castMember.properties.poseId.const, 'neutral');
     assert.ok(request.format.$defs.castMember.properties.animationPreset.enum.includes('talk-calm'));
     assert.equal(request.format.$defs.scene.properties.transitionDurationSeconds.maximum, 1);
@@ -47,6 +49,8 @@ const fakeFetch = async (url, options = {}) => {
     assert.ok(request.messages[0].content.includes('educational:'));
     assert.ok(request.messages[0].content.includes('inspirational:'));
     assert.ok(request.messages[0].content.includes('no empieces con «¿Sabías que…?»'));
+    assert.ok(request.messages[0].content.includes('Plantillas narrativas candidatas:'));
+    assert.ok(request.messages[0].content.includes('Shortlist de recursos permitidos:'));
     return response({
       message: { role: 'assistant', content: JSON.stringify(plan) },
       prompt_eval_count: 100,
@@ -67,6 +71,12 @@ const first = await createDirectorProposal({
 });
 assert.equal(first.cacheHit, false);
 assert.equal(first.project.scenes.length, 1);
+assert.equal(first.context.shortlistedEntries, 14);
+assert.equal(first.context.totalCatalogEntries, 16);
+assert.equal(first.context.templateIds.length, 3);
+assert.ok(first.context.recommendedTemplateId);
+assert.equal(first.context.selectedTemplateId, first.context.recommendedTemplateId);
+assert.equal(first.plan.narrativeTemplateId, first.context.selectedTemplateId);
 const second = await createDirectorProposal({
   prompt: 'Explicá de forma breve cómo colaborar con inteligencia artificial.',
   fetchImpl: fakeFetch,
@@ -310,7 +320,7 @@ assert.equal(failCalls, 3);
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 50,
+  passed: 60,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

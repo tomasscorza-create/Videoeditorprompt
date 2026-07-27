@@ -93,7 +93,8 @@ solo especificaban música; los efectos puntuales siguen fuera de este alcance.
 También están operativos `pace`, `gestureAtWord`, cinco gestos, tres perfiles idle
 seeded y `layoutPreset` por turno con interpolación de 0,35 s. Preview PixiJS y
 exportación consumen el mismo evaluador, y los campos también pueden editarse con
-los comandos semánticos. `DIRECTOR_PIPELINE_VERSION` quedó en 10.
+los comandos semánticos. Posteriormente, la capa de recursos/plantillas elevó
+`DIRECTOR_PIPELINE_VERSION` a 11.
 
 Orden por impacto percibido:
 

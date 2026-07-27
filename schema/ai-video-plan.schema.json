@@ -17,6 +17,7 @@
       "minimum": 8,
       "maximum": 90
     },
+    "narrativeTemplateId": { "$ref": "#/$defs/id" },
     "musicResourceId": { "$ref": "#/$defs/id" },
     "cast": {
       "type": "object",

@@ -156,6 +156,10 @@ assert.throws(
   (error) => error.code === 'DIRECTOR_PLAN_SCHEMA_INVALID',
 );
 assert.throws(
+  () => validateDirectorPlan({ ...validPlan, narrativeTemplateId: 'plantilla-inexistente' }, catalog),
+  (error) => error.code === 'DIRECTOR_TEMPLATE_INVALID',
+);
+assert.throws(
   () => validateDirectorPlan({
     ...validPlan,
     cast: { ...validPlan.cast, b: { ...validPlan.cast.b, animationPreset: 'hyper-jump' } },
@@ -207,7 +211,7 @@ assert.throws(
 
 const summary = {
   version: 1,
-  passed: 26,
+  passed: 27,
   failed: 0,
   semanticHash: normalizedA.semanticHash,
   projectId: normalizedA.project.id,

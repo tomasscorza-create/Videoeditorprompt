@@ -13,6 +13,13 @@ import { judgeDirectorPlans, PLAN_JUDGE_VERSION } from './plan-judge.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 import { resolveDirectorProvider } from './providers/index.mjs';
 import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './providers/ollama.mjs';
+import {
+  buildDirectorContext,
+  compactNarrativeTemplates,
+  compactResourceEntries,
+  DIRECTOR_CONTEXT_VERSION,
+  loadNarrativeTemplates,
+} from './director-context.mjs';
 
 export { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL };
 const MAX_PROMPT_LENGTH = 2000;
@@ -41,7 +48,16 @@ export async function createDirectorProposal(options) {
   // (mejor plan, más lento en CPU). Default false. Forma parte de la clave de caché.
   const think = booleanOption(options.think, false);
   const constraints = validateDirectorConstraints(options.constraints);
-  const schema = buildOllamaPlanSchema(catalog, constraints);
+  const templates = options.templates || loadNarrativeTemplates(options.templatesPath);
+  const directorContext = buildDirectorContext({
+    prompt,
+    constraints,
+    catalog,
+    templates,
+    resourceLimits: options.resourceLimits,
+    templateLimit: options.templateLimit,
+  });
+  const schema = buildOllamaPlanSchema(directorContext.catalog, constraints, directorContext.templates);
   const cacheKey = hashJson({
     version: DIRECTOR_PIPELINE_VERSION,
     provider: provider.name,
@@ -54,6 +70,9 @@ export async function createDirectorProposal(options) {
     judgeVersion: PLAN_JUDGE_VERSION,
     constraints,
     catalog: hashJson(catalog),
+    contextVersion: DIRECTOR_CONTEXT_VERSION,
+    context: hashJson(directorContext.summary),
+    templates: hashJson(templates),
     schema: hashJson(schema),
   });
   const cacheRoot = ensureDirectory(path.resolve(options.cacheRoot || path.join(projectRoot, '.local-video', 'director-cache')));
@@ -71,6 +90,7 @@ export async function createDirectorProposal(options) {
       semanticHash: normalized.semanticHash,
       repairAttempts: cached.repairAttempts ?? 0,
       selection: cached.selection ?? defaultSelection(),
+      context: cached.context ?? directorContext.summary,
       cacheKey,
       cacheHit: true,
       cachePath,
@@ -86,6 +106,7 @@ export async function createDirectorProposal(options) {
       schema,
       signal: options.signal,
       catalog,
+      directorContext,
       assetsRoot,
       resourceCatalog: options.resourceCatalog,
       prompt,
@@ -121,6 +142,10 @@ export async function createDirectorProposal(options) {
   const selected = candidates[selection.winnerIndex];
   const repairAttempts = candidates.reduce((total, candidate) => total + candidate.repairAttempts, 0);
 
+  const resolvedContext = {
+    ...directorContext.summary,
+    selectedTemplateId: selected.plan.narrativeTemplateId,
+  };
   const cached = {
     version: 1,
     directorVersion: DIRECTOR_PIPELINE_VERSION,
@@ -132,6 +157,7 @@ export async function createDirectorProposal(options) {
     budget: selected.normalized.budget,
     repairAttempts,
     selection,
+    context: resolvedContext,
     usage: {
       think,
       generationCount: bestOf,
@@ -159,6 +185,7 @@ async function generateCandidate({
   schema,
   signal,
   catalog,
+  directorContext,
   assetsRoot,
   resourceCatalog,
   prompt,
@@ -181,7 +208,7 @@ async function generateCandidate({
       schema,
       signal,
       messages: [
-        { role: 'system', content: buildSystemPrompt(catalog) },
+        { role: 'system', content: buildSystemPrompt(directorContext) },
         { role: 'user', content: buildUserPrompt(prompt, variant, constraints, feedback) },
       ],
       options: {
@@ -206,6 +233,11 @@ async function generateCandidate({
         technicalDetail: error instanceof Error ? error.message : String(error),
         suggestedAction: 'Reintentá la propuesta o verificá el soporte de salidas estructuradas del modelo.',
       });
+    }
+    if (plan.narrativeTemplateId === undefined) {
+      plan.narrativeTemplateId = directorContext.summary.recommendedTemplateId;
+    } else if (!directorContext.templates.some((template) => template.id === plan.narrativeTemplateId)) {
+      directorError('DIRECTOR_TEMPLATE_INVALID', 'El proveedor eligió una plantilla fuera de la shortlist.');
     }
     try {
       normalized = normalizeDirectorPlan(plan, catalog, {
@@ -235,7 +267,7 @@ function defaultSelection() {
   };
 }
 
-export function buildOllamaPlanSchema(catalog, constraints = {}) {
+export function buildOllamaPlanSchema(catalog, constraints = {}, templates = loadNarrativeTemplates().templates) {
   const schema = getDirectorPlanSchema();
   const characters = catalog.entries.filter((entry) => entry.type === 'character').map((entry) => entry.id);
   const voices = catalog.entries.filter((entry) => entry.type === 'voice').map((entry) => entry.id);
@@ -248,6 +280,8 @@ export function buildOllamaPlanSchema(catalog, constraints = {}) {
   schema.$defs.castMember.properties.voiceId = { type: 'string', enum: voices };
   schema.$defs.scene.properties.backgroundResourceId = { type: 'string', enum: backgrounds };
   if (music.length > 0) schema.properties.musicResourceId = { type: 'string', enum: music };
+  schema.properties.narrativeTemplateId = { type: 'string', enum: templates.map((template) => template.id) };
+  if (!schema.required.includes('narrativeTemplateId')) schema.required.push('narrativeTemplateId');
   const animationPresets = [...new Set(catalog.entries
     .filter((entry) => entry.type === 'character')
     .flatMap((entry) => entry.capabilities.animationPresets))];
@@ -278,13 +312,10 @@ export function buildOllamaPlanSchema(catalog, constraints = {}) {
   return schema;
 }
 
-function buildSystemPrompt(catalog) {
-  const entries = catalog.entries.map((entry) => ({
-    id: entry.id,
-    type: entry.type,
-    label: entry.label,
-    capabilities: entry.capabilities || null,
-  }));
+function buildSystemPrompt(directorContext) {
+  const entries = compactResourceEntries(directorContext.catalog);
+  const templates = compactNarrativeTemplates(directorContext.templates);
+  const recommendedTemplateId = directorContext.summary.recommendedTemplateId;
   return [
     'Sos el Director IA de una herramienta local de videos animados verticales.',
     'Transformá la idea del usuario en un plan breve, claro, entretenido y renderizable.',
@@ -318,7 +349,9 @@ function buildSystemPrompt(catalog) {
     '- inspirational: "Compararte borra la distancia que ya recorriste." → "Medí tu avance contra tu punto de partida y seguí creciendo."',
     '',
     'REGLAS:',
-    'Usá solamente IDs presentes en el catálogo.',
+    'Recibís una shortlist local, no el inventario completo. Usá solamente IDs presentes en esa shortlist.',
+    'Elegí la plantilla narrativa más adecuada entre las candidatas. La recomendada es un punto de partida, no una obligación.',
+    'Usá sus beats como estructura semántica y combinalos con recursos compatibles; no copies literalmente sus ejemplos.',
     'Elegí para cada personaje una pose y una animación entre las que declara su catálogo (capabilities).',
     'Podés elegir música del catálogo, pace slow|normal|fast y un layout por turno cuando aporten intención.',
     'gestureAtWord es un índice desde 0: usalo para disparar gestos cerca de la palabra importante.',
@@ -327,7 +360,9 @@ function buildSystemPrompt(catalog) {
     'Escribí español natural para voz, sin markdown, acotaciones, emojis ni instrucciones técnicas.',
     'La duración es un objetivo editorial: mantené el guion conciso para no pasarte del presupuesto de palabras.',
     'No generes rutas, código, comandos, frames, tiempos absolutos ni propiedades adicionales.',
-    `Catálogo permitido: ${JSON.stringify(entries)}`,
+    `Plantilla recomendada: ${recommendedTemplateId}.`,
+    `Plantillas narrativas candidatas: ${JSON.stringify(templates)}`,
+    `Shortlist de recursos permitidos: ${JSON.stringify(entries)}`,
   ].join('\n');
 }
 

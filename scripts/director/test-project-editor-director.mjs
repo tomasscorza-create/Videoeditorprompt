@@ -36,6 +36,9 @@ try {
   assert.equal(first.cacheHit, false);
   assert.equal(first.commands.length, 1);
   assert.equal(first.project.scenes[1].dialogue[0].text, 'Texto actualizado por el Director.');
+  assert.ok(first.context.shortlistedEntries <= first.context.totalCatalogEntries);
+  assert.ok(first.context.resourceIds.includes('mono-azul-v1'));
+  assert.ok(first.context.resourceIds.includes('voz-claude-mx-v1'));
   const second = await editProjectWithDirector({
     instruction: 'Cambiá el primer texto de la escena 2.',
     project, catalog, cacheRoot, fetchImpl,
@@ -113,7 +116,7 @@ try {
     (error) => error.code === 'EDITOR_TURN_NOT_FOUND',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 28, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 31, failed: 0 })}\n`);
 } finally {
   rmSync(cacheRoot, { recursive: true, force: true });
 }

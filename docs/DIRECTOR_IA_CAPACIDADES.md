@@ -46,6 +46,17 @@ Expresión y runtime:
 
 Calidad de generación:
 
+- **Contexto acotado**: antes de llamar al modelo, una búsqueda local puntúa
+  etiquetas, nombres y capacidades. La selección inicial admite hasta 6
+  personajes, 4 voces, 4 fondos y 3 músicas. El JSON Schema de esa petición solo
+  admite esos IDs. Al editar se anexan los recursos ya usados por el proyecto,
+  aunque excepcionalmente superen esos límites.
+- **Plantillas narrativas**: el Director recibe tres candidatas y una recomendada
+  entre explicación, contraste, problema-solución, lista progresiva y
+  transformación. Son beats combinables, no guiones rígidos; la selección queda
+  registrada como `narrativeTemplateId`.
+- **Observabilidad**: propuesta y edición exponen `context` con selección,
+  puntajes y relación shortlist/inventario. La selección entra en caché.
 - **Bucle de reparación**: ante `DIRECTOR_DURATION_BUDGET_EXCEEDED` se reintenta
   hasta 2 veces reinyectando el error como feedback. Solo se cachea el resultado
   final válido; el resultado expone `repairAttempts`.

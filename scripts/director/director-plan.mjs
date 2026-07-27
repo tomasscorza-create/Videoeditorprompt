@@ -12,6 +12,9 @@ const validatePlanSchema = new Ajv2020({ allErrors: true, strict: true }).compil
 const catalogSchema = readJson(path.join(projectRoot, 'schema', 'authoring-resource-catalog.schema.json'));
 const validateCatalogSchema = new Ajv2020({ allErrors: true, strict: true }).compile(catalogSchema);
 const catalogCache = new Map();
+const NARRATIVE_TEMPLATE_IDS = new Set(
+  readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'narrative-templates.json')).templates.map((template) => template.id),
+);
 
 // A4: el vocabulario de layouts es un dato validado por schema, no código. Agregar
 // una composición nueva es editar el JSON; la IA la ve en el enum en la próxima
@@ -54,6 +57,9 @@ export function validateDirectorPlan(plan, catalog) {
   }
 
   const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
+  if (plan.narrativeTemplateId && !NARRATIVE_TEMPLATE_IDS.has(plan.narrativeTemplateId)) {
+    directorError('DIRECTOR_TEMPLATE_INVALID', 'La plantilla narrativa seleccionada no existe.', '/narrativeTemplateId');
+  }
   if (plan.musicResourceId) {
     requireResource(resources, plan.musicResourceId, 'music', '/musicResourceId');
   }

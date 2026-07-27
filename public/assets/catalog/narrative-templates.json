@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "explain-stepwise-v1",
+      "label": "Explicación paso a paso",
+      "description": "Presenta una duda, explica la causa y termina con una acción concreta.",
+      "tags": ["explicar", "tutorial", "educacion", "concepto", "como", "pasos"],
+      "tones": ["educational", "serious"],
+      "sceneRange": { "min": 1, "max": 3 },
+      "beats": [
+        { "id": "question", "intent": "Abrir con una duda o error común.", "speaker": "a", "pace": "normal", "layouts": ["focus-a", "close-up-a"], "gestures": ["point", "doubt"] },
+        { "id": "explanation", "intent": "Explicar la causa con un ejemplo breve.", "speaker": "b", "pace": "normal", "layouts": ["balanced", "focus-b"], "gestures": ["point", "neutral"] },
+        { "id": "action", "intent": "Cerrar con una acción que el espectador pueda aplicar.", "speaker": "a", "pace": "slow", "layouts": ["focus-a", "balanced"], "gestures": ["celebrate", "point"] }
+      ],
+      "musicTags": ["educational", "calma", "enfoque"]
+    },
+    {
+      "id": "contrast-debate-v1",
+      "label": "Contraste entre dos miradas",
+      "description": "Dos personajes enfrentan expectativa y realidad hasta llegar a una síntesis.",
+      "tags": ["comparar", "debate", "versus", "mito", "realidad", "opinion", "ironia"],
+      "tones": ["ironic", "serious", "educational"],
+      "sceneRange": { "min": 1, "max": 3 },
+      "beats": [
+        { "id": "claim", "intent": "El personaje A plantea una afirmación fuerte.", "speaker": "a", "pace": "fast", "layouts": ["focus-a", "close-up-a"], "gestures": ["point", "celebrate"] },
+        { "id": "counterpoint", "intent": "El personaje B revela el límite o la contradicción.", "speaker": "b", "pace": "normal", "layouts": ["focus-b", "close-up-b"], "gestures": ["deny", "doubt", "point"] },
+        { "id": "synthesis", "intent": "Ambos llegan a una conclusión equilibrada o memorable.", "speaker": "both", "pace": "slow", "layouts": ["balanced", "wide"], "gestures": ["neutral", "point"] }
+      ],
+      "musicTags": ["ironic", "serious", "enfoque"]
+    },
+    {
+      "id": "problem-solution-v1",
+      "label": "Problema y solución",
+      "description": "Hace visible un problema cotidiano, muestra su costo y propone una solución simple.",
+      "tags": ["problema", "solucion", "consejo", "error", "mejorar", "productividad"],
+      "tones": ["educational", "energetic", "serious"],
+      "sceneRange": { "min": 1, "max": 3 },
+      "beats": [
+        { "id": "pain", "intent": "Mostrar el problema con una situación reconocible.", "speaker": "a", "pace": "normal", "layouts": ["focus-a", "balanced"], "gestures": ["doubt", "deny"] },
+        { "id": "cost", "intent": "Explicar por qué el problema importa.", "speaker": "b", "pace": "slow", "layouts": ["focus-b", "close-up-b"], "gestures": ["point", "deny"] },
+        { "id": "solution", "intent": "Dar una solución breve y accionable.", "speaker": "a", "pace": "fast", "layouts": ["focus-a", "wide"], "gestures": ["celebrate", "point"] }
+      ],
+      "musicTags": ["educational", "ritmo", "enfoque"]
+    },
+    {
+      "id": "countdown-list-v1",
+      "label": "Lista breve con progresión",
+      "description": "Ordena tres ideas de menor a mayor impacto y remata con la más importante.",
+      "tags": ["lista", "tres", "tips", "claves", "errores", "razones", "ranking"],
+      "tones": ["energetic", "educational"],
+      "sceneRange": { "min": 1, "max": 4 },
+      "beats": [
+        { "id": "promise", "intent": "Prometer una lista corta y útil sin introducción larga.", "speaker": "a", "pace": "fast", "layouts": ["close-up-a", "focus-a"], "gestures": ["celebrate", "point"] },
+        { "id": "items", "intent": "Alternar los puntos con ejemplos de una sola frase.", "speaker": "both", "pace": "fast", "layouts": ["balanced", "focus-a", "focus-b"], "gestures": ["point", "neutral"] },
+        { "id": "top-item", "intent": "Cerrar destacando la idea de mayor impacto.", "speaker": "b", "pace": "slow", "layouts": ["close-up-b", "wide"], "gestures": ["point", "celebrate"] }
+      ],
+      "musicTags": ["energetic", "ritmo", "inspirational"]
+    },
+    {
+      "id": "transformation-story-v1",
+      "label": "Antes, descubrimiento y después",
+      "description": "Cuenta una transformación compacta desde una dificultad hasta un resultado posible.",
+      "tags": ["historia", "antes", "despues", "cambio", "progreso", "motivacion"],
+      "tones": ["inspirational", "energetic"],
+      "sceneRange": { "min": 2, "max": 4 },
+      "beats": [
+        { "id": "before", "intent": "Presentar la dificultad sin exagerarla.", "speaker": "a", "pace": "slow", "layouts": ["focus-a", "stacked"], "gestures": ["doubt", "neutral"] },
+        { "id": "discovery", "intent": "Mostrar la decisión o aprendizaje que cambia el rumbo.", "speaker": "b", "pace": "normal", "layouts": ["focus-b", "balanced"], "gestures": ["point", "celebrate"] },
+        { "id": "after", "intent": "Cerrar con progreso concreto y una invitación posible.", "speaker": "both", "pace": "slow", "layouts": ["wide", "balanced"], "gestures": ["celebrate", "point"] }
+      ],
+      "musicTags": ["inspirational", "calma", "ritmo"]
+    }
+  ]
+}

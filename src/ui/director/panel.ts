@@ -132,9 +132,16 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       prompt.value = '';
       transitionNavigation({ type: editing ? 'ai-change-applied' : 'proposal-created' });
       syncDirectorMode();
+      const contextDetail = result.context
+        ? ` Recursos: ${result.context.shortlistedEntries}/${result.context.totalCatalogEntries}.`
+        : '';
+      const templateId = result.context?.selectedTemplateId ?? result.context?.recommendedTemplateId;
+      const templateDetail = !editing && templateId
+        ? ` Plantilla base: ${templateId}.`
+        : '';
       report(editing
-        ? `${appliedCommands} cambio(s) aplicados por el Director. Podés deshacerlos desde la timeline.`
-        : 'Propuesta creada. Podés corregirla antes de renderizar.', true);
+        ? `${appliedCommands} cambio(s) aplicados por el Director.${contextDetail} Podés deshacerlos desde la timeline.`
+        : `Propuesta creada.${templateDetail}${contextDetail} Podés corregirla antes de renderizar.`, true);
     } catch (error) {
       reportError(error);
     } finally {

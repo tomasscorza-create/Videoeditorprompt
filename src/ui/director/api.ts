@@ -32,6 +32,19 @@ export interface DirectorProposal {
     judgeVersion: number | null;
     scores: Array<{ hook: number; naturalness: number; ending: number; variety: number }> | null;
   };
+  context: DirectorContextSummary;
+}
+
+export interface DirectorContextSummary {
+  version: number;
+  queryTokens: string[];
+  resourceIds: string[];
+  resourceScores: Record<string, number>;
+  templateIds: string[];
+  recommendedTemplateId: string | null;
+  selectedTemplateId?: string | null;
+  totalCatalogEntries: number;
+  shortlistedEntries: number;
 }
 
 export interface RenderJob {
@@ -164,6 +177,7 @@ export async function editProjectWithAi(instruction: string, project: unknown): 
   cacheHit: boolean;
   commands: Array<Record<string, unknown>>;
   project: unknown;
+  context: DirectorContextSummary;
 }> {
   return apiRequest('/api/director/edits', {
     method: 'POST',

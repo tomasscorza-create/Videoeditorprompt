@@ -7,6 +7,7 @@ import { PipelineError } from '../stage1/errors.mjs';
 import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './providers/ollama.mjs';
 import { resolveDirectorProvider } from './providers/index.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
+import { buildDirectorContext } from './director-context.mjs';
 
 const MAX_REQUEST_LENGTH = 1200;
 // Unificado con la propuesta (ai-video-plan): el texto de diálogo se limita a 300
@@ -16,7 +17,13 @@ const DIRECTOR_TEXT_MAX_LENGTH = 300;
 export async function editProjectWithDirector(options) {
   const instruction = validateInstruction(options.instruction);
   const state = createProjectEditor(options.project, options.catalog);
-  const schema = commandBatchSchema(state.project, state.catalog);
+  const directorContext = buildDirectorContext({
+    prompt: instruction,
+    catalog: state.catalog,
+    requiredResourceIds: collectProjectResourceIds(state.project),
+    resourceLimits: options.resourceLimits,
+  });
+  const schema = commandBatchSchema(state.project, directorContext.catalog);
   const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
   // El proveedor concentra la especificidad de la IA (D1/D2); su nombre entra en
   // la clave de caché.
@@ -30,6 +37,7 @@ export async function editProjectWithDirector(options) {
     instruction,
     project: state.project,
     catalog: hashJson(state.catalog),
+    context: hashJson(directorContext.summary),
     model,
   });
   const cacheRoot = ensureDirectory(path.resolve(options.cacheRoot || path.join(projectRoot, '.local-video', 'director-edit-cache')));
@@ -75,7 +83,19 @@ export async function editProjectWithDirector(options) {
   if (!Array.isArray(commands) || commands.length > 12) throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA devolvió una lista de cambios inválida.');
   let next = state;
   for (const command of commands) next = applyProjectEditorCommand(next, command);
-  return { version: 1, model, cacheHit, commands, project: next.project };
+  return { version: 1, model, cacheHit, commands, project: next.project, context: directorContext.summary };
+}
+
+function collectProjectResourceIds(project) {
+  const ids = new Set(project.musicResourceId ? [project.musicResourceId] : []);
+  for (const scene of project.scenes) {
+    ids.add(scene.background.resourceId);
+    for (const element of scene.elements) {
+      if (element.resourceId) ids.add(element.resourceId);
+    }
+    for (const turn of scene.dialogue) ids.add(turn.voiceId);
+  }
+  return [...ids];
 }
 
 function commandBatchSchema(project, catalog) {
