@@ -8,6 +8,7 @@ import { persistStore, restoreSession } from './project/persistence.js';
 import { initProjectTimeline } from './project/project-timeline.js';
 import { loadProjectStore, type ProjectStore } from './project/store.js';
 import { initSettingsModal, initTheme } from './theme.js';
+import { initTablists } from './tabs.js';
 import { initTimelineShell } from './timeline.js';
 import { initViewerWorkspace } from './viewer.js';
 import { initCharacterCreator } from './character-creator.js';
@@ -20,6 +21,7 @@ export { renderJobGallery } from './gallery.js';
 // Interfaz que no depende de que la escena cargue.
 export function initShellUi(): void {
   initTheme();
+  initTablists();
   initSettingsModal();
   initWorkspaceResize();
   initViewerWorkspace();

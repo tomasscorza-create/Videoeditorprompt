@@ -113,10 +113,10 @@
               </div>
             </header>
 
-            <div class="director-page-tabs" role="tablist" aria-label="Flujo del Director">
-              <button id="director-page-command-tab" class="director-page-tab is-active" data-director-page="command" type="button" role="tab" aria-selected="true" aria-controls="director-page-command">Idea</button>
-              <button id="director-page-project-tab" class="director-page-tab" data-director-page="project" type="button" role="tab" aria-selected="false" aria-controls="director-page-project" disabled>Propuesta</button>
-              <button id="director-page-render-tab" class="director-page-tab" data-director-page="render" type="button" role="tab" aria-selected="false" aria-controls="director-page-render">Render</button>
+            <div class="director-page-tabs tabs" data-variant="segmented" role="tablist" aria-label="Flujo del Director">
+              <button id="director-page-command-tab" class="tab is-active" data-director-page="command" type="button" role="tab" aria-selected="true" aria-controls="director-page-command">Idea</button>
+              <button id="director-page-project-tab" class="tab" data-director-page="project" type="button" role="tab" aria-selected="false" aria-controls="director-page-project" disabled>Propuesta</button>
+              <button id="director-page-render-tab" class="tab" data-director-page="render" type="button" role="tab" aria-selected="false" aria-controls="director-page-render">Render</button>
             </div>
 
             <div class="status-block director-global-status">
@@ -196,11 +196,11 @@
                 </span>
               </header>
               <section class="project-editor" id="project-editor" aria-label="Proyecto editable del Director" hidden>
-                <div class="proposal-tabs" role="tablist" aria-label="Secciones del proyecto">
-                  <button class="proposal-tab is-active" data-proposal-tab="scene" type="button" role="tab" aria-selected="true">Escena</button>
-                  <button class="proposal-tab" data-proposal-tab="elements" type="button" role="tab" aria-selected="false">Personajes</button>
-                  <button class="proposal-tab" data-proposal-tab="background" type="button" role="tab" aria-selected="false">Fondo</button>
-                  <button class="proposal-tab" data-proposal-tab="transition" type="button" role="tab" aria-selected="false">Transición</button>
+                <div class="proposal-tabs tabs" data-variant="underline" role="tablist" aria-label="Secciones del proyecto">
+                  <button class="tab is-active" data-proposal-tab="scene" type="button" role="tab" aria-selected="true" aria-controls="scene-inspector">Escena</button>
+                  <button class="tab" data-proposal-tab="elements" type="button" role="tab" aria-selected="false" aria-controls="scene-inspector">Personajes</button>
+                  <button class="tab" data-proposal-tab="background" type="button" role="tab" aria-selected="false" aria-controls="scene-inspector">Fondo</button>
+                  <button class="tab" data-proposal-tab="transition" type="button" role="tab" aria-selected="false" aria-controls="scene-inspector">Transición</button>
                 </div>
                 <div class="scene-inspector" id="scene-inspector" role="tabpanel">
                   <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
@@ -248,9 +248,9 @@
               <span class="eyebrow separator">/</span>
               <h2 id="viewer-title" class="viewer-title-inline">Editor de video</h2>
             </div>
-            <div class="source-tabs" role="tablist" aria-label="Espacio de trabajo">
-              <button id="workspace-editor" class="source-tab is-active" type="button" role="tab" aria-selected="true">Editor</button>
-              <button id="workspace-creator" class="source-tab" type="button" role="tab" aria-selected="false">Creador</button>
+            <div class="source-tabs tabs" data-variant="ghost" role="tablist" aria-label="Espacio de trabajo">
+              <button id="workspace-editor" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="editor-workspace">Editor</button>
+              <button id="workspace-creator" class="tab" type="button" role="tab" aria-selected="false" aria-controls="creator-workspace">Creador</button>
             </div>
           </header>
 
@@ -323,10 +323,10 @@
               <input id="resource-register-file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
             </header>
             <p id="resource-library-status" class="muted" role="status" aria-live="polite"></p>
-            <div class="resource-tabs" role="tablist" aria-label="Tipos de recursos">
-              <button class="resource-tab is-active" data-resource-type="character" type="button" role="tab" aria-selected="true">Personajes</button>
-              <button class="resource-tab" data-resource-type="background" type="button" role="tab" aria-selected="false">Fondos</button>
-              <button class="resource-tab" data-resource-type="voice" type="button" role="tab" aria-selected="false">Voces</button>
+            <div class="resource-tabs tabs" data-variant="ghost" role="tablist" aria-label="Tipos de recursos">
+              <button class="tab is-active" data-resource-type="character" type="button" role="tab" aria-selected="true" aria-controls="resource-list">Personajes</button>
+              <button class="tab" data-resource-type="background" type="button" role="tab" aria-selected="false" aria-controls="resource-list">Fondos</button>
+              <button class="tab" data-resource-type="voice" type="button" role="tab" aria-selected="false" aria-controls="resource-list">Voces</button>
             </div>
             <div id="resource-list" class="resource-list"><p class="empty-state">Abrí un proyecto para explorar recursos.</p></div>
           </section>
@@ -339,9 +339,9 @@
               <button id="character-creator-close" class="icon-button" type="button" aria-label="Cerrar diseñador">×</button>
             </header>
             <p class="muted">Elegí una plantilla rápida o construí un personaje por piezas semánticas. Ambos caminos producen un rig animable.</p>
-            <div class="character-mode-tabs" role="tablist" aria-label="Modo de creación">
-              <button id="character-mode-template" class="is-active" type="button" role="tab" aria-selected="true">Usar plantilla</button>
-              <button id="character-mode-scratch" type="button" role="tab" aria-selected="false">Crear desde cero</button>
+            <div class="tabs" data-variant="segmented" role="tablist" aria-label="Modo de creación">
+              <button id="character-mode-template" class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="character-template-editor">Usar plantilla</button>
+              <button id="character-mode-scratch" class="tab" type="button" role="tab" aria-selected="false" aria-controls="character-scratch-editor">Crear desde cero</button>
             </div>
             <label class="field" for="character-existing">
               <span>Diseño</span>

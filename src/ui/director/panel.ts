@@ -227,22 +227,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         const page = tab.dataset.directorPage;
         if (isDirectorPage(page)) transitionNavigation({ type: 'select-page', page });
       });
-      tab.addEventListener('keydown', (event) => {
-        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault();
-        const descriptors = describeDirectorPages(navigation).filter((page) => page.enabled);
-        const currentIndex = descriptors.findIndex((page) => page.page === navigation.page);
-        const nextIndex = event.key === 'Home'
-          ? 0
-          : event.key === 'End'
-            ? descriptors.length - 1
-            : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + descriptors.length) % descriptors.length;
-        const next = descriptors[nextIndex]?.page;
-        if (!next) return;
-        transitionNavigation({ type: 'select-page', page: next });
-        pageTabs.find((candidate) => candidate.dataset.directorPage === next)?.focus();
-      });
     }
+    // La navegación por flechas vive en el helper compartido src/ui/tabs.ts.
   }
 
   function subscribeToStore(target: ProjectStore | null): void {
