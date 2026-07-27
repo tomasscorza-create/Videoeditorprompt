@@ -179,46 +179,7 @@ h1, h2 { font-size: var(--fs-xl); }
 .timeline-tool.collapse-button {
   min-width: 2rem;
 }
-.expand-button {
-  position: absolute;
-  z-index: 50;
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
-  color: var(--muted);
-  border: none;
-  display: grid;
-  place-items: center;
-  font-size: var(--fs-md);
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.expand-button:hover {
-  background: color-mix(in srgb, var(--accent) 35%, var(--surface-3));
-  color: var(--text);
-}
-.expand-left {
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 1.25rem;
-  border-right: 1px solid var(--border-strong);
-}
-.expand-right {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 1.25rem;
-  border-left: 1px solid var(--border-strong);
-}
-.expand-bottom {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1.25rem;
-  border-top: 1px solid var(--border-strong);
-}
-
+/* .expand-button removed */
 /* Iconos del sprite: heredan color y escalan con el font-size del botón. */
 .icon {
   width: 1.15em;
@@ -306,10 +267,7 @@ h1, h2 { font-size: var(--fs-xl); }
   height: 100dvh;
 }
 .app-shell.is-timeline-collapsed {
-  grid-template-rows: 3.5rem minmax(0, 1fr);
-}
-.app-shell.is-timeline-collapsed .timeline-resizer {
-  display: none;
+  grid-template-rows: 3.5rem minmax(0, 1fr) .85rem;
 }
 .app-shell.is-timeline-collapsed .professional-timeline {
   display: none;
@@ -580,25 +538,71 @@ body:not(.is-resizing) .workspace {
   transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .workspace.is-director-collapsed {
-  grid-template-columns: minmax(22rem, 1fr) .35rem var(--inspector-width);
+  grid-template-columns: .85rem minmax(22rem, 1fr) .35rem var(--inspector-width);
 }
-.workspace.is-director-collapsed .director-column {
-  display: none;
-}
-.workspace.is-director-collapsed #director-resizer {
-  display: none;
-}
+.workspace.is-director-collapsed .director-column { display: none; }
+
 .workspace.is-inspector-collapsed {
-  grid-template-columns: var(--director-width) .35rem minmax(22rem, 1fr);
+  grid-template-columns: var(--director-width) .35rem minmax(22rem, 1fr) .85rem;
 }
-.workspace.is-inspector-collapsed .editor-column {
-  display: none;
-}
-.workspace.is-inspector-collapsed #inspector-resizer {
-  display: none;
-}
+.workspace.is-inspector-collapsed .editor-column { display: none; }
+
 .workspace.is-director-collapsed.is-inspector-collapsed {
-  grid-template-columns: minmax(22rem, 1fr);
+  grid-template-columns: .85rem minmax(22rem, 1fr) .85rem;
+}
+
+/* Estilos compartidos de barra expansora para resizers colapsados */
+.workspace.is-director-collapsed #director-resizer,
+.workspace.is-inspector-collapsed #inspector-resizer,
+.app-shell.is-timeline-collapsed #timeline-resizer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.2s ease;
+  z-index: 50;
+}
+.workspace.is-director-collapsed #director-resizer { border-right: 1px solid var(--border-strong); }
+.workspace.is-inspector-collapsed #inspector-resizer { border-left: 1px solid var(--border-strong); }
+.app-shell.is-timeline-collapsed #timeline-resizer { border-top: 1px solid var(--border-strong); }
+
+.workspace.is-director-collapsed #director-resizer:hover,
+.workspace.is-inspector-collapsed #inspector-resizer:hover,
+.app-shell.is-timeline-collapsed #timeline-resizer:hover {
+  background: color-mix(in srgb, var(--accent) 35%, var(--surface-3));
+}
+
+/* Iconos inyectados por CSS mask para los resizers colapsados */
+.workspace.is-director-collapsed #director-resizer::after,
+.workspace.is-inspector-collapsed #inspector-resizer::after,
+.app-shell.is-timeline-collapsed #timeline-resizer::after {
+  content: "";
+  display: block;
+  width: .65rem;
+  height: .65rem;
+  background-color: var(--muted);
+  transition: background-color 0.2s ease;
+}
+.workspace.is-director-collapsed #director-resizer:hover::after,
+.workspace.is-inspector-collapsed #inspector-resizer:hover::after,
+.app-shell.is-timeline-collapsed #timeline-resizer:hover::after {
+  background-color: var(--text);
+}
+
+.workspace.is-director-collapsed #director-resizer::after {
+  mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M9 5l7 7-7 7"/></svg>') center/contain no-repeat;
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M9 5l7 7-7 7"/></svg>') center/contain no-repeat;
+}
+.workspace.is-inspector-collapsed #inspector-resizer::after {
+  mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M15 19l-7-7 7-7"/></svg>') center/contain no-repeat;
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M15 19l-7-7 7-7"/></svg>') center/contain no-repeat;
+}
+.app-shell.is-timeline-collapsed #timeline-resizer::after {
+  mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M18 15l-6-6-6 6"/></svg>') center/contain no-repeat;
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M18 15l-6-6-6 6"/></svg>') center/contain no-repeat;
 }
 
 .workspace.is-director-will-collapse .director-column,

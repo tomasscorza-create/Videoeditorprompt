@@ -48,13 +48,10 @@ export function initWorkspaceResize(): void {
     document.documentElement.style.setProperty('--inspector-width', `${Math.round(workspace.clientWidth * ratios.inspector)}px`);
     document.documentElement.style.setProperty('--timeline-height', `${Math.round(shell.clientHeight * ratios.timeline)}px`);
 
-    const directorExpand = optional<HTMLButtonElement>('#director-expand');
     if (ratios.directorCollapsed) {
       workspace.classList.add('is-director-collapsed');
-      if (directorExpand) directorExpand.hidden = false;
     } else {
       workspace.classList.remove('is-director-collapsed');
-      if (directorExpand) directorExpand.hidden = true;
     }
     if (ratios.directorWillCollapse) workspace.classList.add('is-director-will-collapse');
     else workspace.classList.remove('is-director-will-collapse');
@@ -62,13 +59,10 @@ export function initWorkspaceResize(): void {
     if (ratios.directorAtMax) workspace.classList.add('is-director-at-max');
     else workspace.classList.remove('is-director-at-max');
 
-    const inspectorExpand = optional<HTMLButtonElement>('#inspector-expand');
     if (ratios.inspectorCollapsed) {
       workspace.classList.add('is-inspector-collapsed');
-      if (inspectorExpand) inspectorExpand.hidden = false;
     } else {
       workspace.classList.remove('is-inspector-collapsed');
-      if (inspectorExpand) inspectorExpand.hidden = true;
     }
     if (ratios.inspectorWillCollapse) workspace.classList.add('is-inspector-will-collapse');
     else workspace.classList.remove('is-inspector-will-collapse');
@@ -76,13 +70,10 @@ export function initWorkspaceResize(): void {
     if (ratios.inspectorAtMax) workspace.classList.add('is-inspector-at-max');
     else workspace.classList.remove('is-inspector-at-max');
 
-    const timelineExpand = optional<HTMLButtonElement>('#timeline-expand');
     if (ratios.timelineCollapsed) {
       shell.classList.add('is-timeline-collapsed');
-      if (timelineExpand) timelineExpand.hidden = false;
     } else {
       shell.classList.remove('is-timeline-collapsed');
-      if (timelineExpand) timelineExpand.hidden = true;
     }
     if (ratios.timelineWillCollapse) shell.classList.add('is-timeline-will-collapse');
     else shell.classList.remove('is-timeline-will-collapse');
@@ -96,13 +87,13 @@ export function initWorkspaceResize(): void {
   };
 
   optional<HTMLButtonElement>('#director-collapse')?.addEventListener('click', () => { ratios.directorCollapsed = true; apply(); persist(); });
-  optional<HTMLButtonElement>('#director-expand')?.addEventListener('click', () => { ratios.directorCollapsed = false; apply(); persist(); });
+  directorHandle.addEventListener('pointerdown', () => { if (ratios.directorCollapsed) { ratios.directorCollapsed = false; apply(); persist(); } });
 
   optional<HTMLButtonElement>('#inspector-collapse')?.addEventListener('click', () => { ratios.inspectorCollapsed = true; apply(); persist(); });
-  optional<HTMLButtonElement>('#inspector-expand')?.addEventListener('click', () => { ratios.inspectorCollapsed = false; apply(); persist(); });
+  inspectorHandle.addEventListener('pointerdown', () => { if (ratios.inspectorCollapsed) { ratios.inspectorCollapsed = false; apply(); persist(); } });
 
   optional<HTMLButtonElement>('#timeline-collapse')?.addEventListener('click', () => { ratios.timelineCollapsed = true; apply(); persist(); });
-  optional<HTMLButtonElement>('#timeline-expand')?.addEventListener('click', () => { ratios.timelineCollapsed = false; apply(); persist(); });
+  timelineHandle.addEventListener('pointerdown', () => { if (ratios.timelineCollapsed) { ratios.timelineCollapsed = false; apply(); persist(); } });
 
   bindPointer(directorHandle, (event) => {
     const rect = workspace.getBoundingClientRect();
