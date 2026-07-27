@@ -1168,7 +1168,7 @@ function togglePlayback(): void {
 
 function syncPlayButton(): void {
   const icon = optional<SVGUseElement>('#timeline-play use');
-  icon?.setAttribute('href', editorWorkspace().playing ? '#icon-pause' : '#icon-play');
+  icon?.setAttribute('href', editorWorkspace().playing ? '#ui-icon-pause' : '#ui-icon-play');
 }
 
 function toggleMute(): void {

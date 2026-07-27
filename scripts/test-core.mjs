@@ -32,6 +32,7 @@ const commands = [
   'worker:test-portability',
   'ui:test-modules',
   'ui:check-css',
+  'ui:check-ids',
 ];
 
 for (const command of commands) {
