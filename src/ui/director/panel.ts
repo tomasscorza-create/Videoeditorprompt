@@ -40,8 +40,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const bestOf = required<HTMLSelectElement>('#director-best-of');
   const generate = required<HTMLButtonElement>('#director-generate');
   const render = required<HTMLButtonElement>('#director-render');
-  const proposalCancel = required<HTMLButtonElement>('#director-proposal-cancel');
-  const renderCancel = required<HTMLButtonElement>('#director-cancel');
+  const cancel = required<HTMLButtonElement>('#director-cancel');
   const status = required<HTMLElement>('#director-status');
   const healthBadge = required<HTMLElement>('#director-health-badge');
   const progressRoot = required<HTMLElement>('#render-progress');
@@ -64,6 +63,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   let navigation: DirectorNavigationState = createDirectorNavigation(hasAuthoredContent(store));
   let proposalController: AbortController | null = null;
   let currentJobId: string | null = null;
+  let busyMode: 'ai' | 'render' | null = null;
   let pollTimer: number | null = null;
   let readyForProposal = false;
   let readyForRender = false;
@@ -107,10 +107,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     proposalController = new AbortController();
     const generation = readGenerationOptions();
     const highQuality = generation.think || generation.bestOf > 1;
-    setBusy(true, highQuality
+    setBusy('ai', highQuality
       ? 'El Director IA está comparando propuestas en modo calidad. Puede tardar varios minutos en CPU.'
       : 'El Director IA está preparando la propuesta. Puede tardar entre uno y cuatro minutos en CPU.');
-    proposalCancel.disabled = false;
     try {
       const result = editing && store
         ? await editProjectWithAi(value, store.project())
@@ -140,7 +139,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       reportError(error);
     } finally {
       proposalController = null;
-      setBusy(false);
+      setBusy(null);
     }
   });
 
@@ -154,36 +153,34 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       report(`El proyecto no se puede renderizar: ${validationError}`);
       return;
     }
-    setBusy(true, 'Enviando el proyecto al pipeline local…');
+    setBusy('render', 'Enviando el proyecto al pipeline local…');
     try {
       const job = await startRender(store.project());
       renderProjectSnapshots.set(job.jobId, JSON.stringify(store.project()));
       currentJobId = job.jobId;
       persistLastJobId(job.jobId);
       transitionNavigation({ type: 'render-opened' });
-      renderCancel.disabled = false;
+      syncButtons();
       reportJob(job);
       await refreshGallery(false);
       schedulePoll();
     } catch (error) {
       currentJobId = null;
-      setBusy(false);
+      setBusy(null);
       reportError(error);
     }
   });
 
-  proposalCancel.addEventListener('click', () => {
+  cancel.addEventListener('click', async () => {
     if (proposalController) {
+      cancel.disabled = true;
       proposalController.abort();
       void cancelDirectorProposal().catch(() => {});
       proposalController = null;
-      proposalCancel.disabled = true;
+      return;
     }
-  });
-
-  renderCancel.addEventListener('click', async () => {
     if (!currentJobId) return;
-    renderCancel.disabled = true;
+    cancel.disabled = true;
     try {
       const job = await cancelRenderJob(currentJobId);
       finishPolling();
@@ -191,6 +188,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       await refreshGallery(false);
     } catch (error) {
       reportError(error);
+      syncButtons();
     }
   });
 
@@ -310,8 +308,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
           if (['queued', 'rendering'].includes(job.state)) {
             currentJobId = job.jobId;
             transitionNavigation({ type: 'render-opened' });
-            setBusy(true);
-            renderCancel.disabled = false;
+            setBusy('render');
             reportJob(job);
             schedulePoll();
           } else if (job.state === 'completed' && job.result) {
@@ -426,25 +423,26 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     if (pollTimer !== null) window.clearTimeout(pollTimer);
     pollTimer = null;
     currentJobId = null;
-    setBusy(false);
-    renderCancel.disabled = true;
+    setBusy(null);
   }
 
-  function setBusy(busy: boolean, message?: string): void {
-    generate.dataset.busy = String(busy);
-    render.dataset.busy = String(busy);
-    if (!proposalController) proposalCancel.disabled = true;
-    if (!currentJobId) renderCancel.disabled = true;
+  function setBusy(mode: 'ai' | 'render' | null, message?: string): void {
+    busyMode = mode;
+    root.classList.toggle('is-ai-busy', mode === 'ai');
+    root.classList.toggle('is-render-busy', mode === 'render');
+    root.setAttribute('aria-busy', String(mode !== null));
+    cancel.hidden = mode === null;
+    cancel.textContent = mode === 'ai' ? 'Cancelar IA' : 'Cancelar render';
+    cancel.title = mode === 'ai' ? 'Detener la propuesta en curso' : 'Detener el render en curso';
     if (message) report(message, true);
     syncButtons();
   }
 
   function syncButtons(): void {
-    const busy = generate.dataset.busy === 'true' || render.dataset.busy === 'true';
+    const busy = busyMode !== null;
     generate.disabled = busy || !readyForProposal;
     render.disabled = busy || store === null || !readyForRender;
-    proposalCancel.disabled = proposalController === null;
-    renderCancel.disabled = currentJobId === null;
+    cancel.disabled = busyMode === 'ai' ? proposalController === null : busyMode === 'render' ? currentJobId === null : true;
   }
 
   function syncDirectorMode(): void {

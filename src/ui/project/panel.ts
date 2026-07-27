@@ -134,32 +134,10 @@ export function initProjectEditor(store: ProjectStore): void {
       const title = sceneTitle.value.trim();
       if (title) send({ type: 'set-scene-title', sceneId: scene.id, title });
     });
-    const sceneActions = document.createElement('div');
-    sceneActions.className = 'inspector-actions';
-    const addScene = actionButton('Nueva escena', () => {
-      const id = nextId('escena', project.scenes.map((item) => item.id));
-      // Se duplica la escena actual (no add-scene) para que nazca renderizable: el runtime
-      // exige exactamente 2 personajes y >= 2 turnos, y una escena vacía no compila.
-      send({ type: 'duplicate-scene', sceneId: scene.id, newSceneId: id, title: `Escena ${project.scenes.length + 1}` });
-      send({ type: 'select-scene', sceneId: id });
-    });
-    const duplicate = actionButton('Duplicar', () => {
-      const id = nextId('escena', project.scenes.map((item) => item.id));
-      send({ type: 'duplicate-scene', sceneId: scene.id, newSceneId: id, title: `${scene.title} copia` });
-      send({ type: 'select-scene', sceneId: id });
-    });
-    const remove = actionButton('Eliminar', () => {
-      if (project.scenes.length > 1 && window.confirm(`¿Eliminar «${scene.title}»?`)) {
-        send({ type: 'delete-scene', sceneId: scene.id });
-      }
-    }, true);
-    remove.disabled = project.scenes.length === 1;
-    sceneActions.append(addScene, duplicate, remove);
     return group('Escena', [
       field('Título del proyecto', projectTitle),
       field('Escena a editar', sceneSelector),
       field('Título de la escena', sceneTitle),
-      sceneActions,
       ...dialogueScriptFields(scene),
     ]);
   }

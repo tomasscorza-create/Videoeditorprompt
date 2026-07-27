@@ -119,13 +119,15 @@
             </div>
 
             <div class="status-block director-global-status">
+              <span class="director-activity" aria-hidden="true"><span></span><span></span><span></span></span>
               <p id="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
+              <button id="director-cancel" class="director-inline-cancel" type="button" disabled hidden>Cancelar</button>
             </div>
 
             <div id="director-page-command" class="director-page" role="tabpanel" aria-labelledby="director-page-command-tab">
               <label class="field" for="director-prompt">
                 <span id="director-prompt-label">Idea del video</span>
-                <textarea id="director-prompt" rows="6" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
+                <textarea id="director-prompt" rows="4" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
               </label>
 
               <div id="director-constraints" class="director-constraints" aria-label="Parámetros editoriales">
@@ -157,28 +159,31 @@
                     <option value="4">4</option>
                   </select>
                 </label>
+              </div>
+
+              <details class="director-advanced">
+                <summary>Calidad y variantes</summary>
                 <div class="director-quality-options">
                   <label class="toggle-option" for="director-think">
                     <input id="director-think" type="checkbox">
                     <span>
-                      Calidad máxima
-                      <small>Activa razonamiento; tarda más.</small>
+                      Razonamiento
+                      <small>Mejora decisiones; tarda más.</small>
                     </span>
                   </label>
                   <label class="field" for="director-best-of">
-                    <span>Variantes a comparar</span>
+                    <span>Propuestas</span>
                     <select id="director-best-of">
-                      <option value="1" selected>1 · Rápido</option>
-                      <option value="2">2 · Mejor selección</option>
-                      <option value="3">3 · Máxima variedad</option>
+                      <option value="1" selected>1 · Rápida</option>
+                      <option value="2">2 · Comparar</option>
+                      <option value="3">3 · Más variedad</option>
                     </select>
                   </label>
                 </div>
-              </div>
+              </details>
 
-              <div class="action-row">
+              <div class="action-row director-primary-action">
                 <button id="director-generate" class="primary-button" type="button">Crear propuesta</button>
-                <button id="director-proposal-cancel" type="button" disabled>Cancelar</button>
               </div>
             </div>
 
@@ -209,10 +214,9 @@
                   <h2 id="render-title">Render local</h2>
                 </div>
               </header>
-              <p class="muted">Renderizá la revisión actual con voces, tiempos medidos y ensamblado determinista.</p>
-              <div class="action-row director-render-actions">
+              <p class="muted">Generá el MP4 con voces y tiempos reales.</p>
+              <div class="action-row director-primary-action">
                 <button id="director-render" class="primary-button" type="button" disabled>Renderizar video</button>
-                <button id="director-cancel" type="button" disabled>Cancelar</button>
               </div>
               <div class="render-progress" id="render-progress" hidden>
                 <div class="progress-track"><span id="render-progress-bar"></span></div>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -92,6 +92,20 @@ const check = (label, condition) => {
   assert.equal(condition, true, label);
   passed += 1;
 };
+
+const appHtml = readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
+const projectPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'panel.ts'), 'utf8');
+check(
+  'el Director expone un único control contextual de cancelación',
+  (appHtml.match(/id="director-cancel"/g) ?? []).length === 1 && !appHtml.includes('director-proposal-cancel'),
+);
+check('el estado del Director incluye un indicador de actividad', appHtml.includes('class="director-activity"'));
+check(
+  'Estado actual no duplica las acciones estructurales de la timeline',
+  !projectPanelSource.includes("actionButton('Nueva escena'")
+    && !projectPanelSource.includes("actionButton('Duplicar'")
+    && !projectPanelSource.includes("actionButton('Eliminar',"),
+);
 
 check(
   'explica la escena y la capacidad no soportada sin índice técnico',

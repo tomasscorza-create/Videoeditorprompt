@@ -96,6 +96,9 @@ Es el punto de entrada y comando del flujo creativo.
 - En un proyecto vacío el Director conserva el recorrido de creación hasta completar el primer render. Con contenido existente se compacta y cambia a `Ajustar con IA`, `Estado actual` y `Render`.
 - `Ajustar con IA` acepta peticiones contextuales convertidas en comandos semánticos deshacibles. Al aplicar un cambio se abre `Estado actual`, que proyecta el mismo proyecto utilizado por visor, inspector y timeline.
 - Tras el primer render, la propuesta deja de presentarse como un paso pendiente, pero el proyecto sigue disponible para edición.
+- El panel mantiene una densidad compacta: parámetros principales visibles, opciones de calidad plegables, separadores ligeros y acciones primarias de altura moderada.
+- IA y render comparten un único control contextual de cancelación porque solo uno puede estar activo. Durante esas tareas, el estado muestra actividad animada; el progreso del render añade movimiento sin alterar el porcentaje real y respeta `prefers-reduced-motion`.
+- `Estado actual` no duplica acciones estructurales de escenas: insertar, duplicar y eliminar permanecen en la timeline.
 - La edición interna de la propuesta se separa en pestañas de nombres directos —escena, personajes, fondo y transición— para evitar un formulario vertical único.
 - Estas pestañas forman una única fila compacta dentro de `Propuesta` o `Estado actual`; todo el contenido inferior pertenece a la pestaña activa.
 - El título del proyecto, la selección de escena y el guion editable viven dentro de `Escena`. El guion identifica al personaje y solo expone su texto; voz, gesto y pausa no forman parte de este editor simple.
