@@ -52,19 +52,8 @@ export function initProjectEditor(store: ProjectStore): void {
       if (!isProposalTab(requested)) return;
       selectProposalTab(requested);
     });
-    tab.addEventListener('keydown', (event) => {
-      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-      event.preventDefault();
-      const currentIndex = PROPOSAL_TABS.indexOf(activeProposalTab);
-      const nextIndex = event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? PROPOSAL_TABS.length - 1
-          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + PROPOSAL_TABS.length) % PROPOSAL_TABS.length;
-      selectProposalTab(PROPOSAL_TABS[nextIndex]);
-      proposalTabs.find((candidate) => candidate.dataset.proposalTab === activeProposalTab)?.focus();
-    });
   }
+  // La navegación por flechas vive en el helper compartido src/ui/tabs.ts.
   window.addEventListener(PROJECT_SELECTION_EVENT, (event) => {
     const selection = (event as CustomEvent<ProjectSelection>).detail;
     if (!selection) return;
@@ -420,7 +409,7 @@ function note(text: string): HTMLElement {
 
 function field(label: string, control: HTMLElement): HTMLElement {
   const wrapper = document.createElement('label');
-  wrapper.className = 'inspector-field';
+  wrapper.className = 'inspector-field is-compact';
   const span = document.createElement('span');
   span.textContent = label;
   wrapper.append(span, control);
