@@ -1033,10 +1033,10 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .viewer-column {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  padding: .75rem;
+  padding: .35rem .5rem;
   overflow: hidden;
 }
-.viewer-header { justify-content: space-between; gap: 1rem; padding-bottom: .65rem; }
+.viewer-header { justify-content: space-between; gap: 1rem; padding-bottom: .25rem; }
 .viewer-title-block { display: flex; align-items: center; gap: .35rem; }
 .viewer-title-inline {
   font-size: var(--fs-xs);
@@ -1060,7 +1060,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 .viewer-footer {
   gap: 1rem;
-  margin-top: .75rem;
+  margin-top: .25rem;
   height: 2.75rem;
 }
 #viewer-context {
