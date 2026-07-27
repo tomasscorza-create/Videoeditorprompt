@@ -105,10 +105,37 @@
 
 /* A3 — Presets de acento. Cada tema define su par acento/tinta para conservar
    el contraste: el mismo color no sirve sobre fondo claro y sobre fondo oscuro. */
-:root[data-accent="blue"] { --accent: #7cc0f8; --accent-ink: #052034; }
+:root[data-accent="blue"] {
+  --bg: #141618;
+  --surface: #181d24;
+  --surface-2: #202632;
+  --surface-3: #2a3341;
+  --border: #333d48;
+  --border-strong: #4c5a69;
+  --text: #edf1f5;
+  --muted: #9aa8af;
+  --accent: #7cc0f8;
+  --accent-ink: #052034;
+  --panel-gradient: linear-gradient(145deg, rgba(24, 29, 36, 0.75) 0%, rgba(20, 24, 30, 0.75) 54%, rgba(28, 34, 42, 0.75) 100%);
+  --panel-gradient-soft: linear-gradient(145deg, rgba(30, 36, 45, 0.75) 0%, rgba(24, 29, 36, 0.75) 58%, rgba(33, 40, 49, 0.75) 100%);
+}
 :root[data-accent="amber"] { --accent: #f2c268; --accent-ink: #2e1e02; }
 :root[data-accent="violet"] { --accent: #c0a8f5; --accent-ink: #1e1038; }
-:root[data-theme="light"][data-accent="blue"] { --accent: #1164a1; --accent-ink: #fff; }
+
+:root[data-theme="light"][data-accent="blue"] {
+  --bg: #dadce0;
+  --surface: #f3f6fa;
+  --surface-2: #e6eaf3;
+  --surface-3: #d7dfe9;
+  --border: #bec8d0;
+  --border-strong: #8d9baa;
+  --text: #1b222a;
+  --muted: #515c65;
+  --accent: #1164a1;
+  --accent-ink: #fff;
+  --panel-gradient: linear-gradient(145deg, rgba(245, 248, 252, 0.75) 0%, rgba(235, 239, 246, 0.75) 52%, rgba(225, 230, 240, 0.75) 100%);
+  --panel-gradient-soft: linear-gradient(145deg, rgba(238, 242, 248, 0.75) 0%, rgba(226, 231, 240, 0.75) 56%, rgba(215, 222, 232, 0.75) 100%);
+}
 :root[data-theme="light"][data-accent="amber"] { --accent: #855708; --accent-ink: #fff; }
 :root[data-theme="light"][data-accent="violet"] { --accent: #6742b8; --accent-ink: #fff; }
 
