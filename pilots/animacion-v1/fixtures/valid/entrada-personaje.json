@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "sceneId": "escena-1",
+  "elements": [
+    {
+      "elementId": "escena-1-personaje-a",
+      "elementType": "character",
+      "tracks": [
+        {
+          "parameterId": "position.x",
+          "source": { "kind": "preset", "presetId": "enter-left", "version": 1, "customized": false },
+          "keyframes": [
+            { "id": "kf-entrada-x-1", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0, "value": -260, "interpolation": "ease" },
+            { "id": "kf-entrada-x-2", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0.6, "value": 320, "interpolation": "hold" }
+          ]
+        },
+        {
+          "parameterId": "opacity",
+          "source": { "kind": "preset", "presetId": "fade-in", "version": 1, "customized": false },
+          "keyframes": [
+            { "id": "kf-entrada-op-1", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0, "value": 0, "interpolation": "linear" },
+            { "id": "kf-entrada-op-2", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0.4, "value": 1, "interpolation": "hold" }
+          ]
+        }
+      ]
+    }
+  ]
+}

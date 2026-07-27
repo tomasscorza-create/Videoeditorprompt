@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "sceneId": "escena-2",
+  "elements": [
+    {
+      "elementId": "escena-2-cartel",
+      "elementType": "prop",
+      "tracks": [
+        {
+          "parameterId": "scale",
+          "source": { "kind": "manual" },
+          "keyframes": [
+            { "id": "kf-cartel-escala-1", "anchor": { "kind": "turn", "turnId": "escena-2-t1", "edge": "start" }, "offsetSeconds": 0, "value": 0.6, "interpolation": "ease" },
+            { "id": "kf-cartel-escala-2", "anchor": { "kind": "turn", "turnId": "escena-2-t1", "edge": "start" }, "offsetSeconds": 0.5, "value": 1, "interpolation": "hold" }
+          ]
+        },
+        {
+          "parameterId": "opacity",
+          "source": { "kind": "manual" },
+          "keyframes": [
+            { "id": "kf-cartel-opacidad-1", "anchor": { "kind": "turn", "turnId": "escena-2-t1", "edge": "start" }, "offsetSeconds": 0, "value": 0, "interpolation": "linear" },
+            { "id": "kf-cartel-opacidad-2", "anchor": { "kind": "turn", "turnId": "escena-2-t1", "edge": "start" }, "offsetSeconds": 0.35, "value": 1, "interpolation": "linear" },
+            { "id": "kf-cartel-opacidad-3", "anchor": { "kind": "turn", "turnId": "escena-2-t1", "edge": "end" }, "offsetSeconds": 0.2, "value": 0, "interpolation": "hold" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "sceneId": "escena-1",
+  "elements": [
+    {
+      "elementId": "escena-1-personaje-a",
+      "elementType": "character",
+      "tracks": [
+        {
+          "parameterId": "rotationDegrees",
+          "source": { "kind": "manual" },
+          "keyframes": [
+            { "id": "kf-rot-1", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0, "value": 8, "interpolation": "hold" }
+          ]
+        }
+      ]
+    }
+  ]
+}

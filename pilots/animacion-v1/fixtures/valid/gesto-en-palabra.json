@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "sceneId": "escena-1",
+  "elements": [
+    {
+      "elementId": "escena-1-personaje-a",
+      "elementType": "character",
+      "tracks": [
+        {
+          "parameterId": "armRaise",
+          "source": { "kind": "preset", "presetId": "arm-raise", "version": 1, "customized": false },
+          "keyframes": [
+            { "id": "kf-brazo-1", "anchor": { "kind": "word", "turnId": "escena-1-t2", "wordIndex": 3 }, "offsetSeconds": -0.1, "value": 0, "interpolation": "ease" },
+            { "id": "kf-brazo-2", "anchor": { "kind": "word", "turnId": "escena-1-t2", "wordIndex": 3 }, "offsetSeconds": 0.15, "value": 1, "interpolation": "ease" },
+            { "id": "kf-brazo-3", "anchor": { "kind": "word", "turnId": "escena-1-t2", "wordIndex": 3 }, "offsetSeconds": 0.85, "value": 0, "interpolation": "hold" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "sceneId": "escena-1",
+  "elements": [
+    {
+      "elementId": "escena-1-personaje-b",
+      "elementType": "character",
+      "tracks": [
+        {
+          "parameterId": "scale",
+          "source": { "kind": "preset", "presetId": "emphasis-pulse", "version": 1, "customized": true },
+          "keyframes": [
+            { "id": "kf-enfasis-1", "anchor": { "kind": "turn", "turnId": "escena-1-t3", "edge": "start" }, "offsetSeconds": 0, "value": 1, "interpolation": "ease" },
+            { "id": "kf-enfasis-2", "anchor": { "kind": "turn", "turnId": "escena-1-t3", "edge": "start" }, "offsetSeconds": 0.18, "value": 1.14, "interpolation": "ease" },
+            { "id": "kf-enfasis-3", "anchor": { "kind": "turn", "turnId": "escena-1-t3", "edge": "start" }, "offsetSeconds": 0.46, "value": 1, "interpolation": "hold" }
+          ]
+        }
+      ]
+    }
+  ]
+}

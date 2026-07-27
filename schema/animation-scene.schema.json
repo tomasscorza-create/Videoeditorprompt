@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/animation-scene-v1.json",
+  "title": "Documento de animación de escena (V1)",
+  "description": "Vocabulario congelado de la Fase 0: parámetros animables, anclas semánticas, interpolaciones, procedencia y límites. Contrato aditivo y aislado: todavía no forma parte de video-project.schema.json ni del evaluador. La Fase 4 lo incorpora al proyecto editable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "sceneId", "elements"],
+  "properties": {
+    "version": { "const": 1 },
+    "sceneId": { "$ref": "#/$defs/id" },
+    "elements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": { "$ref": "#/$defs/animatedElement" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$"
+    },
+    "parameterId": {
+      "description": "Vocabulario cerrado V1. zIndex, anchorX y anchorY no son animables.",
+      "enum": ["position.x", "position.y", "scale", "rotationDegrees", "opacity", "armRaise"]
+    },
+    "presetId": {
+      "description": "Catálogo cerrado V1. La expansión concreta a keyframes se define en la Fase 5.",
+      "enum": ["enter-left", "enter-right", "fade-in", "fade-out", "emphasis-pulse", "arm-raise"]
+    },
+    "interpolation": {
+      "description": "Describe el tramo que SALE del keyframe hacia el siguiente. El último keyframe de una pista debe declarar hold.",
+      "enum": ["linear", "ease", "hold"]
+    },
+    "anchor": {
+      "description": "Referencia semántica estable. El tiempo absoluto solo existe después de medir el audio con FFprobe.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "edge"],
+          "properties": {
+            "kind": { "const": "scene" },
+            "edge": { "enum": ["start", "end"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "turnId", "edge"],
+          "properties": {
+            "kind": { "const": "turn" },
+            "turnId": { "$ref": "#/$defs/id" },
+            "edge": { "enum": ["start", "end"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "turnId", "wordIndex"],
+          "properties": {
+            "kind": { "const": "word" },
+            "turnId": { "$ref": "#/$defs/id" },
+            "wordIndex": { "type": "integer", "minimum": 0, "maximum": 99 }
+          }
+        }
+      ]
+    },
+    "keyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "anchor", "offsetSeconds", "value", "interpolation"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "anchor": { "$ref": "#/$defs/anchor" },
+        "offsetSeconds": {
+          "type": "number",
+          "minimum": -5,
+          "maximum": 5,
+          "description": "Desplazamiento respecto del ancla. Para distancias mayores se elige un ancla más cercana."
+        },
+        "value": { "type": "number", "minimum": -3840, "maximum": 3840 },
+        "interpolation": { "$ref": "#/$defs/interpolation" }
+      }
+    },
+    "source": {
+      "description": "Procedencia de la pista. customized solo existe en pistas creadas desde un preset.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "presetId", "version", "customized"],
+          "properties": {
+            "kind": { "const": "preset" },
+            "presetId": { "$ref": "#/$defs/presetId" },
+            "version": { "type": "integer", "minimum": 1, "maximum": 999 },
+            "customized": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "manual" } }
+        }
+      ]
+    },
+    "track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parameterId", "source", "keyframes"],
+      "properties": {
+        "parameterId": { "$ref": "#/$defs/parameterId" },
+        "source": { "$ref": "#/$defs/source" },
+        "keyframes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/keyframe" }
+        }
+      },
+      "allOf": [
+        { "$ref": "#/$defs/valueRange/positionX" },
+        { "$ref": "#/$defs/valueRange/positionY" },
+        { "$ref": "#/$defs/valueRange/scale" },
+        { "$ref": "#/$defs/valueRange/rotationDegrees" },
+        { "$ref": "#/$defs/valueRange/opacity" },
+        { "$ref": "#/$defs/valueRange/armRaise" }
+      ]
+    },
+    "valueRange": {
+      "description": "Rango por parámetro, alineado con transform de video-project.schema.json.",
+      "positionX": {
+        "type": "object",
+        "if": { "type": "object", "properties": { "parameterId": { "const": "position.x" } }, "required": ["parameterId"] },
+        "then": {
+          "type": "object",
+          "properties": {
+            "keyframes": {
+              "type": "array",
+              "items": { "type": "object", "properties": { "value": { "type": "number", "minimum": -1080, "maximum": 2160 } } }
+            }
+          }
+        }
+      },
+      "positionY": {
+        "type": "object",
+        "if": { "type": "object", "properties": { "parameterId": { "const": "position.y" } }, "required": ["parameterId"] },
+        "then": {
+          "type": "object",
+          "properties": {
+            "keyframes": {
+              "type": "array",
+              "items": { "type": "object", "properties": { "value": { "type": "number", "minimum": -1920, "maximum": 3840 } } }
+            }
+          }
+        }
+      },
+      "scale": {
+        "type": "object",
+        "if": { "type": "object", "properties": { "parameterId": { "const": "scale" } }, "required": ["parameterId"] },
+        "then": {
+          "type": "object",
+          "properties": {
+            "keyframes": {
+              "type": "array",
+              "items": { "type": "object", "properties": { "value": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 } } }
+            }
+          }
+        }
+      },
+      "rotationDegrees": {
+        "type": "object",
+        "if": { "type": "object", "properties": { "parameterId": { "const": "rotationDegrees" } }, "required": ["parameterId"] },
+        "then": {
+          "type": "object",
+          "properties": {
+            "keyframes": {
+              "type": "array",
+              "items": { "type": "object", "properties": { "value": { "type": "number", "minimum": -180, "maximum": 180 } } }
+            }
+          }
+        }
+      },
+      "opacity": {
+        "type": "object",
+        "if": { "type": "object", "properties": { "parameterId": { "const": "opacity" } }, "required": ["parameterId"] },
+        "then": {
+          "type": "object",
+          "properties": {
+            "keyframes": {
+              "type": "array",
+              "items": { "type": "object", "properties": { "value": { "type": "number", "minimum": 0, "maximum": 1 } } }
+            }
+          }
+        }
+      },
+      "armRaise": {
+        "type": "object",
+        "if": { "type": "object", "properties": { "parameterId": { "const": "armRaise" } }, "required": ["parameterId"] },
+        "then": {
+          "type": "object",
+          "properties": {
+            "keyframes": {
+              "type": "array",
+              "items": { "type": "object", "properties": { "value": { "type": "number", "minimum": 0, "maximum": 1 } } }
+            }
+          }
+        }
+      }
+    },
+    "animatedElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elementId", "elementType", "tracks"],
+      "properties": {
+        "elementId": { "$ref": "#/$defs/id" },
+        "elementType": { "enum": ["character", "prop"] },
+        "tracks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/track" }
+        }
+      }
+    }
+  }
+}

@@ -364,6 +364,31 @@ predeterminado.
 **Gate:** una animación puede seguirse en papel desde intención del Director
 hasta controles UI y frame resuelto, sin campos ambiguos.
 
+**Estado: ejecutada el 27 de julio de 2026.** Resultados en
+`docs/FASE_0_CONTRATO_ANIMACION_V1.md`. Entregables: contrato aislado en
+`schema/animation-scene.schema.json`, validador y catálogo de errores en
+`scripts/animation/animation-contract.mjs`, 17 fixtures en
+`pilots/animacion-v1/` y 28 comprobaciones en `npm run anim:test-contract`,
+registrado en la suite central.
+
+Decisiones que el plan dejaba abiertas y quedaron cerradas en Fase 0:
+
+- La interpolación de un keyframe describe el tramo que **sale** de él, y el
+  último keyframe de una pista debe declarar `hold`.
+- Una pista **reemplaza** el valor base de su parámetro; no se suma. Mover la
+  base después de aplicar un preset no reescribe la pista.
+- `customized` solo existe en pistas de preset; una pista manual no lo lleva.
+- Mínimo dos keyframes por pista: un valor estático pertenece al transform base.
+- Cada keyframe tiene `id` propio, para selección, undo y estado de revisión.
+- `frameIndex = max(0, round(segundos × fps))`, distinto del `ceil` que cuenta
+  frames de una duración.
+- El `animationPreset` vigente (`idle-calm`/`talk-calm`) es **movimiento base** y
+  no se renombra en V1; el renombre a `baseMotionId` queda atado a la Fase 4.
+- El estado “requiere revisión” es derivado, se muestra en tres niveles
+  (keyframe, fila del elemento, proyecto) y bloquea la exportación.
+- El modo animación del lienzo es por elemento, se apaga al cambiar de
+  selección y no puede activarse sin tiempo medido.
+
 ### Fase 1 — Creador y recurso v3 mínimo
 
 - Unificar el renderizador de formas compartido.

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "sceneId": "escena-2",
+  "elements": [
+    {
+      "elementId": "escena-2-cartel",
+      "elementType": "prop",
+      "tracks": [
+        {
+          "parameterId": "armRaise",
+          "source": { "kind": "preset", "presetId": "arm-raise", "version": 1, "customized": false },
+          "keyframes": [
+            { "id": "kf-brazo-1", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0, "value": 0, "interpolation": "ease" },
+            { "id": "kf-brazo-2", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0.4, "value": 1, "interpolation": "hold" }
+          ]
+        }
+      ]
+    }
+  ]
+}

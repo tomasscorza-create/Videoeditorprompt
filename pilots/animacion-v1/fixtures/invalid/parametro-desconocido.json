@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "sceneId": "escena-1",
+  "elements": [
+    {
+      "elementId": "escena-1-personaje-a",
+      "elementType": "character",
+      "tracks": [
+        {
+          "parameterId": "position.z",
+          "source": { "kind": "manual" },
+          "keyframes": [
+            { "id": "kf-z-1", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0, "value": 0, "interpolation": "ease" },
+            { "id": "kf-z-2", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0.5, "value": 40, "interpolation": "hold" }
+          ]
+        }
+      ]
+    }
+  ]
+}
