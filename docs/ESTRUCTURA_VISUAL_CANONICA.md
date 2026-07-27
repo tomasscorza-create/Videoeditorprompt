@@ -83,7 +83,7 @@ Es el punto de entrada y comando del flujo creativo.
 - Escribir instrucciones para el Director IA.
 - Seleccionar tono, duración, escenas y futuros parámetros de dirección.
 - Generar, cancelar o regenerar propuestas.
-- Mostrar debajo del comando la propuesta resultante en un bloque desplegable, ordenado y editable.
+- Organizar el recorrido inicial en subpáginas internas de cambio rápido: `Idea`, `Propuesta` y `Render`.
 - Permitir revisar escenas, diálogo y ajustes básicos de la propuesta antes del render.
 - Seleccionar el proyecto o contexto de autoría en el que se trabajará.
 - Iniciar el render cuando corresponda.
@@ -91,12 +91,13 @@ Es el punto de entrada y comando del flujo creativo.
 ### Comportamiento esperado
 
 - Cambiar de proyecto actualiza el visor, el inspector y la timeline.
-- El contenido puede organizarse mediante pestañas o secciones como `Crear` y `Proyectos`.
-- La propuesta se abre automáticamente después de generarse y puede plegarse sin perder sus cambios.
-- En un proyecto vacío el Director crea una propuesta; con contenido existente se compacta y acepta peticiones contextuales convertidas en comandos semánticos deshacibles.
-- Tras el render, la propuesta deja de presentarse como un paso pendiente, pero el proyecto sigue disponible para edición.
+- En el recorrido inicial, `Idea` contiene el prompt y sus parámetros editoriales, `Propuesta` contiene la revisión editable y `Render` concentra validación, progreso, cancelación y resultado.
+- Solo una subpágina está visible a la vez. `Propuesta` permanece deshabilitada hasta que exista contenido generado; generar una propuesta la abre automáticamente e iniciar un render abre `Render`.
+- En un proyecto vacío el Director conserva el recorrido de creación hasta completar el primer render. Con contenido existente se compacta y cambia a `Ajustar con IA`, `Estado actual` y `Render`.
+- `Ajustar con IA` acepta peticiones contextuales convertidas en comandos semánticos deshacibles. Al aplicar un cambio se abre `Estado actual`, que proyecta el mismo proyecto utilizado por visor, inspector y timeline.
+- Tras el primer render, la propuesta deja de presentarse como un paso pendiente, pero el proyecto sigue disponible para edición.
 - La edición interna de la propuesta se separa en pestañas de nombres directos —escena, personajes, fondo y transición— para evitar un formulario vertical único.
-- Las pestañas forman una única fila compacta inmediatamente debajo de `Revisar y ajustar`; todo el contenido inferior pertenece a la pestaña activa.
+- Estas pestañas forman una única fila compacta dentro de `Propuesta` o `Estado actual`; todo el contenido inferior pertenece a la pestaña activa.
 - El título del proyecto, la selección de escena y el guion editable viven dentro de `Escena`. El guion identifica al personaje y solo expone su texto; voz, gesto y pausa no forman parte de este editor simple.
 - La propuesta no mantiene una cabecera paralela de acciones o reordenamiento.
 - La propuesta prioriza decisiones creativas; no muestra descargas técnicas ni explicaciones internas del pipeline.
@@ -231,7 +232,7 @@ Director / selección izquierda
 Las proporciones exactas pueden ajustarse por legibilidad, pero la jerarquía debe conservarse:
 
 - Encabezado: altura mínima necesaria.
-- Panel izquierdo: ancho suficiente para el prompt, la propuesta por pestañas y sus formularios; puede ganar espacio moderado del visor para evitar controles excesivamente compactos.
+- Panel izquierdo: ancho suficiente para el prompt, las subpáginas del Director, la propuesta por pestañas y sus formularios; puede ganar espacio moderado del visor para evitar controles excesivamente compactos.
 - Centro: columna flexible y dominante.
 - Panel derecho: ancho suficiente para formularios sin invadir el visor.
 - Timeline: altura suficiente para herramientas, regla y al menos las pistas audiovisuales principales.
