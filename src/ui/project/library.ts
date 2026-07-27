@@ -127,7 +127,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     } else if (activeType === 'character') {
       optional<HTMLElement>('#workspace-creator')?.click();
     } else if (activeType === 'voice') {
-      notify('La carga de voces se habilitará en una próxima etapa.', 'info');
+      notify({ message: 'La carga de voces se habilitará en una próxima etapa.', level: 'info' });
     }
   });
   registerFile?.addEventListener('change', async () => {
