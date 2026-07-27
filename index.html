@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Estudio de video local</title>
     <style>
+      /* SYNC:critical-css — ver scripts/ui/check-critical-css.mjs. Mínimo anti-FOUC:
+         esqueleto del grid + tokens que ese esqueleto usa. La fuente única de la
+         paleta es src/style.css; la guardia ui:check-css valida esta copia. */
       :root {
         color-scheme: dark;
         --bg: #141817;
@@ -20,8 +23,6 @@
       [hidden] { display: none !important; }
       html, body { margin: 0; min-width: 320px; height: 100%; }
       body { overflow: hidden; color: var(--text); background: var(--bg); }
-      button, input, textarea, select { font: inherit; }
-      button { color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: .5rem; }
       .app-shell { display: grid; grid-template-rows: 3.5rem minmax(0, 1fr) .45rem var(--timeline-height); height: 100dvh; }
       .topbar { display: flex; align-items: center; justify-content: space-between; padding: .55rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface); }
       .workspace { min-height: 0; overflow: hidden; }

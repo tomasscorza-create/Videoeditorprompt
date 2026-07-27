@@ -31,6 +31,7 @@ const commands = [
   'storage:test-remote-config',
   'worker:test-portability',
   'ui:test-modules',
+  'ui:check-css',
 ];
 
 for (const command of commands) {
