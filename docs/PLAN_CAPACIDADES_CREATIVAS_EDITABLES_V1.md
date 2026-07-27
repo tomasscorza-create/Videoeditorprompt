@@ -442,6 +442,32 @@ idénticos en dos ejecuciones.
 **Checkpoint de usuario:** revisar calidad, velocidad, consumo de RAM y
 equivalencia antes de cambiar el predeterminado para rigs v3.
 
+**Estado: PARCIAL al 27 de julio de 2026.** Hecho el contrato; el compositor no.
+
+Hecho:
+
+- `shared/compositor-contract.js`: un recurso v3 y su instancia se traducen a una
+  lista plana de sprites con su cadena de transformaciones. La jerarquía de piezas
+  se resuelve una sola vez acá, así ningún backend la reinterpreta. 14
+  comprobaciones en `npm run compositor:test-contract`.
+- Decisión de motor, elegida por el usuario: Chrome headless corriendo el MISMO
+  PixiJS que la vista previa, sin dependencias nativas nuevas.
+
+Sin hacer:
+
+- El compositor headless quedó como spike que no funciona
+  (`scripts/compositor/pixi-compositor.mjs`). Se cuelga en `fetch('./job.json')`
+  desde la página, ya con PixiJS importado; el mismo GET responde bien desde Node,
+  así que el bloqueo es del navegador. Dos hipótesis para seguir: Chrome headless
+  suspendiendo la pestaña sin foco, y los POST de bitácora agotando el cupo de
+  conexiones por origen.
+- Extraer el compositor FFmpeg vigente detrás del contrato. Requiere re-verificar
+  la salida byte a byte del render v2, que necesita una corrida completa con Piper.
+- Frames dorados, comparación visual por SSIM y doble ejecución: dependen de que
+  el compositor produzca frames.
+- El checkpoint de usuario sobre calidad, velocidad y RAM no se puede hacer
+  todavía porque no hay con qué medir.
+
 ### Fase 4 — Edición visible completa
 
 - Agregar pistas y keyframes al esquema del proyecto.

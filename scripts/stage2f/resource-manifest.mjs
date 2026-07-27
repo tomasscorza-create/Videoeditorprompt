@@ -210,13 +210,7 @@ export function readResourceManifest(manifest) {
   return validateResourceManifestV3(view);
 }
 
-/**
- * Valor de un canal para un valor de parámetro, según el mapeo lineal declarado.
- * Es la especificación del binding, no el evaluador: la Fase 2 la aplica dentro
- * de `shared/scene-evaluator.js`.
- */
-export function resolveBindingChannel(parameter, binding, value) {
-  const clamped = Math.max(parameter.minimum, Math.min(parameter.maximum, value));
-  const ratio = (clamped - parameter.minimum) / (parameter.maximum - parameter.minimum);
-  return binding.from + (binding.to - binding.from) * ratio;
-}
+// El mapeo lineal del binding se movió a `shared/compositor-contract.js` cuando
+// el compositor headless necesitó aplicarlo dentro del navegador. Se reexporta
+// para no cambiar a los consumidores.
+export { resolveBindingChannel } from '../../shared/compositor-contract.js';

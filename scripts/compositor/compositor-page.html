@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Compositor headless</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script>
+// Script clásico y primero a propósito: un fallo al IMPORTAR el módulo no pasa
+// por el catch del módulo, así que sin esto el render se queda esperando sin
+// ninguna pista de por qué.
+function trace(text) { return fetch('./log', { method: 'POST', body: String(text) }); }
+window.__trace = trace;
+window.addEventListener('error', (event) => {
+  trace(`error: ${event.message} @ ${event.filename}:${event.lineno}`);
+});
+window.addEventListener('unhandledrejection', (event) => {
+  trace(`rechazo: ${event.reason && event.reason.stack ? event.reason.stack : event.reason}`);
+});
+trace('pagina cargada');
+</script>
+<script type="module">
+// Compositor headless de la Fase 3.
+//
+// Corre el MISMO PixiJS que la vista previa, así el MP4 y lo que ve el usuario
+// salen del mismo motor de dibujo.
+//
+// La página maneja el trabajo completa: pide el plan al servidor local, dibuja
+// cada frame y le devuelve el PNG por POST. No hay CDP en el medio. La primera
+// versión de esto manejaba Chrome por el protocolo de DevTools y las sesiones se
+// caían entre comandos; además, leer el canvas de Pixi da exactamente los píxeles
+// dibujados, mientras que una captura de pantalla depende del compositor del
+// navegador.
+
+import { Application, Assets, Container, Sprite } from './pixi.min.mjs';
+
+async function report(route, body) {
+  await fetch(route, { method: 'POST', body });
+}
+
+function applyTransform(container, transform) {
+  if (transform.kind === 'translate') {
+    container.position.set(transform.x, transform.y);
+    return;
+  }
+  // Rotar y escalar alrededor de un punto del lienzo: el pivote y la posición
+  // comparten coordenada, que es la forma de girar sobre un punto arbitrario.
+  container.pivot.set(transform.x, transform.y);
+  container.position.set(transform.x, transform.y);
+  if (transform.kind === 'rotate') container.rotation = transform.degrees * Math.PI / 180;
+  else container.scale.set(transform.factor);
+}
+
+function canvasToPng(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('el canvas no produjo PNG'))), 'image/png');
+  });
+}
+
+async function run() {
+  window.__trace('modulo importado');
+  const job = await (await fetch('./job.json')).json();
+  window.__trace(`plan recibido: ${job.frames.length} frames`);
+  const application = new Application();
+  await application.init({
+    width: job.video.width,
+    height: job.video.height,
+    backgroundAlpha: 0,
+    antialias: true,
+    autoStart: false,
+    preference: 'webgl',
+    powerPreference: 'low-power',
+    // Sin esto el buffer puede quedar vacío al leerlo después de dibujar.
+    preserveDrawingBuffer: true,
+  });
+  document.body.append(application.canvas);
+  window.__trace(`pixi listo: ${application.renderer.name}`);
+  const root = new Container();
+  application.stage.addChild(root);
+
+  const textures = new Map();
+  for (const src of [...new Set(job.frames.flatMap((frame) => frame.sprites.map((sprite) => sprite.src)))]) {
+    textures.set(src, await Assets.load(src));
+  }
+
+  for (const [index, frame] of job.frames.entries()) {
+    root.removeChildren();
+    for (const sprite of frame.sprites) {
+      // La cadena de transformaciones se materializa como contenedores anidados:
+      // el de afuera es el primero de la lista, así una pieza hija hereda la
+      // rotación de su padre sin recalcular nada.
+      let parent = root;
+      for (const transform of sprite.transforms) {
+        const container = new Container();
+        applyTransform(container, transform);
+        parent.addChild(container);
+        parent = container;
+      }
+      const node = new Sprite(textures.get(sprite.src));
+      node.position.set(0, 0);
+      node.alpha = sprite.opacity;
+      parent.addChild(node);
+    }
+    application.render();
+    await report(`./frame/${String(index).padStart(4, '0')}`, await canvasToPng(application.canvas));
+  }
+
+  await report('./done', JSON.stringify({
+    frames: job.frames.length,
+    renderer: application.renderer.name ?? 'desconocido',
+    width: application.renderer.width,
+    height: application.renderer.height,
+  }));
+}
+
+run().catch(async (error) => {
+  // Un fallo del navegador se cuenta con lo que dijo el navegador, no con una
+  // adivinanza del lado de Node.
+  await report('./error', String(error && error.stack ? error.stack : error));
+});
+</script>
+</body>
+</html>

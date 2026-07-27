@@ -99,6 +99,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `schema/animation-scene.schema.json`: contrato aislado de la Fase 0 de animación (pistas, keyframes, anclas, interpolaciones, procedencia y límites). El documento de pistas todavía no tiene consumidor.
 - `shared/animation-contract.js`: vocabulario congelado, catálogo cerrado de errores, cuantización a frame y estado «requiere revisión». Puro y sin dependencias de Node porque entra en el bundle del navegador. `ANIMATION_PARAMETERS` es la única fuente del vocabulario.
 - `scripts/animation/animation-contract.mjs`: validación de autoría contra el schema JSON (lo único que necesita ajv). Reexporta todo lo de `shared/animation-contract.js`.
+- `shared/compositor-contract.js`: traduce un recurso v3 y su instancia a una lista PLANA de sprites con su cadena de transformaciones, ordenada por dibujo. Es lo que hace intercambiables a los backends: ninguno reinterpreta la jerarquía de piezas.
 - `shared/animation-evaluator.js`: resolución de anclas a segundos después de FFprobe, cuantización a frame, rechazo de referencias rotas, colisiones y keyframes fuera de escena, y evaluación de pistas. La interpolación de un keyframe describe el tramo que sale de él; `ease` es `inOutSine`.
 - `pilots/animacion-v1/`: fixtures válidos e inválidos del contrato de animación.
 - `docs/FASE_0_CONTRATO_ANIMACION_V1.md`: vocabulario congelado, errores y estado visible de timeline, inspector y lienzo.
@@ -196,6 +197,7 @@ npm run stage3b:publish-project # publica el piloto compatible para la UI y el b
 npm run stage3b:test-publishing # índice, portabilidad, hashes y rechazo de proyectos incompatibles
 npm run anim:test-contract  # vocabulario, límites, errores y estado de revisión de la animación V1
 npm run anim:test-evaluator # anclas, interpolaciones y el temporalHash v2 congelado
+npm run compositor:test-contract # jerarquía de piezas, bindings y orden de dibujo
 npm run stage2f:test-hash-baseline     # los assets compilados siguen coincidiendo con los publicados
 npm run stage2f:test-resource-manifest # manifest de recurso v3 y adaptador de lectura v2 → v3
 npm run stage2f:test-resource          # compilador v3 y los dos pilotos (rasteriza de verdad)
@@ -251,6 +253,8 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 - La UI usa verificación interactiva de una pasada; la CLI conserva la verificación completa de dos pasadas por defecto.
 - El evaluador temporal **ya sabe** resolver anclas y evaluar pistas (Fase 2), pero **nada le pasa pistas todavía**: el proyecto editable no tiene `tracks` (Fase 4) y el compositor no sabe dibujar piezas articuladas (Fase 3). Sin animación, `evaluateScene` devuelve exactamente el estado de siempre y no agrega la clave `elements`; de eso depende que el `temporalHash` de los pilotos v2 no cambie.
 - La interfaz sigue sin saber de pistas: no hay forma de crear ni editar un keyframe desde la aplicación.
+- **El compositor headless de la Fase 3 no funciona.** `scripts/compositor/pixi-compositor.mjs` es un spike sin terminar, no está enchufado a nada y no entra en la suite. Quedó colgado en `fetch('./job.json')` desde la página, después de importar PixiJS; el mismo GET responde bien desde Node, así que el bloqueo es del navegador. El contrato (`shared/compositor-contract.js`) sí está terminado y probado. Los rigs v3 todavía no se pueden renderizar, y por eso los dos recursos v3 siguen fuera de la biblioteca.
+- El render vigente sigue siendo FFmpeg con un único `filter_complex`: no se extrajo detrás del contrato todavía.
 - `animationPreset` (`idle-calm`/`talk-calm`) sigue siendo movimiento base continuo, no un preset de keyframes.
 - El ancla de palabra se **prorratea** por cantidad de palabras sobre la duración medida del turno, igual que los gestos. No hay alineación forzada palabra por palabra, así que la precisión es la de un prorrateo.
 - Ya existen dos recursos v3 compilados (`mono-articulado-azul-v1` y `cartel-dato-v1`, en `public/assets/resources/`), pero **no están en el catálogo de autoría ni en la biblioteca a propósito**: el pipeline de render lee manifests v2 (`character.manifest.json`), así que ofrecerlos en la interfaz dejaría colocar en una escena algo que después no renderiza. Se exponen cuando exista el compositor de la Fase 3.

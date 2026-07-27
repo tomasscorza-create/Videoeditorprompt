@@ -19,6 +19,7 @@ const commands = [
   'stage3b:test-contracts',
   'anim:test-contract',
   'anim:test-evaluator',
+  'compositor:test-contract',
   'director:test-plan',
   'director:test-context',
   'director:test-quality',
