@@ -23,6 +23,26 @@ function sceneName(sceneId: unknown, context?: LabelContext): string {
   return index >= 0 ? `la escena ${index + 1}` : 'una escena';
 }
 
+/** Nombre del parámetro animable en lenguaje de usuario, no en vocabulario del motor. */
+const PARAMETER_NAMES: Record<string, string> = {
+  'position.x': 'la posición horizontal',
+  'position.y': 'la posición vertical',
+  scale: 'la escala',
+  rotationDegrees: 'la rotación',
+  opacity: 'la opacidad',
+  armRaise: 'el brazo',
+};
+
+function parameterName(parameterId: unknown): string {
+  return typeof parameterId === 'string' ? PARAMETER_NAMES[parameterId] ?? parameterId : 'un parámetro';
+}
+
+/** Forma con preposición, contrayendo «de el» en «del». */
+function ofParameter(parameterId: unknown): string {
+  const name = parameterName(parameterId);
+  return name.startsWith('el ') ? `del ${name.slice(3)}` : `de ${name}`;
+}
+
 const LABELS: Record<string, (command: CommandLike, context?: LabelContext) => string> = {
   'add-scene': () => 'Agregó una escena',
   'delete-scene': (command, context) => `Eliminó ${sceneName(command.sceneId, context)}`,
@@ -44,6 +64,17 @@ const LABELS: Record<string, (command: CommandLike, context?: LabelContext) => s
   'set-dialogue-turn': (command, context) => `Cambió un diálogo de ${sceneName(command.sceneId, context)}`,
   'set-dialogue-speaker': (command, context) => `Cambió quién habla en ${sceneName(command.sceneId, context)}`,
   'reorder-dialogue-turns': (command, context) => `Reordenó los diálogos de ${sceneName(command.sceneId, context)}`,
+  // Animación. Se nombra el preset cuando el comando lo trae: «Aplicó enter-left»
+  // le dice al usuario qué deshace, y «Aplicó un movimiento» no.
+  'apply-animation-preset': (command, context) => {
+    const preset = typeof command.presetId === 'string' ? `«${command.presetId}»` : 'un movimiento';
+    return `Aplicó ${preset} a un personaje de ${sceneName(command.sceneId, context)}`;
+  },
+  'create-track': (command, context) => `Animó ${parameterName(command.parameterId)} de un personaje en ${sceneName(command.sceneId, context)}`,
+  'add-keyframe': (command, context) => `Agregó un keyframe ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,
+  'set-keyframe': (command, context) => `Ajustó un keyframe ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,
+  'delete-keyframe': (command, context) => `Eliminó un keyframe ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,
+  'delete-track': (command, context) => `Quitó la animación ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,
 };
 
 export function describeCommand(command: CommandLike, context?: LabelContext): string {

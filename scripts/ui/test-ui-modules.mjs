@@ -453,6 +453,18 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
     describeCommand({ type: 'set-dialogue-turn', sceneId: 's2' }) === 'Cambió un diálogo de una escena',
   );
   check(
+    'las ediciones de animación se narran con el parámetro en lenguaje de usuario',
+    describeCommand({ type: 'set-keyframe', sceneId: 's2', parameterId: 'position.x' }, context)
+      === 'Ajustó un keyframe de la posición horizontal en la escena 2'
+      && describeCommand({ type: 'delete-track', sceneId: 's1', parameterId: 'armRaise' }, context)
+      === 'Quitó la animación del brazo en la escena 1',
+  );
+  check(
+    'aplicar un preset dice cuál, para que el usuario sepa qué deshace',
+    describeCommand({ type: 'apply-animation-preset', sceneId: 's1', presetId: 'enter-left' }, context)
+      === 'Aplicó «enter-left» a un personaje de la escena 1',
+  );
+  check(
     'una escena ajena al proyecto no se numera',
     describeCommand({ type: 'delete-scene', sceneId: 'otra' }, context) === 'Eliminó una escena',
   );
