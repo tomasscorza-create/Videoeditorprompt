@@ -463,6 +463,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .section-header { justify-content: space-between; gap: .75rem; margin-bottom: .9rem; }
 .section-header.compact { margin-bottom: .65rem; }
 .section-header > div { display: grid; gap: .15rem; }
+.section-header > .section-header-actions { display: flex; gap: .5rem; align-items: center; }
 .eyebrow {
   color: var(--accent);
   font-size: .66rem;

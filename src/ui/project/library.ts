@@ -55,12 +55,17 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   }));
 
   for (const tab of document.querySelectorAll<HTMLButtonElement>('.resource-tab')) {
-    tab.classList.toggle('is-active', tab.dataset.resourceType === activeType);
+    const isActive = tab.dataset.resourceType === activeType;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
     tab.addEventListener('click', () => {
       const type = tab.dataset.resourceType as LibraryType;
       activeType = type;
       sessionStorage.setItem(ACTIVE_LIBRARY_TAB_KEY, type);
-      for (const item of document.querySelectorAll('.resource-tab')) item.classList.toggle('is-active', item === tab);
+      for (const item of document.querySelectorAll('.resource-tab')) {
+        item.classList.toggle('is-active', item === tab);
+        item.setAttribute('aria-selected', String(item === tab));
+      }
       render();
     });
   }

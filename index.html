@@ -106,7 +106,7 @@
                 <span class="eyebrow">Crear</span>
                 <h1 id="director-title">Director IA</h1>
               </div>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <div class="section-header-actions">
                 <span id="director-health-badge" class="health-badge is-checking">Comprobando</span>
                 <button id="director-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel izquierdo" title="Ocultar panel">◀</button>
               </div>
@@ -315,17 +315,17 @@
                 <span class="eyebrow">Catálogo local</span>
                 <h2 id="library-title">Recursos</h2>
               </div>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <div class="section-header-actions">
                 <button id="resource-register" class="text-button" type="button">Agregar fondo</button>
                 <button id="inspector-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel derecho" title="Ocultar panel">▶</button>
               </div>
               <input id="resource-register-file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
             </header>
             <p id="resource-library-status" class="muted" role="status" aria-live="polite"></p>
-            <div class="resource-tabs" role="tablist">
-              <button class="resource-tab is-active" data-resource-type="character" type="button">Personajes</button>
-              <button class="resource-tab" data-resource-type="background" type="button">Fondos</button>
-              <button class="resource-tab" data-resource-type="voice" type="button">Voces</button>
+            <div class="resource-tabs" role="tablist" aria-label="Tipos de recursos">
+              <button class="resource-tab is-active" data-resource-type="character" type="button" role="tab" aria-selected="true">Personajes</button>
+              <button class="resource-tab" data-resource-type="background" type="button" role="tab" aria-selected="false">Fondos</button>
+              <button class="resource-tab" data-resource-type="voice" type="button" role="tab" aria-selected="false">Voces</button>
             </div>
             <div id="resource-list" class="resource-list"><p class="empty-state">Abrí un proyecto para explorar recursos.</p></div>
           </section>
