@@ -37,6 +37,7 @@
     "stage2f:pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-calidad-dialogo-01 --config=pilots/calidad-dialogo-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
     "stage2f:parametric-assets": "node scripts/stage2f/generate-parametric-character.mjs --assets-dir=public --definition=assets/character-definitions/mono-parametrico-v1.json --output-base=assets/characters --catalog=assets/catalog/index.json",
     "stage2f:test-parametric": "node scripts/stage2f/test-parametric-character.mjs",
+    "stage2f:test-hash-baseline": "node scripts/stage2f/test-asset-hash-baseline.mjs",
     "stage2f:parametric-pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-parametrico-01 --config=pilots/parametric-character-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
     "stage3a:validate-project": "node scripts/stage3a/validate-video-project.mjs --project=pilots/proyecto-editable-01/project.json --assets-dir=public",
     "stage3a:test-project": "node scripts/stage3a/test-video-project.mjs",

@@ -13,6 +13,7 @@ import {
   type CustomCharacterPart,
   type TemplateCharacterDesign,
 } from '../../shared/character-design-presets.js';
+import { shapeAttributes } from '../../shared/shape-renderer.js';
 import { optional } from './dom.js';
 import { EDITOR_WORKSPACE_EVENT, editorWorkspace } from './editor-workspace.js';
 import {
@@ -459,34 +460,16 @@ function renderEditablePart(part: CustomCharacterPart): SVGElement {
   return node;
 }
 
+// La geometría, la pintura y la rotación las resuelve `shared/shape-renderer.js`,
+// el mismo módulo que usa el compilador de assets. Acá solo se materializan los
+// atributos sobre un nodo del DOM. Antes había dos implementaciones y divergían
+// en `opacity`: el Creador la ignoraba y el video la aplicaba.
 function renderShape(shape: Record<string, any>, palette: Record<string, string>): SVGElement {
   const node = document.createElementNS(SVG_NS, shape.type);
-  const attributes: Record<string, string | number | undefined> = shape.type === 'ellipse'
-    ? { cx: shape.cx, cy: shape.cy, rx: shape.rx, ry: shape.ry }
-    : shape.type === 'rect'
-      ? { x: shape.x, y: shape.y, width: shape.width, height: shape.height, rx: shape.rx, ry: shape.ry }
-      : shape.type === 'polygon'
-        ? { points: shape.points.map((point: { x: number; y: number }) => `${point.x},${point.y}`).join(' ') }
-        : { d: shape.d };
-  attributes.fill = resolvePaint(shape.fill, palette);
-  attributes.stroke = resolvePaint(shape.stroke, palette);
-  attributes['stroke-width'] = shape.strokeWidth;
-  attributes['stroke-linecap'] = shape.lineCap;
-  attributes['stroke-linejoin'] = shape.lineJoin;
-  if (shape.rotationDegrees) {
-    const centerX = shape.type === 'rect' ? shape.x + shape.width / 2 : shape.cx;
-    const centerY = shape.type === 'rect' ? shape.y + shape.height / 2 : shape.cy;
-    attributes.transform = `rotate(${shape.rotationDegrees} ${centerX} ${centerY})`;
-  }
-  for (const [name, value] of Object.entries(attributes)) {
+  for (const [name, value] of shapeAttributes(shape, palette)) {
     if (value !== undefined) node.setAttribute(name, String(value));
   }
   return node;
-}
-
-function resolvePaint(value: unknown, palette: Record<string, string>): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  return value.startsWith('$') ? palette[value.slice(1)] : value;
 }
 
 function scratchPreviewState(): string {

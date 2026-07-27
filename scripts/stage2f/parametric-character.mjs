@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { ensureDirectory, projectRoot, readJson, run, writeJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
+import { shapesToSvgDocument } from '../../shared/shape-renderer.js';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateDefinitionSchema = ajv.compile(readJson(path.join(projectRoot, 'schema', 'parametric-character.schema.json')));
@@ -222,36 +223,7 @@ function flattenLayers(layers) {
 }
 
 function renderSvg(canvas, shapes, palette) {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}">\n${shapes.map((shape) => `  ${renderShape(shape, palette)}`).join('\n')}\n</svg>\n`;
-}
-
-function renderShape(shape, palette) {
-  const style = [
-    `fill="${resolveColor(shape.fill, palette)}"`,
-    shape.stroke !== undefined ? `stroke="${resolveColor(shape.stroke, palette)}"` : null,
-    shape.strokeWidth !== undefined ? `stroke-width="${shape.strokeWidth}"` : null,
-    shape.opacity !== undefined ? `opacity="${shape.opacity}"` : null,
-    shape.lineCap ? `stroke-linecap="${shape.lineCap}"` : null,
-    shape.lineJoin ? `stroke-linejoin="${shape.lineJoin}"` : null,
-  ].filter(Boolean).join(' ');
-  if (shape.type === 'ellipse') {
-    const transform = shape.rotationDegrees ? ` transform="rotate(${shape.rotationDegrees} ${shape.cx} ${shape.cy})"` : '';
-    return `<ellipse cx="${shape.cx}" cy="${shape.cy}" rx="${shape.rx}" ry="${shape.ry}" ${style}${transform}/>`;
-  }
-  if (shape.type === 'rect') {
-    const centerX = shape.x + shape.width / 2;
-    const centerY = shape.y + shape.height / 2;
-    const transform = shape.rotationDegrees ? ` transform="rotate(${shape.rotationDegrees} ${centerX} ${centerY})"` : '';
-    return `<rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="${shape.rx || 0}" ${style}${transform}/>`;
-  }
-  if (shape.type === 'path') return `<path d="${shape.d}" ${style}/>`;
-  if (shape.type === 'polygon') return `<polygon points="${shape.points.map((point) => `${point.x},${point.y}`).join(' ')}" ${style}/>`;
-  throw new Error(`Primitiva no soportada: ${shape.type}`);
-}
-
-function resolveColor(value, palette) {
-  if (!value?.startsWith('$')) return value;
-  return palette[value.slice(1)];
+  return shapesToSvgDocument(canvas, shapes, palette);
 }
 
 function rasterizeSvg(browserExecutable, browserProfile, svgPath, pngPath, canvas) {
