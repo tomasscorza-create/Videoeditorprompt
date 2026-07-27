@@ -182,42 +182,41 @@ h1, h2 { font-size: var(--fs-xl); }
 .expand-button {
   position: absolute;
   z-index: 50;
-  background: var(--surface-3);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  color: var(--muted);
+  border: none;
   display: grid;
   place-items: center;
-  font-size: var(--fs-lg);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  font-size: var(--fs-md);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.2s ease, color 0.2s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .expand-button:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 35%, var(--surface-3));
+  color: var(--text);
 }
 .expand-left {
-  top: 50%;
-  left: 0.5rem;
-  transform: translateY(-50%);
-  width: 2rem;
-  height: 3rem;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 1.25rem;
+  border-right: 1px solid var(--border-strong);
 }
 .expand-right {
-  top: 50%;
-  right: 0.5rem;
-  transform: translateY(-50%);
-  width: 2rem;
-  height: 3rem;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.25rem;
+  border-left: 1px solid var(--border-strong);
 }
 .expand-bottom {
-  bottom: 0.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 3rem;
-  height: 2rem;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.25rem;
+  border-top: 1px solid var(--border-strong);
 }
 
 /* Iconos del sprite: heredan color y escalan con el font-size del botón. */
@@ -1031,6 +1030,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 /* === 8. Visor (columna central) === */
 
 .viewer-column {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   padding: .35rem .5rem;
