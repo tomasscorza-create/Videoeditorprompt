@@ -636,7 +636,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .file-primary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; padding-bottom: .75rem; margin-bottom: .75rem; border-bottom: 1px solid var(--border); }
 .file-primary-actions button { display: grid; gap: .15rem; text-align: left; padding: .65rem; }
 .file-primary-actions button span { color: var(--muted); font-size: var(--fs-xs); }
-.director-panel > .section-header { margin-bottom: .55rem; }
+.director-panel > .section-header { position: relative; margin-bottom: .55rem; }
 .director-panel > .section-header h1 { font-size: var(--fs-lg); }
 .director-panel.is-editing-project #director-prompt { min-height: 3.8rem; }
 .director-panel textarea { min-height: 5.8rem; max-height: 13rem; }
@@ -840,6 +840,82 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 .health-badge.is-ready { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--border)); }
 .health-badge.is-error { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--border)); }
+
+/* E3 — diagnóstico por dependencia con su acción sugerida. */
+.health-popover {
+  position: absolute;
+  top: 2.4rem;
+  right: .5rem;
+  z-index: 40;
+  display: grid;
+  gap: .45rem;
+  width: min(19rem, calc(100% - 1rem));
+  padding: .6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-gradient);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+.health-list { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.health-item {
+  display: grid;
+  gap: .1rem;
+  padding-left: .55rem;
+  border-left: 2px solid var(--border-strong);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+}
+.health-item.is-ok { border-left-color: var(--ok); }
+.health-item.is-warn { border-left-color: var(--warning); }
+.health-item.is-error { border-left-color: var(--danger); }
+.health-item strong { color: var(--text); font-size: var(--fs-sm); }
+.health-item span { color: var(--muted); }
+.health-item .health-action { color: var(--accent); }
+.health-identity {
+  margin: 0;
+  color: var(--muted);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: var(--fs-2xs);
+  overflow-wrap: anywhere;
+}
+
+/* E1 — reporte de calidad de la propuesta. */
+.proposal-quality {
+  display: grid;
+  gap: .4rem;
+  margin-bottom: .5rem;
+  padding: .55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.quality-heading { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .5rem; }
+.quality-heading strong {
+  display: grid;
+  place-items: center;
+  min-width: 2.1rem;
+  min-height: 2.1rem;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: var(--fs-sm);
+  font-weight: 750;
+}
+.quality-heading.is-passed strong { color: var(--ok); border-color: var(--ok); }
+.quality-heading.is-below strong { color: var(--warning); border-color: var(--warning); }
+.quality-heading span { color: var(--text); font-size: var(--fs-xs); line-height: 1.3; }
+.quality-repair, .quality-clean { margin: 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
+.quality-issues { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.quality-issues li {
+  display: grid;
+  gap: .08rem;
+  padding-left: .5rem;
+  border-left: 2px solid color-mix(in srgb, var(--warning) 60%, var(--border));
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+}
+.quality-issues strong { color: var(--text); }
+.quality-issues span { color: var(--muted); }
 
 .render-progress {
   display: grid;

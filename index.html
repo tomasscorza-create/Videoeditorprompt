@@ -142,7 +142,8 @@
                 <h1 id="director-title">Director IA</h1>
               </div>
               <div class="section-header-actions">
-                <span id="director-health-badge" class="health-badge is-checking">Comprobando</span>
+                <button id="director-health-badge" class="health-badge is-checking" type="button" aria-expanded="false" aria-controls="director-health-popover" title="Ver diagnóstico del servicio local">Comprobando</button>
+                <div id="director-health-popover" class="health-popover" role="dialog" aria-label="Diagnóstico del servicio local" hidden></div>
                 <button id="director-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel izquierdo" title="Ocultar panel"><svg class="icon" aria-hidden="true"><use href="#ui-icon-chevron-left"/></svg></button>
               </div>
             </header>
@@ -229,6 +230,7 @@
                   <input id="proposal-title" class="proposal-project-title" type="text" maxlength="120" value="Revisar y ajustar" aria-label="Título del proyecto">
                 </span>
               </header>
+              <section id="proposal-quality" class="proposal-quality" aria-label="Calidad de la propuesta" hidden></section>
               <section class="project-editor" id="project-editor" aria-label="Proyecto editable del Director" hidden>
                 <div class="proposal-tabs tabs" data-variant="underline" role="tablist" aria-label="Secciones del proyecto">
                   <button class="tab is-active" data-proposal-tab="scene" type="button" role="tab" aria-selected="true" aria-controls="scene-inspector">Escena</button>

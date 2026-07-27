@@ -19,8 +19,11 @@ import {
   type ApiError,
   type DirectorConstraints,
   type DirectorGenerationOptions,
+  type DirectorProposal,
   type RenderJob,
 } from './api.js';
+import { summarizeHealth, type DependencyView } from './health-copy.js';
+import { summarizeQuality } from './quality-copy.js';
 import {
   DIRECTOR_PAGES,
   createDirectorNavigation,
@@ -46,7 +49,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const render = required<HTMLButtonElement>('#director-render');
   const cancel = required<HTMLButtonElement>('#director-cancel');
   const status = required<HTMLElement>('#director-status');
-  const healthBadge = required<HTMLElement>('#director-health-badge');
+  const healthBadge = required<HTMLButtonElement>('#director-health-badge');
+  const healthPopover = required<HTMLElement>('#director-health-popover');
+  const proposalQuality = required<HTMLElement>('#proposal-quality');
   const progressRoot = required<HTMLElement>('#render-progress');
   const progressBar = required<HTMLElement>('#render-progress-bar');
   const progressLabel = required<HTMLElement>('#render-progress-label');
@@ -103,7 +108,17 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     if (filesMenu.open && event.target instanceof Node && !filesMenu.contains(event.target)) filesMenu.open = false;
   });
   window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') filesMenu.open = false;
+    if (event.key !== 'Escape') return;
+    filesMenu.open = false;
+    if (!healthPopover.hidden) {
+      toggleHealthPopover(false);
+      healthBadge.focus();
+    }
+  });
+  healthBadge.addEventListener('click', () => toggleHealthPopover(healthPopover.hidden !== false));
+  document.addEventListener('pointerdown', (event) => {
+    if (healthPopover.hidden || !(event.target instanceof Node)) return;
+    if (!healthPopover.contains(event.target) && !healthBadge.contains(event.target)) toggleHealthPopover(false);
   });
 
   generate.addEventListener('click', async () => {
@@ -142,6 +157,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         onStoreCreated(store);
         subscribeToStore(store);
       }
+      // E1: la propuesta trae su reporte de calidad; una edición IA no.
+      renderProposalQuality('commands' in result ? null : result);
       variant += 1;
       prompt.value = '';
       transitionNavigation({ type: editing ? 'ai-change-applied' : 'proposal-created' });
@@ -293,13 +310,11 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       healthChecked = true;
       readyForProposal = health.ollama.available && health.ollama.modelInstalled;
       readyForRender = health.tts.available;
-      healthBadge.className = `health-badge ${readyForProposal && readyForRender ? 'is-ready' : 'is-error'}`;
-      healthBadge.textContent = readyForProposal && readyForRender ? 'Listo' : 'Revisar';
-      healthBadge.title = !health.ollama.available
-        ? 'Ollama no está disponible.'
-        : !health.ollama.modelInstalled
-          ? `Falta instalar ${health.ollama.model ?? 'qwen3:8b'}.`
-          : !health.tts.available ? 'Falta Piper para renderizar.' : `Ollama ${health.ollama.version ?? ''}`;
+      const summary = summarizeHealth(health);
+      healthBadge.className = `health-badge ${summary.ready ? 'is-ready' : 'is-error'}`;
+      healthBadge.textContent = summary.badge;
+      healthBadge.title = 'Ver diagnóstico del servicio local';
+      renderHealthPopover(summary.dependencies, summary.modelIdentity);
       if (status.textContent === 'Comprobando el servicio local…') {
         report(readyForProposal
           ? readyForRender ? 'Listo para crear una propuesta o renderizar.' : 'Director listo; falta Piper para renderizar.'
@@ -312,9 +327,103 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       readyForRender = false;
       healthBadge.className = 'health-badge is-error';
       healthBadge.textContent = 'Sin servicio';
-      healthBadge.title = 'Iniciá la aplicación con npm run dev.';
+      healthBadge.title = 'Ver diagnóstico del servicio local';
+      renderHealthPopover([{
+        id: 'service',
+        name: 'Servicio local',
+        state: 'error',
+        detail: 'No se pudo contactar al servicio local.',
+        action: 'Iniciá la aplicación con npm run dev.',
+      }], null);
       syncButtons();
     }
+  }
+
+  // E3: el badge deja de ser solo un semáforo y explica cada dependencia.
+  function renderHealthPopover(dependencies: DependencyView[], modelIdentity: string | null): void {
+    const list = document.createElement('ul');
+    list.className = 'health-list';
+    for (const dependency of dependencies) {
+      const item = document.createElement('li');
+      item.className = `health-item is-${dependency.state}`;
+      const name = document.createElement('strong');
+      name.textContent = dependency.name;
+      const detail = document.createElement('span');
+      detail.textContent = dependency.detail;
+      item.append(name, detail);
+      if (dependency.action) {
+        const action = document.createElement('span');
+        action.className = 'health-action';
+        action.textContent = dependency.action;
+        item.append(action);
+      }
+      list.append(item);
+    }
+    const children: HTMLElement[] = [list];
+    if (modelIdentity) {
+      const identity = document.createElement('p');
+      identity.className = 'health-identity';
+      identity.textContent = `Modelo: ${modelIdentity}`;
+      children.push(identity);
+    }
+    const recheck = document.createElement('button');
+    recheck.type = 'button';
+    recheck.className = 'text-button';
+    recheck.textContent = 'Comprobar de nuevo';
+    recheck.addEventListener('click', () => void refreshHealth());
+    children.push(recheck);
+    healthPopover.replaceChildren(...children);
+  }
+
+  function toggleHealthPopover(open: boolean): void {
+    healthPopover.hidden = !open;
+    healthBadge.setAttribute('aria-expanded', String(open));
+  }
+
+  // E1: el reporte de calidad que el motor ya calcula deja de descartarse.
+  function renderProposalQuality(proposal: DirectorProposal | null): void {
+    const summary = proposal ? summarizeQuality(proposal.quality, proposal.repairAttempts) : null;
+    if (!summary) {
+      proposalQuality.hidden = true;
+      proposalQuality.replaceChildren();
+      return;
+    }
+    const heading = document.createElement('div');
+    heading.className = `quality-heading ${summary.passed ? 'is-passed' : 'is-below'}`;
+    const score = document.createElement('strong');
+    score.textContent = String(summary.score);
+    const headline = document.createElement('span');
+    headline.textContent = summary.headline;
+    heading.append(score, headline);
+
+    const children: HTMLElement[] = [heading];
+    if (summary.repairNote) {
+      const repair = document.createElement('p');
+      repair.className = 'quality-repair';
+      repair.textContent = summary.repairNote;
+      children.push(repair);
+    }
+    if (summary.issues.length > 0) {
+      const list = document.createElement('ul');
+      list.className = 'quality-issues';
+      for (const issue of summary.issues) {
+        const item = document.createElement('li');
+        const label = document.createElement('strong');
+        label.textContent = issue.label;
+        const instruction = document.createElement('span');
+        instruction.textContent = issue.instruction;
+        item.append(label, instruction);
+        list.append(item);
+      }
+      children.push(list);
+    } else {
+      const clean = document.createElement('p');
+      clean.className = 'quality-clean';
+      clean.textContent = 'El revisor no encontró problemas en el guion.';
+      children.push(clean);
+    }
+    proposalQuality.replaceChildren(...children);
+    proposalQuality.hidden = false;
   }
 
   async function refreshGallery(resumeLastJob: boolean): Promise<void> {

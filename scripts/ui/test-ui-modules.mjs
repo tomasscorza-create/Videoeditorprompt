@@ -20,6 +20,8 @@ const sources = [
   'src/ui/director/api.ts',
   'src/ui/director/navigation.ts',
   'src/ui/notifications-queue.ts',
+  'src/ui/director/quality-copy.ts',
+  'src/ui/director/health-copy.ts',
 ];
 const compile = spawnSync(process.execPath, [
   tsc,
@@ -87,6 +89,8 @@ const geometry = await import(pathToFileURL(geometryPath).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
 const directorNavigation = await import(pathToFileURL(directorNavigationPath).href);
 const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'notifications-queue.js')).href);
+const qualityCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'quality-copy.js')).href);
+const healthCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'health-copy.js')).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 const fingerprint = await import(pathToFileURL(path.join(projectRoot, 'shared', 'project-fingerprint.js')).href);
 
@@ -355,6 +359,77 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   const dismissed = dismissNotification(first.state, first.notification.id);
   check('descartar quita la notificación', dismissed.items.length === 0);
   check('descartar un id inexistente no cambia el estado', dismissNotification(first.state, 999) === first.state);
+}
+
+// ---- quality-copy.ts: reporte de calidad legible (E1) ----
+{
+  const { summarizeQuality, describeRepairs, issueLabel } = qualityCopy;
+  check('sin reporte no hay tarjeta de calidad', summarizeQuality(undefined) === null);
+
+  const passing = summarizeQuality({ version: 1, score: 84, floor: 70, passed: true, issues: [], metrics: {} });
+  check('el score se muestra sobre 100, como lo calcula el motor', passing.headline.includes('84 sobre 100'));
+  check('el titular nombra el piso de calidad', passing.headline.includes('70'));
+  check('una propuesta que pasa lo dice', passing.passed && passing.headline.includes('supera'));
+
+  const failing = summarizeQuality({
+    version: 1,
+    score: 61,
+    floor: 70,
+    passed: false,
+    issues: [
+      { code: 'WEAK_HOOK', penalty: 9, instruction: 'El gancho inicial es demasiado corto.' },
+      { code: 'LOW_RELEVANCE', penalty: 24, instruction: 'El guion no conserva los conceptos.' },
+    ],
+    metrics: {},
+  });
+  check('una propuesta por debajo del piso lo dice', !failing.passed && failing.headline.includes('por debajo'));
+  check('los issues se ordenan por penalización', failing.issues[0].code === 'LOW_RELEVANCE');
+  check('cada issue conserva la instrucción del motor', failing.issues[0].instruction === 'El guion no conserva los conceptos.');
+  check('los códigos conocidos se traducen', failing.issues[1].label === 'Gancho inicial corto');
+  check('un código desconocido se muestra legible, no se oculta', issueLabel('COSA_RARA') === 'cosa rara');
+
+  check('sin reparaciones no se menciona reparación', describeRepairs(0) === null && describeRepairs(undefined) === null);
+  check('una reparación se narra en singular', describeRepairs(1).includes('una vez'));
+  check('varias reparaciones se narran en plural', describeRepairs(3).includes('3 veces'));
+}
+
+// ---- health-copy.ts: diagnóstico del servicio local (E3) ----
+{
+  const { summarizeHealth } = healthCopy;
+  const healthy = summarizeHealth({
+    version: 1,
+    ready: true,
+    ollama: { available: true, modelInstalled: true, model: 'qwen3:8b', version: '0.5.1', digest: 'sha256:abcdef1234567890' },
+    tts: { available: true },
+    renderBusy: false,
+  });
+  check('con todo disponible el sistema está listo', healthy.ready && healthy.badge === 'Listo');
+  check('se listan las tres dependencias', healthy.dependencies.length === 3);
+  check('nada pendiente no sugiere acciones', healthy.dependencies.every((item) => item.action === null));
+  check('la identidad del modelo queda visible', healthy.modelIdentity.includes('qwen3:8b'));
+
+  const noModel = summarizeHealth({
+    version: 1,
+    ready: false,
+    ollama: { available: true, modelInstalled: false, model: 'qwen3:8b' },
+    tts: { available: true },
+    renderBusy: false,
+  });
+  check('falta de modelo no se reporta como listo', !noModel.ready);
+  check('el badge nombra la dependencia que falta', noModel.badge === 'Falta Ollama');
+  check('falta de modelo sugiere el pull concreto', noModel.dependencies[0].action.includes('ollama pull qwen3:8b'));
+
+  const down = summarizeHealth({
+    version: 1,
+    ready: false,
+    ollama: { available: false, modelInstalled: false, error: { message: 'No responde.', suggestedAction: 'Iniciá Ollama.' } },
+    tts: { available: false },
+    renderBusy: true,
+  });
+  check('se respeta la acción sugerida que ya trae la API', down.dependencies[0].action === 'Iniciá Ollama.');
+  check('con dos dependencias caídas el badge pide revisar', down.badge === 'Revisar');
+  check('un render en curso avisa sin ser error', down.dependencies[2].state === 'warn');
+  check('sin modelo conocido no se inventa identidad', down.modelIdentity === null);
 }
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);
