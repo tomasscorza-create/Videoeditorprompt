@@ -55,6 +55,7 @@
     "stage3b:test-keyframes": "node scripts/stage3b/test-keyframe-commands.mjs",
     "anim:test-contract": "node scripts/animation/test-animation-contract.mjs",
     "anim:test-evaluator": "node scripts/animation/test-animation-evaluator.mjs",
+    "anim:test-presets": "node scripts/animation/test-animation-presets.mjs",
     "compositor:test-contract": "node scripts/compositor/test-compositor-contract.mjs",
     "director:test-plan": "node scripts/director/test-director-plan.mjs",
     "director:test-context": "node scripts/director/test-director-context.mjs",

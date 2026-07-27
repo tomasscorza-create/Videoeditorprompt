@@ -20,6 +20,7 @@ const commands = [
   'stage3b:test-keyframes',
   'anim:test-contract',
   'anim:test-evaluator',
+  'anim:test-presets',
   'compositor:test-contract',
   'director:test-plan',
   'director:test-context',

@@ -1,4 +1,17 @@
 import { ANIMATION_LIMITS, ANIMATION_PARAMETERS, anchorKey } from './animation-contract.js';
+import { ANIMATION_PRESETS, expandAnimationPreset } from './animation-presets.js';
+
+/** Valor vigente de un parámetro en el elemento, para expandir un preset. */
+function baseValueFor(element, parameterId) {
+  const transform = element.transform ?? {};
+  if (parameterId === 'position.x') return transform.x ?? 0;
+  if (parameterId === 'position.y') return transform.y ?? 0;
+  if (parameterId === 'scale') return transform.scale ?? 1;
+  if (parameterId === 'rotationDegrees') return transform.rotationDegrees ?? 0;
+  if (parameterId === 'opacity') return transform.opacity ?? 1;
+  // `armRaise` no vive en el transform: su base es el reposo del recurso.
+  return 0;
+}
 
 const HISTORY_LIMIT_DEFAULT = 50;
 const PORTABLE_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/u;
@@ -446,6 +459,28 @@ function applyMutation(project, catalog, command) {
       normalizeTransitions(project);
       return;
     }
+    case 'apply-animation-preset': {
+      const element = requireAnimatedElement(project, command);
+      const expanded = expandAnimationPreset(command.presetId, {
+        anchor: command.anchor,
+        intensity: command.intensity,
+        // La base se lee UNA vez, al aplicar. Si después se mueve el elemento la
+        // pista no se mueve sola: eso reescribiría puntos que el usuario ya editó.
+        baseValue: baseValueFor(element, ANIMATION_PRESETS[command.presetId]?.parameterId),
+      });
+      element.tracks ||= [];
+      const existing = findTrack(element, expanded.parameterId);
+      if (existing) {
+        // Una pista personalizada a mano no se pisa sin avisar; el usuario decide
+        // si la elimina antes de volver a aplicar el preset.
+        if (existing.source.kind === 'manual' || existing.source.customized) {
+          fail('EDITOR_TRACK_CUSTOMIZED', 'Esa pista fue editada a mano; eliminala antes de aplicar un preset encima.', '/command/presetId');
+        }
+        element.tracks = element.tracks.filter((candidate) => candidate !== existing);
+      }
+      element.tracks.push(expanded);
+      return;
+    }
     case 'create-track': {
       // Atómico a propósito: una pista de un solo keyframe no cumple el contrato,
       // así que no puede existir ni siquiera como paso intermedio de la edición.
@@ -602,6 +637,7 @@ function assertCommandShape(command) {
     'reorder-scenes': { required: ['type', 'sceneIds'], optional: [] },
     'split-scene': { required: ['type', 'sceneId', 'atTurnId', 'newSceneId'], optional: [] },
     'reorder-dialogue-turns': { required: ['type', 'sceneId', 'turnIds'], optional: [] },
+    'apply-animation-preset': { required: ['type', 'sceneId', 'elementId', 'presetId'], optional: ['anchor', 'intensity'] },
     'create-track': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframes'], optional: ['source'] },
     'add-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId', 'anchor', 'offsetSeconds', 'value', 'interpolation'], optional: [] },
     'set-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId'], optional: ['anchor', 'offsetSeconds', 'value', 'interpolation'] },

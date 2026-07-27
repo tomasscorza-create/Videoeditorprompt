@@ -80,6 +80,9 @@
     },
     {
       "$ref": "#/$defs/createTrack"
+    },
+    {
+      "$ref": "#/$defs/applyAnimationPreset"
     }
   ],
   "$defs": {
@@ -1244,6 +1247,48 @@
             "linear",
             "ease",
             "hold"
+          ]
+        }
+      }
+    },
+    "applyAnimationPreset": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Aplica un preset versionado. La expansion a keyframes es pura y determinista; el comando no transporta keyframes.",
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "presetId"
+      ],
+      "properties": {
+        "type": {
+          "const": "apply-animation-preset"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "presetId": {
+          "enum": [
+            "enter-left",
+            "enter-right",
+            "fade-in",
+            "fade-out",
+            "emphasis-pulse",
+            "arm-raise"
+          ]
+        },
+        "anchor": {
+          "$ref": "#/$defs/animationAnchor"
+        },
+        "intensity": {
+          "enum": [
+            "soft",
+            "medium",
+            "strong"
           ]
         }
       }

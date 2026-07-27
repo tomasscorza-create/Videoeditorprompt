@@ -199,6 +199,7 @@ npm run anim:test-contract  # vocabulario, límites, errores y estado de revisi�
 npm run anim:test-evaluator # anclas, interpolaciones y el temporalHash v2 congelado
 npm run compositor:test-contract # jerarquía de piezas, bindings y orden de dibujo
 npm run stage3b:test-keyframes   # pistas en el proyecto y comandos de keyframe con undo/redo
+npm run anim:test-presets        # catálogo versionado de presets y su aplicación
 npm run stage2f:test-hash-baseline     # los assets compilados siguen coincidiendo con los publicados
 npm run stage2f:test-resource-manifest # manifest de recurso v3 y adaptador de lectura v2 → v3
 npm run stage2f:test-resource          # compilador v3 y los dos pilotos (rasteriza de verdad)
@@ -253,7 +254,7 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 - El servicio local acepta un solo render activo, recupera estados interrumpidos y no es un backend multiusuario ni una cola durable.
 - La UI usa verificación interactiva de una pasada; la CLI conserva la verificación completa de dos pasadas por defecto.
 - El evaluador temporal **ya sabe** resolver anclas y evaluar pistas (Fase 2), pero **nada le pasa pistas todavía**: el proyecto editable no tiene `tracks` (Fase 4) y el compositor no sabe dibujar piezas articuladas (Fase 3). Sin animación, `evaluateScene` devuelve exactamente el estado de siempre y no agrega la clave `elements`; de eso depende que el `temporalHash` de los pilotos v2 no cambie.
-- El proyecto editable ya admite `tracks` por elemento y cinco comandos cerrados con undo/redo (`create-track`, `add-keyframe`, `set-keyframe`, `delete-keyframe`, `delete-track`), pero **la interfaz todavía no los usa**: no hay timeline de keyframes, ni inspector, ni modo animación del lienzo, y el render tampoco lee las pistas. Un proyecto sin pistas sigue siendo válido: el campo es aditivo.
+- El proyecto editable ya admite `tracks` por elemento y cinco comandos cerrados con undo/redo (`create-track`, `add-keyframe`, `set-keyframe`, `delete-keyframe`, `delete-track`), más `apply-animation-preset` con los seis presets versionados de `shared/animation-presets.js`, pero **la interfaz todavía no los usa**: no hay timeline de keyframes, ni inspector, ni modo animación del lienzo, y el render tampoco lee las pistas. Un proyecto sin pistas sigue siendo válido: el campo es aditivo.
 - **El compositor headless de la Fase 3 no funciona.** `scripts/compositor/pixi-compositor.mjs` es un spike sin terminar, no está enchufado a nada y no entra en la suite. Quedó colgado en `fetch('./job.json')` desde la página, después de importar PixiJS; el mismo GET responde bien desde Node, así que el bloqueo es del navegador. El contrato (`shared/compositor-contract.js`) sí está terminado y probado. Los rigs v3 todavía no se pueden renderizar, y por eso los dos recursos v3 siguen fuera de la biblioteca.
 - El render vigente sigue siendo FFmpeg con un único `filter_complex`: no se extrajo detrás del contrato todavía.
 - `animationPreset` (`idle-calm`/`talk-calm`) sigue siendo movimiento base continuo, no un preset de keyframes.

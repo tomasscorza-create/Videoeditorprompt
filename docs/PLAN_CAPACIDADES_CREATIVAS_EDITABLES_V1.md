@@ -510,6 +510,25 @@ lienzo, transiciones como bloques editables, y que el render lea las pistas.
 **Gate:** aplicar un preset y editar uno de sus puntos produce un proyecto
 portable y un MP4 verificable.
 
+**Estado: hecho al 27 de julio de 2026, salvo el MP4 y la aplicación desde la UI.**
+
+- `shared/animation-presets.js`: los seis presets como DATO versionado, sin una
+  línea de lógica por preset. Cada uno describe sus pasos en forma relativa
+  (`offset` sobre la base, `absolute`, `factor`) y la expansión los resuelve.
+- La expansión es pura y determinista, y respeta el rango del parámetro.
+- La intensidad (`soft`/`medium`/`strong`) escala amplitud y duración sin
+  cambiar la forma ni la cantidad de keyframes.
+- La base se lee UNA vez, al aplicar: si después se mueve el elemento, la pista
+  no se mueve sola.
+- Editar un punto marca `customized` y **conserva la procedencia**; a partir de
+  ahí un preset no la pisa sin que el usuario borre la pista primero.
+- `arm-raise` solo se ofrece si el recurso declara el parámetro, así que hoy no
+  aparece en ningún personaje v2.
+- 12 comprobaciones en `npm run anim:test-presets`.
+
+Falta: aplicarlo desde el inspector y la biblioteca (no existe esa UI) y el MP4
+verificable (el render todavía no lee pistas).
+
 ### Fase 6 — Director IA
 
 - Añadir `apply-animation-preset` y `remove-animation` al contrato cerrado.
