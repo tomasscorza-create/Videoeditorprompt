@@ -1120,18 +1120,29 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   z-index: 15;
   display: flex;
   align-items: center;
-  gap: .15rem;
-  padding: .2rem .4rem;
+  gap: .05rem;
+  padding: .15rem .2rem;
   border-radius: 2rem;
-  background: color-mix(in srgb, var(--bg) 65%, transparent);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
+.composition-zoom-controls .timeline-tool {
+  min-width: 1.6rem;
+  min-height: 1.6rem;
+  padding: .2rem;
+  color: var(--stage-text-strong);
+  border-radius: 50%;
+}
+.composition-zoom-controls .timeline-tool:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-3) 60%, transparent);
+  color: var(--accent);
+}
 .composition-zoom-controls[hidden] { display: none; }
 .composition-zoom-level {
-  min-width: 2.8rem;
-  color: var(--text);
+  min-width: 2.2rem;
+  color: var(--stage-text-strong);
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
   font-size: var(--fs-2xs);
   text-align: center;
