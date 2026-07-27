@@ -1115,17 +1115,18 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 /* U4 — zoom del lienzo: solo vista, nunca datos del proyecto. */
 .composition-zoom-controls {
   position: absolute;
-  right: .6rem;
-  bottom: .6rem;
+  right: .8rem;
+  bottom: .8rem;
   z-index: 15;
   display: flex;
   align-items: center;
   gap: .15rem;
-  padding: .2rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface) 85%, transparent);
-  backdrop-filter: blur(10px);
+  padding: .2rem .4rem;
+  border-radius: 2rem;
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .composition-zoom-controls[hidden] { display: none; }
 .composition-zoom-level {
