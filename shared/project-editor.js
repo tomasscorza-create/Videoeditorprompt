@@ -1,3 +1,5 @@
+import { ANIMATION_LIMITS, ANIMATION_PARAMETERS, anchorKey } from './animation-contract.js';
+
 const HISTORY_LIMIT_DEFAULT = 50;
 const PORTABLE_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/u;
 const PACE_IDS = new Set(['slow', 'normal', 'fast']);
@@ -157,6 +159,7 @@ export function validateEditableProject(project, catalog) {
         if (!resource.capabilities.poses.includes(element.poseId)) fail('EDITOR_POSE_INVALID', 'El personaje no soporta la pose seleccionada.', `${elementPath}/poseId`);
         if (!resource.capabilities.animationPresets.includes(element.animationPreset)) fail('EDITOR_ANIMATION_INVALID', 'El personaje no soporta la animación seleccionada.', `${elementPath}/animationPreset`);
         validateEditableTransform(element.transform, `${elementPath}/transform`);
+        validateEditableTracks(element, resource, `${elementPath}/tracks`);
       } else {
         fail('EDITOR_ELEMENT_UNSUPPORTED', '3B.0 solo edita personajes porque el compilador vigente todavía no representa texto o imágenes.', `${elementPath}/type`);
       }
@@ -443,6 +446,81 @@ function applyMutation(project, catalog, command) {
       normalizeTransitions(project);
       return;
     }
+    case 'create-track': {
+      // Atómico a propósito: una pista de un solo keyframe no cumple el contrato,
+      // así que no puede existir ni siquiera como paso intermedio de la edición.
+      const element = requireAnimatedElement(project, command);
+      element.tracks ||= [];
+      if (findTrack(element, command.parameterId)) {
+        fail('EDITOR_TRACK_INVALID', 'El elemento ya tiene una pista para ese parámetro.', '/command/parameterId');
+      }
+      const track = {
+        parameterId: command.parameterId,
+        source: cloneJson(command.source ?? { kind: 'manual' }),
+        keyframes: cloneJson(command.keyframes),
+      };
+      element.tracks.push(track);
+      sortKeyframes(track);
+      return;
+    }
+    case 'add-keyframe': {
+      const element = requireAnimatedElement(project, command);
+      const track = findTrack(element, command.parameterId);
+      if (!track) fail('EDITOR_TRACK_NOT_FOUND', 'La pista no existe; usá create-track para empezarla con dos keyframes.', '/command/parameterId');
+      if (track.source.kind === 'preset') {
+        // Editar a mano una pista que vino de un preset no la regenera: queda
+        // marcada y sigue siendo editable, como fijó la Fase 0.
+        track.source.customized = true;
+      }
+      track.keyframes.push({
+        id: command.keyframeId,
+        anchor: cloneJson(command.anchor),
+        offsetSeconds: command.offsetSeconds,
+        value: command.value,
+        interpolation: command.interpolation,
+      });
+      sortKeyframes(track);
+      return;
+    }
+    case 'set-keyframe': {
+      const element = requireAnimatedElement(project, command);
+      const track = findTrack(element, command.parameterId);
+      if (!track) fail('EDITOR_TRACK_NOT_FOUND', 'El elemento no tiene una pista para ese parámetro.', '/command/parameterId');
+      const keyframe = track.keyframes.find((candidate) => candidate.id === command.keyframeId);
+      if (!keyframe) fail('EDITOR_KEYFRAME_NOT_FOUND', 'El keyframe no existe en la pista.', '/command/keyframeId');
+      if (command.anchor !== undefined) keyframe.anchor = cloneJson(command.anchor);
+      if (command.offsetSeconds !== undefined) keyframe.offsetSeconds = command.offsetSeconds;
+      if (command.value !== undefined) keyframe.value = command.value;
+      if (command.interpolation !== undefined) keyframe.interpolation = command.interpolation;
+      if (track.source.kind === 'preset') track.source.customized = true;
+      sortKeyframes(track);
+      return;
+    }
+    case 'delete-keyframe': {
+      const element = requireAnimatedElement(project, command);
+      const track = findTrack(element, command.parameterId);
+      if (!track) fail('EDITOR_TRACK_NOT_FOUND', 'El elemento no tiene una pista para ese parámetro.', '/command/parameterId');
+      const index = track.keyframes.findIndex((candidate) => candidate.id === command.keyframeId);
+      if (index < 0) fail('EDITOR_KEYFRAME_NOT_FOUND', 'El keyframe no existe en la pista.', '/command/keyframeId');
+      track.keyframes.splice(index, 1);
+      // Una pista con menos de dos keyframes deja de ser una animación: se
+      // elimina entera en vez de quedar en un estado que el contrato rechaza.
+      if (track.keyframes.length < ANIMATION_LIMITS.minimumKeyframesPerTrack) {
+        element.tracks = element.tracks.filter((candidate) => candidate !== track);
+      } else {
+        sortKeyframes(track);
+      }
+      if (element.tracks.length === 0) delete element.tracks;
+      return;
+    }
+    case 'delete-track': {
+      const element = requireAnimatedElement(project, command);
+      const track = findTrack(element, command.parameterId);
+      if (!track) fail('EDITOR_TRACK_NOT_FOUND', 'El elemento no tiene una pista para ese parámetro.', '/command/parameterId');
+      element.tracks = element.tracks.filter((candidate) => candidate !== track);
+      if (element.tracks.length === 0) delete element.tracks;
+      return;
+    }
     case 'reorder-dialogue-turns': {
       const scene = requireScene(project, command.sceneId);
       if (!Array.isArray(command.turnIds) || command.turnIds.length !== scene.dialogue.length || new Set(command.turnIds).size !== scene.dialogue.length) {
@@ -524,6 +602,11 @@ function assertCommandShape(command) {
     'reorder-scenes': { required: ['type', 'sceneIds'], optional: [] },
     'split-scene': { required: ['type', 'sceneId', 'atTurnId', 'newSceneId'], optional: [] },
     'reorder-dialogue-turns': { required: ['type', 'sceneId', 'turnIds'], optional: [] },
+    'create-track': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframes'], optional: ['source'] },
+    'add-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId', 'anchor', 'offsetSeconds', 'value', 'interpolation'], optional: [] },
+    'set-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId'], optional: ['anchor', 'offsetSeconds', 'value', 'interpolation'] },
+    'delete-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId'], optional: [] },
+    'delete-track': { required: ['type', 'sceneId', 'elementId', 'parameterId'], optional: [] },
   };
   const shape = shapes[command.type];
   if (!shape) fail('EDITOR_COMMAND_UNSUPPORTED', `Comando no soportado: ${String(command.type)}.`, '/command/type');
@@ -532,6 +615,93 @@ function assertCommandShape(command) {
   if (unknown) fail('EDITOR_COMMAND_INVALID', `El comando contiene el campo no permitido ${unknown}.`, `/command/${unknown}`);
   const missing = shape.required.find((key) => !Object.hasOwn(command, key));
   if (missing) fail('EDITOR_COMMAND_INVALID', `Falta el campo obligatorio ${missing}.`, `/command/${missing}`);
+}
+
+/**
+ * Reglas de pista dentro del proyecto editable.
+ *
+ * El vocabulario y los límites salen de `shared/animation-contract.js`: acá no se
+ * repiten, se aplican. Un parámetro que necesita soporte del recurso solo se
+ * admite si el recurso lo declara, que en V1 es el caso de `armRaise`.
+ */
+function validateEditableTracks(element, resource, path) {
+  if (element.tracks === undefined) return;
+  if (!Array.isArray(element.tracks)) fail('EDITOR_PROJECT_INVALID', 'Las pistas deben ser una lista.', path);
+  if (element.tracks.length > ANIMATION_LIMITS.tracksPerElement) {
+    fail('EDITOR_TRACK_INVALID', `Un elemento admite hasta ${ANIMATION_LIMITS.tracksPerElement} pistas.`, path);
+  }
+  const seenParameters = new Set();
+  const seenKeyframes = new Set();
+  for (const [trackIndex, track] of element.tracks.entries()) {
+    const trackPath = `${path}/${trackIndex}`;
+    const parameter = ANIMATION_PARAMETERS[track.parameterId];
+    if (!parameter) fail('EDITOR_TRACK_INVALID', 'El parámetro no existe en el vocabulario V1.', `${trackPath}/parameterId`);
+    if (seenParameters.has(track.parameterId)) {
+      fail('EDITOR_TRACK_INVALID', 'Hay dos pistas sobre el mismo parámetro.', `${trackPath}/parameterId`);
+    }
+    seenParameters.add(track.parameterId);
+    if (parameter.requiresResourceSupport && !(resource.capabilities.parameters || []).includes(track.parameterId)) {
+      fail('EDITOR_TRACK_INVALID', 'El recurso no declara ese parámetro animable.', `${trackPath}/parameterId`);
+    }
+    if (!Array.isArray(track.keyframes) || track.keyframes.length < ANIMATION_LIMITS.minimumKeyframesPerTrack) {
+      fail('EDITOR_TRACK_INVALID', 'Una pista necesita al menos dos keyframes; un valor fijo pertenece al transform base.', `${trackPath}/keyframes`);
+    }
+    if (track.keyframes.length > ANIMATION_LIMITS.keyframesPerTrack) {
+      fail('EDITOR_TRACK_INVALID', `Una pista admite hasta ${ANIMATION_LIMITS.keyframesPerTrack} keyframes.`, `${trackPath}/keyframes`);
+    }
+    if (track.keyframes.at(-1).interpolation !== 'hold') {
+      fail('EDITOR_TRACK_INVALID', 'El último keyframe de una pista debe usar hold.', `${trackPath}/keyframes`);
+    }
+    const offsets = new Map();
+    for (const [keyframeIndex, keyframe] of track.keyframes.entries()) {
+      const keyframePath = `${trackPath}/keyframes/${keyframeIndex}`;
+      if (seenKeyframes.has(keyframe.id)) fail('EDITOR_TRACK_INVALID', 'Los IDs de keyframe deben ser únicos en el elemento.', `${keyframePath}/id`);
+      seenKeyframes.add(keyframe.id);
+      const belowMinimum = parameter.exclusiveMinimum !== undefined
+        ? keyframe.value <= parameter.exclusiveMinimum
+        : keyframe.value < parameter.minimum;
+      if (belowMinimum || keyframe.value > parameter.maximum) {
+        fail('EDITOR_TRACK_INVALID', 'El valor del keyframe cae fuera del rango del parámetro.', `${keyframePath}/value`);
+      }
+      const key = anchorKey(keyframe.anchor);
+      if (offsets.get(key) === keyframe.offsetSeconds) {
+        fail('EDITOR_TRACK_INVALID', 'Dos keyframes de la pista caen en el mismo punto.', keyframePath);
+      }
+      offsets.set(key, keyframe.offsetSeconds);
+    }
+  }
+}
+
+/** Pista de un parámetro dentro de un elemento, o null. */
+function findTrack(element, parameterId) {
+  return (element.tracks || []).find((track) => track.parameterId === parameterId) ?? null;
+}
+
+/**
+ * Orden de guardado dentro de una pista: por ancla y desplazamiento. El orden
+ * definitivo lo fija el frame resuelto, que no se conoce hasta medir el audio,
+ * pero guardar ordenado deja la lista legible en el inspector.
+ */
+function sortKeyframes(track) {
+  track.keyframes.sort((a, b) => {
+    const left = anchorKey(a.anchor);
+    const right = anchorKey(b.anchor);
+    if (left < right) return -1;
+    if (left > right) return 1;
+    return a.offsetSeconds - b.offsetSeconds;
+  });
+  // Después de mover un keyframe el último puede haber cambiado: el contrato
+  // exige que el que cierra la pista congele el valor.
+  const last = track.keyframes.at(-1);
+  if (last) last.interpolation = 'hold';
+}
+
+function requireAnimatedElement(project, command) {
+  const scene = requireScene(project, command.sceneId);
+  const element = scene.elements.find((candidate) => candidate.id === command.elementId);
+  if (!element) fail('EDITOR_ELEMENT_NOT_FOUND', 'El elemento no existe en la escena.', '/command/elementId');
+  if (element.type !== 'character') fail('EDITOR_ELEMENT_UNSUPPORTED', 'Solo los personajes admiten pistas por ahora.', '/command/elementId');
+  return element;
 }
 
 function normalizeTransitions(project) {

@@ -3,200 +3,1250 @@
   "$id": "https://local-video.invalid/schema/editor-command-v1.json",
   "title": "Comando semántico del editor local",
   "oneOf": [
-    { "$ref": "#/$defs/selectScene" },
-    { "$ref": "#/$defs/setProjectTitle" },
-    { "$ref": "#/$defs/setSceneTitle" },
-    { "$ref": "#/$defs/addScene" },
-    { "$ref": "#/$defs/duplicateScene" },
-    { "$ref": "#/$defs/deleteScene" },
-    { "$ref": "#/$defs/setSceneBackground" },
-    { "$ref": "#/$defs/setCharacterResource" },
-    { "$ref": "#/$defs/setCharacterAnimation" },
-    { "$ref": "#/$defs/addCharacter" },
-    { "$ref": "#/$defs/deleteElement" },
-    { "$ref": "#/$defs/placeCharacterResource" },
-    { "$ref": "#/$defs/setCharacterTransform" },
-    { "$ref": "#/$defs/setDialogueTurn" },
-    { "$ref": "#/$defs/addDialogueTurn" },
-    { "$ref": "#/$defs/deleteDialogueTurn" },
-    { "$ref": "#/$defs/setDialogueSpeaker" },
-    { "$ref": "#/$defs/setTransition" },
-    { "$ref": "#/$defs/reorderScenes" },
-    { "$ref": "#/$defs/splitScene" },
-    { "$ref": "#/$defs/reorderDialogueTurns" }
+    {
+      "$ref": "#/$defs/selectScene"
+    },
+    {
+      "$ref": "#/$defs/setProjectTitle"
+    },
+    {
+      "$ref": "#/$defs/setSceneTitle"
+    },
+    {
+      "$ref": "#/$defs/addScene"
+    },
+    {
+      "$ref": "#/$defs/duplicateScene"
+    },
+    {
+      "$ref": "#/$defs/deleteScene"
+    },
+    {
+      "$ref": "#/$defs/setSceneBackground"
+    },
+    {
+      "$ref": "#/$defs/setCharacterResource"
+    },
+    {
+      "$ref": "#/$defs/setCharacterAnimation"
+    },
+    {
+      "$ref": "#/$defs/addCharacter"
+    },
+    {
+      "$ref": "#/$defs/deleteElement"
+    },
+    {
+      "$ref": "#/$defs/placeCharacterResource"
+    },
+    {
+      "$ref": "#/$defs/setCharacterTransform"
+    },
+    {
+      "$ref": "#/$defs/setDialogueTurn"
+    },
+    {
+      "$ref": "#/$defs/addDialogueTurn"
+    },
+    {
+      "$ref": "#/$defs/deleteDialogueTurn"
+    },
+    {
+      "$ref": "#/$defs/setDialogueSpeaker"
+    },
+    {
+      "$ref": "#/$defs/setTransition"
+    },
+    {
+      "$ref": "#/$defs/reorderScenes"
+    },
+    {
+      "$ref": "#/$defs/splitScene"
+    },
+    {
+      "$ref": "#/$defs/reorderDialogueTurns"
+    },
+    {
+      "$ref": "#/$defs/addKeyframe"
+    },
+    {
+      "$ref": "#/$defs/setKeyframe"
+    },
+    {
+      "$ref": "#/$defs/deleteKeyframe"
+    },
+    {
+      "$ref": "#/$defs/deleteTrack"
+    },
+    {
+      "$ref": "#/$defs/createTrack"
+    }
   ],
   "$defs": {
-    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$"
+    },
     "selectScene": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId"],
-      "properties": { "type": { "const": "select-scene" }, "sceneId": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId"
+      ],
+      "properties": {
+        "type": {
+          "const": "select-scene"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "setProjectTitle": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "title"],
-      "properties": { "type": { "const": "set-project-title" }, "title": { "type": "string", "minLength": 1, "maxLength": 120 } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title"
+      ],
+      "properties": {
+        "type": {
+          "const": "set-project-title"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
     },
     "setSceneTitle": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "title"],
-      "properties": { "type": { "const": "set-scene-title" }, "sceneId": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1, "maxLength": 120 } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "title"
+      ],
+      "properties": {
+        "type": {
+          "const": "set-scene-title"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
     },
     "addScene": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "scene"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "scene"
+      ],
       "properties": {
-        "type": { "const": "add-scene" },
+        "type": {
+          "const": "add-scene"
+        },
         "scene": {
-          "type": "object", "additionalProperties": false,
-          "required": ["id", "title", "background", "elements", "dialogue"],
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "title",
+            "background",
+            "elements",
+            "dialogue"
+          ],
           "properties": {
-            "id": { "$ref": "#/$defs/id" },
-            "title": { "type": "string", "minLength": 1, "maxLength": 120 },
-            "background": {
-              "type": "object", "additionalProperties": false,
-              "required": ["resourceId", "cameraPreset"],
-              "properties": { "resourceId": { "$ref": "#/$defs/id" }, "cameraPreset": { "$ref": "#/$defs/id" } }
+            "id": {
+              "$ref": "#/$defs/id"
             },
-            "elements": { "type": "array", "maxItems": 0 },
-            "dialogue": { "type": "array", "maxItems": 0 }
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "background": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "resourceId",
+                "cameraPreset"
+              ],
+              "properties": {
+                "resourceId": {
+                  "$ref": "#/$defs/id"
+                },
+                "cameraPreset": {
+                  "$ref": "#/$defs/id"
+                }
+              }
+            },
+            "elements": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "dialogue": {
+              "type": "array",
+              "maxItems": 0
+            }
           }
         }
       }
     },
     "duplicateScene": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "newSceneId", "title"],
-      "properties": { "type": { "const": "duplicate-scene" }, "sceneId": { "$ref": "#/$defs/id" }, "newSceneId": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1, "maxLength": 120 } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "newSceneId",
+        "title"
+      ],
+      "properties": {
+        "type": {
+          "const": "duplicate-scene"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "newSceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
     },
     "deleteScene": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId"],
-      "properties": { "type": { "const": "delete-scene" }, "sceneId": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId"
+      ],
+      "properties": {
+        "type": {
+          "const": "delete-scene"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "setSceneBackground": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "resourceId", "cameraPreset"],
-      "properties": { "type": { "const": "set-scene-background" }, "sceneId": { "$ref": "#/$defs/id" }, "resourceId": { "$ref": "#/$defs/id" }, "cameraPreset": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "resourceId",
+        "cameraPreset"
+      ],
+      "properties": {
+        "type": {
+          "const": "set-scene-background"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "resourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "cameraPreset": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "setCharacterResource": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "elementId", "resourceId"],
-      "properties": { "type": { "const": "set-character-resource" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" }, "resourceId": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "resourceId"
+      ],
+      "properties": {
+        "type": {
+          "const": "set-character-resource"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "resourceId": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "setCharacterAnimation": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "elementId", "animationPreset"],
-      "properties": { "type": { "const": "set-character-animation" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" }, "animationPreset": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "animationPreset"
+      ],
+      "properties": {
+        "type": {
+          "const": "set-character-animation"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "animationPreset": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "addCharacter": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "elementId", "resourceId", "x", "y", "scale", "zIndex"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "resourceId",
+        "x",
+        "y",
+        "scale",
+        "zIndex"
+      ],
       "properties": {
-        "type": { "const": "add-character" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" },
-        "resourceId": { "$ref": "#/$defs/id" }, "x": { "type": "number", "minimum": -1080, "maximum": 2160 },
-        "y": { "type": "number", "minimum": -1920, "maximum": 3840 }, "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
-        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+        "type": {
+          "const": "add-character"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "resourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "x": {
+          "type": "number",
+          "minimum": -1080,
+          "maximum": 2160
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1920,
+          "maximum": 3840
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10
+        },
+        "zIndex": {
+          "type": "integer",
+          "minimum": -1000,
+          "maximum": 1000
+        }
       }
     },
     "deleteElement": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "elementId"],
-      "properties": { "type": { "const": "delete-element" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId"
+      ],
+      "properties": {
+        "type": {
+          "const": "delete-element"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "placeCharacterResource": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "elementId", "resourceId", "x", "y"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "resourceId",
+        "x",
+        "y"
+      ],
       "properties": {
-        "type": { "const": "place-character-resource" },
-        "sceneId": { "$ref": "#/$defs/id" },
-        "elementId": { "$ref": "#/$defs/id" },
-        "resourceId": { "$ref": "#/$defs/id" },
-        "x": { "type": "number", "minimum": -1080, "maximum": 2160 },
-        "y": { "type": "number", "minimum": -1920, "maximum": 3840 }
+        "type": {
+          "const": "place-character-resource"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "resourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "x": {
+          "type": "number",
+          "minimum": -1080,
+          "maximum": 2160
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1920,
+          "maximum": 3840
+        }
       }
     },
     "setCharacterTransform": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "elementId"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId"
+      ],
       "anyOf": [
-        { "properties": { "x": true }, "required": ["x"] },
-        { "properties": { "y": true }, "required": ["y"] },
-        { "properties": { "scale": true }, "required": ["scale"] },
-        { "properties": { "zIndex": true }, "required": ["zIndex"] }
+        {
+          "properties": {
+            "x": true
+          },
+          "required": [
+            "x"
+          ]
+        },
+        {
+          "properties": {
+            "y": true
+          },
+          "required": [
+            "y"
+          ]
+        },
+        {
+          "properties": {
+            "scale": true
+          },
+          "required": [
+            "scale"
+          ]
+        },
+        {
+          "properties": {
+            "zIndex": true
+          },
+          "required": [
+            "zIndex"
+          ]
+        }
       ],
       "properties": {
-        "type": { "const": "set-character-transform" }, "sceneId": { "$ref": "#/$defs/id" }, "elementId": { "$ref": "#/$defs/id" },
-        "x": { "type": "number", "minimum": -1080, "maximum": 2160 },
-        "y": { "type": "number", "minimum": -1920, "maximum": 3840 },
-        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
-        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+        "type": {
+          "const": "set-character-transform"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "x": {
+          "type": "number",
+          "minimum": -1080,
+          "maximum": 2160
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1920,
+          "maximum": 3840
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10
+        },
+        "zIndex": {
+          "type": "integer",
+          "minimum": -1000,
+          "maximum": 1000
+        }
       }
     },
     "setDialogueTurn": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "turnId"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "turnId"
+      ],
       "anyOf": [
-        { "properties": { "text": true }, "required": ["text"] },
-        { "properties": { "voiceId": true }, "required": ["voiceId"] },
-        { "properties": { "gestureId": true }, "required": ["gestureId"] },
-        { "properties": { "gestureAtWord": true }, "required": ["gestureAtWord"] },
-        { "properties": { "pace": true }, "required": ["pace"] },
-        { "properties": { "layoutPreset": true }, "required": ["layoutPreset"] },
-        { "properties": { "gapAfterSeconds": true }, "required": ["gapAfterSeconds"] }
+        {
+          "properties": {
+            "text": true
+          },
+          "required": [
+            "text"
+          ]
+        },
+        {
+          "properties": {
+            "voiceId": true
+          },
+          "required": [
+            "voiceId"
+          ]
+        },
+        {
+          "properties": {
+            "gestureId": true
+          },
+          "required": [
+            "gestureId"
+          ]
+        },
+        {
+          "properties": {
+            "gestureAtWord": true
+          },
+          "required": [
+            "gestureAtWord"
+          ]
+        },
+        {
+          "properties": {
+            "pace": true
+          },
+          "required": [
+            "pace"
+          ]
+        },
+        {
+          "properties": {
+            "layoutPreset": true
+          },
+          "required": [
+            "layoutPreset"
+          ]
+        },
+        {
+          "properties": {
+            "gapAfterSeconds": true
+          },
+          "required": [
+            "gapAfterSeconds"
+          ]
+        }
       ],
       "properties": {
-        "type": { "const": "set-dialogue-turn" }, "sceneId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
-        "text": { "type": "string", "minLength": 1, "maxLength": 500 }, "voiceId": { "$ref": "#/$defs/id" },
-        "gestureId": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
-        "gestureAtWord": { "type": "integer", "minimum": 0, "maximum": 99 },
-        "pace": { "enum": ["slow", "normal", "fast"] },
-        "layoutPreset": { "enum": ["balanced", "focus-a", "focus-b", "close-up-a", "close-up-b", "wide", "stacked"] },
-        "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
+        "type": {
+          "const": "set-dialogue-turn"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "turnId": {
+          "$ref": "#/$defs/id"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "voiceId": {
+          "$ref": "#/$defs/id"
+        },
+        "gestureId": {
+          "enum": [
+            "neutral",
+            "point",
+            "celebrate",
+            "doubt",
+            "deny"
+          ]
+        },
+        "gestureAtWord": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "pace": {
+          "enum": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "layoutPreset": {
+          "enum": [
+            "balanced",
+            "focus-a",
+            "focus-b",
+            "close-up-a",
+            "close-up-b",
+            "wide",
+            "stacked"
+          ]
+        },
+        "gapAfterSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        }
       }
     },
     "addDialogueTurn": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "turnId", "speakerElementId", "text", "voiceId", "gestureId", "gapAfterSeconds"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "turnId",
+        "speakerElementId",
+        "text",
+        "voiceId",
+        "gestureId",
+        "gapAfterSeconds"
+      ],
       "properties": {
-        "type": { "const": "add-dialogue-turn" }, "sceneId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" },
-        "speakerElementId": { "$ref": "#/$defs/id" }, "text": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "voiceId": { "$ref": "#/$defs/id" }, "gestureId": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
-        "gestureAtWord": { "type": "integer", "minimum": 0, "maximum": 99 },
-        "pace": { "enum": ["slow", "normal", "fast"] },
-        "layoutPreset": { "enum": ["balanced", "focus-a", "focus-b", "close-up-a", "close-up-b", "wide", "stacked"] },
-        "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }, "afterTurnId": { "$ref": "#/$defs/id" }
+        "type": {
+          "const": "add-dialogue-turn"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "turnId": {
+          "$ref": "#/$defs/id"
+        },
+        "speakerElementId": {
+          "$ref": "#/$defs/id"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "voiceId": {
+          "$ref": "#/$defs/id"
+        },
+        "gestureId": {
+          "enum": [
+            "neutral",
+            "point",
+            "celebrate",
+            "doubt",
+            "deny"
+          ]
+        },
+        "gestureAtWord": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "pace": {
+          "enum": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "layoutPreset": {
+          "enum": [
+            "balanced",
+            "focus-a",
+            "focus-b",
+            "close-up-a",
+            "close-up-b",
+            "wide",
+            "stacked"
+          ]
+        },
+        "gapAfterSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "afterTurnId": {
+          "$ref": "#/$defs/id"
+        }
       }
     },
     "deleteDialogueTurn": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "turnId"],
-      "properties": { "type": { "const": "delete-dialogue-turn" }, "sceneId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "turnId"
+      ],
+      "properties": {
+        "type": {
+          "const": "delete-dialogue-turn"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "turnId": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "setDialogueSpeaker": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "turnId", "speakerElementId"],
-      "properties": { "type": { "const": "set-dialogue-speaker" }, "sceneId": { "$ref": "#/$defs/id" }, "turnId": { "$ref": "#/$defs/id" }, "speakerElementId": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "turnId",
+        "speakerElementId"
+      ],
+      "properties": {
+        "type": {
+          "const": "set-dialogue-speaker"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "turnId": {
+          "$ref": "#/$defs/id"
+        },
+        "speakerElementId": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "setTransition": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "preset", "durationSeconds"],
-      "properties": { "type": { "const": "set-transition" }, "sceneId": { "$ref": "#/$defs/id" }, "preset": { "enum": ["cut", "fade"] }, "durationSeconds": { "type": "number", "minimum": 0, "maximum": 2 } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "preset",
+        "durationSeconds"
+      ],
+      "properties": {
+        "type": {
+          "const": "set-transition"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "preset": {
+          "enum": [
+            "cut",
+            "fade"
+          ]
+        },
+        "durationSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        }
+      }
     },
     "reorderScenes": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneIds"],
-      "properties": { "type": { "const": "reorder-scenes" }, "sceneIds": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneIds"
+      ],
+      "properties": {
+        "type": {
+          "const": "reorder-scenes"
+        },
+        "sceneIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
     },
     "splitScene": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "atTurnId", "newSceneId"],
-      "properties": { "type": { "const": "split-scene" }, "sceneId": { "$ref": "#/$defs/id" }, "atTurnId": { "$ref": "#/$defs/id" }, "newSceneId": { "$ref": "#/$defs/id" } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "atTurnId",
+        "newSceneId"
+      ],
+      "properties": {
+        "type": {
+          "const": "split-scene"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "atTurnId": {
+          "$ref": "#/$defs/id"
+        },
+        "newSceneId": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "reorderDialogueTurns": {
-      "type": "object", "additionalProperties": false,
-      "required": ["type", "sceneId", "turnIds"],
-      "properties": { "type": { "const": "reorder-dialogue-turns" }, "sceneId": { "$ref": "#/$defs/id" }, "turnIds": { "type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } } }
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "turnIds"
+      ],
+      "properties": {
+        "type": {
+          "const": "reorder-dialogue-turns"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "turnIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
+    },
+    "animationAnchor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "edge"
+          ],
+          "properties": {
+            "kind": {
+              "const": "scene"
+            },
+            "edge": {
+              "enum": [
+                "start",
+                "end"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "turnId",
+            "edge"
+          ],
+          "properties": {
+            "kind": {
+              "const": "turn"
+            },
+            "turnId": {
+              "$ref": "#/$defs/id"
+            },
+            "edge": {
+              "enum": [
+                "start",
+                "end"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "turnId",
+            "wordIndex"
+          ],
+          "properties": {
+            "kind": {
+              "const": "word"
+            },
+            "turnId": {
+              "$ref": "#/$defs/id"
+            },
+            "wordIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99
+            }
+          }
+        }
+      ]
+    },
+    "addKeyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "parameterId",
+        "keyframeId",
+        "anchor",
+        "offsetSeconds",
+        "value",
+        "interpolation"
+      ],
+      "properties": {
+        "type": {
+          "const": "add-keyframe"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "parameterId": {
+          "enum": [
+            "position.x",
+            "position.y",
+            "scale",
+            "rotationDegrees",
+            "opacity",
+            "armRaise"
+          ]
+        },
+        "keyframeId": {
+          "$ref": "#/$defs/id"
+        },
+        "anchor": {
+          "$ref": "#/$defs/animationAnchor"
+        },
+        "offsetSeconds": {
+          "type": "number",
+          "minimum": -5,
+          "maximum": 5
+        },
+        "value": {
+          "type": "number",
+          "minimum": -3840,
+          "maximum": 3840
+        },
+        "interpolation": {
+          "enum": [
+            "linear",
+            "ease",
+            "hold"
+          ]
+        }
+      }
+    },
+    "setKeyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "parameterId",
+        "keyframeId"
+      ],
+      "anyOf": [
+        {
+          "properties": {
+            "value": true
+          },
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "properties": {
+            "offsetSeconds": true
+          },
+          "required": [
+            "offsetSeconds"
+          ]
+        },
+        {
+          "properties": {
+            "interpolation": true
+          },
+          "required": [
+            "interpolation"
+          ]
+        },
+        {
+          "properties": {
+            "anchor": true
+          },
+          "required": [
+            "anchor"
+          ]
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "set-keyframe"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "parameterId": {
+          "enum": [
+            "position.x",
+            "position.y",
+            "scale",
+            "rotationDegrees",
+            "opacity",
+            "armRaise"
+          ]
+        },
+        "keyframeId": {
+          "$ref": "#/$defs/id"
+        },
+        "anchor": {
+          "$ref": "#/$defs/animationAnchor"
+        },
+        "offsetSeconds": {
+          "type": "number",
+          "minimum": -5,
+          "maximum": 5
+        },
+        "value": {
+          "type": "number",
+          "minimum": -3840,
+          "maximum": 3840
+        },
+        "interpolation": {
+          "enum": [
+            "linear",
+            "ease",
+            "hold"
+          ]
+        }
+      }
+    },
+    "deleteKeyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "parameterId",
+        "keyframeId"
+      ],
+      "properties": {
+        "type": {
+          "const": "delete-keyframe"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "parameterId": {
+          "enum": [
+            "position.x",
+            "position.y",
+            "scale",
+            "rotationDegrees",
+            "opacity",
+            "armRaise"
+          ]
+        },
+        "keyframeId": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "deleteTrack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "parameterId"
+      ],
+      "properties": {
+        "type": {
+          "const": "delete-track"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "parameterId": {
+          "enum": [
+            "position.x",
+            "position.y",
+            "scale",
+            "rotationDegrees",
+            "opacity",
+            "armRaise"
+          ]
+        }
+      }
+    },
+    "createTrack": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Crea una pista completa. Es atómico a propósito: una pista de un solo keyframe no cumple el contrato, así que no puede existir ni siquiera como paso intermedio.",
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "parameterId",
+        "keyframes"
+      ],
+      "properties": {
+        "type": {
+          "const": "create-track"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "parameterId": {
+          "enum": [
+            "position.x",
+            "position.y",
+            "scale",
+            "rotationDegrees",
+            "opacity",
+            "armRaise"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/animationSource"
+        },
+        "keyframes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/animationKeyframe"
+          }
+        }
+      }
+    },
+    "animationSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "presetId",
+            "version",
+            "customized"
+          ],
+          "properties": {
+            "kind": {
+              "const": "preset"
+            },
+            "presetId": {
+              "enum": [
+                "enter-left",
+                "enter-right",
+                "fade-in",
+                "fade-out",
+                "emphasis-pulse",
+                "arm-raise"
+              ]
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999
+            },
+            "customized": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "manual"
+            }
+          }
+        }
+      ]
+    },
+    "animationKeyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "anchor",
+        "offsetSeconds",
+        "value",
+        "interpolation"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "anchor": {
+          "$ref": "#/$defs/animationAnchor"
+        },
+        "offsetSeconds": {
+          "type": "number",
+          "minimum": -5,
+          "maximum": 5
+        },
+        "value": {
+          "type": "number",
+          "minimum": -3840,
+          "maximum": 3840
+        },
+        "interpolation": {
+          "enum": [
+            "linear",
+            "ease",
+            "hold"
+          ]
+        }
+      }
     }
   }
 }

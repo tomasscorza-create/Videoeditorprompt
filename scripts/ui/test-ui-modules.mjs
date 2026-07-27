@@ -46,10 +46,11 @@ if (compile.status !== 0) {
 // El dir temporal necesita ser tratado como ESM y contener el motor que store.js importa.
 writeFileSync(path.join(outDir, 'package.json'), '{"type":"module"}\n');
 mkdirSync(path.join(outDir, 'shared'), { recursive: true });
-copyFileSync(
-  path.join(projectRoot, 'shared', 'project-editor.js'),
-  path.join(outDir, 'shared', 'project-editor.js'),
-);
+// El motor y todo lo que importa: `project-editor.js` lee el vocabulario
+// congelado de animación desde `animation-contract.js`.
+for (const name of ['project-editor.js', 'animation-contract.js']) {
+  copyFileSync(path.join(projectRoot, 'shared', name), path.join(outDir, 'shared', name));
+}
 
 const workspacePath = path.join(outDir, 'src', 'ui', 'editor-workspace.js');
 const storePath = path.join(outDir, 'src', 'ui', 'project', 'store.js');

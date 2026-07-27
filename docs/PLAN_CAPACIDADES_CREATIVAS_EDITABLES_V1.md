@@ -479,6 +479,27 @@ Sin hacer:
 **Gate:** cada parámetro V1 se crea, localiza, modifica, elimina, deshace,
 previsualiza y exporta desde la interfaz.
 
+**Estado: lote 1 hecho el 27 de julio de 2026** (capa de datos; la interfaz no).
+
+- `tracks` entra al proyecto editable como campo **opcional**: un proyecto sin
+  pistas sigue siendo válido.
+- Cinco comandos cerrados con undo/redo. `create-track` es **atómico a propósito**:
+  una pista de un solo keyframe no cumple el contrato, así que no puede existir ni
+  siquiera como paso intermedio de la edición. `add-keyframe` exige que la pista
+  ya exista.
+- Editar a mano una pista que vino de un preset la marca `customized` y no la
+  regenera.
+- Borrar keyframes hasta dejar menos de dos elimina la pista entera, en vez de
+  dejarla en un estado que el contrato rechaza.
+- El último keyframe se fuerza a `hold` después de cada edición.
+- El vocabulario y los límites salen de `shared/animation-contract.js`: el editor
+  los aplica, no los repite. `armRaise` se rechaza si el recurso no lo declara,
+  que es el caso de los ocho personajes v2.
+- 14 comprobaciones en `npm run stage3b:test-keyframes`.
+
+Falta el resto de la fase: timeline de keyframes, inspector, modo animación del
+lienzo, transiciones como bloques editables, y que el render lea las pistas.
+
 ### Fase 5 — Presets editables
 
 - Crear catálogo versionado de seis presets.

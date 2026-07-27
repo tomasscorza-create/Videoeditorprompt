@@ -52,6 +52,7 @@
     "stage3b:publish-project": "node scripts/stage3b/publish-project.mjs --project=pilots/proyecto-compilable-01/project.json --assets-dir=public --publish-dir=public/projects",
     "stage3b:test-publishing": "node scripts/stage3b/test-project-publishing.mjs",
     "stage3b:test-contracts": "node scripts/stage3b/test-contract-compatibility.mjs",
+    "stage3b:test-keyframes": "node scripts/stage3b/test-keyframe-commands.mjs",
     "anim:test-contract": "node scripts/animation/test-animation-contract.mjs",
     "anim:test-evaluator": "node scripts/animation/test-animation-evaluator.mjs",
     "compositor:test-contract": "node scripts/compositor/test-compositor-contract.mjs",

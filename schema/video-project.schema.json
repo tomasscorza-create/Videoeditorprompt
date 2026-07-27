@@ -5,125 +5,348 @@
   "description": "Documento de autoría portable compartido por edición manual y generación guiada.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "id", "title", "video", "seed", "resourceCatalog", "scenes"],
+  "required": [
+    "version",
+    "id",
+    "title",
+    "video",
+    "seed",
+    "resourceCatalog",
+    "scenes"
+  ],
   "properties": {
-    "version": { "const": 1 },
-    "id": { "$ref": "#/$defs/id" },
-    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
     "video": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["width", "height", "fps"],
+      "required": [
+        "width",
+        "height",
+        "fps"
+      ],
       "properties": {
-        "width": { "const": 1080 },
-        "height": { "const": 1920 },
-        "fps": { "const": 30 }
+        "width": {
+          "const": 1080
+        },
+        "height": {
+          "const": 1920
+        },
+        "fps": {
+          "const": 30
+        }
       }
     },
-    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-    "resourceCatalog": { "$ref": "#/$defs/assetPath" },
-    "musicResourceId": { "$ref": "#/$defs/id" },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "resourceCatalog": {
+      "$ref": "#/$defs/assetPath"
+    },
+    "musicResourceId": {
+      "$ref": "#/$defs/id"
+    },
     "scenes": {
       "type": "array",
       "minItems": 1,
       "maxItems": 8,
-      "items": { "$ref": "#/$defs/scene" }
+      "items": {
+        "$ref": "#/$defs/scene"
+      }
     }
   },
   "$defs": {
-    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
-    "assetPath": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$"
+    },
+    "assetPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
     "transform": {
       "type": "object",
       "description": "Transform editable en el canvas: origen (0,0) arriba a la izquierda, X hacia la derecha, Y hacia abajo, ancla normalizada y rotación positiva en sentido horario.",
       "additionalProperties": false,
-      "required": ["x", "y", "anchorX", "anchorY", "scale", "rotationDegrees", "opacity", "zIndex"],
+      "required": [
+        "x",
+        "y",
+        "anchorX",
+        "anchorY",
+        "scale",
+        "rotationDegrees",
+        "opacity",
+        "zIndex"
+      ],
       "properties": {
-        "x": { "type": "number", "minimum": -1080, "maximum": 2160, "description": "Posición horizontal en píxeles desde el borde izquierdo." },
-        "y": { "type": "number", "minimum": -1920, "maximum": 3840, "description": "Posición vertical en píxeles desde el borde superior." },
-        "anchorX": { "type": "number", "minimum": 0, "maximum": 1, "description": "Pivote horizontal normalizado dentro del elemento." },
-        "anchorY": { "type": "number", "minimum": 0, "maximum": 1, "description": "Pivote vertical normalizado dentro del elemento." },
-        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
-        "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180, "description": "Rotación en grados; los valores positivos giran en sentido horario." },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+        "x": {
+          "type": "number",
+          "minimum": -1080,
+          "maximum": 2160,
+          "description": "Posición horizontal en píxeles desde el borde izquierdo."
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1920,
+          "maximum": 3840,
+          "description": "Posición vertical en píxeles desde el borde superior."
+        },
+        "anchorX": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Pivote horizontal normalizado dentro del elemento."
+        },
+        "anchorY": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Pivote vertical normalizado dentro del elemento."
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10
+        },
+        "rotationDegrees": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "description": "Rotación en grados; los valores positivos giran en sentido horario."
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "zIndex": {
+          "type": "integer",
+          "minimum": -1000,
+          "maximum": 1000
+        }
       }
     },
     "characterElement": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type", "resourceId", "transform", "poseId", "animationPreset"],
+      "required": [
+        "id",
+        "type",
+        "resourceId",
+        "transform",
+        "poseId",
+        "animationPreset"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "type": { "const": "character" },
-        "resourceId": { "$ref": "#/$defs/id" },
-        "transform": { "$ref": "#/$defs/transform" },
-        "poseId": { "$ref": "#/$defs/id" },
-        "animationPreset": { "$ref": "#/$defs/id" }
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "character"
+        },
+        "resourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "transform": {
+          "$ref": "#/$defs/transform"
+        },
+        "poseId": {
+          "$ref": "#/$defs/id"
+        },
+        "animationPreset": {
+          "$ref": "#/$defs/id"
+        },
+        "tracks": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/animationTrack"
+          },
+          "description": "Pistas de animación por parámetro. Opcional y aditivo: un proyecto sin pistas sigue siendo válido. El vocabulario es el mismo que congela schema/animation-scene.schema.json."
+        }
       }
     },
     "imageElement": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type", "resourceId", "transform"],
+      "required": [
+        "id",
+        "type",
+        "resourceId",
+        "transform"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "type": { "const": "image" },
-        "resourceId": { "$ref": "#/$defs/id" },
-        "transform": { "$ref": "#/$defs/transform" }
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "image"
+        },
+        "resourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "transform": {
+          "$ref": "#/$defs/transform"
+        }
       }
     },
     "textElement": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type", "text", "stylePreset", "transform"],
+      "required": [
+        "id",
+        "type",
+        "text",
+        "stylePreset",
+        "transform"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "type": { "const": "text" },
-        "text": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "stylePreset": { "enum": ["title", "body", "caption"] },
-        "transform": { "$ref": "#/$defs/transform" }
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "text"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "stylePreset": {
+          "enum": [
+            "title",
+            "body",
+            "caption"
+          ]
+        },
+        "transform": {
+          "$ref": "#/$defs/transform"
+        }
       }
     },
     "dialogueTurn": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "speakerElementId", "text", "voiceId", "gestureId", "gapAfterSeconds"],
+      "required": [
+        "id",
+        "speakerElementId",
+        "text",
+        "voiceId",
+        "gestureId",
+        "gapAfterSeconds"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "speakerElementId": { "$ref": "#/$defs/id" },
-        "text": { "type": "string", "minLength": 1, "maxLength": 500 },
-        "voiceId": { "$ref": "#/$defs/id" },
-        "gestureId": { "enum": ["neutral", "point", "celebrate", "doubt", "deny"] },
-        "gestureAtWord": { "type": "integer", "minimum": 0, "maximum": 99 },
-        "pace": { "enum": ["slow", "normal", "fast"] },
-        "layoutPreset": { "$ref": "#/$defs/id" },
-        "gapAfterSeconds": { "type": "number", "minimum": 0, "maximum": 5 }
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "speakerElementId": {
+          "$ref": "#/$defs/id"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "voiceId": {
+          "$ref": "#/$defs/id"
+        },
+        "gestureId": {
+          "enum": [
+            "neutral",
+            "point",
+            "celebrate",
+            "doubt",
+            "deny"
+          ]
+        },
+        "gestureAtWord": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "pace": {
+          "enum": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "layoutPreset": {
+          "$ref": "#/$defs/id"
+        },
+        "gapAfterSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        }
       }
     },
     "transition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["preset", "durationSeconds"],
+      "required": [
+        "preset",
+        "durationSeconds"
+      ],
       "properties": {
-        "preset": { "enum": ["cut", "fade"] },
-        "durationSeconds": { "type": "number", "minimum": 0, "maximum": 2 }
+        "preset": {
+          "enum": [
+            "cut",
+            "fade"
+          ]
+        },
+        "durationSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        }
       }
     },
     "scene": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "background", "elements", "dialogue"],
+      "required": [
+        "id",
+        "title",
+        "background",
+        "elements",
+        "dialogue"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
         "background": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["resourceId", "cameraPreset"],
+          "required": [
+            "resourceId",
+            "cameraPreset"
+          ],
           "properties": {
-            "resourceId": { "$ref": "#/$defs/id" },
-            "cameraPreset": { "$ref": "#/$defs/id" }
+            "resourceId": {
+              "$ref": "#/$defs/id"
+            },
+            "cameraPreset": {
+              "$ref": "#/$defs/id"
+            }
           }
         },
         "elements": {
@@ -132,18 +355,211 @@
           "maxItems": 20,
           "items": {
             "oneOf": [
-              { "$ref": "#/$defs/characterElement" },
-              { "$ref": "#/$defs/imageElement" },
-              { "$ref": "#/$defs/textElement" }
+              {
+                "$ref": "#/$defs/characterElement"
+              },
+              {
+                "$ref": "#/$defs/imageElement"
+              },
+              {
+                "$ref": "#/$defs/textElement"
+              }
             ]
           }
         },
         "dialogue": {
           "type": "array",
           "maxItems": 20,
-          "items": { "$ref": "#/$defs/dialogueTurn" }
+          "items": {
+            "$ref": "#/$defs/dialogueTurn"
+          }
         },
-        "transitionToNext": { "$ref": "#/$defs/transition" }
+        "transitionToNext": {
+          "$ref": "#/$defs/transition"
+        }
+      }
+    },
+    "animationAnchor": {
+      "description": "Referencia semántica estable; el tiempo absoluto se resuelve después de medir el audio.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "edge"
+          ],
+          "properties": {
+            "kind": {
+              "const": "scene"
+            },
+            "edge": {
+              "enum": [
+                "start",
+                "end"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "turnId",
+            "edge"
+          ],
+          "properties": {
+            "kind": {
+              "const": "turn"
+            },
+            "turnId": {
+              "$ref": "#/$defs/id"
+            },
+            "edge": {
+              "enum": [
+                "start",
+                "end"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "turnId",
+            "wordIndex"
+          ],
+          "properties": {
+            "kind": {
+              "const": "word"
+            },
+            "turnId": {
+              "$ref": "#/$defs/id"
+            },
+            "wordIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 99
+            }
+          }
+        }
+      ]
+    },
+    "animationKeyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "anchor",
+        "offsetSeconds",
+        "value",
+        "interpolation"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "anchor": {
+          "$ref": "#/$defs/animationAnchor"
+        },
+        "offsetSeconds": {
+          "type": "number",
+          "minimum": -5,
+          "maximum": 5
+        },
+        "value": {
+          "type": "number",
+          "minimum": -3840,
+          "maximum": 3840
+        },
+        "interpolation": {
+          "enum": [
+            "linear",
+            "ease",
+            "hold"
+          ]
+        }
+      }
+    },
+    "animationTrack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parameterId",
+        "source",
+        "keyframes"
+      ],
+      "properties": {
+        "parameterId": {
+          "enum": [
+            "position.x",
+            "position.y",
+            "scale",
+            "rotationDegrees",
+            "opacity",
+            "armRaise"
+          ]
+        },
+        "source": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "presetId",
+                "version",
+                "customized"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "preset"
+                },
+                "presetId": {
+                  "enum": [
+                    "enter-left",
+                    "enter-right",
+                    "fade-in",
+                    "fade-out",
+                    "emphasis-pulse",
+                    "arm-raise"
+                  ]
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 999
+                },
+                "customized": {
+                  "type": "boolean"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "manual"
+                }
+              }
+            }
+          ]
+        },
+        "keyframes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/animationKeyframe"
+          }
+        }
       }
     }
   }
