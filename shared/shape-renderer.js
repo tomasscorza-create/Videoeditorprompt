@@ -77,8 +77,35 @@ export function shapeToMarkup(shape, palette = {}) {
   return `<${shape.type} ${attributes}/>`;
 }
 
-/** Documento SVG completo con las primitivas ya resueltas. */
-export function shapesToSvgDocument(canvas, shapes, palette = {}) {
-  const body = shapes.map((shape) => `  ${shapeToMarkup(shape, palette)}`).join('\n');
+function svgWrapper(canvas, body) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}">\n${body}\n</svg>\n`;
+}
+
+/**
+ * Documento SVG completo con las primitivas ya resueltas.
+ *
+ * La salida de esta función está congelada byte a byte: de ella dependen los
+ * hashes de los recursos v2 ya publicados. Para composiciones con rotación de
+ * piezas existe `shapeGroupsToSvgDocument`, que es una función aparte
+ * precisamente para no arriesgar esta salida.
+ */
+export function shapesToSvgDocument(canvas, shapes, palette = {}) {
+  return svgWrapper(canvas, shapes.map((shape) => `  ${shapeToMarkup(shape, palette)}`).join('\n'));
+}
+
+/**
+ * Documento SVG de varias piezas, cada una con su rotación opcional alrededor de
+ * su propio pivote. Lo usa el compilador de recursos v3 para las miniaturas de
+ * pose, donde el brazo aparece rotado en vez de redibujado.
+ *
+ * Cada grupo es `{ shapes, rotation }` y `rotation` es `{ degrees, x, y }` o nulo.
+ */
+export function shapeGroupsToSvgDocument(canvas, groups, palette = {}) {
+  const body = groups.map((group) => {
+    const markup = group.shapes.map((shape) => `    ${shapeToMarkup(shape, palette)}`).join('\n');
+    if (!group.rotation || !group.rotation.degrees) return `  <g>\n${markup}\n  </g>`;
+    const { degrees, x, y } = group.rotation;
+    return `  <g transform="rotate(${degrees} ${x} ${y})">\n${markup}\n  </g>`;
+  }).join('\n');
+  return svgWrapper(canvas, body);
 }

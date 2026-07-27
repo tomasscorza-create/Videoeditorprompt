@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local-video.invalid/schema/resource-manifest-v3.json",
-  "title": "Manifest de recurso animable compilado (v3)",
-  "description": "Aditivo sobre el rig v2: agrega piezas con pivote y jerarquía, el tipo prop y la declaración de parámetros animables con sus bindings. Un manifest v2 sigue siendo válido en su propio contrato y se lee como v3 mediante el adaptador de lectura.",
+  "$id": "https://local-video.invalid/schema/parametric-resource-v3.json",
+  "title": "Definición paramétrica de recurso animable (v3)",
+  "description": "Entrada del compilador de recursos v3. A diferencia de la definición v1, las primitivas se agrupan en piezas con pivote y jerarquía, cada una rasterizada en su propia capa. Las primitivas se reutilizan del contrato v1 para no duplicar el vocabulario geométrico.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "id", "kind", "canvas", "pivot", "sourceDefinition", "variant", "parts", "parameters", "bindings", "provenance"],
+  "required": ["version", "id", "kind", "canvas", "pivot", "variants", "parts", "parameters", "bindings", "provenance"],
   "properties": {
     "version": { "const": 3 },
     "id": { "$ref": "#/$defs/id" },
@@ -15,16 +15,15 @@
       "properties": { "width": { "const": 1080 }, "height": { "const": 1920 } }
     },
     "pivot": { "$ref": "#/$defs/point" },
-    "sourceDefinition": { "$ref": "#/$defs/assetPath" },
-    "variant": {
-      "type": "object", "additionalProperties": false, "required": ["id", "label", "palette"],
-      "properties": {
-        "id": { "$ref": "#/$defs/id" },
-        "label": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "palette": {
-          "type": "object", "minProperties": 1, "maxProperties": 24,
-          "propertyNames": { "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,31}$" },
-          "additionalProperties": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$" }
+    "variants": {
+      "type": "array", "minItems": 1, "maxItems": 12,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "outputId", "label", "palette"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "outputId": { "$ref": "#/$defs/id" },
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "palette": { "$ref": "#/$defs/palette" }
         }
       }
     },
@@ -37,7 +36,6 @@
   },
   "allOf": [
     {
-      "description": "Un personaje mantiene los estados de ojos, boca y manos del contrato v2 y sus poses. Un prop no tiene ni una cosa ni la otra.",
       "if": { "type": "object", "properties": { "kind": { "const": "character" } }, "required": ["kind"] },
       "then": {
         "type": "object",
@@ -55,46 +53,38 @@
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
-    "assetPath": { "type": "string", "minLength": 1, "maxLength": 512 },
     "point": {
       "type": "object", "additionalProperties": false, "required": ["x", "y"],
       "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
     },
+    "palette": {
+      "type": "object", "minProperties": 1, "maxProperties": 24,
+      "propertyNames": { "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,31}$" },
+      "additionalProperties": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$" }
+    },
+    "shapeList": { "$ref": "https://local-video.invalid/schema/parametric-character-v1.json#/$defs/shapeList" },
     "part": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "parentId", "pivot", "zIndex"],
-      "description": "Pieza compositable. `pivot` está en coordenadas del lienzo y es el centro de rotación de la pieza. Sin `layer` la pieza es solo un grupo que agrupa hijas.",
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "parentId", "pivot", "zIndex", "shapes"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "parentId": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
         "pivot": { "$ref": "#/$defs/point" },
         "zIndex": { "type": "integer", "minimum": -100, "maximum": 100 },
-        "layer": { "$ref": "#/$defs/assetPath" }
+        "shapes": { "$ref": "#/$defs/shapeList" }
       }
     },
     "states": {
-      "description": "Capas que se intercambian en lugar de transformarse. `hands` es opcional: un recurso articulado expresa el gesto rotando la pieza del brazo, y solo los recursos traducidos desde v2 traen estados de mano pre-posados.",
-      "type": "object", "additionalProperties": false, "required": ["eyes", "mouth", "thumbnails"],
+      "type": "object", "additionalProperties": false, "required": ["eyes", "mouth"],
       "properties": {
         "eyes": {
           "type": "object", "additionalProperties": false, "required": ["open", "closed"],
-          "properties": { "open": { "$ref": "#/$defs/assetPath" }, "closed": { "$ref": "#/$defs/assetPath" } }
+          "properties": { "open": { "$ref": "#/$defs/shapeList" }, "closed": { "$ref": "#/$defs/shapeList" } }
         },
         "mouth": {
           "type": "object", "minProperties": 3, "maxProperties": 6,
           "propertyNames": { "$ref": "#/$defs/id" },
-          "additionalProperties": { "$ref": "#/$defs/assetPath" }
-        },
-        "hands": {
-          "type": "object", "minProperties": 2, "maxProperties": 8,
-          "propertyNames": { "$ref": "#/$defs/id" },
-          "additionalProperties": { "$ref": "#/$defs/assetPath" }
-        },
-        "thumbnails": {
-          "type": "object", "minProperties": 2, "maxProperties": 24,
-          "propertyNames": { "$ref": "#/$defs/id" },
-          "additionalProperties": { "$ref": "#/$defs/assetPath" }
+          "additionalProperties": { "$ref": "#/$defs/shapeList" }
         }
       }
     },
@@ -102,9 +92,8 @@
       "type": "object", "additionalProperties": false, "required": ["id", "parts"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "handState": { "$ref": "#/$defs/id" },
         "parts": {
-          "type": "array", "maxItems": 32,
+          "type": "array", "minItems": 1, "maxItems": 32,
           "items": {
             "type": "object", "additionalProperties": false, "required": ["partId", "rotationDegrees"],
             "properties": { "partId": { "$ref": "#/$defs/id" }, "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180 } }
@@ -113,10 +102,7 @@
       }
     },
     "parameter": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "minimum", "maximum", "default"],
-      "description": "Parámetro animable que el recurso ofrece. El id sale del vocabulario congelado en la Fase 0 y solo se declaran los que requieren soporte del recurso.",
+      "type": "object", "additionalProperties": false, "required": ["id", "minimum", "maximum", "default"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "minimum": { "type": "number", "minimum": -3840, "maximum": 3840 },
@@ -125,10 +111,7 @@
       }
     },
     "binding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["parameterId", "partId", "channel", "from", "to"],
-      "description": "Mapeo lineal y determinista: el mínimo del parámetro produce `from` en el canal de la pieza y el máximo produce `to`.",
+      "type": "object", "additionalProperties": false, "required": ["parameterId", "partId", "channel", "from", "to"],
       "properties": {
         "parameterId": { "$ref": "#/$defs/id" },
         "partId": { "$ref": "#/$defs/id" },

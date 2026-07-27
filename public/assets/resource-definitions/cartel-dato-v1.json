@@ -1,0 +1,126 @@
+{
+  "version": 3,
+  "id": "def-cartel-dato-v1",
+  "kind": "prop",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "variants": [
+    {
+      "id": "base",
+      "outputId": "cartel-dato-v1",
+      "label": "Cartel de dato",
+      "palette": {
+        "outline": "#24150f",
+        "board": "#f4e9d9",
+        "accent": "#e35b55",
+        "wood": "#b0763f",
+        "shadow": "#0a102059"
+      }
+    }
+  ],
+  "parts": [
+    {
+      "id": "handle",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 1080
+      },
+      "zIndex": 0,
+      "shapes": [
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 1520,
+          "rx": 150,
+          "ry": 34,
+          "fill": "$shadow"
+        },
+        {
+          "type": "rect",
+          "x": 508,
+          "y": 1040,
+          "width": 64,
+          "height": 460,
+          "fill": "$wood",
+          "rx": 26,
+          "stroke": "$outline",
+          "strokeWidth": 14
+        }
+      ]
+    },
+    {
+      "id": "board",
+      "parentId": "handle",
+      "pivot": {
+        "x": 540,
+        "y": 820
+      },
+      "zIndex": 1,
+      "shapes": [
+        {
+          "type": "rect",
+          "x": 240,
+          "y": 560,
+          "width": 600,
+          "height": 520,
+          "fill": "$board",
+          "rx": 46,
+          "stroke": "$outline",
+          "strokeWidth": 18
+        },
+        {
+          "type": "rect",
+          "x": 300,
+          "y": 626,
+          "width": 480,
+          "height": 78,
+          "fill": "$accent",
+          "rx": 24
+        },
+        {
+          "type": "rect",
+          "x": 300,
+          "y": 760,
+          "width": 480,
+          "height": 34,
+          "fill": "$outline",
+          "rx": 17,
+          "opacity": 0.35
+        },
+        {
+          "type": "rect",
+          "x": 300,
+          "y": 838,
+          "width": 360,
+          "height": 34,
+          "fill": "$outline",
+          "rx": 17,
+          "opacity": 0.35
+        },
+        {
+          "type": "rect",
+          "x": 300,
+          "y": 916,
+          "width": 420,
+          "height": 34,
+          "fill": "$outline",
+          "rx": 17,
+          "opacity": 0.35
+        }
+      ]
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": {
+    "source": "Definicion geometrica original del proyecto para el prop piloto de la Fase 1.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

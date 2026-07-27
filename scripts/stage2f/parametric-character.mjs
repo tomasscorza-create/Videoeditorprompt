@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
-import { ensureDirectory, projectRoot, readJson, run, writeJson } from '../stage1/common.mjs';
+import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
 import { shapesToSvgDocument } from '../../shared/shape-renderer.js';
+import { rasterizeSvg, withBrowserProfile } from './rasterizer.mjs';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateDefinitionSchema = ajv.compile(readJson(path.join(projectRoot, 'schema', 'parametric-character.schema.json')));
@@ -59,11 +58,9 @@ export function compileParametricCharacter(options) {
   const sourceDefinition = toPortable(path.relative(assetsRoot, definitionPath));
   assertPortablePath(sourceDefinition, 'sourceDefinition');
   const definition = loadParametricCharacterDefinition(definitionPath);
-  const browserExecutable = resolveBrowserExecutable();
-  const browserProfile = mkdtempSync(path.join(tmpdir(), 'local-video-stage2f-'));
   const artifacts = [];
 
-  try {
+  withBrowserProfile(({ browserExecutable, browserProfile }) => {
     for (const variant of definition.variants) {
       const variantRoot = path.join(outputBase, variant.outputId);
       assertWithin(outputBase, variantRoot, `variante ${variant.id}`);
@@ -126,9 +123,7 @@ export function compileParametricCharacter(options) {
         hashes: Object.fromEntries(files.sort().map((file) => [toPortable(path.relative(variantRoot, file)), fileHash(file)])),
       });
     }
-  } finally {
-    rmSync(browserProfile, { recursive: true, force: true });
-  }
+  });
 
   const catalog = {
     version: 1,
@@ -224,37 +219,6 @@ function flattenLayers(layers) {
 
 function renderSvg(canvas, shapes, palette) {
   return shapesToSvgDocument(canvas, shapes, palette);
-}
-
-function rasterizeSvg(browserExecutable, browserProfile, svgPath, pngPath, canvas) {
-  run(browserExecutable, [
-    '--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1',
-    '--default-background-color=00000000', `--window-size=${canvas.width},${canvas.height}`,
-    // Flags de estabilidad para entornos headless/CI: sin ellos, Chrome intenta
-    // registro GCM, actualización de componentes y modelos on-device por red, lo que
-    // cuelga el runner hasta el timeout. No afectan el output rasterizado (determinismo).
-    '--no-sandbox', '--no-first-run', '--no-default-browser-check',
-    '--disable-background-networking', '--disable-sync', '--disable-component-update',
-    '--disable-default-apps', '--disable-extensions', '--metrics-recording-only',
-    '--disable-features=OptimizationGuideModelDownloading,Translate,MediaRouter,DialMediaRouteProvider',
-    `--user-data-dir=${browserProfile}`, `--screenshot=${pngPath}`, pathToFileURL(svgPath).href,
-  ], { stage: 'generating_assets', errorCode: 'BROWSER_ASSET_GENERATION_FAILED' });
-}
-
-function resolveBrowserExecutable() {
-  const executable = [
-    process.env.LOCAL_VIDEO_CHROMIUM,
-    process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'Google/Chrome/Application/chrome.exe'),
-    process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'Microsoft/Edge/Application/msedge.exe'),
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-  ].find((candidate) => candidate && existsSync(candidate));
-  if (!executable) throw new PipelineError({
-    code: 'BROWSER_RUNTIME_NOT_FOUND', stage: 'generating_assets',
-    message: 'No se encontró Chrome/Edge para rasterizar los SVG.',
-    suggestedAction: 'Configure LOCAL_VIDEO_CHROMIUM con un navegador compatible.',
-  });
-  return executable;
 }
 
 function assertSchema(validate, value, code, message) {

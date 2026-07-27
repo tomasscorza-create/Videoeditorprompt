@@ -15,18 +15,39 @@
         "required": ["id", "type", "label", "manifest", "thumbnail", "tags", "capabilities", "provenance"],
         "properties": {
           "id": { "$ref": "#/$defs/id" },
-          "type": { "const": "character" },
+          "type": { "enum": ["character", "prop"] },
           "label": { "type": "string", "minLength": 1, "maxLength": 100 },
           "manifest": { "$ref": "#/$defs/assetPath" },
           "thumbnail": { "$ref": "#/$defs/assetPath" },
           "tags": { "type": "array", "maxItems": 24, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 40 } },
           "capabilities": {
-            "type": "object", "additionalProperties": false, "required": ["poses", "mouthStates", "joints"],
-            "properties": {
-              "poses": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
-              "mouthStates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
-              "joints": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
-            }
+            "description": "Tres formas según el origen: personaje v2 (joints declarados sin píxeles), personaje v3 (piezas y parámetros animables) y prop v3.",
+            "oneOf": [
+              {
+                "type": "object", "additionalProperties": false, "required": ["poses", "mouthStates", "joints"],
+                "properties": {
+                  "poses": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+                  "mouthStates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+                  "joints": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false, "required": ["poses", "mouthStates", "parts", "parameters"],
+                "properties": {
+                  "poses": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+                  "mouthStates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+                  "parts": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+                  "parameters": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false, "required": ["parts", "parameters"],
+                "properties": {
+                  "parts": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+                  "parameters": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+                }
+              }
+            ]
           },
           "provenance": {
             "type": "object", "additionalProperties": false, "required": ["source", "license"],

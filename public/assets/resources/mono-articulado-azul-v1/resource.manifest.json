@@ -1,0 +1,141 @@
+{
+  "version": 3,
+  "id": "mono-articulado-azul-v1",
+  "kind": "character",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/resource-definitions/mono-articulado-v1.json",
+  "variant": {
+    "id": "azul",
+    "label": "Mono articulado azul",
+    "palette": {
+      "outline": "#24150f",
+      "fur": "#9a5636",
+      "lightFur": "#d89a69",
+      "suit": "#24385f",
+      "shirt": "#f4e9d9",
+      "accent": "#e35b55",
+      "white": "#fffaf0",
+      "mouthDark": "#3a1720",
+      "tongue": "#ef7c78",
+      "shadow": "#0a102059"
+    }
+  },
+  "parts": [
+    {
+      "id": "torso",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "layer": "part_torso.png"
+    },
+    {
+      "id": "arm_right",
+      "parentId": "torso",
+      "pivot": {
+        "x": 690,
+        "y": 1010
+      },
+      "zIndex": 10,
+      "layer": "part_arm_right.png"
+    }
+  ],
+  "states": {
+    "eyes": {
+      "open": "eyes_open.png",
+      "closed": "eyes_closed.png"
+    },
+    "mouth": {
+      "closed": "mouth_closed.png",
+      "medium": "mouth_medium.png",
+      "open": "mouth_open.png",
+      "round": "mouth_round.png",
+      "labiodental": "mouth_labiodental.png",
+      "bilabial": "mouth_bilabial.png"
+    },
+    "thumbnails": {
+      "neutral": "pose_neutral.png",
+      "point": "pose_point.png",
+      "celebrate": "pose_celebrate.png",
+      "doubt": "pose_doubt.png",
+      "deny": "pose_deny.png"
+    }
+  },
+  "poses": [
+    {
+      "id": "neutral",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -42
+        }
+      ]
+    },
+    {
+      "id": "celebrate",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -72
+        }
+      ]
+    },
+    {
+      "id": "doubt",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -24
+        }
+      ]
+    },
+    {
+      "id": "deny",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -12
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "armRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    }
+  ],
+  "bindings": [
+    {
+      "parameterId": "armRaise",
+      "partId": "arm_right",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": -95
+    }
+  ],
+  "provenance": {
+    "source": "Derivado de la definicion geometrica del mono parametrico del proyecto, con el brazo derecho separado en su propia pieza y pivote en el hombro.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

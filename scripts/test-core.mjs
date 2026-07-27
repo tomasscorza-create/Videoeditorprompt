@@ -10,6 +10,7 @@ const commands = [
   'stage2f:test-parametric',
   'stage2f:test-hash-baseline',
   'stage2f:test-resource-manifest',
+  'stage2f:test-resource',
   'stage3a:test-project',
   'stage3a:test-compiler',
   'stage3a:test-assembly',

@@ -61,3 +61,14 @@ export function shapesToSvgDocument(
   shapes: readonly (PrimitiveShape | Record<string, any>)[],
   palette?: Record<string, string>,
 ): string;
+
+export interface ShapeGroup {
+  shapes: readonly (PrimitiveShape | Record<string, any>)[];
+  rotation?: { degrees: number; x: number; y: number } | null;
+}
+
+export function shapeGroupsToSvgDocument(
+  canvas: ShapeCanvas,
+  groups: readonly ShapeGroup[],
+  palette?: Record<string, string>,
+): string;

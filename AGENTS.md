@@ -103,6 +103,9 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `shared/shape-renderer.js`: único renderizador de primitivas, compartido por el Creador y el compilador de assets. El orden de atributos es contrato: la salida SVG tiene que quedar idéntica byte a byte.
 - `schema/resource-manifest-v3.schema.json` y `scripts/stage2f/resource-manifest.mjs`: manifest de recurso v3 (piezas con pivote y jerarquía, tipo `prop`, parámetros animables con bindings) y adaptador de lectura v2 → v3 sin pérdida.
 - `pilots/recursos-v3/`: fixtures del manifest v3 (un personaje articulado y un prop).
+- `schema/parametric-resource-v3.schema.json` y `scripts/stage2f/parametric-resource.mjs`: definición y compilador de recursos v3. Rasteriza **una capa por pieza** y fusiona el catálogo en vez de sobrescribirlo. El compilador v1 → v2 de `parametric-character.mjs` no se toca.
+- `scripts/stage2f/rasterizer.mjs`: rasterizado con Chrome headless, compartido por los dos compiladores. Los flags determinan el determinismo del PNG.
+- `public/assets/resource-definitions/`: definiciones v3. `mono-articulado-v1` (brazo derecho como pieza propia con pivote en el hombro, declara `armRaise`) y `cartel-dato-v1` (prop piloto).
 - `schema/published-project-index.schema.json`: índice versionado de proyectos compatibles publicados para la UI.
 - `shared/project-editor.js`: estado inmutable, validación, comandos, undo/redo, catálogo y exportación del proyecto de autoría.
 - `scripts/stage3a/validate-video-project.mjs`: validación estructural, semántica y de recursos del proyecto editable.
@@ -192,6 +195,8 @@ npm run stage3b:test-publishing # índice, portabilidad, hashes y rechazo de pro
 npm run anim:test-contract # vocabulario, límites, errores y estado de revisión de la animación V1
 npm run stage2f:test-hash-baseline     # los assets compilados siguen coincidiendo con los publicados
 npm run stage2f:test-resource-manifest # manifest de recurso v3 y adaptador de lectura v2 → v3
+npm run stage2f:test-resource          # compilador v3 y los dos pilotos (rasteriza de verdad)
+npm run stage2f:resource-assets -- --definition=assets/resource-definitions/mono-articulado-v1.json
 npm run director:test-plan # contrato, catálogo, límites y normalización determinista
 npm run director:test-context # ranking, shortlist, plantillas y recursos requeridos
 npm run director:test-ollama # adaptador, salida estructurada, caché y fallos
@@ -242,7 +247,8 @@ Para otros trabajos, invocar `scripts/stage1/pipeline.mjs` con `--job-id` y las 
 - El servicio local acepta un solo render activo, recupera estados interrumpidos y no es un backend multiusuario ni una cola durable.
 - La UI usa verificación interactiva de una pasada; la CLI conserva la verificación completa de dos pasadas por defecto.
 - La animación por keyframes tiene su vocabulario, sus límites, sus errores y su estado visible congelados en la Fase 0, pero **no está implementada**: ni el evaluador ni la interfaz saben de pistas. `animationPreset` (`idle-calm`/`talk-calm`) sigue siendo movimiento base continuo, no un preset de keyframes.
-- El manifest v3 permite **declarar** piezas articuladas, props y parámetros con bindings, pero **ningún recurso publicado los usa**: los ocho personajes vigentes son v2, así que el adaptador les devuelve `parameters: []` y `armRaise` no está disponible en ninguno. El compilador todavía no sabe generar recursos v3.
+- Ya existen dos recursos v3 compilados (`mono-articulado-azul-v1` y `cartel-dato-v1`, en `public/assets/resources/`), pero **no están en el catálogo de autoría ni en la biblioteca a propósito**: el pipeline de render lee manifests v2 (`character.manifest.json`), así que ofrecerlos en la interfaz dejaría colocar en una escena algo que después no renderiza. Se exponen cuando exista el compositor de la Fase 3.
+- Los ocho personajes que sí usa la aplicación siguen siendo v2: el adaptador les devuelve `parameters: []` y `armRaise` no está disponible en ninguno.
 - La timeline muestra capas estructurales y permite selección/navegación, pero cortar o estirar clips, keyframes libres y mezcla editable de música/SFX siguen fuera de alcance. El runtime ya admite una pista musical opcional por video con loop y ducking fijo; todavía no hay clips musicales editables ni SFX puntuales.
 - `public/projects` es una publicación regenerable para la UI, no almacenamiento del motor. Solo lista proyectos aceptados por 3A y 3B.0; debe regenerarse antes del build que se quiera distribuir.
 - 3A.1 solo compila escenas con exactamente dos personajes, al menos dos turnos, pose inicial neutral, ancla central, rotación 0 y opacidad 1. Texto, imágenes y otros transforms se rechazan explícitamente hasta que el runtime pueda representarlos.

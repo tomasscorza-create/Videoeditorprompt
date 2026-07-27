@@ -125,12 +125,20 @@ export function validateResourceManifestV3(manifest) {
   }
 
   if (manifest.kind === 'character') {
-    const handStates = new Set(Object.keys(manifest.states.hands));
+    const handStates = new Set(Object.keys(manifest.states.hands ?? {}));
     const poseIds = new Set();
     for (const pose of manifest.poses) {
       if (poseIds.has(pose.id)) semanticError(`Pose duplicada: ${pose.id}`);
       poseIds.add(pose.id);
-      if (!handStates.has(pose.handState)) semanticError(`La pose ${pose.id} usa el estado de manos inexistente ${pose.handState}.`);
+      // Un gesto se expresa de una de dos maneras: intercambiando la capa de la
+      // mano (recursos traducidos desde v2) o rotando piezas (recursos v3
+      // articulados). Una pose que no hace ninguna de las dos no es una pose.
+      if (pose.handState !== undefined && !handStates.has(pose.handState)) {
+        semanticError(`La pose ${pose.id} usa el estado de manos inexistente ${pose.handState}.`);
+      }
+      if (pose.handState === undefined && pose.parts.length === 0) {
+        semanticError(`La pose ${pose.id} no cambia nada: sin estado de manos y sin rotación de piezas.`);
+      }
       const posed = new Set();
       for (const item of pose.parts) {
         if (!partIds.has(item.partId)) semanticError(`La pose ${pose.id} referencia la pieza inexistente ${item.partId}.`);

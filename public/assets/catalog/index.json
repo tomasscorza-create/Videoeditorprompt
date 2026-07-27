@@ -15,10 +15,19 @@
       ],
       "capabilities": {
         "poses": [
-          "neutral", "point", "celebrate", "doubt", "deny"
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "mouthStates": [
-          "closed", "medium", "open", "round", "labiodental", "bilabial"
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
         ],
         "joints": [
           "root",
@@ -47,10 +56,19 @@
       ],
       "capabilities": {
         "poses": [
-          "neutral", "point", "celebrate", "doubt", "deny"
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "mouthStates": [
-          "closed", "medium", "open", "round", "labiodental", "bilabial"
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
         ],
         "joints": [
           "root",
@@ -79,10 +97,19 @@
       ],
       "capabilities": {
         "poses": [
-          "neutral", "point", "celebrate", "doubt", "deny"
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "mouthStates": [
-          "closed", "medium", "open", "round", "labiodental", "bilabial"
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
         ],
         "joints": [
           "root",
@@ -111,10 +138,19 @@
       ],
       "capabilities": {
         "poses": [
-          "neutral", "point", "celebrate", "doubt", "deny"
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "mouthStates": [
-          "closed", "medium", "open", "round", "labiodental", "bilabial"
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
         ],
         "joints": [
           "root",
@@ -143,10 +179,19 @@
       ],
       "capabilities": {
         "poses": [
-          "neutral", "point", "celebrate", "doubt", "deny"
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "mouthStates": [
-          "closed", "medium", "open", "round", "labiodental", "bilabial"
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
         ],
         "joints": [
           "root",
@@ -175,10 +220,19 @@
       ],
       "capabilities": {
         "poses": [
-          "neutral", "point", "celebrate", "doubt", "deny"
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
         ],
         "mouthStates": [
-          "closed", "medium", "open", "round", "labiodental", "bilabial"
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
         ],
         "joints": [
           "root",
@@ -225,6 +279,67 @@
       "provenance": {
         "source": "Creado con el diseñador local de personajes a partir de primitivas declarativas.",
         "license": "Creación local del usuario."
+      }
+    },
+    {
+      "id": "mono-articulado-azul-v1",
+      "type": "character",
+      "label": "Mono articulado azul",
+      "manifest": "assets/resources/mono-articulado-azul-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/mono-articulado-azul-v1/pose_neutral.png",
+      "tags": [
+        "parametrico",
+        "character"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
+        ],
+        "parts": [
+          "torso",
+          "arm_right"
+        ],
+        "parameters": [
+          "armRaise"
+        ]
+      },
+      "provenance": {
+        "source": "Derivado de la definicion geometrica del mono parametrico del proyecto, con el brazo derecho separado en su propia pieza y pivote en el hombro.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
+      "id": "cartel-dato-v1",
+      "type": "prop",
+      "label": "Cartel de dato",
+      "manifest": "assets/resources/cartel-dato-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/cartel-dato-v1/preview.png",
+      "tags": [
+        "parametrico",
+        "prop"
+      ],
+      "capabilities": {
+        "parts": [
+          "handle",
+          "board"
+        ],
+        "parameters": []
+      },
+      "provenance": {
+        "source": "Definicion geometrica original del proyecto para el prop piloto de la Fase 1.",
+        "license": "Asset original para uso interno del proyecto."
       }
     }
   ]
