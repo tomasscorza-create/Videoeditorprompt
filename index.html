@@ -112,76 +112,85 @@
               </div>
             </header>
 
-            <label class="field" for="director-prompt">
-              <span id="director-prompt-label">Idea del video</span>
-              <textarea id="director-prompt" rows="6" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
-            </label>
-
-            <div id="director-constraints" class="director-constraints" aria-label="Parámetros editoriales">
-              <label class="field" for="director-tone">
-                <span>Tono</span>
-                <select id="director-tone">
-                  <option value="educational">Educativo</option>
-                  <option value="ironic">Irónico</option>
-                  <option value="serious">Serio</option>
-                  <option value="energetic">Enérgico</option>
-                  <option value="inspirational">Inspirador</option>
-                </select>
-              </label>
-              <label class="field" for="director-duration">
-                <span>Duración objetivo</span>
-                <select id="director-duration">
-                  <option value="15">15 s</option>
-                  <option value="30" selected>30 s</option>
-                  <option value="45">45 s</option>
-                  <option value="60">60 s</option>
-                </select>
-              </label>
-              <label class="field" for="director-scenes">
-                <span>Escenas</span>
-                <select id="director-scenes">
-                  <option value="1">1</option>
-                  <option value="2" selected>2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                </select>
-              </label>
-              <div class="director-quality-options">
-                <label class="toggle-option" for="director-think">
-                  <input id="director-think" type="checkbox">
-                  <span>
-                    Calidad máxima
-                    <small>Activa razonamiento; tarda más.</small>
-                  </span>
-                </label>
-                <label class="field" for="director-best-of">
-                  <span>Variantes a comparar</span>
-                  <select id="director-best-of">
-                    <option value="1" selected>1 · Rápido</option>
-                    <option value="2">2 · Mejor selección</option>
-                    <option value="3">3 · Máxima variedad</option>
-                  </select>
-                </label>
-              </div>
+            <div class="director-page-tabs" role="tablist" aria-label="Flujo del Director">
+              <button id="director-page-command-tab" class="director-page-tab is-active" data-director-page="command" type="button" role="tab" aria-selected="true" aria-controls="director-page-command">Idea</button>
+              <button id="director-page-project-tab" class="director-page-tab" data-director-page="project" type="button" role="tab" aria-selected="false" aria-controls="director-page-project" disabled>Propuesta</button>
+              <button id="director-page-render-tab" class="director-page-tab" data-director-page="render" type="button" role="tab" aria-selected="false" aria-controls="director-page-render">Render</button>
             </div>
 
-            <div class="action-row">
-              <button id="director-generate" class="primary-button" type="button">Crear propuesta</button>
-              <button id="director-cancel" type="button" disabled>Cancelar</button>
-            </div>
-            <div class="status-block">
+            <div class="status-block director-global-status">
               <p id="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
             </div>
 
-            <details id="director-proposal-details" class="director-proposal-details" hidden>
-              <summary>
+            <div id="director-page-command" class="director-page" role="tabpanel" aria-labelledby="director-page-command-tab">
+              <label class="field" for="director-prompt">
+                <span id="director-prompt-label">Idea del video</span>
+                <textarea id="director-prompt" rows="6" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
+              </label>
+
+              <div id="director-constraints" class="director-constraints" aria-label="Parámetros editoriales">
+                <label class="field" for="director-tone">
+                  <span>Tono</span>
+                  <select id="director-tone">
+                    <option value="educational">Educativo</option>
+                    <option value="ironic">Irónico</option>
+                    <option value="serious">Serio</option>
+                    <option value="energetic">Enérgico</option>
+                    <option value="inspirational">Inspirador</option>
+                  </select>
+                </label>
+                <label class="field" for="director-duration">
+                  <span>Duración objetivo</span>
+                  <select id="director-duration">
+                    <option value="15">15 s</option>
+                    <option value="30" selected>30 s</option>
+                    <option value="45">45 s</option>
+                    <option value="60">60 s</option>
+                  </select>
+                </label>
+                <label class="field" for="director-scenes">
+                  <span>Escenas</span>
+                  <select id="director-scenes">
+                    <option value="1">1</option>
+                    <option value="2" selected>2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                  </select>
+                </label>
+                <div class="director-quality-options">
+                  <label class="toggle-option" for="director-think">
+                    <input id="director-think" type="checkbox">
+                    <span>
+                      Calidad máxima
+                      <small>Activa razonamiento; tarda más.</small>
+                    </span>
+                  </label>
+                  <label class="field" for="director-best-of">
+                    <span>Variantes a comparar</span>
+                    <select id="director-best-of">
+                      <option value="1" selected>1 · Rápido</option>
+                      <option value="2">2 · Mejor selección</option>
+                      <option value="3">3 · Máxima variedad</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="action-row">
+                <button id="director-generate" class="primary-button" type="button">Crear propuesta</button>
+                <button id="director-proposal-cancel" type="button" disabled>Cancelar</button>
+              </div>
+            </div>
+
+            <div id="director-page-project" class="director-page" role="tabpanel" aria-labelledby="director-page-project-tab" hidden>
+              <header class="director-project-header">
                 <span class="proposal-summary-copy">
                   <span id="proposal-kind" class="eyebrow">Propuesta</span>
                   <strong id="proposal-title">Revisar y ajustar</strong>
                 </span>
-              </summary>
-              <section class="project-editor" id="project-editor" aria-label="Propuesta editable del Director" hidden>
-                <div class="proposal-tabs" role="tablist" aria-label="Secciones de la propuesta">
+              </header>
+              <section class="project-editor" id="project-editor" aria-label="Proyecto editable del Director" hidden>
+                <div class="proposal-tabs" role="tablist" aria-label="Secciones del proyecto">
                   <button class="proposal-tab is-active" data-proposal-tab="scene" type="button" role="tab" aria-selected="true">Escena</button>
                   <button class="proposal-tab" data-proposal-tab="elements" type="button" role="tab" aria-selected="false">Personajes</button>
                   <button class="proposal-tab" data-proposal-tab="background" type="button" role="tab" aria-selected="false">Fondo</button>
@@ -191,20 +200,24 @@
                   <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
                 </div>
               </section>
-            </details>
-          </section>
+            </div>
 
-          <section class="render-section" aria-labelledby="render-title">
-            <header class="section-header compact">
-              <div>
-                <span class="eyebrow">Exportar</span>
-                <h2 id="render-title">Render local</h2>
+            <div id="director-page-render" class="director-page" role="tabpanel" aria-labelledby="director-page-render-tab" hidden>
+              <header class="section-header compact">
+                <div>
+                  <span class="eyebrow">Exportar</span>
+                  <h2 id="render-title">Render local</h2>
+                </div>
+              </header>
+              <p class="muted">Renderizá la revisión actual con voces, tiempos medidos y ensamblado determinista.</p>
+              <div class="action-row director-render-actions">
+                <button id="director-render" class="primary-button" type="button" disabled>Renderizar video</button>
+                <button id="director-cancel" type="button" disabled>Cancelar</button>
               </div>
-            </header>
-            <button id="director-render" class="primary-button full-button" type="button" disabled>Renderizar video</button>
-            <div class="render-progress" id="render-progress" hidden>
-              <div class="progress-track"><span id="render-progress-bar"></span></div>
-              <span id="render-progress-label">Preparando…</span>
+              <div class="render-progress" id="render-progress" hidden>
+                <div class="progress-track"><span id="render-progress-bar"></span></div>
+                <span id="render-progress-label">Preparando…</span>
+              </div>
             </div>
           </section>
 

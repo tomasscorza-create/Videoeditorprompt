@@ -11,13 +11,8 @@ export function initProjectEditor(store: ProjectStore): void {
   const root = optional<HTMLElement>('#project-editor');
   const inspector = optional<HTMLElement>('#scene-inspector');
   const status = optional<HTMLElement>('#project-status');
-  const proposalDetails = optional<HTMLDetailsElement>('#director-proposal-details');
   if (!root || !inspector) return;
   root.hidden = false;
-  if (proposalDetails) {
-    proposalDetails.hidden = false;
-    proposalDetails.open = true;
-  }
 
   const toolUndo = optional<HTMLButtonElement>('#tool-undo');
   const toolRedo = optional<HTMLButtonElement>('#tool-redo');

@@ -17,6 +17,15 @@ import {
   type DirectorGenerationOptions,
   type RenderJob,
 } from './api.js';
+import {
+  DIRECTOR_PAGES,
+  createDirectorNavigation,
+  describeDirectorPages,
+  updateDirectorNavigation,
+  type DirectorNavigationEvent,
+  type DirectorNavigationState,
+  type DirectorPage,
+} from './navigation.js';
 
 const POLL_INTERVAL_MS = 1000;
 const HEALTH_INTERVAL_MS = 15_000;
@@ -31,9 +40,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const bestOf = required<HTMLSelectElement>('#director-best-of');
   const generate = required<HTMLButtonElement>('#director-generate');
   const render = required<HTMLButtonElement>('#director-render');
-  const cancel = required<HTMLButtonElement>('#director-cancel');
+  const proposalCancel = required<HTMLButtonElement>('#director-proposal-cancel');
+  const renderCancel = required<HTMLButtonElement>('#director-cancel');
   const status = required<HTMLElement>('#director-status');
-  const proposalDetails = required<HTMLDetailsElement>('#director-proposal-details');
   const healthBadge = required<HTMLElement>('#director-health-badge');
   const progressRoot = required<HTMLElement>('#render-progress');
   const progressBar = required<HTMLElement>('#render-progress-bar');
@@ -45,18 +54,27 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const constraintsRoot = required<HTMLElement>('#director-constraints');
   const proposalKind = required<HTMLElement>('#proposal-kind');
   const proposalTitle = required<HTMLElement>('#proposal-title');
+  const pageTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-director-page]'));
+  const pagePanels = new Map<DirectorPage, HTMLElement>(
+    DIRECTOR_PAGES.map((page) => [page, required<HTMLElement>(`#director-page-${page}`)] as [DirectorPage, HTMLElement]),
+  );
 
   let variant = 0;
   let store = initialStore;
+  let navigation: DirectorNavigationState = createDirectorNavigation(hasAuthoredContent(store));
   let proposalController: AbortController | null = null;
   let currentJobId: string | null = null;
   let pollTimer: number | null = null;
   let readyForProposal = false;
   let readyForRender = false;
   const renderProjectSnapshots = new Map<string, string>();
+  const subscribedStores = new WeakSet<ProjectStore>();
 
   root.hidden = false;
+  wirePageNavigation();
+  subscribeToStore(store);
   syncDirectorMode();
+  syncPageNavigation();
   syncButtons();
   void refreshHealth();
   void refreshGallery(true);
@@ -82,7 +100,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       report('Escribí una idea de al menos tres caracteres.');
       return;
     }
-    const editing = hasAuthoredContent(store);
+    const editing = navigation.mode === 'editing';
     if (!editing && store?.canUndo() && !window.confirm('Crear otra propuesta reemplazará tus cambios manuales y el historial de deshacer. ¿Continuar?')) {
       return;
     }
@@ -92,7 +110,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     setBusy(true, highQuality
       ? 'El Director IA está comparando propuestas en modo calidad. Puede tardar varios minutos en CPU.'
       : 'El Director IA está preparando la propuesta. Puede tardar entre uno y cuatro minutos en CPU.');
-    cancel.disabled = false;
+    proposalCancel.disabled = false;
     try {
       const result = editing && store
         ? await editProjectWithAi(value, store.project())
@@ -109,11 +127,11 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       } else {
         store = await createProjectStore(result.project);
         onStoreCreated(store);
+        subscribeToStore(store);
       }
       variant += 1;
-      proposalDetails.hidden = false;
-      proposalDetails.open = true;
       prompt.value = '';
+      transitionNavigation({ type: editing ? 'ai-change-applied' : 'proposal-created' });
       syncDirectorMode();
       report(editing
         ? `${appliedCommands} cambio(s) aplicados por el Director. Podés deshacerlos desde la timeline.`
@@ -142,7 +160,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       renderProjectSnapshots.set(job.jobId, JSON.stringify(store.project()));
       currentJobId = job.jobId;
       persistLastJobId(job.jobId);
-      cancel.disabled = false;
+      transitionNavigation({ type: 'render-opened' });
+      renderCancel.disabled = false;
       reportJob(job);
       await refreshGallery(false);
       schedulePoll();
@@ -153,16 +172,18 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     }
   });
 
-  cancel.addEventListener('click', async () => {
+  proposalCancel.addEventListener('click', () => {
     if (proposalController) {
       proposalController.abort();
       void cancelDirectorProposal().catch(() => {});
       proposalController = null;
-      cancel.disabled = true;
-      return;
+      proposalCancel.disabled = true;
     }
+  });
+
+  renderCancel.addEventListener('click', async () => {
     if (!currentJobId) return;
-    cancel.disabled = true;
+    renderCancel.disabled = true;
     try {
       const job = await cancelRenderJob(currentJobId);
       finishPolling();
@@ -172,6 +193,62 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       reportError(error);
     }
   });
+
+  function wirePageNavigation(): void {
+    for (const tab of pageTabs) {
+      tab.addEventListener('click', () => {
+        const page = tab.dataset.directorPage;
+        if (isDirectorPage(page)) transitionNavigation({ type: 'select-page', page });
+      });
+      tab.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const descriptors = describeDirectorPages(navigation).filter((page) => page.enabled);
+        const currentIndex = descriptors.findIndex((page) => page.page === navigation.page);
+        const nextIndex = event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? descriptors.length - 1
+            : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + descriptors.length) % descriptors.length;
+        const next = descriptors[nextIndex]?.page;
+        if (!next) return;
+        transitionNavigation({ type: 'select-page', page: next });
+        pageTabs.find((candidate) => candidate.dataset.directorPage === next)?.focus();
+      });
+    }
+  }
+
+  function subscribeToStore(target: ProjectStore | null): void {
+    if (!target || subscribedStores.has(target)) return;
+    subscribedStores.add(target);
+    target.subscribe(() => {
+      transitionNavigation({
+        type: 'project-availability-changed',
+        available: hasAuthoredContent(target),
+      });
+      syncButtons();
+    });
+  }
+
+  function transitionNavigation(event: DirectorNavigationEvent): void {
+    navigation = updateDirectorNavigation(navigation, event);
+    syncPageNavigation();
+  }
+
+  function syncPageNavigation(): void {
+    for (const descriptor of describeDirectorPages(navigation)) {
+      const tab = pageTabs.find((candidate) => candidate.dataset.directorPage === descriptor.page);
+      if (tab) {
+        tab.textContent = descriptor.label;
+        tab.disabled = !descriptor.enabled;
+        tab.classList.toggle('is-active', descriptor.selected);
+        tab.setAttribute('aria-selected', String(descriptor.selected));
+        tab.tabIndex = descriptor.selected ? 0 : -1;
+      }
+      const panel = pagePanels.get(descriptor.page);
+      if (panel) panel.hidden = !descriptor.selected;
+    }
+  }
 
   function readConstraints(): DirectorConstraints {
     return {
@@ -232,8 +309,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         if (job) {
           if (['queued', 'rendering'].includes(job.state)) {
             currentJobId = job.jobId;
+            transitionNavigation({ type: 'render-opened' });
             setBusy(true);
-            cancel.disabled = false;
+            renderCancel.disabled = false;
             reportJob(job);
             schedulePoll();
           } else if (job.state === 'completed' && job.result) {
@@ -306,9 +384,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   function reportJob(job: RenderJob): void {
     if (job.state === 'completed' && job.result) {
       showCompleted(job, true);
-      proposalKind.textContent = 'Proyecto';
-      proposalTitle.textContent = 'Edición disponible';
-      proposalDetails.open = false;
+      transitionNavigation({ type: 'render-completed' });
+      syncDirectorMode();
       report(`Video completado · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(2)} s.`, true);
       return;
     }
@@ -350,13 +427,14 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     pollTimer = null;
     currentJobId = null;
     setBusy(false);
-    cancel.disabled = true;
+    renderCancel.disabled = true;
   }
 
   function setBusy(busy: boolean, message?: string): void {
     generate.dataset.busy = String(busy);
     render.dataset.busy = String(busy);
-    if (!currentJobId && !proposalController) cancel.disabled = true;
+    if (!proposalController) proposalCancel.disabled = true;
+    if (!currentJobId) renderCancel.disabled = true;
     if (message) report(message, true);
     syncButtons();
   }
@@ -365,10 +443,12 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     const busy = generate.dataset.busy === 'true' || render.dataset.busy === 'true';
     generate.disabled = busy || !readyForProposal;
     render.disabled = busy || store === null || !readyForRender;
+    proposalCancel.disabled = proposalController === null;
+    renderCancel.disabled = currentJobId === null;
   }
 
   function syncDirectorMode(): void {
-    const editing = hasAuthoredContent(store);
+    const editing = navigation.mode === 'editing';
     constraintsRoot.hidden = editing;
     promptLabel.textContent = editing ? 'Pedir un cambio al Director' : 'Idea del video';
     prompt.placeholder = editing
@@ -378,6 +458,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     proposalKind.textContent = editing ? 'Proyecto' : 'Propuesta';
     proposalTitle.textContent = editing ? 'Escenas y ajustes' : 'Revisar y ajustar';
     root.classList.toggle('is-editing-project', editing);
+    syncPageNavigation();
   }
 
   function report(message: string, ok = false): void {
@@ -396,6 +477,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
 
 function hasAuthoredContent(store: ProjectStore | null): boolean {
   return Boolean(store?.project().scenes.some((scene) => scene.elements.length > 0 || scene.dialogue.length > 0));
+}
+
+function isDirectorPage(value: string | undefined): value is DirectorPage {
+  return DIRECTOR_PAGES.includes(value as DirectorPage);
 }
 
 function humanState(state: RenderJob['state']): string {

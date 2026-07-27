@@ -18,6 +18,7 @@ const sources = [
   'src/ui/project/store.ts',
   'src/ui/timeline-geometry.ts',
   'src/ui/director/api.ts',
+  'src/ui/director/navigation.ts',
 ];
 const compile = spawnSync(process.execPath, [
   tsc,
@@ -74,13 +75,16 @@ function fakeVideo() {
 
 const geometryPath = path.join(outDir, 'src', 'ui', 'timeline-geometry.js');
 const apiPath = path.join(outDir, 'src', 'ui', 'director', 'api.js');
+const directorNavigationPath = path.join(outDir, 'src', 'ui', 'director', 'navigation.js');
 assert.equal(existsSync(geometryPath), true, 'timeline-geometry.js no se compiló');
 assert.equal(existsSync(apiPath), true, 'director/api.js no se compiló');
+assert.equal(existsSync(directorNavigationPath), true, 'director/navigation.js no se compiló');
 
 const workspace = await import(pathToFileURL(workspacePath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
+const directorNavigation = await import(pathToFileURL(directorNavigationPath).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 
 let passed = 0;
@@ -106,6 +110,28 @@ check(
     technicalDetail: 'C:\\ruta\\privada\\archivo.json',
   }).includes('ruta'),
 );
+
+// ---- director/navigation.ts: recorrido inicial y modo de ajustes ----
+let directorState = directorNavigation.createDirectorNavigation(false);
+let directorPages = directorNavigation.describeDirectorPages(directorState);
+check('un proyecto vacío inicia en Idea', directorState.mode === 'creation' && directorState.page === 'command');
+check('Propuesta está deshabilitada antes de generar', directorPages.find((page) => page.page === 'project')?.enabled === false);
+directorState = directorNavigation.updateDirectorNavigation(directorState, { type: 'proposal-created' });
+check('generar abre la Propuesta sin salir del recorrido inicial', directorState.mode === 'creation' && directorState.page === 'project');
+directorState = directorNavigation.updateDirectorNavigation(directorState, { type: 'render-opened' });
+check('iniciar el render abre su subpágina', directorState.page === 'render');
+directorState = directorNavigation.updateDirectorNavigation(directorState, { type: 'render-completed' });
+directorPages = directorNavigation.describeDirectorPages(directorState);
+check('el primer render convierte el recorrido en edición', directorState.mode === 'editing' && directorState.page === 'render');
+check('la primera subpágina pasa a Ajustar con IA', directorPages.find((page) => page.page === 'command')?.label === 'Ajustar con IA');
+directorState = directorNavigation.updateDirectorNavigation(directorState, { type: 'ai-change-applied' });
+check('un ajuste aplicado abre Estado actual', directorState.mode === 'editing' && directorState.page === 'project');
+check('un proyecto abierto inicia directamente en ajustes', directorNavigation.createDirectorNavigation(true).mode === 'editing');
+const unavailableProjectState = directorNavigation.updateDirectorNavigation(
+  { mode: 'creation', page: 'project', projectAvailable: true },
+  { type: 'project-availability-changed', available: false },
+);
+check('si deja de haber contenido vuelve a Idea', unavailableProjectState.page === 'command');
 
 // ---- editor-workspace.ts: máquina de estados modo/superficie/vigencia ----
 const video = fakeVideo();

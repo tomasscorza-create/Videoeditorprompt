@@ -508,35 +508,57 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .status-block .error, .project-status.error { color: var(--danger); }
 .status-block .ok, .project-status.ok { color: var(--ok); }
 
-.director-proposal-details {
-  margin-top: .35rem;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+.director-page-tabs {
+  position: sticky;
+  top: -.05rem;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .25rem;
+  margin: 0 -.25rem;
+  padding: .25rem;
+  border: 1px solid var(--border);
+  border-radius: .7rem;
+  background: color-mix(in srgb, var(--surface-2) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+.director-page-tab {
+  min-width: 0;
+  min-height: 2rem;
+  padding: .38rem .3rem;
   overflow: hidden;
-  background: var(--panel-gradient-soft);
-}
-.director-proposal-details > summary {
-  position: relative;
-  min-height: 3.65rem;
-  padding: .7rem 2.2rem .7rem .75rem;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-.director-proposal-details > summary::-webkit-details-marker { display: none; }
-.director-proposal-details > summary::after {
-  content: "⌄";
-  position: absolute;
-  top: 50%;
-  right: .8rem;
   color: var(--muted);
-  transform: translateY(-50%);
+  border-color: transparent;
+  background: transparent;
+  font-size: .68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.director-proposal-details[open] > summary {
+.director-page-tab.is-active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 .2rem .7rem color-mix(in srgb, var(--shadow) 55%, transparent);
+}
+.director-page-tab:disabled {
+  color: color-mix(in srgb, var(--muted) 50%, transparent);
+  background: transparent;
+}
+.director-global-status {
+  min-height: 2.35rem;
+  margin: .55rem 0 .7rem;
+  padding: 0 .1rem .6rem;
   border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
 }
-.director-proposal-details[open] > summary::after { content: "⌃"; }
+.director-global-status p { margin: 0; }
+.director-page { min-width: 0; }
+.director-project-header {
+  padding: .1rem .1rem .65rem;
+  border-bottom: 1px solid var(--border);
+}
+.director-page .project-editor { padding-top: .65rem; }
+.director-page .proposal-tabs { margin: 0 0 .65rem; padding: 0 0 .55rem; }
+.director-render-actions > :first-child { flex: 1; }
 .proposal-summary-copy { display: grid; gap: .15rem; min-width: 0; }
 .proposal-summary-copy strong {
   overflow: hidden;
@@ -544,7 +566,6 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   white-space: nowrap;
 }
 .proposal-summary-copy strong { font-size: .8rem; }
-.director-proposal-details .project-editor { padding: .75rem; }
 
 .health-badge {
   border: 1px solid var(--border);
