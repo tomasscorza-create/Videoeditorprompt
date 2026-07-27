@@ -647,6 +647,19 @@ body.is-resizing .workspace-resizer::before,
 body.is-resizing .timeline-resizer::before {
   background: var(--accent);
 }
+
+body.is-resizing .workspace.is-director-will-collapse #director-resizer::before,
+body.is-resizing .workspace.is-inspector-will-collapse #inspector-resizer::before,
+body.is-resizing .app-shell.is-timeline-will-collapse #timeline-resizer::before {
+  background: var(--danger);
+}
+
+body.is-resizing .workspace.is-director-at-max #director-resizer::before,
+body.is-resizing .workspace.is-inspector-at-max #inspector-resizer::before,
+body.is-resizing .app-shell.is-timeline-at-max #timeline-resizer::before {
+  background: #477ac8;
+}
+
 .workspace-resizer:hover::before,
 .workspace-resizer:focus-visible::before { transform: scaleX(1.35); }
 .timeline-resizer:hover::before,

@@ -23,6 +23,9 @@ type LayoutRatios = {
   directorWillCollapse?: boolean;
   inspectorWillCollapse?: boolean;
   timelineWillCollapse?: boolean;
+  directorAtMax?: boolean;
+  inspectorAtMax?: boolean;
+  timelineAtMax?: boolean;
 };
 
 type ResizableRatio = 'director' | 'inspector' | 'timeline';
@@ -56,6 +59,9 @@ export function initWorkspaceResize(): void {
     if (ratios.directorWillCollapse) workspace.classList.add('is-director-will-collapse');
     else workspace.classList.remove('is-director-will-collapse');
 
+    if (ratios.directorAtMax) workspace.classList.add('is-director-at-max');
+    else workspace.classList.remove('is-director-at-max');
+
     const inspectorExpand = optional<HTMLButtonElement>('#inspector-expand');
     if (ratios.inspectorCollapsed) {
       workspace.classList.add('is-inspector-collapsed');
@@ -67,6 +73,9 @@ export function initWorkspaceResize(): void {
     if (ratios.inspectorWillCollapse) workspace.classList.add('is-inspector-will-collapse');
     else workspace.classList.remove('is-inspector-will-collapse');
 
+    if (ratios.inspectorAtMax) workspace.classList.add('is-inspector-at-max');
+    else workspace.classList.remove('is-inspector-at-max');
+
     const timelineExpand = optional<HTMLButtonElement>('#timeline-expand');
     if (ratios.timelineCollapsed) {
       shell.classList.add('is-timeline-collapsed');
@@ -77,6 +86,9 @@ export function initWorkspaceResize(): void {
     }
     if (ratios.timelineWillCollapse) shell.classList.add('is-timeline-will-collapse');
     else shell.classList.remove('is-timeline-will-collapse');
+
+    if (ratios.timelineAtMax) shell.classList.add('is-timeline-at-max');
+    else shell.classList.remove('is-timeline-at-max');
 
     syncSeparatorValue(directorHandle, ratios.director);
     syncSeparatorValue(inspectorHandle, ratios.inspector);
@@ -97,13 +109,16 @@ export function initWorkspaceResize(): void {
     const ratio = (event.clientX - rect.left) / rect.width;
     ratios.director = ratio;
     const sideMin = Math.max(SIDE_MIN_RATIO, SIDE_MIN_PX / rect.width);
+    const sideMax = Math.min(SIDE_MAX_RATIO, SIDE_MAX_PX / rect.width);
     ratios.directorWillCollapse = ratio < sideMin * 0.7;
+    ratios.directorAtMax = ratio > sideMax - 0.01;
     apply();
   }, () => {
     if (ratios.directorWillCollapse) {
       ratios.directorCollapsed = true;
     }
     ratios.directorWillCollapse = false;
+    ratios.directorAtMax = false;
     apply();
     persist();
   });
@@ -113,13 +128,16 @@ export function initWorkspaceResize(): void {
     const ratio = (rect.right - event.clientX) / rect.width;
     ratios.inspector = ratio;
     const sideMin = Math.max(SIDE_MIN_RATIO, SIDE_MIN_PX / rect.width);
+    const sideMax = Math.min(SIDE_MAX_RATIO, SIDE_MAX_PX / rect.width);
     ratios.inspectorWillCollapse = ratio < sideMin * 0.7;
+    ratios.inspectorAtMax = ratio > sideMax - 0.01;
     apply();
   }, () => {
     if (ratios.inspectorWillCollapse) {
       ratios.inspectorCollapsed = true;
     }
     ratios.inspectorWillCollapse = false;
+    ratios.inspectorAtMax = false;
     apply();
     persist();
   });
@@ -129,13 +147,16 @@ export function initWorkspaceResize(): void {
     const ratio = (rect.bottom - event.clientY) / rect.height;
     ratios.timeline = ratio;
     const timelineMin = Math.max(TIMELINE_MIN_RATIO, TIMELINE_MIN_PX / rect.height);
+    const timelineMax = Math.min(TIMELINE_MAX_RATIO, TIMELINE_MAX_PX / rect.height);
     ratios.timelineWillCollapse = ratio < timelineMin * 0.7;
+    ratios.timelineAtMax = ratio > timelineMax - 0.01;
     apply();
   }, () => {
     if (ratios.timelineWillCollapse) {
       ratios.timelineCollapsed = true;
     }
     ratios.timelineWillCollapse = false;
+    ratios.timelineAtMax = false;
     apply();
     persist();
   });
@@ -256,6 +277,9 @@ function normalizeRatios(input: LayoutRatios, workspaceWidth: number, shellHeigh
     directorWillCollapse: input.directorWillCollapse,
     inspectorWillCollapse: input.inspectorWillCollapse,
     timelineWillCollapse: input.timelineWillCollapse,
+    directorAtMax: input.directorAtMax,
+    inspectorAtMax: input.inspectorAtMax,
+    timelineAtMax: input.timelineAtMax,
   };
 }
 
