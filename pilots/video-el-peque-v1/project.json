@@ -1,0 +1,565 @@
+{
+  "version": 1,
+  "id": "video-el-peque-v1",
+  "title": "Una idea se construye paso a paso",
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "seed": 9238472,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "musicResourceId": "musica-brillante-v1",
+  "scenes": [
+    {
+      "id": "escena-mito",
+      "title": "El mito de la perfección",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-pan"
+      },
+      "elements": [
+        {
+          "id": "el-peque",
+          "type": "character",
+          "resourceId": "el-peque-v1",
+          "transform": {
+            "x": 300,
+            "y": 1110,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.72,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 20
+          },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm",
+          "tracks": [
+            {
+              "parameterId": "position.x",
+              "source": { "kind": "preset", "presetId": "enter-left", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-posx-1",
+                  "anchor": { "kind": "scene", "edge": "start" },
+                  "offsetSeconds": 0,
+                  "value": -120,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-posx-2",
+                  "anchor": { "kind": "scene", "edge": "start" },
+                  "offsetSeconds": 0.6,
+                  "value": 300,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "armRaise",
+              "source": { "kind": "preset", "presetId": "arm-raise", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-arm-1",
+                  "anchor": { "kind": "word", "turnId": "turno-01", "wordIndex": 4 },
+                  "offsetSeconds": -0.1,
+                  "value": 0,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-arm-2",
+                  "anchor": { "kind": "word", "turnId": "turno-01", "wordIndex": 4 },
+                  "offsetSeconds": 0.15,
+                  "value": 1,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-arm-3",
+                  "anchor": { "kind": "word", "turnId": "turno-01", "wordIndex": 4 },
+                  "offsetSeconds": 0.85,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "headTilt",
+              "source": { "kind": "preset", "presetId": "head-tilt", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-tilt-1",
+                  "anchor": { "kind": "word", "turnId": "turno-01", "wordIndex": 7 },
+                  "offsetSeconds": -0.1,
+                  "value": 0,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-tilt-2",
+                  "anchor": { "kind": "word", "turnId": "turno-01", "wordIndex": 7 },
+                  "offsetSeconds": 0.15,
+                  "value": -0.5,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-tilt-3",
+                  "anchor": { "kind": "word", "turnId": "turno-01", "wordIndex": 7 },
+                  "offsetSeconds": 0.65,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "headNod",
+              "source": { "kind": "preset", "presetId": "head-nod", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-nod-1",
+                  "anchor": { "kind": "word", "turnId": "turno-03", "wordIndex": 2 },
+                  "offsetSeconds": -0.1,
+                  "value": 0,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-nod-2",
+                  "anchor": { "kind": "word", "turnId": "turno-03", "wordIndex": 2 },
+                  "offsetSeconds": 0.15,
+                  "value": 1,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-nod-3",
+                  "anchor": { "kind": "word", "turnId": "turno-03", "wordIndex": 2 },
+                  "offsetSeconds": 0.5,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "leftArmRaise",
+              "source": { "kind": "preset", "presetId": "left-arm-raise", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-larm-1",
+                  "anchor": { "kind": "word", "turnId": "turno-03", "wordIndex": 4 },
+                  "offsetSeconds": -0.1,
+                  "value": 0,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-larm-2",
+                  "anchor": { "kind": "word", "turnId": "turno-03", "wordIndex": 4 },
+                  "offsetSeconds": 0.15,
+                  "value": 1,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-larm-3",
+                  "anchor": { "kind": "word", "turnId": "turno-03", "wordIndex": 4 },
+                  "offsetSeconds": 0.85,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mono-azul",
+          "type": "character",
+          "resourceId": "mono-articulado-azul-v1",
+          "transform": {
+            "x": 780,
+            "y": 1110,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.7,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 21
+          },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm",
+          "tracks": [
+            {
+              "parameterId": "position.x",
+              "source": { "kind": "preset", "presetId": "enter-right", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-mono-posx-1",
+                  "anchor": { "kind": "scene", "edge": "start" },
+                  "offsetSeconds": 0,
+                  "value": 1200,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-mono-posx-2",
+                  "anchor": { "kind": "scene", "edge": "start" },
+                  "offsetSeconds": 0.6,
+                  "value": 780,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "opacity",
+              "source": { "kind": "preset", "presetId": "fade-in", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-mono-op-1",
+                  "anchor": { "kind": "scene", "edge": "start" },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-mono-op-2",
+                  "anchor": { "kind": "scene", "edge": "start" },
+                  "offsetSeconds": 0.4,
+                  "value": 1,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-01",
+          "speakerElementId": "el-peque",
+          "text": "¡Una buena idea nunca nace perfecta, se construye!",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "point",
+          "gestureAtWord": 2,
+          "pace": "normal",
+          "layoutPreset": "focus-a",
+          "gapAfterSeconds": 0.25
+        },
+        {
+          "id": "turno-02",
+          "speakerElementId": "mono-azul",
+          "text": "¿En serio? Siempre creí que los genios no se equivocaban.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "doubt",
+          "gestureAtWord": 3,
+          "pace": "normal",
+          "layoutPreset": "focus-b",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "turno-03",
+          "speakerElementId": "el-peque",
+          "text": "¡Mito total! Las mejores ideas empiezan como un desastre.",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "celebrate",
+          "gestureAtWord": 3,
+          "pace": "normal",
+          "layoutPreset": "wide",
+          "gapAfterSeconds": 0
+        }
+      ],
+      "transitionToNext": {
+        "preset": "fade",
+        "durationSeconds": 0.45
+      }
+    },
+    {
+      "id": "escena-solucion",
+      "title": "La construcción",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-zoom"
+      },
+      "elements": [
+        {
+          "id": "el-peque",
+          "type": "character",
+          "resourceId": "el-peque-v1",
+          "transform": {
+            "x": 300,
+            "y": 1110,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.72,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 20
+          },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm",
+          "tracks": [
+            {
+              "parameterId": "bodyLean",
+              "source": { "kind": "preset", "presetId": "body-lean", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-lean-1",
+                  "anchor": { "kind": "word", "turnId": "turno-04", "wordIndex": 2 },
+                  "offsetSeconds": -0.1,
+                  "value": 0,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-lean-2",
+                  "anchor": { "kind": "word", "turnId": "turno-04", "wordIndex": 2 },
+                  "offsetSeconds": 0.2,
+                  "value": 1,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-lean-3",
+                  "anchor": { "kind": "word", "turnId": "turno-04", "wordIndex": 2 },
+                  "offsetSeconds": 0.8,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "scale",
+              "source": { "kind": "preset", "presetId": "emphasis-pulse", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-scale-1",
+                  "anchor": { "kind": "word", "turnId": "turno-04", "wordIndex": 6 },
+                  "offsetSeconds": 0,
+                  "value": 0.72,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-scale-2",
+                  "anchor": { "kind": "word", "turnId": "turno-04", "wordIndex": 6 },
+                  "offsetSeconds": 0.18,
+                  "value": 0.8,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-scale-3",
+                  "anchor": { "kind": "word", "turnId": "turno-04", "wordIndex": 6 },
+                  "offsetSeconds": 0.46,
+                  "value": 0.72,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "bodyBounce",
+              "source": { "kind": "preset", "presetId": "body-bounce", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-bounce-1",
+                  "anchor": { "kind": "word", "turnId": "turno-06", "wordIndex": 5 },
+                  "offsetSeconds": -0.1,
+                  "value": 0,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-bounce-2",
+                  "anchor": { "kind": "word", "turnId": "turno-06", "wordIndex": 5 },
+                  "offsetSeconds": 0.15,
+                  "value": 1,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-peque-bounce-3",
+                  "anchor": { "kind": "word", "turnId": "turno-06", "wordIndex": 5 },
+                  "offsetSeconds": 0.4,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "opacity",
+              "source": { "kind": "preset", "presetId": "fade-out", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-peque-fade-1",
+                  "anchor": { "kind": "scene", "edge": "end" },
+                  "offsetSeconds": -0.5,
+                  "value": 1,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-peque-fade-2",
+                  "anchor": { "kind": "scene", "edge": "end" },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mono-azul",
+          "type": "character",
+          "resourceId": "mono-articulado-azul-v1",
+          "transform": {
+            "x": 780,
+            "y": 1110,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.7,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 21
+          },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm",
+          "tracks": [
+            {
+              "parameterId": "opacity",
+              "source": { "kind": "preset", "presetId": "fade-out", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-mono-fade2-1",
+                  "anchor": { "kind": "scene", "edge": "end" },
+                  "offsetSeconds": -0.5,
+                  "value": 1,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-mono-fade2-2",
+                  "anchor": { "kind": "scene", "edge": "end" },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cartel",
+          "type": "prop",
+          "resourceId": "cartel-dato-v1",
+          "transform": {
+            "x": 540,
+            "y": 620,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.9,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 30
+          },
+          "tracks": [
+            {
+              "parameterId": "opacity",
+              "source": { "kind": "preset", "presetId": "fade-in", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-cartel-aparece-1",
+                  "anchor": { "kind": "turn", "turnId": "turno-05", "edge": "start" },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-cartel-aparece-2",
+                  "anchor": { "kind": "turn", "turnId": "turno-05", "edge": "start" },
+                  "offsetSeconds": 0.4,
+                  "value": 1,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "scale",
+              "source": { "kind": "preset", "presetId": "emphasis-pulse", "version": 1, "customized": false },
+              "keyframes": [
+                {
+                  "id": "kf-cartel-enfasis-1",
+                  "anchor": { "kind": "turn", "turnId": "turno-05", "edge": "start" },
+                  "offsetSeconds": 0.45,
+                  "value": 0.9,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-enfasis-2",
+                  "anchor": { "kind": "turn", "turnId": "turno-05", "edge": "start" },
+                  "offsetSeconds": 0.63,
+                  "value": 1.03,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-enfasis-3",
+                  "anchor": { "kind": "turn", "turnId": "turno-05", "edge": "start" },
+                  "offsetSeconds": 0.91,
+                  "value": 0.9,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "rotationDegrees",
+              "source": { "kind": "manual" },
+              "keyframes": [
+                {
+                  "id": "kf-cartel-giro-1",
+                  "anchor": { "kind": "turn", "turnId": "turno-05", "edge": "start" },
+                  "offsetSeconds": 0.45,
+                  "value": -8,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-giro-2",
+                  "anchor": { "kind": "turn", "turnId": "turno-05", "edge": "start" },
+                  "offsetSeconds": 0.68,
+                  "value": 8,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-giro-3",
+                  "anchor": { "kind": "turn", "turnId": "turno-05", "edge": "start" },
+                  "offsetSeconds": 0.95,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-04",
+          "speakerElementId": "el-peque",
+          "text": "El secreto es animarse a dar el primer paso y ajustar en el camino.",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "point",
+          "gestureAtWord": 2,
+          "pace": "normal",
+          "layoutPreset": "focus-a",
+          "gapAfterSeconds": 0.25
+        },
+        {
+          "id": "turno-05",
+          "speakerElementId": "mono-azul",
+          "text": "¡Me gusta! Ensamblar las piezas hasta que todo encaje.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "celebrate",
+          "gestureAtWord": 2,
+          "pace": "fast",
+          "layoutPreset": "balanced",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "turno-06",
+          "speakerElementId": "el-peque",
+          "text": "¡Así es! No busques perfección, busca progreso.",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "celebrate",
+          "gestureAtWord": 3,
+          "pace": "normal",
+          "layoutPreset": "wide",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}
