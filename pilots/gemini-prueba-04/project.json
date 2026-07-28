@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "id": "gemini-prueba-04",
+  "title": "Presupuesto del bosque",
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "seed": 9999,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "musicResourceId": "musica-brillante-v1",
+  "scenes": [
+    {
+      "id": "escena-1",
+      "title": "El Presupuesto",
+      "background": { "resourceId": "fondo-estudio-parallax-v1", "cameraPreset": "static" },
+      "elements": [
+        {
+          "id": "tucan",
+          "type": "character",
+          "resourceId": "tucan-gala-v1",
+          "transform": { "x": 290, "y": 1105, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.7, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        },
+        {
+          "id": "conejo",
+          "type": "character",
+          "resourceId": "conejo-traje-v1",
+          "transform": { "x": 790, "y": 1105, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.7, "rotationDegrees": 0, "opacity": 1, "zIndex": 21 },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "t1-1",
+          "speakerElementId": "tucan",
+          "text": "He estado revisando a fondo el presupuesto anual de nuestro bosque.",
+          "voiceId": "voz-davefx-es-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "t1-2",
+          "speakerElementId": "conejo",
+          "text": "¿Y qué encontraste? ¿Acaso descubriste más zanahorias para todos?",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ],
+      "transitionToNext": { "preset": "fade", "durationSeconds": 0.35 }
+    },
+    {
+      "id": "escena-2",
+      "title": "La Investigacion",
+      "background": { "resourceId": "fondo-estudio-parallax-v1", "cameraPreset": "slow-pan" },
+      "elements": [
+        {
+          "id": "tucan",
+          "type": "character",
+          "resourceId": "tucan-gala-v1",
+          "transform": { "x": 330, "y": 1090, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.74, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        },
+        {
+          "id": "conejo",
+          "type": "character",
+          "resourceId": "conejo-traje-v1",
+          "transform": { "x": 750, "y": 1090, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.74, "rotationDegrees": 0, "opacity": 1, "zIndex": 21 },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "t2-1",
+          "speakerElementId": "tucan",
+          "text": "No, encontramos que el noventa por ciento se destina a investigar por qué no hay zanahorias.",
+          "voiceId": "voz-davefx-es-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "t2-2",
+          "speakerElementId": "conejo",
+          "text": "Ah, maravilloso. Al menos la burocracia está muy bien alimentada este año.",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}

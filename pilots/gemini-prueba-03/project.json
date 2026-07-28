@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "id": "gemini-prueba-03",
+  "title": "Chiste Ajedrez",
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "seed": 12345,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "scenes": [
+    {
+      "id": "escena-1",
+      "title": "El Juego",
+      "background": { "resourceId": "fondo-estudio-parallax-v1", "cameraPreset": "slow-pan" },
+      "elements": [
+        {
+          "id": "personaje-1",
+          "type": "character",
+          "resourceId": "mono-verde-v1",
+          "transform": { "x": 290, "y": 1105, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.7, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        },
+        {
+          "id": "personaje-2",
+          "type": "character",
+          "resourceId": "mono-pizarra-v1",
+          "transform": { "x": 790, "y": 1105, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.7, "rotationDegrees": 0, "opacity": 1, "zIndex": 21 },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "t1-1",
+          "speakerElementId": "personaje-1",
+          "text": "¿Sabes por qué a la mayoría de los políticos no les gusta jugar al ajedrez?",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "doubt",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "t1-2",
+          "speakerElementId": "personaje-2",
+          "text": "La verdad es que no tengo la menor idea. ¿Por qué será?",
+          "voiceId": "voz-sharvard-es-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ],
+      "transitionToNext": { "preset": "fade", "durationSeconds": 0.35 }
+    },
+    {
+      "id": "escena-2",
+      "title": "El Tablero",
+      "background": { "resourceId": "fondo-estudio-parallax-v1", "cameraPreset": "slow-zoom" },
+      "elements": [
+        {
+          "id": "personaje-1",
+          "type": "character",
+          "resourceId": "mono-verde-v1",
+          "transform": { "x": 330, "y": 1090, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.74, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        },
+        {
+          "id": "personaje-2",
+          "type": "character",
+          "resourceId": "mono-pizarra-v1",
+          "transform": { "x": 750, "y": 1090, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.74, "rotationDegrees": 0, "opacity": 1, "zIndex": 21 },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "t2-1",
+          "speakerElementId": "personaje-1",
+          "text": "Porque no saben cómo mover sus piezas sin intentar robarse la torre antes.",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "t2-2",
+          "speakerElementId": "personaje-2",
+          "text": "O peor aún, seguro terminan cobrando impuestos por usar el tablero negro y blanco.",
+          "voiceId": "voz-sharvard-es-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}
