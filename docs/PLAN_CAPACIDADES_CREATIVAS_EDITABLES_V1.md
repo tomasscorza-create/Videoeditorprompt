@@ -17,7 +17,7 @@ abajo con el detalle; esto es el mapa.
 | 1 · Creador y recurso v3 | Hecha | `8c54fd9`, `a947387`, `20dfbda` |
 | 2 · Evaluador paramétrico | Hecha | `94a3163` |
 | 3 · Compositor | **Parcial** | `e459a32` |
-| 4 · Edición visible | **Hecha** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee`, `<render>` |
+| 4 · Edición visible | **Hecha** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee`, `df543d8` |
 | 5 · Presets editables | Hecha salvo el MP4 | `a709442`, `c55ce80` |
 | 6 · Director IA | Sin empezar | — |
 | 7 · Gate humano | Sin empezar | — |
