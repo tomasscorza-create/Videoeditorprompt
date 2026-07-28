@@ -8,7 +8,11 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { projectRoot, readJson, writeJson } from '../stage1/common.mjs';
-import { evaluateScene } from '../../shared/scene-evaluator.js';
+import {
+  createFfmpegMotionExpressions,
+  createFfmpegTrackExpression,
+  evaluateScene,
+} from '../../shared/scene-evaluator.js';
 import {
   buildSceneTiming,
   evaluateAnimationParams,
@@ -17,6 +21,7 @@ import {
   resolveAnimationScene,
 } from '../../shared/animation-evaluator.js';
 import { validateAnimationScene } from './animation-contract.mjs';
+import { applyOpacity } from '../stage1/export-dialogue.mjs';
 
 const fixturesRoot = path.join(projectRoot, 'pilots', 'animacion-v1', 'fixtures');
 const scene = readJson(path.join(fixturesRoot, 'escena-v2-medida.json'));
@@ -222,6 +227,97 @@ pass('plan-con-pistas-determinista', { accepted: true });
 // Y resolver dos veces el mismo documento da la misma resolución.
 assert.deepEqual(resolveAnimationScene(gestureForRuntime, timing, fps), resolvedGesture);
 pass('resolucion-determinista', { accepted: true });
+
+// 8. Fase 4 — la expresión que se le pasa a FFmpeg tiene que dar exactamente lo
+// mismo que el evaluador. Si divergen, la vista previa y el MP4 dejan de ser el
+// mismo video, que es el punto entero de compartir el estado temporal.
+function evaluateFfmpegExpression(expression, timeSeconds) {
+  // Traducción mínima del dialecto de FFmpeg a JavaScript. `if` y `gte` se
+  // vuelven funciones; ambas ramas se evalúan, que numéricamente da igual porque
+  // los tramos no dividen por cero.
+  const translated = expression
+    .replace(/\bif\(/gu, 'IF(')
+    .replace(/\bgte\(/gu, 'GTE(')
+    .replace(/\bmin\(/gu, 'Math.min(')
+    .replace(/\bmax\(/gu, 'Math.max(')
+    .replace(/\bcos\(/gu, 'Math.cos(')
+    .replace(/\bPI\b/gu, 'Math.PI');
+  const IF = (condition, whenTrue, whenFalse) => (condition ? whenTrue : whenFalse);
+  const GTE = (left, right) => left >= right;
+  // eslint-disable-next-line no-new-func
+  return Function('t', 'IF', 'GTE', `return ${translated};`)(timeSeconds, IF, GTE);
+}
+
+const parityTracks = [
+  {
+    parameterId: 'position.x',
+    keyframes: [
+      { id: 'p1', seconds: 0, frameIndex: 0, value: -670, interpolation: 'ease' },
+      { id: 'p2', seconds: 0.6, frameIndex: 18, value: -250, interpolation: 'hold' },
+    ],
+  },
+  {
+    parameterId: 'scale',
+    keyframes: [
+      { id: 's1', seconds: 0.4, frameIndex: 12, value: 0.7, interpolation: 'linear' },
+      { id: 's2', seconds: 1.2, frameIndex: 36, value: 0.86, interpolation: 'ease' },
+      { id: 's3', seconds: 2.1, frameIndex: 63, value: 0.7, interpolation: 'hold' },
+    ],
+  },
+];
+let maximumDivergence = 0;
+for (const track of parityTracks) {
+  const expression = createFfmpegTrackExpression(track.keyframes);
+  for (let sample = 0; sample <= 120; sample += 1) {
+    const time = sample / 40;
+    const divergence = Math.abs(evaluateTrack(track, time) - evaluateFfmpegExpression(expression, time));
+    maximumDivergence = Math.max(maximumDivergence, divergence);
+  }
+}
+assert.ok(maximumDivergence < 1e-9, `la expresión de FFmpeg divergió ${maximumDivergence}`);
+pass('la-expresion-de-ffmpeg-coincide-con-el-evaluador', { accepted: true, maximumDivergence });
+
+// La pista reemplaza la expresión base del parámetro que anima, y deja las otras
+// intactas: no se suma al movimiento base ni al layout.
+const [firstCharacter] = runtime.characters;
+const baseMotion = createFfmpegMotionExpressions(config, firstCharacter.transform, dialogueData, firstCharacter.id);
+const animatedMotion = createFfmpegMotionExpressions(config, firstCharacter.transform, dialogueData, firstCharacter.id, [parityTracks[0]]);
+assert.notEqual(animatedMotion.x, baseMotion.x);
+assert.equal(animatedMotion.y, baseMotion.y);
+assert.equal(animatedMotion.scaleWidth, baseMotion.scaleWidth);
+assert.equal(createFfmpegMotionExpressions(config, firstCharacter.transform, dialogueData, firstCharacter.id, null).x, baseMotion.x);
+pass('la-pista-reemplaza-solo-la-expresion-de-su-parametro', { accepted: true });
+
+// 9. La opacidad no puede ser una expresión: `overlay` no acepta alfa variable.
+// Se aplica por rangos de frames con el valor del plan, y sin pista se conserva
+// la entrada de siempre.
+const opacityPlan = [0, 0.25, 0.5, 0.5, 1, 1].map((opacity, frameIndex) => ({
+  frameIndex,
+  characters: [{ id: 'personaje-a', character: { opacity } }],
+}));
+const withoutTrack = [];
+assert.equal(applyOpacity(withoutTrack, 'd0', 'personaje-a', opacityPlan, null, () => '0'), 'd0character');
+assert.equal(withoutTrack.length, 1);
+assert.ok(withoutTrack[0].includes('fade=t=in:st=0:d=0.3:alpha=1'));
+pass('sin-pista-de-opacidad-la-entrada-no-cambia', { accepted: true });
+
+const withTrack = [];
+const opacityLabel = applyOpacity(
+  withTrack,
+  'd0',
+  'personaje-a',
+  opacityPlan,
+  [{ parameterId: 'opacity', keyframes: [] }],
+  (predicate) => opacityPlan.filter((frame) => predicate(frame)).map((frame) => `n=${frame.frameIndex}`).join('+'),
+);
+assert.equal(withTrack.some((filter) => filter.includes('fade=t=in')), false, 'la pista reemplaza la entrada base');
+// Tres niveles por debajo de 1: 0, 0.25 y 0.5. La opacidad 1 no necesita filtro.
+assert.equal(withTrack.length, 3);
+assert.ok(withTrack[0].includes('colorchannelmixer=aa=0.0000'));
+assert.ok(withTrack[1].includes('colorchannelmixer=aa=0.2500'));
+assert.ok(withTrack[2].includes('colorchannelmixer=aa=0.5000') && withTrack[2].includes('n=2+n=3'));
+assert.equal(opacityLabel, 'd0op2');
+pass('la-opacidad-animada-se-aplica-por-rangos-de-frames', { accepted: true });
 
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'animation-evaluator-latest.json'), summary);

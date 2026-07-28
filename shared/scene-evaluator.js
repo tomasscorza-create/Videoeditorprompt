@@ -201,18 +201,79 @@ function evaluateTurnLayout(turns, characterId, transform, time) {
     : previous;
 }
 
-export function createFfmpegMotionExpressions(config, character = config.character, dialogueData = null, characterId = null) {
+/**
+ * Expresión de FFmpeg equivalente a `evaluateTrack` para una pista resuelta.
+ *
+ * Reproduce exactamente las tres reglas congeladas en la Fase 0: la
+ * interpolación de un keyframe describe el tramo que SALE de él, antes del
+ * primero se sostiene su valor y después del último el valor queda congelado.
+ * `ease` es `inOutSine`, la misma curva del evaluador.
+ *
+ * Los keyframes llegan resueltos y ordenados por segundo (`resolveAnimationScene`),
+ * y con los valores ya en el espacio de coordenadas del runtime.
+ */
+export function createFfmpegTrackExpression(keyframes) {
+  // Antes del primer keyframe se sostiene su valor; no se extrapola hacia atrás.
+  let expression = String(keyframes[0].value);
+  for (let index = 0; index < keyframes.length - 1; index += 1) {
+    const from = keyframes[index];
+    const to = keyframes[index + 1];
+    const span = to.seconds - from.seconds;
+    const ratio = span > 0 ? `min(max((t-${from.seconds})/${span},0),1)` : '1';
+    const eased = from.interpolation === 'hold'
+      ? '0'
+      : from.interpolation === 'ease'
+        ? `(0.5-0.5*cos(PI*(${ratio})))`
+        : `(${ratio})`;
+    // La diferencia se calcula acá y no en la expresión: `evaluateTrack` hace la
+    // misma resta sobre los mismos dobles, así que los dos caminos coinciden bit
+    // a bit, y de paso se evita emitir un `--` cuando el valor de salida es
+    // negativo.
+    const segment = `(${from.value}+(${to.value - from.value})*${eased})`;
+    // El último tramo sujeta la razón a 1, así que después del último keyframe
+    // el valor queda congelado sin necesitar una rama aparte.
+    expression = `if(gte(t,${from.seconds}),${segment},${expression})`;
+  }
+  return expression;
+}
+
+/**
+ * Una pista REEMPLAZA el valor base de su parámetro, no se suma: por eso las
+ * expresiones animadas pisan las de entrada, layout y movimiento base en vez de
+ * combinarse con ellas. `opacity` no aparece acá porque el compositor de FFmpeg
+ * no acepta una expresión de alfa; el exportador la resuelve por rangos de
+ * frames a partir del plan, que sale del mismo evaluador.
+ */
+function applyAnimatedTracks(config, motion, animatedTracks) {
+  if (!animatedTracks || animatedTracks.length === 0) return motion;
+  const result = { ...motion };
+  for (const track of animatedTracks) {
+    if (track.keyframes.length === 0) continue;
+    const expression = createFfmpegTrackExpression(track.keyframes);
+    if (track.parameterId === 'position.x') {
+      result.x = `${config.video.width / 2}+(${expression})-overlay_w/2`;
+    } else if (track.parameterId === 'position.y') {
+      result.y = `${config.video.height / 2}+(${expression})-overlay_h/2`;
+    } else if (track.parameterId === 'scale') {
+      result.scaleWidth = `${config.video.width}*(${expression})`;
+      result.scaleHeight = `${config.video.height}*(${expression})`;
+    }
+  }
+  return result;
+}
+
+export function createFfmpegMotionExpressions(config, character = config.character, dialogueData = null, characterId = null, animatedTracks = null) {
   const item = character;
   const entry = `min(max(t/${item.entrySeconds},0),1)`;
   const eased = `((${entry})*(${entry})*(3-2*(${entry})))`;
   if (!item.idleProfile) {
     const scale = `(${item.baseScale}+sin(PI*t/${item.bobPeriodSeconds})*${item.scalePulse})`;
-    return {
+    return applyAnimatedTracks(config, {
       scaleWidth: `${config.video.width}*${scale}`,
       scaleHeight: `${config.video.height}*${scale}`,
       x: `${config.video.width / 2}+(${item.fromX}+(${item.toX}-${item.fromX})*${eased})-overlay_w/2`,
       y: `${config.video.height / 2}+${item.baseY}+sin(2*PI*t/${item.bobPeriodSeconds})*${item.bobAmplitude}-overlay_h/2`,
-    };
+    }, animatedTracks);
   }
   const phaseOffset = (((item.motionSeed ?? 0) % 997) / 997 * Math.PI * 2).toFixed(9);
   const phase = `(2*PI*t/${item.bobPeriodSeconds}+${phaseOffset})`;
@@ -223,12 +284,12 @@ export function createFfmpegMotionExpressions(config, character = config.charact
   const layoutY = layoutExpression(layoutTurns, characterId, 'y', String(item.baseY), item.baseY);
   const layoutScale = layoutExpression(layoutTurns, characterId, 'scale', String(item.baseScale), item.baseScale);
   const scale = `((${layoutScale})+(${idle.scale}))`;
-  return {
+  return applyAnimatedTracks(config, {
     scaleWidth: `${config.video.width}*${scale}`,
     scaleHeight: `${config.video.height}*${scale}`,
     x: `${config.video.width / 2}+(${layoutX})-overlay_w/2`,
     y: `${config.video.height / 2}+(${layoutY})+(${idle.y})-overlay_h/2`,
-  };
+  }, animatedTracks);
 }
 
 function idleExpressions(item, phase) {

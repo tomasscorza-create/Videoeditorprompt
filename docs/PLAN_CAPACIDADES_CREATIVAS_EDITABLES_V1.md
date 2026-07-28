@@ -17,42 +17,39 @@ abajo con el detalle; esto es el mapa.
 | 1 · Creador y recurso v3 | Hecha | `8c54fd9`, `a947387`, `20dfbda` |
 | 2 · Evaluador paramétrico | Hecha | `94a3163` |
 | 3 · Compositor | **Parcial** | `e459a32` |
-| 4 · Edición visible | **Parcial: interfaz hecha, render no** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee` |
+| 4 · Edición visible | **Hecha** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee`, `<render>` |
 | 5 · Presets editables | Hecha salvo el MP4 | `a709442`, `c55ce80` |
 | 6 · Director IA | Sin empezar | — |
 | 7 · Gate humano | Sin empezar | — |
 
 ### El próximo paso
 
-**Que el render lea `tracks`.** Hoy el exportador arma el movimiento con
-expresiones FFmpeg (`createFfmpegMotionExpressions`) y no mira las pistas, así
-que lo que se anima se ve en la aplicación pero no aparece en el MP4.
+**El compositor headless de la Fase 3.** Es lo que desbloquea el resto: sin él,
+los dos recursos v3 siguen fuera de la biblioteca, `armRaise` no se puede probar
+con ningún personaje y la rotación tampoco se puede animar, porque el compositor
+de FFmpeg no rota la capa del personaje.
 
-Ya se puede animar desde la interfaz de punta a punta: aplicar un preset, crear
-una pista, mover un keyframe, cambiar su interpolación, reanclarlo, deshacerlo y
-previsualizarlo en el lienzo. Falta el último tramo del gate: **previsualizar y
-exportar tienen que dar lo mismo**, y para eso el compilador tiene que consumir
-`shared/animation-evaluator.js` en vez de sus expresiones propias.
+La Fase 4 está cerrada: se anima desde la interfaz, se previsualiza en el lienzo
+y **lo animado llega al MP4 por el mismo evaluador**, con la posición y la escala
+como expresión continua y la opacidad por rangos de frames.
 
 ### Pendientes concretos, en orden de dependencia
 
-1. **Fase 4 — render.** El exportador no lee `tracks`. Sin esto lo que se anime
-   no aparece en el MP4 y el gate de la fase no cierra.
-2. **Fase 3 — compositor headless.** Spike trabado en
+1. **Fase 3 — compositor headless.** Spike trabado en
    `scripts/compositor/pixi-compositor.mjs`, con el síntoma exacto anotado en su
    encabezado. Hasta que ande, los dos recursos v3 (`mono-articulado-azul-v1` y
    `cartel-dato-v1`) no se pueden renderizar, y por eso siguen deliberadamente
    fuera del catálogo de autoría y de la biblioteca. `armRaise` tampoco se puede
    probar de verdad hasta entonces: ningún personaje v2 declara el parámetro.
-3. **Fase 3 — extraer el compositor FFmpeg** detrás del contrato, más frames
+2. **Fase 3 — extraer el compositor FFmpeg** detrás del contrato, más frames
    dorados, comparación por SSIM y doble ejecución. Exige re-verificar la salida
    byte a byte del render v2, que necesita una corrida completa con Piper.
-4. **Fase 5 — aplicar presets desde la biblioteca.** Desde el inspector ya se
+3. **Fase 5 — aplicar presets desde la biblioteca.** Desde el inspector ya se
    aplican; falta el gesto equivalente en la biblioteca de recursos.
-5. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
+4. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
    elemento y la explicación humana antes de aplicar. `apply-animation-preset` ya
    existe en el contrato de comandos.
-6. **Fase 7 — gate humano.**
+5. **Fase 7 — gate humano.**
 
 ### Deudas anotadas que no bloquean
 
@@ -80,6 +77,10 @@ exportar tienen que dar lo mismo**, y para eso el compilador tiene que consumir
   estricta y pierde la medición hasta el próximo render.
 - Arrastrar un personaje en el modo animación escribe dos comandos (`position.x`
   y `position.y`), así que deshacerlo son dos pasos.
+- **La opacidad animada se cuantiza a 1/64 en el MP4.** El compositor de FFmpeg
+  no acepta una expresión de alfa, así que se aplica por rangos de frames con el
+  valor del plan. El error máximo es de 2 niveles sobre 255 y acota cuántos
+  filtros se encadenan; con el compositor de la Fase 3 deja de hacer falta.
 - El límite de 8 pistas por elemento es letra muerta mientras haya 6 parámetros y
   una sola pista por parámetro; el que muerde es el de 256 keyframes por escena.
 
@@ -634,7 +635,38 @@ previsualiza y exporta desde la interfaz.
   escenas (chip con clic para alternar y clic derecho para la duración), así que
   ese punto de la fase estaba cubierto de antes.
 
-Falta de la fase: **que el render lea las pistas**.
+**Lote 4, hecho el 28 de julio de 2026**: el render lee las pistas.
+
+- Las pistas viajan del proyecto editable a la escena compilada. El contrato no
+  se repite: `scene-config-v2` referencia la definición de pista congelada en
+  `animation-scene-v1`, y por eso el compilador valida los keyframes con el mismo
+  schema que la autoría.
+- El exportador las resuelve contra el audio ya medido con `buildSceneTiming` y
+  `resolveAnimationScene`, y alimenta con el resultado **tanto el plan de frames
+  como las expresiones de FFmpeg**. Preview y MP4 salen del mismo estado temporal,
+  que era el punto 9 de la definición de terminado.
+- Posición y escala se convierten en una expresión continua sobre `t`
+  (`createFfmpegTrackExpression`) que reproduce exactamente `evaluateTrack`:
+  `ease` es `inOutSine`, la interpolación describe el tramo que sale del
+  keyframe, antes del primero se sostiene su valor y después del último queda
+  congelado. Una prueba compara las dos por 120 muestras y la divergencia
+  máxima es **0**.
+- La opacidad no puede ser una expresión: `overlay` no acepta alfa variable y
+  resolverlo por píxel con `geq` costaría mil millones de evaluaciones por
+  escena. Se aplica por rangos de frames con el valor cuantizado del plan, el
+  mismo idioma con el que la escena ya enciende ojos, boca y gestos.
+- Una pista **reemplaza** la expresión de su parámetro; las demás quedan
+  intactas. Sin pistas no cambia una sola cadena, y por eso el `temporalHash` de
+  los pilotos v2 sigue congelado.
+- El compilador **rechaza** animar `rotationDegrees` o `armRaise` con
+  `PROJECT_SCENE_UNSUPPORTED`: el compositor vigente no rota la capa del
+  personaje ni mueve una articulación. La interfaz tampoco los ofrece, por el
+  mismo motivo por el que los recursos v3 siguen fuera de la biblioteca.
+- Verificado con un render real: `pilots/animacion-render-01` entra un personaje
+  por la izquierda y hace aparecer al otro en su turno. El pipeline reporta
+  `deterministic: true` (doble pasada con frames idénticos) y los frames
+  extraídos del MP4 muestran el desplazamiento y la aparición en los mismos
+  frames que el plan.
 
 ### Fase 5 — Presets editables
 

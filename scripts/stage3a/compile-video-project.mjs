@@ -171,6 +171,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
         maxIntervalSeconds: [4.3, 4.7][characterIndex],
         durationSeconds: 0.12,
       },
+      ...(element.tracks?.length ? { tracks: compileTracks(element, sceneIndex) } : {}),
     };
   });
   const backgroundResource = resources.get(scene.background.resourceId);
@@ -228,6 +229,31 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
       characterAssetId: resource.characterRef.entryId,
     })),
   };
+}
+
+/**
+ * Parámetros animables que el runtime v2 sabe llevar al MP4.
+ *
+ * `rotationDegrees` y `armRaise` quedan afuera a propósito: el compositor
+ * vigente compone con overlays de FFmpeg, no rota la capa del personaje —de
+ * hecho ya rechaza un transform base con rotación— y una articulación necesita
+ * el rig v3 con el compositor de la Fase 3. Ofrecerlos sería exportar algo
+ * distinto de lo que muestra la vista previa.
+ */
+const RENDERABLE_PARAMETERS = Object.freeze(['position.x', 'position.y', 'scale', 'opacity']);
+
+function compileTracks(element, sceneIndex) {
+  for (const track of element.tracks) {
+    if (!RENDERABLE_PARAMETERS.includes(track.parameterId)) {
+      unsupportedScene(
+        sceneIndex,
+        `el personaje ${element.id} anima ${track.parameterId}, que el compositor vigente todavía no lleva al MP4`,
+      );
+    }
+  }
+  // Las pistas viajan tal cual, en coordenadas de autoría: el exportador las
+  // traslada al espacio centrado del runtime, que es donde vive el transform.
+  return element.tracks.map((track) => structuredClone(track));
 }
 
 function compileTurnLayout(presetId, characters, video, sceneIndex) {

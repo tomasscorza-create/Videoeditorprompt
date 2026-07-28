@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { createFfmpegBackgroundExpressions, createFfmpegMotionExpressions, evaluateScene } from '../../shared/scene-evaluator.js';
+import { buildSceneTiming, resolveAnimationScene } from '../../shared/animation-evaluator.js';
 import { ensureDirectory, ffprobe, readJson, run, sha256, writeJson } from './common.mjs';
 import { resolveAsset } from './job-context.mjs';
 
@@ -20,10 +21,14 @@ export function exportDialogueJob(context, config, options) {
   const fps = config.video.fps;
   const frameCount = Math.ceil(runtime.audio.durationSeconds * fps);
   const renderDuration = frameCount / fps;
+  // Fase 4: las pistas de animación se resuelven contra el audio ya medido y
+  // alimentan tanto el plan de frames como las expresiones de FFmpeg, de modo
+  // que la vista previa y el MP4 salgan del mismo estado temporal.
+  const animation = resolveSceneAnimation(config, dialogueData, runtime.audio.durationSeconds);
   const framePlan = Array.from({ length: frameCount }, (_, frameIndex) => ({
     frameIndex,
     timeSeconds: frameIndex / fps,
-    ...evaluateScene(config, runtime, dialogueData, frameIndex / fps),
+    ...evaluateScene(config, runtime, dialogueData, frameIndex / fps, animation),
   }));
   const temporalHash = sha256(JSON.stringify(framePlan));
   const renderId = `render-${runNumber}`;
@@ -82,9 +87,10 @@ export function exportDialogueJob(context, config, options) {
     filters.push(`[${prefix}h2][${item.indices.handCelebrate}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'celebrate')}'[${prefix}h3]`);
     filters.push(`[${prefix}h3][${item.indices.handDoubt}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'doubt')}'[${prefix}h4]`);
     filters.push(`[${prefix}h4][${item.indices.handDeny}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'deny')}'[${prefix}hands]`);
-    filters.push(`[${prefix}hands]fade=t=in:st=0:d=0.3:alpha=1[${prefix}character]`);
-    const motion = createFfmpegMotionExpressions(config, item.transform, dialogueData, item.id);
-    filters.push(`[${prefix}character]scale=w='${motion.scaleWidth}':h='${motion.scaleHeight}':eval=frame[${prefix}scaled]`);
+    const animatedTracks = animation?.elements.find((element) => element.elementId === item.id)?.tracks ?? null;
+    const characterLabel = applyOpacity(filters, prefix, item.id, framePlan, animatedTracks, enable);
+    const motion = createFfmpegMotionExpressions(config, item.transform, dialogueData, item.id, animatedTracks);
+    filters.push(`[${characterLabel}]scale=w='${motion.scaleWidth}':h='${motion.scaleHeight}':eval=frame[${prefix}scaled]`);
     scaledLabels.push({ label: `${prefix}scaled`, motion });
   }
 
@@ -146,6 +152,80 @@ export function exportDialogueJob(context, config, options) {
   writeJson(path.join(context.resultRoot, `export-metrics-${runNumber}.json`), metrics);
   if (options.emitCompleted !== false) report('completed', { stage: 'export', renderId, result: `${renderId}.mp4` });
   return metrics;
+}
+
+/**
+ * Documento de animación resuelto contra el audio medido, o null si la escena no
+ * tiene pistas. Sin pistas nada cambia: `evaluateScene` no agrega la clave
+ * `elements` y el `temporalHash` de los pilotos v2 queda igual.
+ *
+ * Las pistas viajan en coordenadas de AUTORÍA (origen arriba a la izquierda) y
+ * el runtime trabaja centrado, igual que `transform.toX` y `transform.baseY`. La
+ * traslación ocurre una sola vez, acá, para que el plan de frames y las
+ * expresiones de FFmpeg partan exactamente del mismo número.
+ */
+function resolveSceneAnimation(config, dialogueData, durationSeconds) {
+  const animated = (config.characters ?? []).filter((character) => character.tracks?.length);
+  if (animated.length === 0) return null;
+  const centerOffsets = {
+    'position.x': config.video.width / 2,
+    'position.y': config.video.height / 2,
+  };
+  const document = {
+    version: 1,
+    sceneId: 'scene',
+    elements: animated.map((character) => ({
+      elementId: character.id,
+      elementType: 'character',
+      tracks: character.tracks.map((track) => ({
+        parameterId: track.parameterId,
+        source: track.source,
+        keyframes: track.keyframes.map((keyframe) => ({
+          ...keyframe,
+          value: keyframe.value - (centerOffsets[track.parameterId] ?? 0),
+        })),
+      })),
+    })),
+  };
+  return resolveAnimationScene(document, buildSceneTiming(dialogueData, durationSeconds), config.video.fps);
+}
+
+// Pasos de alfa. Con 8 bits por canal, 1/64 deja un error máximo de 2 niveles de
+// 255: invisible, y acota cuántos filtros se encadenan por personaje.
+const OPACITY_LEVELS = 64;
+
+function quantizedOpacity(frame, characterId) {
+  const state = frame.characters.find((character) => character.id === characterId);
+  const value = Math.max(0, Math.min(1, state?.character.opacity ?? 1));
+  return Math.round(value * OPACITY_LEVELS);
+}
+
+/**
+ * Opacidad del personaje sobre la cadena de filtros.
+ *
+ * Sin pista se conserva la entrada de siempre. Con pista, el valor sale del plan
+ * de frames —que ya trae la pista evaluada— y se aplica por rangos de frames,
+ * el mismo idioma con el que la escena ya enciende ojos, boca y gestos. Se hace
+ * así porque `overlay` no acepta una expresión de alfa, y resolverlo por píxel
+ * con `geq` costaría mil millones de evaluaciones por escena.
+ */
+export function applyOpacity(filters, prefix, characterId, framePlan, animatedTracks, enable) {
+  const hasTrack = (animatedTracks ?? []).some((track) => track.parameterId === 'opacity');
+  if (!hasTrack) {
+    filters.push(`[${prefix}hands]fade=t=in:st=0:d=0.3:alpha=1[${prefix}character]`);
+    return `${prefix}character`;
+  }
+  const levels = [...new Set(framePlan.map((frame) => quantizedOpacity(frame, characterId)))]
+    .filter((level) => level < OPACITY_LEVELS)
+    .sort((left, right) => left - right);
+  let label = `${prefix}hands`;
+  for (const [index, level] of levels.entries()) {
+    const next = `${prefix}op${index}`;
+    const enabled = enable((frame) => quantizedOpacity(frame, characterId) === level);
+    filters.push(`[${label}]colorchannelmixer=aa=${(level / OPACITY_LEVELS).toFixed(4)}:enable='${enabled}'[${next}]`);
+    label = next;
+  }
+  return label;
 }
 
 function ranges(items, predicate) {

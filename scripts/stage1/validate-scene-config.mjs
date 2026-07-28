@@ -15,6 +15,9 @@ export const SCENE_LIMITS = Object.freeze({
 const directCharacterKeys = ['body', 'eyesOpen', 'eyesClosed', 'mouthClosed', 'mouthMedium', 'mouthOpen'];
 const handKeys = ['handNeutral', 'handPoint'];
 const ajv = new Ajv2020({ allErrors: true, strict: true });
+// El contrato de animación se registra por su $id para que la escena v2 pueda
+// referenciar su definición de pista en vez de repetirla.
+ajv.addSchema(readSchema('animation-scene.schema.json'));
 const validateSchemaV1 = ajv.compile(readSchema('scene-config.schema.json'));
 const validateSchemaV2 = ajv.compile(readSchema('scene-config-v2.schema.json'));
 const validateCharacterSchemaV1 = ajv.compile(readSchema('character-manifest.schema.json'));

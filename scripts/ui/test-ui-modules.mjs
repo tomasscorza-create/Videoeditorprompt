@@ -491,8 +491,10 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('una pista editada a mano lo declara en su procedencia', animation.trackSourceLabel({ kind: 'preset', presetId: 'enter-left', version: 1, customized: true }) === 'enter-left · editado');
   check('los ids de keyframe nuevos no pisan a los existentes', animation.nextKeyframeId('position.x', ['kf-position-x-01']) === 'kf-position-x-02');
   check(
-    'armRaise solo se ofrece si el recurso lo declara',
-    !animation.listAnimatableParameters([]).includes('armRaise') && animation.listAnimatableParameters(['armRaise']).includes('armRaise'),
+    'no se ofrece animar lo que el compositor todavía no lleva al MP4',
+    !animation.listAnimatableParameters(['armRaise']).includes('armRaise')
+      && !animation.listAnimatableParameters([]).includes('rotationDegrees')
+      && animation.listAnimatableParameters([]).join(',') === 'position.x,position.y,scale,opacity',
   );
   check('el valor se acota al rango del parámetro antes de mandarlo al motor', animation.clampParameterValue('opacity', 2) === 1);
   check('la base de un parámetro sale del transform del elemento', animation.baseValueForParameter('scale', { x: 0, y: 0, scale: 0.75, rotationDegrees: 0, opacity: 1 }) === 0.75);

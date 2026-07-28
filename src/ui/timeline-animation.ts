@@ -470,11 +470,24 @@ export function baseValueForParameter(
   return 0;
 }
 
+/**
+ * Parámetros que el compositor vigente sabe llevar al MP4.
+ *
+ * `rotationDegrees` y `armRaise` pertenecen al vocabulario congelado pero el
+ * runtime v2 todavía no los renderiza: el compilador los rechaza con
+ * PROJECT_SCENE_UNSUPPORTED (`RENDERABLE_PARAMETERS` en
+ * `scripts/stage3a/compile-video-project.mjs`). Ofrecerlos acá dejaría animar
+ * algo que después no aparece en el video, el mismo motivo por el que los
+ * recursos v3 siguen fuera de la biblioteca.
+ */
+const RENDERABLE_PARAMETERS: readonly string[] = ['position.x', 'position.y', 'scale', 'opacity'];
+
 /** Parámetros animables de un elemento, según lo que el recurso declare. */
 export function listAnimatableParameters(declaredParameters: readonly string[] = []): string[] {
   return Object.entries(ANIMATION_PARAMETERS)
     .filter(([id, parameter]) => !parameter.requiresResourceSupport || declaredParameters.includes(id))
-    .map(([id]) => id);
+    .map(([id]) => id)
+    .filter((id) => RENDERABLE_PARAMETERS.includes(id));
 }
 
 /** Acota un valor al rango del parámetro antes de mandarlo al motor. */

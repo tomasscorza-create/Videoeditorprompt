@@ -134,6 +134,43 @@ pointed.scenes[0].elements[0].poseId = 'point';
 assert.throws(() => compileCase('initial-point-pose', pointed), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
 results.push({ name: 'unsupported-initial-pose-is-explicit', passed: true });
 
+// Fase 4 — las pistas viajan al runtime, y las que el compositor no sabe llevar
+// al MP4 se rechazan en vez de exportarse distinto de la vista previa.
+const trackFor = (parameterId, values) => ({
+  parameterId,
+  source: { kind: 'manual' },
+  keyframes: [
+    { id: `kf-${parameterId.replace('.', '-')}-1`, anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0, value: values[0], interpolation: 'ease' },
+    { id: `kf-${parameterId.replace('.', '-')}-2`, anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0.6, value: values[1], interpolation: 'hold' },
+  ],
+});
+
+const animated = structuredClone(source);
+animated.scenes[0].elements[0].tracks = [trackFor('position.x', [-130, 290])];
+animated.scenes[0].elements[1].tracks = [trackFor('opacity', [0, 1])];
+const animatedRun = compileCase('animated-tracks', animated);
+const animatedConfig = readJson(path.join(contextFor('animated-tracks', path.join(projectsRoot, 'animated-tracks.json')).jobRoot, animatedRun.manifest.scenes[0].config));
+assert.deepEqual(
+  animatedConfig.characters.map((character) => character.tracks?.map((track) => track.parameterId) ?? null),
+  [['position.x'], ['opacity']],
+);
+assert.deepEqual(
+  animatedConfig.characters[0].tracks[0].keyframes.map((keyframe) => keyframe.value),
+  [-130, 290],
+  'las pistas viajan en coordenadas de autoría; el exportador las traslada',
+);
+results.push({ name: 'animation-tracks-reach-the-runtime-config', passed: true });
+
+const unanimatedConfig = readJson(path.join(contextFor('run-a').jobRoot, compiledRuns[0].manifest.scenes[0].config));
+assert.equal(unanimatedConfig.characters.every((character) => character.tracks === undefined), true);
+assert.notEqual(animatedRun.manifest.semanticHash, compiledRuns[0].manifest.semanticHash);
+results.push({ name: 'animating-changes-the-compilation-identity', passed: true });
+
+const rotationTrack = structuredClone(source);
+rotationTrack.scenes[0].elements[0].tracks = [trackFor('rotationDegrees', [0, 12])];
+assert.throws(() => compileCase('animated-rotation', rotationTrack), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
+results.push({ name: 'unrenderable-animated-parameter-is-explicit', passed: true });
+
 const conflictContext = createProjectCompilationContext({
   'job-id': `compile-conflict-${stamp}`,
   project: sourcePath,
