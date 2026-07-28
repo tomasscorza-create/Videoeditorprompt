@@ -18,6 +18,7 @@ const results = [];
 const video = { width: 1080, height: 1920, fps: 30 };
 // El recurso realmente compilado, no un fixture de laboratorio.
 const manifest = readJson(path.join(projectRoot, 'public', 'assets', 'resources', 'mono-articulado-azul-v1', 'resource.manifest.json'));
+const modern = readJson(path.join(projectRoot, 'public', 'assets', 'resources', 'el-peque-v1', 'resource.manifest.json'));
 const prop = readJson(path.join(projectRoot, 'public', 'assets', 'resources', 'cartel-dato-v1', 'resource.manifest.json'));
 
 function pass(name, detail = {}) {
@@ -136,6 +137,31 @@ pass('la-instancia-envuelve-a-la-jerarquia', { accepted: true });
 const plain = buildFrame(video, [{ manifest: prop, basePath: 'p' }]);
 assert.deepEqual(plain.sprites.map((sprite) => sprite.transforms), [[], []]);
 pass('el-transform-neutro-no-agrega-nada', { accepted: true });
+
+const articulated = buildResourceSprites(modern, {
+  params: { leftArmRaise: 1, headTilt: 1, headNod: 1, bodyLean: 1, bodyBounce: 1 },
+  poseId: 'neutral',
+  states: { eyes: 'open', mouth: 'medium' },
+});
+assert.deepEqual(articulated.find((sprite) => sprite.id === 'torso').transforms, [
+  { kind: 'translate', x: 0, y: -34 },
+  { kind: 'rotate', degrees: 8, x: 540, y: 960 },
+]);
+assert.deepEqual(articulated.find((sprite) => sprite.id === 'arm_left').transforms, [
+  { kind: 'translate', x: 0, y: -34 },
+  { kind: 'rotate', degrees: 8, x: 540, y: 960 },
+  { kind: 'rotate', degrees: 95, x: 420, y: 780 },
+]);
+const expectedFaceTransforms = [
+  { kind: 'translate', x: 0, y: -34 },
+  { kind: 'rotate', degrees: 8, x: 540, y: 960 },
+  { kind: 'translate', x: 0, y: 24 },
+  { kind: 'rotate', degrees: 12, x: 540, y: 700 },
+];
+assert.deepEqual(articulated.find((sprite) => sprite.id === 'head').transforms, expectedFaceTransforms);
+assert.deepEqual(articulated.find((sprite) => sprite.id === 'eyes:open').transforms, expectedFaceTransforms);
+assert.deepEqual(articulated.find((sprite) => sprite.id === 'mouth:medium').transforms, expectedFaceTransforms);
+pass('bindings-multiples-y-estados-faciales-heredados', { accepted: true });
 
 // 8. Determinismo: el mismo pedido produce el mismo frame.
 assert.deepEqual(buildFrame(video, [{ manifest, basePath: 'b', params: { armRaise: 0.3 }, poseId: 'point' }]),

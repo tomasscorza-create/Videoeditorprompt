@@ -70,7 +70,7 @@ for (const file of invalidFiles) {
 // 3. Límite por escena: se construye porque un fixture de 258 keyframes sería
 //    ruido. Dos elementos con seis pistas llenas superan los 256 permitidos.
 function fullElement(elementId) {
-  const parameters = Object.keys(ANIMATION_PARAMETERS);
+  const parameters = Object.keys(ANIMATION_PARAMETERS).slice(0, ANIMATION_LIMITS.tracksPerElement);
   return {
     elementId,
     elementType: 'character',
@@ -99,7 +99,7 @@ pass('limite-de-keyframes-por-escena', { accepted: false, expectedCode: 'ANIM_KE
 // Un solo elemento lleno (6 × 32 = 192) sigue siendo válido.
 const maximumElement = { version: 1, sceneId: 'escena-1', elements: [fullElement('escena-1-personaje-a')] };
 validateAnimationScene(maximumElement);
-pass('elemento-lleno-dentro-del-limite', { accepted: true, keyframes: 192 });
+pass('elemento-lleno-dentro-del-limite', { accepted: true, keyframes: 256 });
 
 // 4. El límite de pistas lo corta el schema antes que el validador: en V1 solo
 //    existen seis parámetros, así que ocho pistas es techo, no muro.

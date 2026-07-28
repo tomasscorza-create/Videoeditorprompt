@@ -994,7 +994,7 @@
             "scale",
             "rotationDegrees",
             "opacity",
-            "armRaise"
+            "armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend", "headTilt", "headNod", "bodyLean", "bodyBounce"
           ]
         },
         "keyframeId": {
@@ -1083,7 +1083,7 @@
             "scale",
             "rotationDegrees",
             "opacity",
-            "armRaise"
+            "armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend", "headTilt", "headNod", "bodyLean", "bodyBounce"
           ]
         },
         "keyframeId": {
@@ -1138,7 +1138,7 @@
             "scale",
             "rotationDegrees",
             "opacity",
-            "armRaise"
+            "armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend", "headTilt", "headNod", "bodyLean", "bodyBounce"
           ]
         },
         "keyframeId": {
@@ -1172,7 +1172,7 @@
             "scale",
             "rotationDegrees",
             "opacity",
-            "armRaise"
+            "armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend", "headTilt", "headNod", "bodyLean", "bodyBounce"
           ]
         }
       }
@@ -1204,7 +1204,7 @@
             "scale",
             "rotationDegrees",
             "opacity",
-            "armRaise"
+            "armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend", "headTilt", "headNod", "bodyLean", "bodyBounce"
           ]
         },
         "confirmCustomized": {
@@ -1240,7 +1240,7 @@
             "scale",
             "rotationDegrees",
             "opacity",
-            "armRaise"
+            "armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend", "headTilt", "headNod", "bodyLean", "bodyBounce"
           ]
         },
         "source": {
@@ -1278,7 +1278,8 @@
                 "fade-in",
                 "fade-out",
                 "emphasis-pulse",
-                "arm-raise"
+                "arm-raise", "left-arm-raise", "right-elbow-bend", "left-elbow-bend",
+                "head-tilt", "head-nod", "body-lean", "body-bounce"
               ]
             },
             "version": {
@@ -1368,7 +1369,8 @@
             "fade-in",
             "fade-out",
             "emphasis-pulse",
-            "arm-raise"
+            "arm-raise", "left-arm-raise", "right-elbow-bend", "left-elbow-bend",
+            "head-tilt", "head-nod", "body-lean", "body-bounce"
           ]
         },
         "anchor": {

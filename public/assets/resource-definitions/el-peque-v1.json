@@ -1,0 +1,365 @@
+{
+  "version": 3,
+  "id": "def-el-peque-v1",
+  "kind": "character",
+  "canvas": { "width": 1080, "height": 1920 },
+  "pivot": { "x": 540, "y": 960 },
+  "variants": [
+    {
+      "id": "default",
+      "outputId": "el-peque-v1",
+      "label": "El peque",
+      "palette": {
+        "outline": "#1a1a1a",
+        "skin": "#ffccb6",
+        "hair": "#2c1b18",
+        "bandana": "#e32d40",
+        "shirt": "#f0f0f0",
+        "vest": "#2b2b2b",
+        "pants": "#2b3b4b",
+        "tattoo": "#2c3e50",
+        "mouthDark": "#3a1720",
+        "tongue": "#ef7c78",
+        "white": "#ffffff"
+      }
+    }
+  ],
+  "parts": [
+    {
+      "id": "torso",
+      "parentId": null,
+      "pivot": { "x": 540, "y": 960 },
+      "zIndex": 0,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M420 750 L400 1150 L680 1150 L660 750 Z",
+          "fill": "$shirt",
+          "stroke": "$outline",
+          "strokeWidth": 12,
+          "lineJoin": "round"
+        },
+        {
+          "type": "path",
+          "d": "M420 750 L400 1150 L480 1150 L500 750 Z",
+          "fill": "$vest",
+          "stroke": "$outline",
+          "strokeWidth": 12,
+          "lineJoin": "round"
+        },
+        {
+          "type": "path",
+          "d": "M660 750 L680 1150 L600 1150 L580 750 Z",
+          "fill": "$vest",
+          "stroke": "$outline",
+          "strokeWidth": 12,
+          "lineJoin": "round"
+        },
+        {
+          "type": "path",
+          "d": "M480 800 L600 800",
+          "fill": "none",
+          "stroke": "$vest",
+          "strokeWidth": 8
+        }
+      ]
+    },
+    {
+      "id": "legs",
+      "parentId": "torso",
+      "pivot": { "x": 540, "y": 1200 },
+      "zIndex": -10,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M450 1100 L430 1600 L510 1600 L540 1250 L570 1600 L650 1600 L630 1100 Z",
+          "fill": "$pants",
+          "stroke": "$outline",
+          "strokeWidth": 12,
+          "lineJoin": "round"
+        },
+        { "type": "ellipse", "cx": 470, "cy": 1600, "rx": 50, "ry": 30, "fill": "$vest", "stroke": "$outline", "strokeWidth": 12 },
+        { "type": "ellipse", "cx": 610, "cy": 1600, "rx": 50, "ry": 30, "fill": "$vest", "stroke": "$outline", "strokeWidth": 12 }
+      ]
+    },
+    {
+      "id": "head",
+      "parentId": "torso",
+      "pivot": { "x": 540, "y": 700 },
+      "zIndex": 20,
+      "shapes": [
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 500,
+          "rx": 180,
+          "ry": 220,
+          "fill": "$hair"
+        },
+        {
+          "type": "path",
+          "d": "M440 680 L400 850 L500 800 Z",
+          "fill": "$hair"
+        },
+        {
+          "type": "path",
+          "d": "M640 680 L680 850 L580 800 Z",
+          "fill": "$hair"
+        },
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 580,
+          "rx": 130,
+          "ry": 160,
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "path",
+          "d": "M410 460 Q540 430 670 460 L680 500 Q540 470 400 500 Z",
+          "fill": "$bandana",
+          "stroke": "$outline",
+          "strokeWidth": 8
+        }
+      ]
+    },
+    {
+      "id": "arm_left",
+      "parentId": "torso",
+      "pivot": { "x": 420, "y": 780 },
+      "zIndex": 5,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M420 760 Q340 900 360 1050 L400 1050 Q410 900 460 760 Z",
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 12,
+          "lineJoin": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 380,
+          "cy": 1070,
+          "rx": 30,
+          "ry": 35,
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        },
+        {
+          "type": "path",
+          "d": "M370 850 Q390 860 400 840",
+          "fill": "none",
+          "stroke": "$tattoo",
+          "strokeWidth": 6
+        },
+        {
+          "type": "path",
+          "d": "M380 920 Q400 930 405 900",
+          "fill": "none",
+          "stroke": "$tattoo",
+          "strokeWidth": 6
+        }
+      ]
+    },
+    {
+      "id": "arm_right",
+      "parentId": "torso",
+      "pivot": { "x": 660, "y": 780 },
+      "zIndex": 15,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M660 760 Q740 900 720 1050 L680 1050 Q670 900 620 760 Z",
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 12,
+          "lineJoin": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 700,
+          "cy": 1070,
+          "rx": 30,
+          "ry": 35,
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        },
+        {
+          "type": "path",
+          "d": "M710 850 Q690 860 680 840",
+          "fill": "none",
+          "stroke": "$tattoo",
+          "strokeWidth": 6
+        },
+        {
+          "type": "path",
+          "d": "M700 920 Q680 930 675 900",
+          "fill": "none",
+          "stroke": "$tattoo",
+          "strokeWidth": 6
+        }
+      ]
+    }
+  ],
+  "stateParentPartId": "head",
+  "states": {
+    "eyes": {
+      "open": [
+        { "type": "ellipse", "cx": 490, "cy": 550, "rx": 25, "ry": 25, "fill": "$white", "stroke": "$outline", "strokeWidth": 6 },
+        { "type": "ellipse", "cx": 590, "cy": 550, "rx": 25, "ry": 25, "fill": "$white", "stroke": "$outline", "strokeWidth": 6 },
+        { "type": "ellipse", "cx": 490, "cy": 550, "rx": 10, "ry": 10, "fill": "$outline" },
+        { "type": "ellipse", "cx": 590, "cy": 550, "rx": 10, "ry": 10, "fill": "$outline" }
+      ],
+      "closed": [
+        { "type": "path", "d": "M465 550 Q490 570 515 550", "fill": "none", "stroke": "$outline", "strokeWidth": 8, "lineCap": "round" },
+        { "type": "path", "d": "M565 550 Q590 570 615 550", "fill": "none", "stroke": "$outline", "strokeWidth": 8, "lineCap": "round" }
+      ]
+    },
+    "mouth": {
+      "closed": [
+        { "type": "path", "d": "M500 650 Q540 670 580 650", "fill": "none", "stroke": "$outline", "strokeWidth": 10, "lineCap": "round" }
+      ],
+      "medium": [
+        { "type": "ellipse", "cx": 540, "cy": 655, "rx": 40, "ry": 20, "fill": "$mouthDark", "stroke": "$outline", "strokeWidth": 8 },
+        { "type": "path", "d": "M510 660 Q540 670 570 660", "fill": "none", "stroke": "$tongue", "strokeWidth": 8, "lineCap": "round" }
+      ],
+      "open": [
+        { "type": "ellipse", "cx": 540, "cy": 660, "rx": 45, "ry": 35, "fill": "$mouthDark", "stroke": "$outline", "strokeWidth": 8 },
+        { "type": "path", "d": "M510 675 Q540 690 570 675", "fill": "$tongue", "stroke": "$tongue", "strokeWidth": 6, "lineCap": "round" }
+      ],
+      "round": [
+        { "type": "ellipse", "cx": 540, "cy": 660, "rx": 25, "ry": 30, "fill": "$mouthDark", "stroke": "$outline", "strokeWidth": 8 }
+      ],
+      "labiodental": [
+        { "type": "path", "d": "M500 650 Q540 635 580 650 Q540 675 500 650 Z", "fill": "$mouthDark", "stroke": "$outline", "strokeWidth": 8 },
+        { "type": "path", "d": "M510 648 L570 648", "fill": "none", "stroke": "$white", "strokeWidth": 8, "lineCap": "round" }
+      ],
+      "bilabial": [
+        { "type": "path", "d": "M500 650 Q540 640 580 650 Q540 665 500 650 Z", "fill": "$tongue", "stroke": "$outline", "strokeWidth": 8 }
+      ]
+    }
+  },
+  "poses": [
+    {
+      "id": "neutral",
+      "parts": [
+        { "partId": "arm_right", "rotationDegrees": 0 }
+      ]
+    },
+    {
+      "id": "point",
+      "parts": [
+        { "partId": "arm_right", "rotationDegrees": -45 }
+      ]
+    },
+    {
+      "id": "celebrate",
+      "parts": [
+        { "partId": "arm_right", "rotationDegrees": -90 }
+      ]
+    },
+    {
+      "id": "doubt",
+      "parts": [
+        { "partId": "arm_right", "rotationDegrees": -25 }
+      ]
+    },
+    {
+      "id": "deny",
+      "parts": [
+        { "partId": "arm_right", "rotationDegrees": -10 }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "armRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "leftArmRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headTilt",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headNod",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyLean",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyBounce",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    }
+  ],
+  "bindings": [
+    {
+      "parameterId": "armRaise",
+      "partId": "arm_right",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": -95
+    },
+    {
+      "parameterId": "leftArmRaise",
+      "partId": "arm_left",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": 95
+    },
+    {
+      "parameterId": "headTilt",
+      "partId": "head",
+      "channel": "rotationDegrees",
+      "from": -12,
+      "to": 12
+    },
+    {
+      "parameterId": "headNod",
+      "partId": "head",
+      "channel": "offsetY",
+      "from": 0,
+      "to": 24
+    },
+    {
+      "parameterId": "bodyLean",
+      "partId": "torso",
+      "channel": "rotationDegrees",
+      "from": -8,
+      "to": 8
+    },
+    {
+      "parameterId": "bodyBounce",
+      "partId": "torso",
+      "channel": "offsetY",
+      "from": 0,
+      "to": -34
+    }
+  ],
+  "provenance": {
+    "source": "Diseño original de rockstar tatuador 'El peque'.",
+    "license": "Asset original para uso interno del proyecto."
+  }
+}

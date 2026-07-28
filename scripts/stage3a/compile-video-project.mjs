@@ -8,6 +8,7 @@ import { createProgressReporter } from '../stage1/progress.mjs';
 import { validateSceneConfig } from '../stage1/validate-scene-config.mjs';
 import { createProjectCompilationContext } from './project-compilation-context.mjs';
 import { loadAndValidateVideoProject, resolveAuthoringAsset } from './validate-video-project.mjs';
+import { ANIMATION_PARAMETERS } from '../../shared/animation-contract.js';
 
 const MOUTH_DEFAULTS = Object.freeze({
   windowMs: 30,
@@ -272,7 +273,9 @@ const FFMPEG_RENDERABLE_PARAMETERS = Object.freeze(['position.x', 'position.y', 
 const PIXI_RENDERABLE_PARAMETERS = Object.freeze([
   ...FFMPEG_RENDERABLE_PARAMETERS,
   'rotationDegrees',
-  'armRaise',
+  ...Object.entries(ANIMATION_PARAMETERS)
+    .filter(([, parameter]) => parameter.requiresResourceSupport)
+    .map(([parameterId]) => parameterId),
 ]);
 
 function compileTracks(element, sceneIndex, usesPixiCompositor) {

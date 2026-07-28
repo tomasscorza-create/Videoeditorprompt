@@ -706,7 +706,7 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
     describeCommand({ type: 'set-keyframe', sceneId: 's2', parameterId: 'position.x' }, context)
       === 'Ajustó un keyframe de la posición horizontal en la escena 2'
       && describeCommand({ type: 'delete-track', sceneId: 's1', parameterId: 'armRaise' }, context)
-        === 'Quitó la animación del brazo en la escena 1'
+        === 'Quitó la animación del brazo derecho en la escena 1'
       && describeCommand({ type: 'remove-animation', sceneId: 's1', parameterId: 'opacity' }, context)
         === 'Quitó la animación de la opacidad en la escena 1',
   );

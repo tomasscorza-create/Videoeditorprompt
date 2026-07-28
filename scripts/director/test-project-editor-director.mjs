@@ -258,7 +258,7 @@ try {
     false,
   );
   assert.deepEqual(animationProposal.explanation.changes, [
-    `Aplicar «Levantar el brazo» al elemento ${animatedElement.id} en la escena 1.`,
+    `Aplicar «Levantar brazo derecho» al elemento ${animatedElement.id} en la escena 1.`,
     `Quitar la animación de opacidad del elemento ${animatedElement.id} en la escena 1.`,
   ]);
 

@@ -38,7 +38,14 @@ export const ANIMATION_PARAMETER_LABELS: Record<string, string> = {
   scale: 'Escala',
   rotationDegrees: 'Rotación',
   opacity: 'Opacidad',
-  armRaise: 'Brazo',
+  armRaise: 'Brazo derecho',
+  leftArmRaise: 'Brazo izquierdo',
+  rightElbowBend: 'Codo derecho',
+  leftElbowBend: 'Codo izquierdo',
+  headTilt: 'Inclinación de cabeza',
+  headNod: 'Asentimiento',
+  bodyLean: 'Inclinación corporal',
+  bodyBounce: 'Rebote corporal',
 };
 
 export function parameterLabel(parameterId: string): string {
@@ -480,7 +487,9 @@ const FFMPEG_RENDERABLE_PARAMETERS: readonly string[] = ['position.x', 'position
 const PIXI_RENDERABLE_PARAMETERS: readonly string[] = [
   ...FFMPEG_RENDERABLE_PARAMETERS,
   'rotationDegrees',
-  'armRaise',
+  ...Object.entries(ANIMATION_PARAMETERS)
+    .filter(([, parameter]) => parameter.requiresResourceSupport)
+    .map(([parameterId]) => parameterId),
 ];
 
 /** Parámetros animables de un elemento, según lo que el recurso declare. */

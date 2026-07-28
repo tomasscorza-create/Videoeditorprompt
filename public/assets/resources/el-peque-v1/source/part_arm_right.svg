@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <path d="M660 760 Q740 900 720 1050 L680 1050 Q670 900 620 760 Z" fill="#ffccb6" stroke="#1a1a1a" stroke-width="12" stroke-linejoin="round"/>
+  <ellipse cx="700" cy="1070" rx="30" ry="35" fill="#ffccb6" stroke="#1a1a1a" stroke-width="10"/>
+  <path d="M710 850 Q690 860 680 840" fill="none" stroke="#2c3e50" stroke-width="6"/>
+  <path d="M700 920 Q680 930 675 900" fill="none" stroke="#2c3e50" stroke-width="6"/>
+</svg>

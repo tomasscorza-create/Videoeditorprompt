@@ -22,6 +22,13 @@ export const ANIMATION_PARAMETERS = Object.freeze({
   rotationDegrees: { unit: 'grados', minimum: -180, maximum: 180, elementTypes: ['character', 'prop'], requiresResourceSupport: false },
   opacity: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character', 'prop'], requiresResourceSupport: false },
   armRaise: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
+  leftArmRaise: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
+  rightElbowBend: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
+  leftElbowBend: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
+  headTilt: { unit: 'normalizado', minimum: -1, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
+  headNod: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
+  bodyLean: { unit: 'normalizado', minimum: -1, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
+  bodyBounce: { unit: 'normalizado', minimum: 0, maximum: 1, elementTypes: ['character'], requiresResourceSupport: true },
 });
 
 /** Parámetros que un recurso tiene que declarar para que estén disponibles. */
@@ -35,6 +42,8 @@ export const ANIMATION_INTERPOLATIONS = Object.freeze(['linear', 'ease', 'hold']
 
 export const ANIMATION_PRESET_IDS = Object.freeze([
   'enter-left', 'enter-right', 'fade-in', 'fade-out', 'emphasis-pulse', 'arm-raise',
+  'left-arm-raise', 'right-elbow-bend', 'left-elbow-bend', 'head-tilt', 'head-nod',
+  'body-lean', 'body-bounce',
 ]);
 
 export const ANIMATION_LIMITS = Object.freeze({

@@ -422,7 +422,14 @@ function humanParameter(parameterId) {
     scale: 'escala',
     rotationDegrees: 'rotación',
     opacity: 'opacidad',
-    armRaise: 'elevación del brazo',
+    armRaise: 'elevación del brazo derecho',
+    leftArmRaise: 'elevación del brazo izquierdo',
+    rightElbowBend: 'flexión del codo derecho',
+    leftElbowBend: 'flexión del codo izquierdo',
+    headTilt: 'inclinación de la cabeza',
+    headNod: 'asentimiento',
+    bodyLean: 'inclinación del cuerpo',
+    bodyBounce: 'rebote del cuerpo',
   }[parameterId] ?? parameterId;
 }
 

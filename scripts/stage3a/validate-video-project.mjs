@@ -95,6 +95,14 @@ export function validateResourceCatalogSemantics(catalog, assetsRoot) {
           semanticError(`/resourceCatalog/entries/${index}/capabilities/poses`, `declara ${pose}, pero el personaje compilado no la soporta`);
         }
       }
+      const authoredParameters = [...(entry.capabilities.parameters ?? [])].sort();
+      const compiledParameters = [...(compiled.capabilities.parameters ?? [])].sort();
+      if (JSON.stringify(authoredParameters) !== JSON.stringify(compiledParameters)) {
+        semanticError(
+          `/resourceCatalog/entries/${index}/capabilities/parameters`,
+          `debe coincidir con los parámetros compilados: ${compiledParameters.join(', ') || 'ninguno'}`,
+        );
+      }
     } else if (entry.type === 'prop') {
       assertPortableRelativePath(entry.resourceRef.catalog, `/resourceCatalog/entries/${index}/resourceRef/catalog`);
       assertPortableRelativePath(entry.thumbnail, `/resourceCatalog/entries/${index}/thumbnail`);

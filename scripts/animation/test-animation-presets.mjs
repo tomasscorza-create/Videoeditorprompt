@@ -34,16 +34,20 @@ function pass(name, detail = {}) {
 
 // 1. El catálogo tiene los seis presets del plan y todos expanden a 2-4 keyframes.
 assert.deepEqual(Object.keys(ANIMATION_PRESETS).sort(),
-  ['arm-raise', 'emphasis-pulse', 'enter-left', 'enter-right', 'fade-in', 'fade-out']);
+  [
+    'arm-raise', 'body-bounce', 'body-lean', 'emphasis-pulse', 'enter-left',
+    'enter-right', 'fade-in', 'fade-out', 'head-nod', 'head-tilt',
+    'left-arm-raise', 'left-elbow-bend', 'right-elbow-bend',
+  ]);
 for (const [presetId, preset] of Object.entries(ANIMATION_PRESETS)) {
   const track = expandAnimationPreset(presetId, { baseValue: preset.parameterId === 'scale' ? 1 : 100 });
-  assert.ok(track.keyframes.length >= 2 && track.keyframes.length <= 4, `${presetId} debe dar entre 2 y 4 keyframes`);
+  assert.ok(track.keyframes.length >= 2 && track.keyframes.length <= 5, `${presetId} debe dar entre 2 y 5 keyframes`);
   assert.equal(track.keyframes.at(-1).interpolation, 'hold', `${presetId} debe cerrar en hold`);
   assert.equal(track.source.kind, 'preset');
   assert.equal(track.source.customized, false);
   assert.equal(track.source.presetId, presetId);
 }
-pass('los-seis-presets-expanden-a-dos-o-cuatro-keyframes', { accepted: true, presets: Object.keys(ANIMATION_PRESETS).length });
+pass('los-presets-expanden-a-pistas-acotadas', { accepted: true, presets: Object.keys(ANIMATION_PRESETS).length });
 
 // 2. La expansión es determinista.
 assert.deepEqual(
@@ -78,8 +82,10 @@ pass('los-valores-quedan-dentro-del-rango', { accepted: true });
 // 5. `arm-raise` solo se ofrece si el recurso declara el parámetro.
 assert.ok(!listApplicablePresets([]).some((preset) => preset.id === 'arm-raise'));
 assert.ok(listApplicablePresets(['armRaise']).some((preset) => preset.id === 'arm-raise'));
+assert.ok(listApplicablePresets(['headNod']).some((preset) => preset.id === 'head-nod'));
+assert.ok(!listApplicablePresets(['armRaise']).some((preset) => preset.id === 'head-nod'));
 assert.equal(listApplicablePresets([]).length, 5);
-pass('arm-raise-solo-si-el-recurso-lo-declara', { accepted: true });
+pass('presets-articulados-solo-si-el-recurso-los-declara', { accepted: true });
 
 // 6. Aplicar un preset desde el editor produce un proyecto portable.
 const base = createProjectEditor(project, catalog);
@@ -124,6 +130,18 @@ assert.throws(() => applyProjectEditorCommand(base, {
   type: 'apply-animation-preset', sceneId, elementId: element.id, presetId: 'arm-raise',
 }), (error) => error.code === 'EDITOR_TRACK_INVALID');
 pass('arm-raise-rechazado-en-un-personaje-v2', { accepted: false, expectedCode: 'EDITOR_TRACK_INVALID' });
+
+const modernBase = applyProjectEditorCommand(base, {
+  type: 'set-character-resource', sceneId, elementId: element.id, resourceId: 'el-peque-v1',
+});
+const nodded = applyProjectEditorCommand(modernBase, {
+  type: 'apply-animation-preset', sceneId, elementId: element.id, presetId: 'head-nod',
+});
+const nodTrack = nodded.project.scenes[0].elements.find((candidate) => candidate.id === element.id)
+  .tracks.find((candidate) => candidate.parameterId === 'headNod');
+assert.equal(nodTrack.source.presetId, 'head-nod');
+assert.ok(validateProject(JSON.parse(exportEditorProject(nodded))));
+pass('personaje-v3-acepta-preset-articulado-ampliado', { accepted: true });
 
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'animation-presets-latest.json'), summary);

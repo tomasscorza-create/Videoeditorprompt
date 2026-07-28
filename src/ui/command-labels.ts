@@ -30,7 +30,14 @@ const PARAMETER_NAMES: Record<string, string> = {
   scale: 'la escala',
   rotationDegrees: 'la rotación',
   opacity: 'la opacidad',
-  armRaise: 'el brazo',
+  armRaise: 'el brazo derecho',
+  leftArmRaise: 'el brazo izquierdo',
+  rightElbowBend: 'el codo derecho',
+  leftElbowBend: 'el codo izquierdo',
+  headTilt: 'la inclinación de la cabeza',
+  headNod: 'el asentimiento',
+  bodyLean: 'la inclinación del cuerpo',
+  bodyBounce: 'el rebote del cuerpo',
 };
 
 function parameterName(parameterId: unknown): string {

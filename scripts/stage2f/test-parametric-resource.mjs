@@ -54,11 +54,16 @@ function compile(root, definition, options = {}) {
 
 // 1. Las dos definiciones piloto son válidas.
 const monkeyDefinition = loadResourceDefinition(path.join(projectRoot, 'public', definitionsRelative, 'mono-articulado-v1.json'));
+const modernDefinition = loadResourceDefinition(path.join(projectRoot, 'public', definitionsRelative, 'el-peque-v1.json'));
 const propDefinition = loadResourceDefinition(path.join(projectRoot, 'public', definitionsRelative, 'cartel-dato-v1.json'));
 assert.equal(monkeyDefinition.kind, 'character');
 assert.equal(propDefinition.kind, 'prop');
 assert.equal(monkeyDefinition.parts.length, 2);
 assert.deepEqual(monkeyDefinition.parameters.map((parameter) => parameter.id), ['armRaise']);
+assert.equal(modernDefinition.stateParentPartId, 'head');
+assert.deepEqual(modernDefinition.parameters.map((parameter) => parameter.id), [
+  'armRaise', 'leftArmRaise', 'headTilt', 'headNod', 'bodyLean', 'bodyBounce',
+]);
 pass('definiciones-piloto-validas', { accepted: true });
 
 // 2. El personaje articulado compila y su manifest es v3 válido.
@@ -92,6 +97,21 @@ assert.deepEqual(monkeyManifest.bindings, [
   { parameterId: 'armRaise', partId: 'arm_right', channel: 'rotationDegrees', from: 0, to: -95 },
 ]);
 pass('binding-de-armraise-declarado', { accepted: true });
+
+const modernRoot = assetsRootWith('modern', ['el-peque-v1']);
+const modern = compile(modernRoot, 'el-peque-v1');
+const [modernArtifact] = modern.artifacts;
+const modernManifest = readJson(modernArtifact.manifestPath);
+readResourceManifest(modernManifest);
+assert.equal(modernManifest.stateParentPartId, 'head');
+assert.deepEqual(modernManifest.parameters.map((parameter) => parameter.id), [
+  'armRaise', 'leftArmRaise', 'headTilt', 'headNod', 'bodyLean', 'bodyBounce',
+]);
+assert.equal(modernManifest.bindings.length, 6);
+pass('personaje-moderno-compila-con-vocabulario-ampliado', {
+  accepted: true,
+  parameters: modernManifest.parameters.length,
+});
 
 // 3. La prueba que importa: con el brazo sin rotar, la composición por piezas
 //    produce exactamente la misma imagen que el recurso v2 publicado.

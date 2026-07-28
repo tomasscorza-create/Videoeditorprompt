@@ -77,11 +77,71 @@ export const ANIMATION_PRESETS = Object.freeze({
   'arm-raise': {
     version: 1,
     parameterId: 'armRaise',
-    label: 'Levantar el brazo',
+    label: 'Levantar brazo derecho',
     steps: [
       { atSeconds: -0.1, mode: 'absolute', amount: 0, interpolation: 'ease' },
       { atSeconds: 0.15, mode: 'absolute', amount: 1, interpolation: 'ease' },
       { atSeconds: 0.85, mode: 'absolute', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'left-arm-raise': {
+    version: 1, parameterId: 'leftArmRaise', label: 'Levantar brazo izquierdo',
+    steps: [
+      { atSeconds: -0.1, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.15, mode: 'absolute', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.85, mode: 'absolute', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'right-elbow-bend': {
+    version: 1, parameterId: 'rightElbowBend', label: 'Flexionar codo derecho',
+    steps: [
+      { atSeconds: -0.1, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.15, mode: 'absolute', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.7, mode: 'absolute', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'left-elbow-bend': {
+    version: 1, parameterId: 'leftElbowBend', label: 'Flexionar codo izquierdo',
+    steps: [
+      { atSeconds: -0.1, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.15, mode: 'absolute', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.7, mode: 'absolute', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'head-tilt': {
+    version: 1, parameterId: 'headTilt', label: 'Inclinar la cabeza',
+    steps: [
+      { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.2, mode: 'absolute', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.65, mode: 'absolute', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'head-nod': {
+    version: 1, parameterId: 'headNod', label: 'Asentir',
+    steps: [
+      { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.16, mode: 'absolute', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.34, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.52, mode: 'absolute', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.7, mode: 'absolute', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'body-lean': {
+    version: 1, parameterId: 'bodyLean', label: 'Inclinar el cuerpo',
+    steps: [
+      { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.24, mode: 'absolute', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.72, mode: 'absolute', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'body-bounce': {
+    version: 1, parameterId: 'bodyBounce', label: 'Rebotar',
+    steps: [
+      { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.14, mode: 'absolute', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.3, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.46, mode: 'absolute', amount: 0.75, interpolation: 'ease' },
+      { atSeconds: 0.62, mode: 'absolute', amount: 0, interpolation: 'hold' },
     ],
   },
 });

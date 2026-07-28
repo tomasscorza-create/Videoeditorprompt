@@ -23,11 +23,19 @@
     },
     "parameterId": {
       "description": "Vocabulario cerrado V1. zIndex, anchorX y anchorY no son animables.",
-      "enum": ["position.x", "position.y", "scale", "rotationDegrees", "opacity", "armRaise"]
+      "enum": [
+        "position.x", "position.y", "scale", "rotationDegrees", "opacity",
+        "armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend",
+        "headTilt", "headNod", "bodyLean", "bodyBounce"
+      ]
     },
     "presetId": {
       "description": "Catálogo cerrado V1. La expansión concreta a keyframes se define en la Fase 5.",
-      "enum": ["enter-left", "enter-right", "fade-in", "fade-out", "emphasis-pulse", "arm-raise"]
+      "enum": [
+        "enter-left", "enter-right", "fade-in", "fade-out", "emphasis-pulse",
+        "arm-raise", "left-arm-raise", "right-elbow-bend", "left-elbow-bend",
+        "head-tilt", "head-nod", "body-lean", "body-bounce"
+      ]
     },
     "interpolation": {
       "description": "Describe el tramo que SALE del keyframe hacia el siguiente. El último keyframe de una pista debe declarar hold.",
@@ -126,7 +134,8 @@
         { "$ref": "#/$defs/valueRange/scale" },
         { "$ref": "#/$defs/valueRange/rotationDegrees" },
         { "$ref": "#/$defs/valueRange/opacity" },
-        { "$ref": "#/$defs/valueRange/armRaise" }
+        { "$ref": "#/$defs/valueRange/resourceUnit" },
+        { "$ref": "#/$defs/valueRange/resourceSigned" }
       ]
     },
     "valueRange": {
@@ -196,15 +205,40 @@
           }
         }
       },
-      "armRaise": {
+      "resourceUnit": {
         "type": "object",
-        "if": { "type": "object", "properties": { "parameterId": { "const": "armRaise" } }, "required": ["parameterId"] },
+        "if": {
+          "type": "object",
+          "properties": {
+            "parameterId": {
+              "enum": ["armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend", "headNod", "bodyBounce"]
+            }
+          },
+          "required": ["parameterId"]
+        },
         "then": {
           "type": "object",
           "properties": {
             "keyframes": {
               "type": "array",
               "items": { "type": "object", "properties": { "value": { "type": "number", "minimum": 0, "maximum": 1 } } }
+            }
+          }
+        }
+      },
+      "resourceSigned": {
+        "type": "object",
+        "if": {
+          "type": "object",
+          "properties": { "parameterId": { "enum": ["headTilt", "bodyLean"] } },
+          "required": ["parameterId"]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "keyframes": {
+              "type": "array",
+              "items": { "type": "object", "properties": { "value": { "type": "number", "minimum": -1, "maximum": 1 } } }
             }
           }
         }

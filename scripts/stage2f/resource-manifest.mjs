@@ -72,6 +72,9 @@ export function validateResourceManifestV3(manifest) {
     zIndexes.add(part.zIndex);
     if (part.layer !== undefined) assertPortablePath(part.layer, `parts/${part.id}/layer`);
   }
+  if (manifest.stateParentPartId !== undefined && !partIds.has(manifest.stateParentPartId)) {
+    semanticError(`La pieza padre de estados no existe: ${manifest.stateParentPartId}`);
+  }
 
   const roots = manifest.parts.filter((part) => part.parentId === null);
   if (roots.length !== 1) semanticError(`El recurso debe tener exactamente una pieza raíz y tiene ${roots.length}.`);
@@ -107,6 +110,7 @@ export function validateResourceManifestV3(manifest) {
   }
 
   const seenBindings = new Set();
+  const occupiedChannels = new Set();
   for (const binding of manifest.bindings) {
     if (!declared.has(binding.parameterId)) semanticError(`El binding apunta a ${binding.parameterId}, que el recurso no declara.`);
     if (!partIds.has(binding.partId)) semanticError(`El binding apunta a la pieza inexistente ${binding.partId}.`);
@@ -114,6 +118,11 @@ export function validateResourceManifestV3(manifest) {
     const key = `${binding.parameterId}:${binding.partId}:${binding.channel}`;
     if (seenBindings.has(key)) semanticError(`Binding duplicado: ${key}`);
     seenBindings.add(key);
+    const occupiedKey = `${binding.partId}:${binding.channel}`;
+    if (occupiedChannels.has(occupiedKey)) {
+      semanticError(`Dos parámetros intentan controlar el mismo canal de pieza: ${occupiedKey}`);
+    }
+    occupiedChannels.add(occupiedKey);
     if (binding.from === binding.to) semanticError(`El binding ${key} no produce movimiento.`);
   }
 

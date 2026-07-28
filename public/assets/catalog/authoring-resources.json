@@ -2,6 +2,46 @@
   "version": 1,
   "entries": [
     {
+      "id": "el-peque-v1",
+      "type": "character",
+      "label": "El peque",
+      "tags": [
+        "tatuador",
+        "rockstar",
+        "personaje",
+        "peque"
+      ],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "el-peque-v1"
+      },
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ],
+        "parameters": [
+          "armRaise",
+          "leftArmRaise",
+          "headTilt",
+          "headNod",
+          "bodyLean",
+          "bodyBounce"
+        ]
+      },
+      "provenance": {
+        "source": "Diseño original de rockstar tatuador 'El peque'.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
       "id": "mono-azul-v1",
       "type": "character",
       "label": "Mono presentador azul",

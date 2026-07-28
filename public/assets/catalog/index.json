@@ -341,6 +341,53 @@
         "source": "Definicion geometrica original del proyecto para el prop piloto de la Fase 1.",
         "license": "Asset original para uso interno del proyecto."
       }
+    },
+    {
+      "id": "el-peque-v1",
+      "type": "character",
+      "label": "El peque",
+      "manifest": "assets/resources/el-peque-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/el-peque-v1/pose_neutral.png",
+      "tags": [
+        "parametrico",
+        "character"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
+        ],
+        "parts": [
+          "torso",
+          "legs",
+          "head",
+          "arm_left",
+          "arm_right"
+        ],
+        "parameters": [
+          "armRaise",
+          "leftArmRaise",
+          "headTilt",
+          "headNod",
+          "bodyLean",
+          "bodyBounce"
+        ]
+      },
+      "provenance": {
+        "source": "Diseño original de rockstar tatuador 'El peque'.",
+        "license": "Asset original para uso interno del proyecto."
+      }
     }
   ]
 }

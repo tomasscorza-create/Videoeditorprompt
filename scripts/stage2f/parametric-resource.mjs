@@ -208,6 +208,7 @@ export function compileParametricResource(options) {
           zIndex: part.zIndex,
           layer: partLayers[part.id],
         })),
+        ...(definition.stateParentPartId ? { stateParentPartId: definition.stateParentPartId } : {}),
         ...(definition.kind === 'character' ? { states, poses: definition.poses } : {}),
         parameters: definition.parameters,
         bindings: definition.bindings,

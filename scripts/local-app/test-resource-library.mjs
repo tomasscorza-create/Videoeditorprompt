@@ -17,6 +17,7 @@ const builtinCatalog = JSON.parse(readFileSync(
   path.join(assetsRoot, 'assets', 'catalog', 'authoring-resources.json'),
   'utf8',
 ));
+const builtinCount = builtinCatalog.entries.length;
 
 try {
   assert.equal(
@@ -34,8 +35,8 @@ try {
     builtinCatalog,
     now: () => new Date('2026-07-24T00:00:00.000Z'),
   });
-  assert.equal((await library.list()).length, 18);
-  assert.equal(library.catalog().entries.length, 18);
+  assert.equal((await library.list()).length, builtinCount);
+  assert.equal(library.catalog().entries.length, builtinCount);
   assert.match(library.catalogRelative, /^assets\/library\/test-[^/]+\/authoring-resources\.json$/);
 
   const voice = {
@@ -58,7 +59,7 @@ try {
   const registered = await library.register(voice);
   assert.equal(registered.created, true);
   assert.equal(registered.resource.origin, 'local');
-  assert.equal(library.catalog().entries.length, 19);
+  assert.equal(library.catalog().entries.length, builtinCount + 1);
 
   const same = await library.register(voice);
   assert.equal(same.created, false);
@@ -103,7 +104,7 @@ try {
   assert.equal(importedBackground.created, true);
   assert.equal(importedBackground.resource.entry.type, 'background');
   assert.equal(importedBackground.image.mimeType, 'image/png');
-  assert.equal(library.catalog().entries.length, 20);
+  assert.equal(library.catalog().entries.length, builtinCount + 2);
   const importedManifest = JSON.parse(readFileSync(
     path.join(assetsRoot, importedBackground.resource.entry.backgroundManifest),
     'utf8',
@@ -229,10 +230,10 @@ try {
   legacyCharacterRecord.entry.capabilities.animationPresets = ['idle', 'dialogue'];
   writeFileSync(library.indexPath, JSON.stringify(registryBeforeUpgrade), 'utf8');
   const restored = await createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
-  assert.equal((await restored.list()).length, 23);
+  assert.equal((await restored.list()).length, builtinCount + 5);
   assert.equal(restored.catalog().entries.at(-1).type, 'character');
   assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 5);
-  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, 23);
+  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, builtinCount + 5);
   assert.equal(existsSync(path.join(
     publishRoot,
     'backgrounds',
@@ -258,7 +259,7 @@ try {
     builtinCatalog,
     legacyIndexPath: restored.indexPath,
   });
-  assert.equal((await migrated.list()).length, 23);
+  assert.equal((await migrated.list()).length, builtinCount + 5);
   assert.equal(existsSync(migrated.indexPath), true);
   assert.equal(existsSync(path.join(
     migrated.storageAssetsRoot,

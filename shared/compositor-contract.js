@@ -29,15 +29,19 @@ export function resolveBindingChannel(parameter, binding, value) {
  * reemplaza la base, no se suma. Sin binding activo manda la pose.
  */
 export function partRotationDegrees(manifest, partId, params, poseId) {
-  const binding = (manifest.bindings ?? []).find((candidate) => candidate.partId === partId
-    && candidate.channel === 'rotationDegrees'
-    && params?.[candidate.parameterId] !== undefined);
-  if (binding) {
-    const parameter = manifest.parameters.find((candidate) => candidate.id === binding.parameterId);
-    return resolveBindingChannel(parameter, binding, params[binding.parameterId]);
-  }
+  const bound = partBindingChannel(manifest, partId, 'rotationDegrees', params);
+  if (bound !== undefined) return bound;
   const pose = (manifest.poses ?? []).find((candidate) => candidate.id === poseId);
   return pose?.parts.find((item) => item.partId === partId)?.rotationDegrees ?? 0;
+}
+
+function partBindingChannel(manifest, partId, channel, params) {
+  const binding = (manifest.bindings ?? []).find((candidate) => candidate.partId === partId
+    && candidate.channel === channel
+    && params?.[candidate.parameterId] !== undefined);
+  if (!binding) return undefined;
+  const parameter = manifest.parameters.find((candidate) => candidate.id === binding.parameterId);
+  return resolveBindingChannel(parameter, binding, params[binding.parameterId]);
 }
 
 /** Cadena de ancestros de una pieza, de la raíz hacia la pieza. */
@@ -50,6 +54,23 @@ function ancestryOf(parts, partId) {
     current = current.parentId === null ? null : byId.get(current.parentId);
   }
   return chain;
+}
+
+function visualStateForPart(manifest, partId, params, poseId) {
+  const transforms = [];
+  let opacity = 1;
+  for (const ancestor of ancestryOf(manifest.parts, partId)) {
+    const offsetX = partBindingChannel(manifest, ancestor.id, 'offsetX', params) ?? 0;
+    const offsetY = partBindingChannel(manifest, ancestor.id, 'offsetY', params) ?? 0;
+    const scale = partBindingChannel(manifest, ancestor.id, 'scale', params) ?? 1;
+    const degrees = partRotationDegrees(manifest, ancestor.id, params, poseId);
+    const boundOpacity = partBindingChannel(manifest, ancestor.id, 'opacity', params) ?? 1;
+    if (offsetX !== 0 || offsetY !== 0) transforms.push({ kind: 'translate', x: offsetX, y: offsetY });
+    if (scale !== 1) transforms.push({ kind: 'scale', factor: scale, x: ancestor.pivot.x, y: ancestor.pivot.y });
+    if (degrees !== 0) transforms.push({ kind: 'rotate', degrees, x: ancestor.pivot.x, y: ancestor.pivot.y });
+    opacity *= boundOpacity;
+  }
+  return { transforms, opacity };
 }
 
 /**
@@ -68,12 +89,8 @@ export function buildResourceSprites(manifest, options = {}) {
 
   for (const part of [...manifest.parts].sort((a, b) => a.zIndex - b.zIndex)) {
     if (part.layer === undefined) continue;
-    const transforms = [];
-    for (const ancestor of ancestryOf(manifest.parts, part.id)) {
-      const degrees = partRotationDegrees(manifest, ancestor.id, params, poseId);
-      if (degrees !== 0) transforms.push({ kind: 'rotate', degrees, x: ancestor.pivot.x, y: ancestor.pivot.y });
-    }
-    sprites.push({ id: part.id, src: part.layer, zIndex: part.zIndex, opacity: 1, transforms });
+    const visual = visualStateForPart(manifest, part.id, params, poseId);
+    sprites.push({ id: part.id, src: part.layer, zIndex: part.zIndex, opacity: visual.opacity, transforms: visual.transforms });
   }
 
   if (manifest.kind !== 'character') return sprites;
@@ -83,11 +100,14 @@ export function buildResourceSprites(manifest, options = {}) {
   const top = Math.max(...manifest.parts.map((part) => part.zIndex)) + 1;
   const eyes = states.eyes ?? 'open';
   const mouth = states.mouth ?? 'closed';
+  const stateVisual = manifest.stateParentPartId
+    ? visualStateForPart(manifest, manifest.stateParentPartId, params, poseId)
+    : { transforms: [], opacity: 1 };
   if (manifest.states.eyes[eyes]) {
-    sprites.push({ id: `eyes:${eyes}`, src: manifest.states.eyes[eyes], zIndex: top, opacity: 1, transforms: [] });
+    sprites.push({ id: `eyes:${eyes}`, src: manifest.states.eyes[eyes], zIndex: top, opacity: stateVisual.opacity, transforms: [...stateVisual.transforms] });
   }
   if (manifest.states.mouth[mouth]) {
-    sprites.push({ id: `mouth:${mouth}`, src: manifest.states.mouth[mouth], zIndex: top + 1, opacity: 1, transforms: [] });
+    sprites.push({ id: `mouth:${mouth}`, src: manifest.states.mouth[mouth], zIndex: top + 1, opacity: stateVisual.opacity, transforms: [...stateVisual.transforms] });
   }
   // Los rigs v2 adaptados a v3 conservan los gestos como capas completas de
   // manos. Los rigs v3 articulados no tienen este grupo: expresan el gesto
