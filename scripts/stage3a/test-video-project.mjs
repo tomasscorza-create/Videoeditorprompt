@@ -40,6 +40,19 @@ assert.ok(valid.project.scenes.every((scene) => scene.elements.every((element) =
 })));
 results.push({ name: 'canvas-transforms-are-explicit-and-bounded', accepted: true });
 
+const capabilitiesGate = loadAndValidateVideoProject({
+  projectPath: path.join(projectRoot, 'pilots', 'gate-capacidades-v1', 'project.json'),
+  assetsRoot,
+});
+const gateElements = capabilitiesGate.project.scenes.flatMap((scene) => scene.elements);
+const gateParameters = new Set(gateElements.flatMap((element) => (element.tracks ?? []).map((track) => track.parameterId)));
+assert.deepEqual([...gateParameters].sort(), [
+  'armRaise', 'opacity', 'position.x', 'position.y', 'rotationDegrees', 'scale',
+]);
+assert.equal(gateElements.some((element) => element.type === 'prop'), true);
+assert.equal(capabilitiesGate.project.musicResourceId, 'musica-brillante-v1');
+results.push({ name: 'integrated-capabilities-gate-covers-six-parameters-prop-and-music', accepted: true });
+
 invalidCase('duplicate-scene-id', 'AUTHORING_PROJECT_SEMANTIC_INVALID', (project) => {
   project.scenes[1].id = project.scenes[0].id;
 });

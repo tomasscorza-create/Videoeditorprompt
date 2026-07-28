@@ -950,6 +950,14 @@ Registrar:
 - divergencias preview/MP4;
 - errores de referencias después de editar diálogo.
 
+**Avance al 28 de julio de 2026:** existe un gate integrado preliminar,
+`gate-capacidades-v1`, que combina en 18,4 s las tres situaciones y además
+fuerza ambos compositores, música, cámara, cinco gestos, cinco layouts, cuatro
+voces y los seis parámetros animables. El render interactivo aprobó 9
+verificaciones y está documentado en
+`docs/GATE_INTEGRADO_CAPACIDADES_V1.md`. Todavía faltan la evaluación humana y
+los tres videos separados exigidos por el gate original.
+
 Solo después se decide entre:
 
 - más joints e IK;

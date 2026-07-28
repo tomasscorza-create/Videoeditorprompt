@@ -169,6 +169,7 @@ No sacrificar claridad o correctitud por optimización prematura.
 - `pilots/parametric-character-01/scene.config.json`: piloto v2 que resuelve dos variantes mediante `characterAssetId` y catálogo.
 - `pilots/proyecto-editable-01/project.json`: piloto de autoría con dos escenas; aún no es consumido por el render.
 - `pilots/proyecto-compilable-01/project.json`: subconjunto de dos escenas compilable al contrato v2 actual.
+- `pilots/gate-capacidades-v1/project.json`: gate integrado de dos escenas que combina ambos compositores, rig articulado, prop, música, cámara, transición y los seis parámetros animables; su evidencia humana/técnica vive en `docs/GATE_INTEGRADO_CAPACIDADES_V1.md`.
 - `scripts/stage2c/generate-monkey-character.mjs`: generador determinista de las fuentes SVG y capas PNG del mono; no forma parte del render normal.
 - `scripts/stage2f/parametric-character.mjs`: compilador determinista de definición geométrica a SVG, PNG, manifest v2 y catálogo.
 - `public/assets/character-definitions/mono-parametrico-v1.json`: definición fuente del vertical slice 2F.2.

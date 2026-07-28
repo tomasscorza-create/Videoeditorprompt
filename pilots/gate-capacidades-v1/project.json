@@ -1,0 +1,667 @@
+{
+  "version": 1,
+  "id": "gate-capacidades-v1",
+  "title": "Todo se mueve con intención",
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "seed": 7282026,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "musicResourceId": "musica-brillante-v1",
+  "scenes": [
+    {
+      "id": "escena-laboratorio",
+      "title": "Laboratorio articulado",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-pan"
+      },
+      "elements": [
+        {
+          "id": "directora",
+          "type": "character",
+          "resourceId": "mono-articulado-azul-v1",
+          "transform": {
+            "x": 300,
+            "y": 1110,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.72,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 20
+          },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm",
+          "tracks": [
+            {
+              "parameterId": "position.x",
+              "source": {
+                "kind": "preset",
+                "presetId": "enter-left",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-directora-entrada-1",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": -120,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-directora-entrada-2",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.6,
+                  "value": 300,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "scale",
+              "source": {
+                "kind": "preset",
+                "presetId": "emphasis-pulse",
+                "version": 1,
+                "customized": true
+              },
+              "keyframes": [
+                {
+                  "id": "kf-directora-enfasis-1",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 0.72,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-directora-enfasis-2",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.18,
+                  "value": 0.82,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-directora-enfasis-3",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.46,
+                  "value": 0.72,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "armRaise",
+              "source": {
+                "kind": "preset",
+                "presetId": "arm-raise",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-directora-brazo-1",
+                  "anchor": {
+                    "kind": "word",
+                    "turnId": "turno-laboratorio-01",
+                    "wordIndex": 4
+                  },
+                  "offsetSeconds": -0.1,
+                  "value": 0,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-directora-brazo-2",
+                  "anchor": {
+                    "kind": "word",
+                    "turnId": "turno-laboratorio-01",
+                    "wordIndex": 4
+                  },
+                  "offsetSeconds": 0.15,
+                  "value": 1,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-directora-brazo-3",
+                  "anchor": {
+                    "kind": "word",
+                    "turnId": "turno-laboratorio-01",
+                    "wordIndex": 4
+                  },
+                  "offsetSeconds": 0.85,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "analista",
+          "type": "character",
+          "resourceId": "mono-ciruela-v1",
+          "transform": {
+            "x": 790,
+            "y": 1110,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.7,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 21
+          },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm",
+          "tracks": [
+            {
+              "parameterId": "position.x",
+              "source": {
+                "kind": "preset",
+                "presetId": "enter-right",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-analista-entrada-1",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 1210,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-analista-entrada-2",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.6,
+                  "value": 790,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "opacity",
+              "source": {
+                "kind": "preset",
+                "presetId": "fade-in",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-analista-aparece-1",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-analista-aparece-2",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.4,
+                  "value": 1,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "position.y",
+              "source": {
+                "kind": "manual"
+              },
+              "keyframes": [
+                {
+                  "id": "kf-analista-salto-1",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 1110,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-analista-salto-2",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.25,
+                  "value": 1035,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-analista-salto-3",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.55,
+                  "value": 1110,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cartel",
+          "type": "prop",
+          "resourceId": "cartel-dato-v1",
+          "transform": {
+            "x": 540,
+            "y": 620,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.9,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 30
+          },
+          "tracks": [
+            {
+              "parameterId": "opacity",
+              "source": {
+                "kind": "preset",
+                "presetId": "fade-in",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-cartel-aparece-1",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-cartel-aparece-2",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.4,
+                  "value": 1,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "scale",
+              "source": {
+                "kind": "preset",
+                "presetId": "emphasis-pulse",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-cartel-enfasis-1",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.45,
+                  "value": 0.9,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-enfasis-2",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.63,
+                  "value": 1.03,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-enfasis-3",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.91,
+                  "value": 0.9,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "rotationDegrees",
+              "source": {
+                "kind": "manual"
+              },
+              "keyframes": [
+                {
+                  "id": "kf-cartel-giro-1",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.45,
+                  "value": -8,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-giro-2",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.68,
+                  "value": 8,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-giro-3",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-laboratorio-02",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.95,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-laboratorio-01",
+          "speakerElementId": "directora",
+          "text": "Hoy cada movimiento responde a una intención clara.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "point",
+          "gestureAtWord": 3,
+          "pace": "normal",
+          "layoutPreset": "focus-a",
+          "gapAfterSeconds": 0.25
+        },
+        {
+          "id": "turno-laboratorio-02",
+          "speakerElementId": "analista",
+          "text": "Personajes, carteles y cámara comparten el mismo tiempo.",
+          "voiceId": "voz-davefx-es-v1",
+          "gestureId": "celebrate",
+          "gestureAtWord": 2,
+          "pace": "fast",
+          "layoutPreset": "focus-b",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "turno-laboratorio-03",
+          "speakerElementId": "directora",
+          "text": "Y el render conserva cada decisión sin improvisar.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "doubt",
+          "gestureAtWord": 4,
+          "pace": "slow",
+          "layoutPreset": "wide",
+          "gapAfterSeconds": 0
+        }
+      ],
+      "transitionToNext": {
+        "preset": "fade",
+        "durationSeconds": 0.45
+      }
+    },
+    {
+      "id": "escena-salida",
+      "title": "Salida determinista",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-zoom"
+      },
+      "elements": [
+        {
+          "id": "divulgadora",
+          "type": "character",
+          "resourceId": "mono-verde-v1",
+          "transform": {
+            "x": 320,
+            "y": 1090,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.73,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 20
+          },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm",
+          "tracks": [
+            {
+              "parameterId": "opacity",
+              "source": {
+                "kind": "preset",
+                "presetId": "fade-in",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-divulgadora-aparece-1",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-divulgadora-aparece-2",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.4,
+                  "value": 1,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "scale",
+              "source": {
+                "kind": "preset",
+                "presetId": "emphasis-pulse",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-divulgadora-enfasis-1",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-salida-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 0.73,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-divulgadora-enfasis-2",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-salida-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.18,
+                  "value": 0.83,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-divulgadora-enfasis-3",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "turno-salida-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.46,
+                  "value": 0.73,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "revisor",
+          "type": "character",
+          "resourceId": "mono-teal-v1",
+          "transform": {
+            "x": 760,
+            "y": 1090,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.73,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 21
+          },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm",
+          "tracks": [
+            {
+              "parameterId": "position.x",
+              "source": {
+                "kind": "preset",
+                "presetId": "enter-right",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-revisor-entrada-1",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 1180,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-revisor-entrada-2",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.6,
+                  "value": 760,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "opacity",
+              "source": {
+                "kind": "preset",
+                "presetId": "fade-out",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-revisor-sale-1",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "end"
+                  },
+                  "offsetSeconds": -0.5,
+                  "value": 1,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-revisor-sale-2",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "end"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-salida-01",
+          "speakerElementId": "divulgadora",
+          "text": "La segunda escena usa el compositor clásico con precisión.",
+          "voiceId": "voz-sharvard-es-v1",
+          "gestureId": "deny",
+          "gestureAtWord": 3,
+          "pace": "normal",
+          "layoutPreset": "close-up-a",
+          "gapAfterSeconds": 0.25
+        },
+        {
+          "id": "turno-salida-02",
+          "speakerElementId": "revisor",
+          "text": "Dos motores, una timeline y un único video verificable.",
+          "voiceId": "voz-ald-mx-v1",
+          "gestureId": "neutral",
+          "pace": "fast",
+          "layoutPreset": "stacked",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}
