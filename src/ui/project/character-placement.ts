@@ -1,15 +1,22 @@
 export const CHARACTER_DRAG_TYPE = 'application/x-local-video-character';
+export const PROP_DRAG_TYPE = 'application/x-local-video-prop';
 export const CHARACTER_PLACEMENT_EVENT = 'local-video-character-placement';
 
 export interface CharacterPlacement {
   resourceId: string;
   label: string;
+  type?: 'character' | 'prop';
 }
 
 let current: CharacterPlacement | null = null;
 
 export function beginCharacterPlacement(resourceId: string, label: string): void {
-  current = { resourceId, label };
+  current = { resourceId, label, type: 'character' };
+  notify();
+}
+
+export function beginPropPlacement(resourceId: string, label: string): void {
+  current = { resourceId, label, type: 'prop' };
   notify();
 }
 
@@ -28,11 +35,29 @@ export function writeCharacterDrag(dataTransfer: DataTransfer, placement: Charac
   dataTransfer.setData('text/plain', placement.label);
 }
 
+export function writePropDrag(dataTransfer: DataTransfer, placement: CharacterPlacement): void {
+  dataTransfer.effectAllowed = 'copy';
+  dataTransfer.setData(PROP_DRAG_TYPE, JSON.stringify({ ...placement, type: 'prop' }));
+  dataTransfer.setData('text/plain', placement.label);
+}
+
 export function readCharacterDrag(dataTransfer: DataTransfer | null): CharacterPlacement | null {
   if (!dataTransfer) return null;
   try {
     const parsed = JSON.parse(dataTransfer.getData(CHARACTER_DRAG_TYPE)) as CharacterPlacement;
     return parsed && typeof parsed.resourceId === 'string' && typeof parsed.label === 'string' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function readPropDrag(dataTransfer: DataTransfer | null): CharacterPlacement | null {
+  if (!dataTransfer) return null;
+  try {
+    const parsed = JSON.parse(dataTransfer.getData(PROP_DRAG_TYPE)) as CharacterPlacement;
+    return parsed && typeof parsed.resourceId === 'string' && typeof parsed.label === 'string'
+      ? { ...parsed, type: 'prop' }
+      : null;
   } catch {
     return null;
   }

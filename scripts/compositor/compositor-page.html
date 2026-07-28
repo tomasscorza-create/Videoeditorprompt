@@ -69,7 +69,8 @@ async function run() {
   await application.init({
     width: job.video.width,
     height: job.video.height,
-    backgroundAlpha: 0,
+    background: job.video.backgroundColor ?? 0,
+    backgroundAlpha: job.video.backgroundColor ? 1 : 0,
     antialias: true,
     autoStart: false,
     preference: 'webgl',

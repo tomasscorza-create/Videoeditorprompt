@@ -87,6 +87,21 @@
         }
       }
     },
+    "props": {
+      "type": "array",
+      "maxItems": 18,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "resourceManifest", "transform"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "resourceManifest": { "$ref": "#/$defs/assetPath" },
+          "transform": { "$ref": "#/$defs/propTransform" },
+          "tracks": { "$ref": "#/$defs/animationTracks" }
+        }
+      }
+    },
     "dialogue": {
       "type": "array",
       "minItems": 2,
@@ -170,6 +185,19 @@
         "scalePulse": { "type": "number", "minimum": 0, "maximum": 2 },
         "idleProfile": { "enum": ["breathing", "sway", "organic"] },
         "motionSeed": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+      }
+    },
+    "propTransform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "scale", "rotationDegrees", "opacity", "zIndex"],
+      "properties": {
+        "x": { "type": "number", "minimum": -4320, "maximum": 4320 },
+        "y": { "type": "number", "minimum": -3840, "maximum": 3840 },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
       }
     },
     "turnLayout": {

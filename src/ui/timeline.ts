@@ -282,7 +282,34 @@ function renderLayerStack(
     rows.push(track);
     // Fase 4 — la fila «Animación» cuelga de la pista del elemento seleccionado,
     // dentro del bloque VISUAL. No es un carril nuevo de primer nivel.
-    rows.push(...animationRowsForSlot(project, slot, positions, totalWidth, measured));
+    rows.push(...animationRowsForSlot(project, 'character', slot, positions, totalWidth, measured));
+  }
+  const maximumProps = Math.max(0, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'prop').length));
+  for (let slot = 0; slot < maximumProps; slot += 1) {
+    const clips = project.scenes.flatMap((scene, sceneIndex) => {
+      const element = scene.elements.filter((candidate) => candidate.type === 'prop')[slot];
+      if (!element) return [];
+      const clip = authoringClip(
+        element.resourceId ?? element.id,
+        elementClipDetail(element),
+        positions[sceneIndex],
+        sceneWidths[sceneIndex],
+        'character',
+        isElementSelected(element.id),
+      );
+      clip.dataset.scene = scene.id;
+      clip.dataset.element = element.id;
+      const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
+      clip.addEventListener('click', () => clipSingleClick(
+        start,
+        () => selectElement(scene.id, element.id),
+        () => selectElementCore(scene.id, element.id),
+      ));
+      clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
+      return [clip];
+    });
+    rows.push(authoringTrack(`P${slot + 1}`, `Prop ${slot + 1}`, totalWidth, clips));
+    rows.push(...animationRowsForSlot(project, 'prop', slot, positions, totalWidth, measured));
   }
   rows.push(trackDivider('AUDIO', 'Voces debajo de las capas visuales'));
   for (let slot = 0; slot < maximumCharacters; slot += 1) {
@@ -445,10 +472,8 @@ function projectFps(): number {
 // El campo viejo `animationPreset` es MOVIMIENTO BASE, no un preset de keyframes:
 // la Fase 0 congeló que ningún texto nuevo lo llame solo «animación».
 function elementClipDetail(element: ElementView): string {
-  const parts = [
-    `Escala ${element.transform.scale.toFixed(2)}`,
-    `movimiento base ${element.animationPreset ?? 'sin definir'}`,
-  ];
+  const parts = [`Escala ${element.transform.scale.toFixed(2)}`];
+  if (element.type === 'character') parts.push(`movimiento base ${element.animationPreset ?? 'sin definir'}`);
   const tracks = element.tracks?.length ?? 0;
   if (tracks > 0) parts.push(`${tracks} pista${tracks === 1 ? '' : 's'}`);
   return parts.join(' · ');
@@ -464,6 +489,7 @@ function reviewBadge(count: number): HTMLElement {
 
 function animationRowsForSlot(
   project: ReturnType<ProjectStore['project']>,
+  elementType: 'character' | 'prop',
   slot: number,
   positions: number[],
   totalWidth: number,
@@ -474,7 +500,7 @@ function animationRowsForSlot(
   const sceneIndex = project.scenes.findIndex((scene) => scene.id === target.sceneId);
   if (sceneIndex < 0) return [];
   const scene = project.scenes[sceneIndex];
-  const element = scene.elements.filter((candidate) => candidate.type === 'character')[slot];
+  const element = scene.elements.filter((candidate) => candidate.type === elementType)[slot];
   if (!element || element.id !== target.elementId) return [];
 
   const reference = sceneAnimationReference(scene.dialogue);

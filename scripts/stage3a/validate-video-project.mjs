@@ -61,13 +61,13 @@ export function validateVideoProjectDocument({ project, catalog, assetsRoot }) {
 
 export function validateResourceCatalogSemantics(catalog, assetsRoot) {
   const resources = new Map();
-  const characterCatalogs = new Map();
+  const technicalCatalogs = new Map();
   for (const [index, entry] of catalog.entries.entries()) {
     if (resources.has(entry.id)) semanticError(`/resourceCatalog/entries/${index}/id`, 'debe ser único');
     resources.set(entry.id, entry);
     if (entry.type === 'character') {
       assertPortableRelativePath(entry.characterRef.catalog, `/resourceCatalog/entries/${index}/characterRef/catalog`);
-      let characterCatalog = characterCatalogs.get(entry.characterRef.catalog);
+      let characterCatalog = technicalCatalogs.get(entry.characterRef.catalog);
       if (!characterCatalog) {
         const catalogFile = resolveAuthoringAsset(assetsRoot, entry.characterRef.catalog, `catálogo de personaje ${entry.id}`);
         characterCatalog = readJsonDocument(catalogFile, {
@@ -86,7 +86,7 @@ export function validateResourceCatalogSemantics(catalog, assetsRoot) {
             resolveAuthoringAsset(assetsRoot, compiledEntry[name], `${name} de personaje ${compiledEntry.id}`);
           }
         }
-        characterCatalogs.set(entry.characterRef.catalog, characterCatalog);
+        technicalCatalogs.set(entry.characterRef.catalog, characterCatalog);
       }
       const compiled = characterCatalog.entries.find((candidate) => candidate.id === entry.characterRef.entryId);
       if (!compiled) semanticError(`/resourceCatalog/entries/${index}/characterRef/entryId`, 'debe existir en el catálogo de personajes referenciado');
@@ -95,6 +95,29 @@ export function validateResourceCatalogSemantics(catalog, assetsRoot) {
           semanticError(`/resourceCatalog/entries/${index}/capabilities/poses`, `declara ${pose}, pero el personaje compilado no la soporta`);
         }
       }
+    } else if (entry.type === 'prop') {
+      assertPortableRelativePath(entry.resourceRef.catalog, `/resourceCatalog/entries/${index}/resourceRef/catalog`);
+      assertPortableRelativePath(entry.thumbnail, `/resourceCatalog/entries/${index}/thumbnail`);
+      resolveAuthoringAsset(assetsRoot, entry.thumbnail, `miniatura del prop ${entry.id}`);
+      let resourceCatalog = technicalCatalogs.get(entry.resourceRef.catalog);
+      if (!resourceCatalog) {
+        const catalogFile = resolveAuthoringAsset(assetsRoot, entry.resourceRef.catalog, `catálogo técnico de ${entry.id}`);
+        resourceCatalog = readJsonDocument(catalogFile, {
+          code: 'RESOURCE_CATALOG_JSON_INVALID',
+          message: 'Un catálogo técnico referenciado no contiene JSON válido.',
+        });
+        assertSchema(validateCharacterCatalogSchema, resourceCatalog, {
+          code: 'RESOURCE_CATALOG_SCHEMA_INVALID',
+          message: 'Un catálogo técnico referenciado no cumple su contrato.',
+        });
+        technicalCatalogs.set(entry.resourceRef.catalog, resourceCatalog);
+      }
+      const compiled = resourceCatalog.entries.find((candidate) => candidate.id === entry.resourceRef.entryId);
+      if (!compiled || compiled.type !== 'prop') {
+        semanticError(`/resourceCatalog/entries/${index}/resourceRef/entryId`, 'debe referenciar un prop del catálogo técnico');
+      }
+      assertPortableRelativePath(compiled.manifest, `/technicalCatalog/entries/${entry.resourceRef.entryId}/manifest`);
+      resolveAuthoringAsset(assetsRoot, compiled.manifest, `manifest del prop ${entry.id}`);
     } else if (entry.type === 'background') {
       assertPortableRelativePath(entry.backgroundManifest, `/resourceCatalog/entries/${index}/backgroundManifest`);
       const manifestFile = resolveAuthoringAsset(assetsRoot, entry.backgroundManifest, `manifest de fondo ${entry.id}`);
@@ -155,6 +178,8 @@ function validateProjectSemantics(project, resources) {
         const resource = requireResource(resources, element.resourceId, 'character', `${elementPath}/resourceId`);
         if (!resource.capabilities.poses.includes(element.poseId)) semanticError(`${elementPath}/poseId`, 'debe estar soportada por el personaje');
         if (!resource.capabilities.animationPresets.includes(element.animationPreset)) semanticError(`${elementPath}/animationPreset`, 'debe estar soportado por el personaje');
+      } else if (element.type === 'prop') {
+        requireResource(resources, element.resourceId, 'prop', `${elementPath}/resourceId`);
       } else if (element.type === 'image') {
         requireResource(resources, element.resourceId, 'image', `${elementPath}/resourceId`);
       }

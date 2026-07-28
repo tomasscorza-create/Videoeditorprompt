@@ -117,8 +117,9 @@ function drawOrder(parts) {
  * con las piezas ya rotadas.
  *
  * El catálogo se **fusiona**: las entradas existentes de otros recursos se
- * conservan y solo se reemplazan las de este recurso. El compilador v2 lo
- * sobrescribe, y por eso regenerarlo borra recursos ajenos.
+ * conservan y solo se reemplazan las de este recurso. El compilador v2 aplica
+ * la misma regla para que cualquiera de los dos pueda regenerarse sin borrar
+ * entradas ajenas.
  */
 export function compileParametricResource(options) {
   const assetsRoot = path.resolve(options.assetsRoot);

@@ -112,6 +112,11 @@ export function prepareDialogueJob(context, config, report) {
     transform: character.transform,
     blinks: buildBlinkSchedule(durationSeconds, character.blink),
   }));
+  const props = (context.resolvedProps ?? []).map((prop) => ({
+    id: prop.id,
+    resourceRig: prop.resourceRig,
+    transform: prop.transform,
+  }));
   const runtime = {
     version: 2,
     jobId: context.jobId,
@@ -120,6 +125,7 @@ export function prepareDialogueJob(context, config, report) {
     assets: context.resolvedAssets,
     backgroundAnimation: context.resolvedBackgroundAnimation,
     characters,
+    ...(props.length ? { props } : {}),
     dialoguePath: dialogueRelative,
     audio: {
       path: masterRelative,

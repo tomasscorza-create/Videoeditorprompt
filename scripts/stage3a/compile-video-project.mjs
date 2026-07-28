@@ -126,11 +126,12 @@ export function compileVideoProject(context, options = {}) {
 }
 
 function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
-  const unsupported = scene.elements.filter((element) => element.type !== 'character');
+  const unsupported = scene.elements.filter((element) => !['character', 'prop'].includes(element.type));
   if (unsupported.length > 0) {
     unsupportedScene(sceneIndex, `contiene elementos todavía no soportados por el runtime: ${unsupported.map((item) => `${item.id}:${item.type}`).join(', ')}`);
   }
   const characterElements = scene.elements.filter((element) => element.type === 'character');
+  const propElements = scene.elements.filter((element) => element.type === 'prop');
   if (characterElements.length !== 2) unsupportedScene(sceneIndex, 'debe contener exactamente dos personajes para el runtime v2 actual');
   if (scene.dialogue.length < 2) unsupportedScene(sceneIndex, 'debe contener al menos dos turnos para el runtime v2 actual');
 
@@ -141,6 +142,10 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     element,
     resource: resources.get(element.resourceId),
   }));
+  const characterManifestPaths = characterSources.map(({ resource }) => resolveCharacterManifest(resource, assetsRoot, sceneIndex));
+  const usesPixiCompositor = propElements.length > 0 || characterManifestPaths.some((manifestPath) => (
+    readJson(resolveAuthoringAsset(assetsRoot, manifestPath, `manifest técnico ${manifestPath}`)).version === 3
+  ));
   const technicalCatalogs = new Set(characterSources.map(({ resource }) => resource.characterRef.catalog));
   const useDirectManifests = technicalCatalogs.size > 1;
   const characters = characterSources.map(({ element, resource }, characterIndex) => {
@@ -171,9 +176,31 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
         maxIntervalSeconds: [4.3, 4.7][characterIndex],
         durationSeconds: 0.12,
       },
-      ...(element.tracks?.length ? { tracks: compileTracks(element, sceneIndex) } : {}),
+      ...(element.tracks?.length ? { tracks: compileTracks(element, sceneIndex, usesPixiCompositor) } : {}),
     };
   });
+  const props = propElements
+    .map((element, sourceIndex) => ({ element, sourceIndex, resource: resources.get(element.resourceId) }))
+    .sort((left, right) => left.element.transform.zIndex - right.element.transform.zIndex
+      || left.sourceIndex - right.sourceIndex)
+    .map(({ element, resource }) => {
+      if (element.transform.anchorX !== 0.5 || element.transform.anchorY !== 0.5) {
+        unsupportedScene(sceneIndex, `el prop ${element.id} requiere ancla 0.5/0.5`);
+      }
+      return {
+        id: element.id,
+        resourceManifest: resolvePropManifest(resource, assetsRoot, sceneIndex),
+        transform: {
+          x: element.transform.x - project.video.width / 2,
+          y: element.transform.y - project.video.height / 2,
+          scale: element.transform.scale,
+          rotationDegrees: element.transform.rotationDegrees,
+          opacity: element.transform.opacity,
+          zIndex: element.transform.zIndex,
+        },
+        ...(element.tracks?.length ? { tracks: compileTracks(element, sceneIndex, true) } : {}),
+      };
+    });
   const backgroundResource = resources.get(scene.background.resourceId);
   const manifestPath = resolveAuthoringAsset(assetsRoot, backgroundResource.backgroundManifest, `manifest de fondo ${backgroundResource.id}`);
   const backgroundManifest = readJson(manifestPath);
@@ -217,6 +244,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     ...(!useDirectManifests ? { assetCatalog: [...technicalCatalogs][0] } : {}),
     backgroundAnimation: { layers: backgroundLayers, camera },
     characters,
+    ...(props.length ? { props } : {}),
     dialogue,
     mouth: { ...MOUTH_DEFAULTS },
     subtitleStyle: { ...SUBTITLE_DEFAULTS },
@@ -240,14 +268,22 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
  * el rig v3 con el compositor de la Fase 3. Ofrecerlos sería exportar algo
  * distinto de lo que muestra la vista previa.
  */
-const RENDERABLE_PARAMETERS = Object.freeze(['position.x', 'position.y', 'scale', 'opacity']);
+const FFMPEG_RENDERABLE_PARAMETERS = Object.freeze(['position.x', 'position.y', 'scale', 'opacity']);
+const PIXI_RENDERABLE_PARAMETERS = Object.freeze([
+  ...FFMPEG_RENDERABLE_PARAMETERS,
+  'rotationDegrees',
+  'armRaise',
+]);
 
-function compileTracks(element, sceneIndex) {
+function compileTracks(element, sceneIndex, usesPixiCompositor) {
+  const renderableParameters = usesPixiCompositor
+    ? PIXI_RENDERABLE_PARAMETERS
+    : FFMPEG_RENDERABLE_PARAMETERS;
   for (const track of element.tracks) {
-    if (!RENDERABLE_PARAMETERS.includes(track.parameterId)) {
+    if (!renderableParameters.includes(track.parameterId)) {
       unsupportedScene(
         sceneIndex,
-        `el personaje ${element.id} anima ${track.parameterId}, que el compositor vigente todavía no lleva al MP4`,
+        `el elemento ${element.id} anima ${track.parameterId}, que el compositor elegido todavía no lleva al MP4`,
       );
     }
   }
@@ -279,6 +315,22 @@ function resolveCharacterManifest(resource, assetsRoot, sceneIndex) {
   const catalog = readJson(catalogPath);
   const compiled = catalog.entries.find((entry) => entry.id === resource.characterRef.entryId);
   if (!compiled) unsupportedScene(sceneIndex, `el personaje ${resource.id} no existe en su catálogo técnico`);
+  return compiled.manifest;
+}
+
+function resolvePropManifest(resource, assetsRoot, sceneIndex) {
+  const catalogPath = resolveAuthoringAsset(
+    assetsRoot,
+    resource.resourceRef.catalog,
+    `catálogo técnico de ${resource.id}`,
+  );
+  const catalog = readJson(catalogPath);
+  const compiled = catalog.entries.find((entry) => entry.id === resource.resourceRef.entryId && entry.type === 'prop');
+  if (!compiled) unsupportedScene(sceneIndex, `el prop ${resource.id} no existe en su catálogo técnico`);
+  const manifest = readJson(resolveAuthoringAsset(assetsRoot, compiled.manifest, `manifest técnico de ${resource.id}`));
+  if (manifest.version !== 3 || manifest.kind !== 'prop') {
+    unsupportedScene(sceneIndex, `el recurso ${resource.id} no es un prop v3 renderizable`);
+  }
   return compiled.manifest;
 }
 
@@ -322,6 +374,7 @@ function collectSourceHashes(project, resources, assetsRoot) {
     paths.add(background.backgroundManifest);
     for (const element of scene.elements) {
       if (element.type === 'character') paths.add(resources.get(element.resourceId).characterRef.catalog);
+      if (element.type === 'prop') paths.add(resources.get(element.resourceId).resourceRef.catalog);
       if (element.type === 'image') paths.add(resources.get(element.resourceId).asset);
     }
   }

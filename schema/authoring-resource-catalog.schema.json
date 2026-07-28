@@ -15,6 +15,7 @@
       "items": {
         "oneOf": [
           { "$ref": "#/$defs/characterResource" },
+          { "$ref": "#/$defs/propResource" },
           { "$ref": "#/$defs/voiceResource" },
           { "$ref": "#/$defs/backgroundResource" },
           { "$ref": "#/$defs/imageResource" },
@@ -66,7 +67,8 @@
           "required": ["poses", "animationPresets"],
           "properties": {
             "poses": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
-            "animationPresets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+            "animationPresets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+            "parameters": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
           }
         },
         "provenance": { "$ref": "#/$defs/provenance" }
@@ -129,6 +131,36 @@
         "tags": { "$ref": "#/$defs/tags" },
         "asset": { "$ref": "#/$defs/assetPath" },
         "thumbnail": { "$ref": "#/$defs/assetPath" },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "propResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "label", "tags", "resourceRef", "thumbnail", "capabilities", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "prop" },
+        "label": { "$ref": "#/$defs/label" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "resourceRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["catalog", "entryId"],
+          "properties": {
+            "catalog": { "$ref": "#/$defs/assetPath" },
+            "entryId": { "$ref": "#/$defs/id" }
+          }
+        },
+        "thumbnail": { "$ref": "#/$defs/assetPath" },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parameters"],
+          "properties": {
+            "parameters": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+          }
+        },
         "provenance": { "$ref": "#/$defs/provenance" }
       }
     },

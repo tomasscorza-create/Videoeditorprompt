@@ -1,10 +1,12 @@
 import { optional } from '../dom.js';
 import {
   CHARACTER_DRAG_TYPE,
+  PROP_DRAG_TYPE,
   CHARACTER_PLACEMENT_EVENT,
   currentCharacterPlacement,
   finishCharacterPlacement,
   readCharacterDrag,
+  readPropDrag,
   type CharacterPlacement,
 } from './character-placement.js';
 import type { ProjectStore } from './store.js';
@@ -54,8 +56,10 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   const assetEntries = new Map<string, AssetCatalogEntry>();
   let renderVersion = 0;
   const catalogPaths = new Set(
-    store.resources('character')
-      .flatMap((resource) => resource.characterRef?.catalog ? [resource.characterRef.catalog] : []),
+    [...store.resources('character'), ...store.resources('prop')]
+      .flatMap((resource) => resource.characterRef?.catalog
+        ? [resource.characterRef.catalog]
+        : resource.resourceRef?.catalog ? [resource.resourceRef.catalog] : []),
   );
   for (const catalogPath of catalogPaths) {
     try {
@@ -88,14 +92,17 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
     const scope = animationScope(store, scene);
     let animatingElement: ElementView | null = null;
     for (const element of [...scene.elements].sort((a, b) => a.transform.zIndex - b.transform.zIndex)) {
-      if (element.type !== 'character' || !element.resourceId) continue;
-      const resource = store.resources('character').find((entry) => entry.id === element.resourceId);
-      const entry = resource?.characterRef ? assetEntries.get(resource.characterRef.entryId) : null;
-      if (!entry?.thumbnail) continue;
+      if (!['character', 'prop'].includes(element.type) || !element.resourceId) continue;
+      const resource = store.resources(element.type as 'character' | 'prop').find((entry) => entry.id === element.resourceId);
+      const entry = resource?.characterRef
+        ? assetEntries.get(resource.characterRef.entryId)
+        : resource?.resourceRef ? assetEntries.get(resource.resourceRef.entryId) : null;
+      const thumbnail = resource?.thumbnail ?? entry?.thumbnail;
+      if (!thumbnail) continue;
       const image = document.createElement('img');
-      image.className = 'composition-character';
-      image.src = `/${entry.thumbnail}`;
-      image.alt = resource?.label || 'Personaje';
+      image.className = element.type === 'prop' ? 'composition-character composition-prop' : 'composition-character';
+      image.src = `/${thumbnail}`;
+      image.alt = resource?.label || (element.type === 'prop' ? 'Prop' : 'Personaje');
       image.dataset.elementId = element.id;
       const selection = projectSelection();
       image.classList.toggle(
@@ -258,7 +265,7 @@ function bindElementInteraction(
       applyAnimated(store, scene, current, [{ parameterId: 'scale', value: scale }]);
       return;
     }
-    store.dispatch({ type: 'set-character-transform', sceneId, elementId, scale });
+    store.dispatch({ type: 'set-element-transform', sceneId, elementId, scale });
   }, { passive: false });
   image.addEventListener('pointerdown', (event) => {
     if (currentCharacterPlacement() || event.button !== 0) return;
@@ -296,7 +303,7 @@ function bindElementInteraction(
  */
 function applyPosition(store: ProjectStore, scene: SceneView, element: ElementView, x: number, y: number): void {
   if (!isAnimationModeOn(scene.id, element.id)) {
-    store.dispatch({ type: 'set-character-transform', sceneId: scene.id, elementId: element.id, x, y });
+    store.dispatch({ type: 'set-element-transform', sceneId: scene.id, elementId: element.id, x, y });
     return;
   }
   applyAnimated(store, scene, element, [
@@ -353,25 +360,29 @@ function bindPlacementEvents(canvas: HTMLElement): void {
   });
   canvas.addEventListener('click', (event) => {
     const placement = currentCharacterPlacement();
-    if (placement) placeCharacter(event, canvas, placement);
+    if (placement) placeResource(event, canvas, placement);
   });
   canvas.addEventListener('dragover', (event) => {
-    if (!event.dataTransfer?.types.includes(CHARACTER_DRAG_TYPE)) return;
+    const transfer = event.dataTransfer;
+    if (!transfer || !Array.from(transfer.types)
+      .some((type) => [CHARACTER_DRAG_TYPE, PROP_DRAG_TYPE].includes(type))) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
+    transfer.dropEffect = 'copy';
     canvas.classList.add('is-character-drag-over');
   });
   canvas.addEventListener('dragleave', () => canvas.classList.remove('is-character-drag-over'));
   canvas.addEventListener('drop', (event) => {
     canvas.classList.remove('is-character-drag-over');
-    const placement = readCharacterDrag(event.dataTransfer) || currentCharacterPlacement();
+    const placement = readPropDrag(event.dataTransfer)
+      || readCharacterDrag(event.dataTransfer)
+      || currentCharacterPlacement();
     if (!placement) return;
     event.preventDefault();
-    placeCharacter(event, canvas, placement);
+    placeResource(event, canvas, placement);
   });
 }
 
-function placeCharacter(
+function placeResource(
   event: MouseEvent | DragEvent,
   canvas: HTMLElement,
   placement: CharacterPlacement,
@@ -384,8 +395,24 @@ function placeCharacter(
   const bounds = canvas.getBoundingClientRect();
   const x = Math.round(Math.max(0, Math.min(1080, (event.clientX - bounds.left) / bounds.width * 1080)));
   const y = Math.round(Math.max(0, Math.min(1920, (event.clientY - bounds.top) / bounds.height * 1920)));
+  if (placement.type === 'prop') {
+    const elementId = nextElementId(scene.id, scene.elements.map((element) => element.id), 'prop');
+    const error = store.dispatch({
+      type: 'add-prop',
+      sceneId: scene.id,
+      elementId,
+      resourceId: placement.resourceId,
+      x,
+      y,
+      scale: 0.65,
+      zIndex: 40 + scene.elements.filter((element) => element.type === 'prop').length,
+    });
+    reportPlacement(error || `«${placement.label}» se agregó a la escena.`, Boolean(error));
+    if (!error) finishCharacterPlacement();
+    return;
+  }
   if (characters.length < 2) {
-    const elementId = nextElementId(scene.id, scene.elements.map((element) => element.id));
+    const elementId = nextElementId(scene.id, scene.elements.map((element) => element.id), 'personaje');
     const error = store.dispatch({
       type: 'add-character',
       sceneId: scene.id,
@@ -421,13 +448,13 @@ function placeCharacter(
   if (!error) finishCharacterPlacement();
 }
 
-function nextElementId(sceneId: string, existing: string[]): string {
+function nextElementId(sceneId: string, existing: string[], kind: 'personaje' | 'prop'): string {
   const used = new Set(existing);
   for (let index = 1; index <= 99; index += 1) {
-    const id = `${sceneId}-personaje-${String(index).padStart(2, '0')}`;
+    const id = `${sceneId}-${kind}-${String(index).padStart(2, '0')}`;
     if (!used.has(id)) return id;
   }
-  return `${sceneId}-personaje-${Date.now().toString(36)}`;
+  return `${sceneId}-${kind}-${Date.now().toString(36)}`;
 }
 
 function reportPlacement(message: string, isError: boolean): void {

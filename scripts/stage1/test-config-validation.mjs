@@ -76,7 +76,7 @@ results.push({ name: 'malformed-json', accepted: false, expectedCode: 'CONFIG_JS
 const pipelineConfig = structuredClone(base);
 pipelineConfig.assets.body = '../outside.png';
 const failedPipeline = contextFor('pipeline-failure', pipelineConfig);
-assert.throws(() => runPipeline(failedPipeline), (error) => error.code === 'ASSET_PATH_INVALID');
+await assert.rejects(() => runPipeline(failedPipeline), (error) => error.code === 'ASSET_PATH_INVALID');
 const status = JSON.parse(readFileSync(path.join(failedPipeline.statusRoot, 'job-status.json'), 'utf8'));
 assert.equal(status.version, 1);
 assert.equal(status.jobId, failedPipeline.jobId);

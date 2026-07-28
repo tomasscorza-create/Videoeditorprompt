@@ -125,10 +125,7 @@ export function compileParametricCharacter(options) {
     }
   });
 
-  const catalog = {
-    version: 1,
-    generatedFrom: sourceDefinition,
-    entries: artifacts.map(({ variant, root }) => ({
+  const compiledEntries = artifacts.map(({ variant, root }) => ({
       id: variant.outputId,
       type: 'character',
       label: variant.label,
@@ -141,8 +138,15 @@ export function compileParametricCharacter(options) {
         joints: definition.joints.map((joint) => joint.id),
       },
       provenance: definition.provenance,
-    })),
-  };
+    }));
+  const catalog = existsSync(catalogPath)
+    ? readJson(catalogPath)
+    : { version: 1, generatedFrom: sourceDefinition, entries: [] };
+  const own = new Set(compiledEntries.map((entry) => entry.id));
+  catalog.entries = [
+    ...catalog.entries.filter((entry) => !own.has(entry.id)),
+    ...compiledEntries,
+  ];
   validateAssetCatalog(catalog);
   writeJson(catalogPath, catalog);
   return { definition, sourceDefinition, catalog, catalogPath, artifacts };

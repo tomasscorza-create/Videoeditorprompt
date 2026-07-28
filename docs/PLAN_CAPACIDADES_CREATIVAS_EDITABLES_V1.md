@@ -20,37 +20,26 @@ abajo con el detalle; esto es el mapa.
 | Fase | Estado | Commits |
 | --- | --- | --- |
 | 0 · Contrato y prototipo | Hecha | `1a0d996` |
-| 1 · Creador y recurso v3 | Hecha | `8c54fd9`, `a947387`, `20dfbda` |
+| 1 · Creador y recurso v3 | **Hecha: personaje y prop completan el recorrido** | `8c54fd9`, `a947387`, `20dfbda`, pendiente de commit |
 | 2 · Evaluador paramétrico | Hecha | `94a3163` |
-| 3 · Compositor | **Parcial: los dos backends andan, falta elegir** | `e459a32`, `75d2a87`, `c424f63` |
+| 3 · Compositor | **Hecha: selección por escena integrada y verificada** | `e459a32`, `75d2a87`, `c424f63`, pendiente de commit |
 | 4 · Edición visible | **Hecha** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee`, `df543d8` |
-| 5 · Presets editables | Hecha salvo la biblioteca | `a709442`, `c55ce80`, `df543d8` |
-| 6 · Director IA | Sin empezar | — |
+| 5 · Presets editables | **Hecha** | `a709442`, `c55ce80`, `df543d8`, pendiente de commit |
+| 6 · Director IA | Contrato iniciado; integración pendiente | pendiente de commit |
 | 7 · Gate humano | Sin empezar | — |
 
 ### El próximo paso
 
-**Comparar los dos compositores sobre la misma escena v2 y sacar el SSIM.** Es un
-número que hace falta antes de decidir nada, y hoy no existe: PixiJS se comparó
-contra sus propios frames dorados, nunca contra FFmpeg.
+**Fase 6 — integrar animaciones con el Director IA.** El próximo lote debe
+resumir capacidades por elemento sin enviar pistas completas y mostrar una
+explicación humana antes de aplicar el cambio. El núcleo ya ofrece
+`apply-animation-preset` y `remove-animation`; este último bloquea pistas
+manuales o personalizadas salvo confirmación explícita.
 
-Por qué importa. Si se enruta por escena —PixiJS solo donde hay un recurso v3—,
-una escena con un prop v3 se va entera a PixiJS, **incluidos los personajes v2
-que también aparecen en la escena anterior**. El mismo mono dibujado por dos
-motores en escenas consecutivas del mismo video. Si los motores no son
-equivalentes, eso es un salto visible en el corte.
-
-Con ese número se elige entre tres caminos:
-
-- **Selectivo por escena** (lo que prescribe la sección 8: fallback explícito).
-  Solo viable si el SSIM entre compositores es alto.
-- **Selectivo por proyecto**: si alguna escena tiene v3, todo el proyecto va por
-  PixiJS. Elimina el salto a cambio de pagar 2.4× en todo el video.
-- **PixiJS predeterminado para todo.** Cambia el aspecto de los proyectos ya
-  renderizados si los motores difieren, así que exige el SSIM igual.
-
-Después de elegir: enchufarlo al pipeline y recién entonces exponer los dos
-recursos v3 en el catálogo y la biblioteca.
+El render integral de 235 frames verificó en el mismo MP4 el rig articulado y el
+prop con una pista de rotación de **-8° a 8°**. PixiJS/WebGL compuso los frames y
+FFmpeg produjo H.264/AAC de 7.833 s. Las escenas sin recursos v3 conservan el
+camino FFmpeg.
 
 La Fase 4 está cerrada: se anima desde la interfaz, se previsualiza en el lienzo
 y **lo animado llega al MP4 por el mismo evaluador**, con la posición y la escala
@@ -58,20 +47,12 @@ como expresión continua y la opacidad por rangos de frames.
 
 ### Pendientes concretos, en orden de dependencia
 
-1. **Fase 3 — comparar los dos compositores** sobre la misma escena v2, por SSIM.
-   El paso previo, extraer el camino FFmpeg detrás del contrato, ya está hecho y
-   verificado byte a byte (`c424f63`).
-2. **Fase 3 — enchufar el compositor al pipeline** con el criterio que salga del
-   punto anterior. Hasta que eso pase, los dos recursos v3
-   (`mono-articulado-azul-v1` y `cartel-dato-v1`) siguen deliberadamente fuera del
-   catálogo de autoría y de la biblioteca, y `armRaise` sigue sin ningún personaje
-   que lo declare en una escena renderizable.
-3. **Fase 5 — aplicar presets desde la biblioteca.** Desde el inspector ya se
-   aplican; falta el gesto equivalente en la biblioteca de recursos.
-4. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
-   elemento y la explicación humana antes de aplicar. `apply-animation-preset` ya
-   existe en el contrato de comandos.
-5. **Fase 7 — gate humano.**
+1. **Fase 6 — Director.** Resumir capacidades por elemento, explicar el lote
+   antes de aplicarlo e integrar la confirmación cuando `remove-animation`
+   encuentre una pista manual o personalizada.
+2. **Fase 6 — undo atómico.** La aplicación del lote del Director debe producir
+   un solo paso de deshacer.
+3. **Fase 7 — gate humano.**
 
 ### Deudas anotadas que no bloquean
 
@@ -79,9 +60,8 @@ como expresión continua y la opacidad por rangos de frames.
   **movimiento base** continuo, no un preset de keyframes. La interfaz ya lo
   rotula «movimiento base» en todos lados; falta el renombre del campo, que
   conviene hacer junto con el adaptador de lectura del render.
-- El compilador v1 → v2 **sobrescribe** el catálogo de assets en vez de
-  fusionarlo: regenerar el mono borraría `conejo-traje-v1`. El compilador v3 sí
-  fusiona, y hay un test que lo cubre.
+- Los compiladores v1 → v2 y v3 fusionan el catálogo por ID; regenerar un tipo
+  de recurso no debe borrar entradas ajenas.
 - El ancla de palabra es un **prorrateo** por cantidad de palabras sobre la
   duración medida del turno, no alineación real: Piper no devuelve tiempos por
   palabra.
@@ -167,11 +147,10 @@ estos, se revisa el cambio, no se afloja el test.
    divergencia es **0**. No emitir `${to.value}-${from.value}` en la expresión:
    con un valor negativo produce `--`, que JavaScript no parsea (FFmpeg sí). La
    diferencia se precalcula en JS.
-5. **`RENDERABLE_PARAMETERS` vive en dos lados y tienen que coincidir:**
-   `scripts/stage3a/compile-video-project.mjs` (rechaza) y
-   `src/ui/timeline-animation.ts` (no ofrece). Hoy son `position.x`,
-   `position.y`, `scale` y `opacity`. Cuando el compositor de Pixi entre al
-   pipeline, `rotationDegrees` y `armRaise` se habilitan en los dos.
+5. **Los conjuntos renderizables viven en compilador y UI y tienen que
+   coincidir.** FFmpeg conserva `position.x`, `position.y`, `scale` y `opacity`;
+   un recurso v3 enruta la escena a PixiJS y habilita además
+   `rotationDegrees` y los parámetros declarados, hoy `armRaise`.
 6. **Medir y reproducir son cosas distintas.** `measuredTimelineFor` conserva la
    medición mientras no cambie `projectTimingFingerprint`, aunque el MP4 esté
    vencido; el transporte sigue exigiendo `currentEditorOutput()`. **No volver a
@@ -194,9 +173,9 @@ estos, se revisa el cambio, no se afloja el test.
 12. **`pose_neutral.png` del mono articulado es byte a byte idéntico al del mono
     v2** y `stage2f:test-resource` lo verifica. Si deja de coincidir, la
     composición por piezas dejó de ser fiel.
-13. **Los dos recursos v3 están fuera del catálogo de autoría y de la
-    biblioteca a propósito.** El pipeline todavía no los renderiza; exponerlos
-    dejaría colocar en una escena algo que después no sale en el video.
+13. **Los props no cuentan como personajes ni hablantes.** Una escena sigue
+    requiriendo exactamente dos personajes para renderizar; los props son
+    elementos visuales adicionales y fuerzan PixiJS sin alterar el diálogo.
 
 ### Trampas que ya costaron caro
 
@@ -218,7 +197,7 @@ estos, se revisa el cambio, no se afloja el test.
 ### Comandos
 
 ```bash
-npm test                          # 39 suites; la central
+npm test                          # 40 suites; la central
 npm run build                     # tsc + vite
 npm run anim:test-contract        # contrato de la Fase 0
 npm run anim:test-evaluator       # evaluador, paridad con la expresión de FFmpeg y opacidad
@@ -227,6 +206,8 @@ npm run stage3b:test-keyframes    # comandos de pista con undo/redo
 npm run stage3a:test-compiler     # las pistas llegan al runtime y se rechaza lo no renderizable
 npm run compositor:test-contract  # sprites y jerarquía de piezas
 npm run compositor:test-headless  # el compositor headless, contra frames dorados
+npm run compositor:compare-v2     # SSIM FFmpeg vs PixiJS sobre la misma escena v2
+npm run compositor:test-pipeline  # render real de rig v3 + prop; fuera de la suite por costo
 npm run ui:test-modules           # 218 comprobaciones de módulos puros de UI
 npm run compositor:golden         # regenerar frames dorados (a mano, a propósito)
 npm run compositor:benchmark      # números del checkpoint; acepta --frames=N
@@ -659,7 +640,7 @@ Decisiones que el plan dejaba abiertas y quedaron cerradas en Fase 0:
 **Gate:** recursos existentes conservan sus hashes/salida; los dos pilotos se
 guardan, publican y vuelven a abrir desde la biblioteca.
 
-**Estado: hecha al 27 de julio de 2026, con la mitad del gate abierta a propósito.**
+**Estado: hecha al 28 de julio de 2026, incluido el gate de personaje y prop.**
 
 - Renderizador de primitivas unificado entre el Creador y el compilador de assets;
   guardia nueva `stage2f:test-hash-baseline` que compara contra los PNG y manifests
@@ -672,10 +653,10 @@ guardan, publican y vuelven a abrir desde la biblioteca.
 - Prueba de fidelidad: con el brazo sin rotar, `pose_neutral.png` del piloto es
   **idéntico byte a byte** al del recurso v2 publicado.
 
-Lo que quedó abierto y por qué: los dos pilotos **no** se publican en el catálogo
-de autoría ni en la biblioteca. El pipeline de render lee manifests v2, así que
-ofrecerlos dejaría colocar en una escena algo que después no renderiza. Se exponen
-cuando exista el compositor de la Fase 3.
+El gate se cerró de forma incremental después de cerrar la Fase 3:
+`mono-articulado-azul-v1` y `cartel-dato-v1` se publican y renderizan mediante
+PixiJS. El prop tiene representación propia en proyecto, comandos, lienzo,
+timeline y runtime; no se finge como personaje ni como imagen.
 
 ### Fase 2 — Evaluador paramétrico compatible
 
@@ -718,8 +699,8 @@ idénticos en dos ejecuciones.
 **Checkpoint de usuario:** revisar calidad, velocidad, consumo de RAM y
 equivalencia antes de cambiar el predeterminado para rigs v3.
 
-**Estado: PARCIAL al 28 de julio de 2026.** El compositor headless funciona y
-está medido; falta la decisión del checkpoint y extraer el camino FFmpeg.
+**Estado: HECHA al 28 de julio de 2026.** Los dos backends funcionan, el
+checkpoint eligió enrutamiento selectivo por escena y el pipeline lo aplica.
 
 Hecho:
 
@@ -776,16 +757,17 @@ cambiar el predeterminado es del checkpoint y no se tomó.
   extracción da MP4 idénticos, y también los `temporalHash` y los
   `frameContentHash` de las dos escenas y de las dos pasadas.
 
-Sin hacer:
+Checkpoint cerrado:
 
-- Comparar los dos compositores entre sí sobre la misma escena v2. Hace falta
-  antes de mezclarlos por escena: si no son equivalentes, un proyecto donde una
-  escena va por FFmpeg y la siguiente por PixiJS mostraría un salto en el corte,
-  porque los personajes v2 de la segunda escena los dibujaría el otro motor.
-- Enchufar el compositor al pipeline de render. Hasta que eso pase, los dos
-  recursos v3 siguen fuera del catálogo de autoría y de la biblioteca: exponerlos
-  dejaría colocar en una escena algo que después no renderiza.
-- El checkpoint de usuario: los números están, la decisión no.
+- Comparación cruzada sobre cinco estados de una escena v2: SSIM mínimo
+  0.999628 en frame completo y 0.999505 en personajes, con umbral 0.995.
+- Decisión: **selectivo por escena**. Los v2 conservan FFmpeg y una escena con
+  rig v3 usa PixiJS.
+- Integración real: 235 frames con `armRaise`, fondo, subtítulos y audio;
+  composición PixiJS/WebGL, encode H.264/AAC con FFmpeg y MP4 verificado.
+- `mono-articulado-azul-v1` y `cartel-dato-v1` ya se exponen porque completan
+  compilación, UI y render. El test integral también verifica la rotación
+  interpolada del prop entre -8° y 8°.
 
 ### Fase 4 — Edición visible completa
 
@@ -880,10 +862,9 @@ previsualiza y exporta desde la interfaz.
 - Una pista **reemplaza** la expresión de su parámetro; las demás quedan
   intactas. Sin pistas no cambia una sola cadena, y por eso el `temporalHash` de
   los pilotos v2 sigue congelado.
-- El compilador **rechaza** animar `rotationDegrees` o `armRaise` con
-  `PROJECT_SCENE_UNSUPPORTED`: el compositor vigente no rota la capa del
-  personaje ni mueve una articulación. La interfaz tampoco los ofrece, por el
-  mismo motivo por el que los recursos v3 siguen fuera de la biblioteca.
+- El compilador FFmpeg rechaza `rotationDegrees` y `armRaise`; una escena con
+  recurso v3 o prop usa PixiJS y sí los lleva al MP4. La interfaz ofrece cada
+  parámetro solo cuando el recurso y el compositor seleccionado lo soportan.
 - Verificado con un render real: `pilots/animacion-render-01` entra un personaje
   por la izquierda y hace aparecer al otro en su turno. El pipeline reporta
   `deterministic: true` (doble pasada con frames idénticos) y los frames
@@ -900,7 +881,7 @@ previsualiza y exporta desde la interfaz.
 **Gate:** aplicar un preset y editar uno de sus puntos produce un proyecto
 portable y un MP4 verificable.
 
-**Estado: hecho al 27 de julio de 2026, salvo el MP4 y la aplicación desde la UI.**
+**Estado: hecho al 28 de julio de 2026.**
 
 - `shared/animation-presets.js`: los seis presets como DATO versionado, sin una
   línea de lógica por preset. Cada uno describe sus pasos en forma relativa
@@ -924,7 +905,10 @@ El MP4 verificable llegó con el lote 4 de la Fase 4 (`df543d8`):
 `pilots/animacion-render-01` aplica `enter-left` y `fade-in` y los dos aparecen
 en el video.
 
-Falta: aplicar un preset desde la biblioteca de recursos.
+La biblioteca de recursos muestra los presets compatibles en la ficha del
+recurso correspondiente al elemento seleccionado. Los aplica al inicio de la
+escena mediante el mismo comando cerrado del inspector; una pista manual o
+personalizada no se sobrescribe silenciosamente.
 
 ### Fase 6 — Director IA
 
@@ -937,6 +921,12 @@ Falta: aplicar un preset desde la biblioteca de recursos.
 **Gate:** el Director crea una entrada y un `arm-raise` usando dos comandos
 compactos; ambos aparecen inmediatamente en timeline e inspector y pueden
 personalizarse manualmente.
+
+**Estado parcial al 28 de julio de 2026:** ambos comandos ya están en el
+contrato cerrado. `remove-animation` participa de undo/redo, elimina un preset
+intacto y exige `confirmCustomized: true` para una pista manual o un preset
+retocado. Falta conectar estas capacidades al contexto y a la propuesta visible
+del Director, incluida la aplicación atómica del lote.
 
 ### Fase 7 — Gate humano
 

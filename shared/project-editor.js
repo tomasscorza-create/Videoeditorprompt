@@ -128,7 +128,7 @@ export function redoProjectEditor(state) {
 
 export function listEditorResources(state, type) {
   assertEditorState(state);
-  if (!['character', 'voice', 'background', 'image'].includes(type)) fail('EDITOR_RESOURCE_TYPE_INVALID', `Tipo de recurso no soportado: ${type}.`, '/type');
+  if (!['character', 'prop', 'voice', 'background', 'image'].includes(type)) fail('EDITOR_RESOURCE_TYPE_INVALID', `Tipo de recurso no soportado: ${type}.`, '/type');
   return state.catalog.entries.filter((entry) => entry.type === type);
 }
 
@@ -173,8 +173,12 @@ export function validateEditableProject(project, catalog) {
         if (!resource.capabilities.animationPresets.includes(element.animationPreset)) fail('EDITOR_ANIMATION_INVALID', 'El personaje no soporta la animación seleccionada.', `${elementPath}/animationPreset`);
         validateEditableTransform(element.transform, `${elementPath}/transform`);
         validateEditableTracks(element, resource, `${elementPath}/tracks`);
+      } else if (element.type === 'prop') {
+        const resource = requireResource(resources, element.resourceId, 'prop', `${elementPath}/resourceId`);
+        validateEditableTransform(element.transform, `${elementPath}/transform`);
+        validateEditableTracks(element, resource, `${elementPath}/tracks`);
       } else {
-        fail('EDITOR_ELEMENT_UNSUPPORTED', '3B.0 solo edita personajes porque el compilador vigente todavía no representa texto o imágenes.', `${elementPath}/type`);
+        fail('EDITOR_ELEMENT_UNSUPPORTED', 'El editor vigente admite personajes y props; texto e imágenes siguen fuera del render.', `${elementPath}/type`);
       }
     }
     if (scene.elements.length > 20) fail('EDITOR_PROJECT_INVALID', 'Una escena admite hasta 20 elementos.', `${scenePath}/elements`);
@@ -323,6 +327,29 @@ function applyMutation(project, catalog, command) {
       });
       return;
     }
+    case 'add-prop': {
+      const scene = requireScene(project, command.sceneId);
+      portableId(command.elementId, '/command/elementId');
+      if (scene.elements.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 elementos.', '/command');
+      if (scene.elements.some((element) => element.id === command.elementId)) fail('EDITOR_PROJECT_INVALID', 'El ID del elemento ya existe.', '/command/elementId');
+      requireResource(resources, command.resourceId, 'prop', '/command/resourceId');
+      scene.elements.push({
+        id: command.elementId,
+        type: 'prop',
+        resourceId: command.resourceId,
+        transform: {
+          x: command.x, y: command.y, anchorX: 0.5, anchorY: 0.5,
+          scale: command.scale, rotationDegrees: 0, opacity: 1, zIndex: command.zIndex,
+        },
+      });
+      return;
+    }
+    case 'set-prop-resource': {
+      const element = requireElement(requireScene(project, command.sceneId), command.elementId, 'prop');
+      requireResource(resources, command.resourceId, 'prop', '/command/resourceId');
+      element.resourceId = command.resourceId;
+      return;
+    }
     case 'delete-element': {
       const scene = requireScene(project, command.sceneId);
       const index = scene.elements.findIndex((element) => element.id === command.elementId);
@@ -349,6 +376,18 @@ function applyMutation(project, catalog, command) {
       const element = requireElement(requireScene(project, command.sceneId), command.elementId, 'character');
       const keys = ['x', 'y', 'scale', 'zIndex'].filter((key) => Object.hasOwn(command, key));
       if (keys.length === 0) fail('EDITOR_COMMAND_INVALID', 'Indique al menos una coordenada o escala.', '/command');
+      for (const key of keys) element.transform[key] = command[key];
+      validateEditableTransform(element.transform, '/command/transform');
+      return;
+    }
+    case 'set-element-transform': {
+      const element = requireElement(requireScene(project, command.sceneId), command.elementId);
+      if (!['character', 'prop'].includes(element.type)) {
+        fail('EDITOR_ELEMENT_UNSUPPORTED', 'El transform solo puede editar personajes o props.', '/command/elementId');
+      }
+      const keys = ['x', 'y', 'scale', 'rotationDegrees', 'opacity', 'zIndex']
+        .filter((key) => Object.hasOwn(command, key));
+      if (keys.length === 0) fail('EDITOR_COMMAND_INVALID', 'Indique al menos un cambio de transform.', '/command');
       for (const key of keys) element.transform[key] = command[key];
       validateEditableTransform(element.transform, '/command/transform');
       return;
@@ -556,6 +595,23 @@ function applyMutation(project, catalog, command) {
       if (element.tracks.length === 0) delete element.tracks;
       return;
     }
+    case 'remove-animation': {
+      const element = requireAnimatedElement(project, command);
+      const track = findTrack(element, command.parameterId);
+      if (!track) fail('EDITOR_TRACK_NOT_FOUND', 'El elemento no tiene una animación para ese parámetro.', '/command/parameterId');
+      const customized = track.source.kind === 'manual'
+        || (track.source.kind === 'preset' && track.source.customized);
+      if (customized && command.confirmCustomized !== true) {
+        fail(
+          'EDITOR_TRACK_CUSTOMIZED',
+          'La animación fue creada o editada a mano; confirmá explícitamente para quitarla.',
+          '/command/confirmCustomized',
+        );
+      }
+      element.tracks = element.tracks.filter((candidate) => candidate !== track);
+      if (element.tracks.length === 0) delete element.tracks;
+      return;
+    }
     case 'reorder-dialogue-turns': {
       const scene = requireScene(project, command.sceneId);
       if (!Array.isArray(command.turnIds) || command.turnIds.length !== scene.dialogue.length || new Set(command.turnIds).size !== scene.dialogue.length) {
@@ -598,7 +654,10 @@ function requireScene(project, id) {
 
 function requireElement(scene, id, type) {
   const element = scene.elements.find((item) => item.id === id);
-  if (!element || element.type !== type) fail('EDITOR_ELEMENT_NOT_FOUND', `No existe el elemento ${String(id)} de tipo ${type}.`, '/command/elementId');
+  if (!element || (type !== undefined && element.type !== type)) {
+    const suffix = type === undefined ? '' : ` de tipo ${type}`;
+    fail('EDITOR_ELEMENT_NOT_FOUND', `No existe el elemento ${String(id)}${suffix}.`, '/command/elementId');
+  }
   return element;
 }
 
@@ -626,9 +685,12 @@ function assertCommandShape(command) {
     'set-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId'], optional: [] },
     'set-character-animation': { required: ['type', 'sceneId', 'elementId', 'animationPreset'], optional: [] },
     'add-character': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], optional: [] },
+    'add-prop': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], optional: [] },
+    'set-prop-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId'], optional: [] },
     'delete-element': { required: ['type', 'sceneId', 'elementId'], optional: [] },
     'place-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y'], optional: [] },
     'set-character-transform': { required: ['type', 'sceneId', 'elementId'], optional: ['x', 'y', 'scale', 'zIndex'] },
+    'set-element-transform': { required: ['type', 'sceneId', 'elementId'], optional: ['x', 'y', 'scale', 'rotationDegrees', 'opacity', 'zIndex'] },
     'set-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: ['text', 'voiceId', 'gestureId', 'gestureAtWord', 'pace', 'layoutPreset', 'gapAfterSeconds'] },
     'add-dialogue-turn': { required: ['type', 'sceneId', 'turnId', 'speakerElementId', 'text', 'voiceId', 'gestureId', 'gapAfterSeconds'], optional: ['gestureAtWord', 'pace', 'layoutPreset', 'afterTurnId'] },
     'delete-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: [] },
@@ -643,6 +705,7 @@ function assertCommandShape(command) {
     'set-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId'], optional: ['anchor', 'offsetSeconds', 'value', 'interpolation'] },
     'delete-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId'], optional: [] },
     'delete-track': { required: ['type', 'sceneId', 'elementId', 'parameterId'], optional: [] },
+    'remove-animation': { required: ['type', 'sceneId', 'elementId', 'parameterId'], optional: ['confirmCustomized'] },
   };
   const shape = shapes[command.type];
   if (!shape) fail('EDITOR_COMMAND_UNSUPPORTED', `Comando no soportado: ${String(command.type)}.`, '/command/type');
@@ -672,6 +735,9 @@ function validateEditableTracks(element, resource, path) {
     const trackPath = `${path}/${trackIndex}`;
     const parameter = ANIMATION_PARAMETERS[track.parameterId];
     if (!parameter) fail('EDITOR_TRACK_INVALID', 'El parámetro no existe en el vocabulario V1.', `${trackPath}/parameterId`);
+    if (!parameter.elementTypes.includes(element.type)) {
+      fail('EDITOR_TRACK_INVALID', 'El parámetro no admite este tipo de elemento.', `${trackPath}/parameterId`);
+    }
     if (seenParameters.has(track.parameterId)) {
       fail('EDITOR_TRACK_INVALID', 'Hay dos pistas sobre el mismo parámetro.', `${trackPath}/parameterId`);
     }
@@ -736,7 +802,9 @@ function requireAnimatedElement(project, command) {
   const scene = requireScene(project, command.sceneId);
   const element = scene.elements.find((candidate) => candidate.id === command.elementId);
   if (!element) fail('EDITOR_ELEMENT_NOT_FOUND', 'El elemento no existe en la escena.', '/command/elementId');
-  if (element.type !== 'character') fail('EDITOR_ELEMENT_UNSUPPORTED', 'Solo los personajes admiten pistas por ahora.', '/command/elementId');
+  if (!['character', 'prop'].includes(element.type)) {
+    fail('EDITOR_ELEMENT_UNSUPPORTED', 'Solo los personajes y props admiten pistas por ahora.', '/command/elementId');
+  }
   return element;
 }
 

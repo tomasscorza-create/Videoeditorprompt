@@ -123,7 +123,62 @@ const withoutTrack = apply(state, { type: 'delete-track', sceneId, elementId, pa
 assert.equal(withoutTrack.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks, undefined);
 pass('delete-track-elimina-la-pista', { accepted: true });
 
-// 8. Reglas del contrato aplicadas donde el usuario edita.
+// 8. `remove-animation` es la operación segura para automatizaciones: quita
+//    presets intactos, participa de undo/redo y protege trabajo personalizado.
+const presetState = apply(base, {
+  type: 'apply-animation-preset',
+  sceneId,
+  elementId,
+  presetId: 'fade-in',
+});
+const removedPreset = apply(presetState, {
+  type: 'remove-animation',
+  sceneId,
+  elementId,
+  parameterId: 'opacity',
+});
+assert.equal(removedPreset.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks, undefined);
+const restoredPreset = undoProjectEditor(removedPreset);
+assert.equal(
+  restoredPreset.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks[0].source.presetId,
+  'fade-in',
+);
+pass('remove-animation-quita-un-preset-intacto-y-undo-lo-restaura', { accepted: true });
+
+const presetTrack = presetState.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks[0];
+const customizedPreset = apply(presetState, {
+  type: 'set-keyframe',
+  sceneId,
+  elementId,
+  parameterId: 'opacity',
+  keyframeId: presetTrack.keyframes[0].id,
+  value: 0.1,
+});
+assert.throws(() => apply(customizedPreset, {
+  type: 'remove-animation', sceneId, elementId, parameterId: 'opacity',
+}), (error) => error.code === 'EDITOR_TRACK_CUSTOMIZED');
+pass('remove-animation-protege-un-preset-personalizado', { accepted: false, expectedCode: 'EDITOR_TRACK_CUSTOMIZED' });
+
+assert.throws(() => apply(state, {
+  type: 'remove-animation', sceneId, elementId, parameterId: 'opacity',
+}), (error) => error.code === 'EDITOR_TRACK_CUSTOMIZED');
+const confirmedRemoval = apply(state, {
+  type: 'remove-animation', sceneId, elementId, parameterId: 'opacity', confirmCustomized: true,
+});
+assert.equal(confirmedRemoval.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks, undefined);
+pass('remove-animation-protege-pistas-manuales-y-admite-confirmacion-explicita', { accepted: true });
+
+assert.throws(() => apply(base, {
+  type: 'remove-animation', sceneId, elementId, parameterId: 'scale',
+}), (error) => error.code === 'EDITOR_TRACK_NOT_FOUND');
+pass('remove-animation-rechaza-una-pista-inexistente', { accepted: false, expectedCode: 'EDITOR_TRACK_NOT_FOUND' });
+
+assert.equal(validateCommand({
+  type: 'remove-animation', sceneId, elementId, parameterId: 'opacity', confirmCustomized: 'sí',
+}), false);
+pass('remove-animation-rechaza-confirmacion-no-booleana', { accepted: false });
+
+// 9. Reglas del contrato aplicadas donde el usuario edita.
 assert.throws(() => apply(state, keyframe('kf-op-4', 0.2, 0.9)), (error) => error.code === 'EDITOR_TRACK_INVALID');
 pass('dos-keyframes-en-el-mismo-punto-rechazados', { accepted: false, expectedCode: 'EDITOR_TRACK_INVALID' });
 
@@ -141,7 +196,7 @@ assert.throws(() => apply(base, {
 }), (error) => error.code === 'EDITOR_TRACK_INVALID');
 pass('armraise-rechazado-en-un-recurso-que-no-lo-declara', { accepted: false, expectedCode: 'EDITOR_TRACK_INVALID' });
 
-// 9. El motor no acepta comandos de keyframe con campos inventados.
+// 10. El motor no acepta comandos de keyframe con campos inventados.
 assert.throws(() => applyProjectEditorCommand(base, {
   type: 'add-keyframe', sceneId, elementId, parameterId: 'opacity', keyframeId: 'kf-x',
   anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0, value: 0, interpolation: 'hold', curva: 'bezier',

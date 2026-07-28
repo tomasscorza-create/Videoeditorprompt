@@ -2,7 +2,7 @@
 // No son una segunda fuente de verdad: el estado real vive en
 // shared/project-editor.js y solo cambia por comandos semánticos.
 
-export type ResourceType = 'character' | 'voice' | 'background' | 'image';
+export type ResourceType = 'character' | 'prop' | 'voice' | 'background' | 'image';
 
 export interface ResourceEntry {
   id: string;
@@ -11,6 +11,8 @@ export interface ResourceEntry {
   tags?: string[];
   capabilities?: Record<string, unknown>;
   characterRef?: { catalog: string; entryId: string };
+  resourceRef?: { catalog: string; entryId: string };
+  thumbnail?: string;
   backgroundManifest?: string;
   provenance?: { source?: string; license?: string };
 }

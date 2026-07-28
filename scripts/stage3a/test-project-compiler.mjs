@@ -171,6 +171,49 @@ rotationTrack.scenes[0].elements[0].tracks = [trackFor('rotationDegrees', [0, 12
 assert.throws(() => compileCase('animated-rotation', rotationTrack), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
 results.push({ name: 'unrenderable-animated-parameter-is-explicit', passed: true });
 
+const articulated = structuredClone(source);
+articulated.scenes[0].elements[0].resourceId = 'mono-articulado-azul-v1';
+articulated.scenes[0].elements[0].tracks = [trackFor('armRaise', [0, 1])];
+const articulatedRun = compileCase('articulated-v3', articulated);
+const articulatedConfig = readJson(path.join(
+  contextFor('articulated-v3', path.join(projectsRoot, 'articulated-v3.json')).jobRoot,
+  articulatedRun.manifest.scenes[0].config,
+));
+assert.equal(articulatedConfig.characters[0].characterAssetId, 'mono-articulado-azul-v1');
+assert.equal(articulatedConfig.characters[0].tracks[0].parameterId, 'armRaise');
+results.push({ name: 'v3-character-and-articulation-compile-for-pixi', passed: true });
+
+const withProp = structuredClone(source);
+withProp.scenes[0].elements.push({
+  id: 'cartel-dato',
+  type: 'prop',
+  resourceId: 'cartel-dato-v1',
+  transform: {
+    x: 540,
+    y: 780,
+    anchorX: 0.5,
+    anchorY: 0.5,
+    scale: 0.6,
+    rotationDegrees: -8,
+    opacity: 0.9,
+    zIndex: 40,
+  },
+  tracks: [trackFor('rotationDegrees', [-8, 8])],
+});
+const propRun = compileCase('prop-v3', withProp);
+const propConfig = readJson(path.join(
+  contextFor('prop-v3', path.join(projectsRoot, 'prop-v3.json')).jobRoot,
+  propRun.manifest.scenes[0].config,
+));
+assert.deepEqual(propConfig.props, [{
+  id: 'cartel-dato',
+  resourceManifest: 'assets/resources/cartel-dato-v1/resource.manifest.json',
+  transform: { x: 0, y: -180, scale: 0.6, rotationDegrees: -8, opacity: 0.9, zIndex: 40 },
+  tracks: [trackFor('rotationDegrees', [-8, 8])],
+}]);
+assert.equal(propRun.manifest.scenes[0].bindings.length, 2, 'los bindings de diálogo siguen describiendo solo personajes');
+results.push({ name: 'prop-v3-compiles-with-transform-and-tracks-for-pixi', passed: true });
+
 const conflictContext = createProjectCompilationContext({
   'job-id': `compile-conflict-${stamp}`,
   project: sourcePath,

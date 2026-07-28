@@ -1,17 +1,21 @@
 import { optional } from '../dom.js';
 import { notify } from '../notifications.js';
 import { importBackgroundResource } from '../director/api.js';
+import { listApplicablePresets } from '../../../shared/animation-presets.js';
 import {
   CHARACTER_PLACEMENT_EVENT,
   beginCharacterPlacement,
+  beginPropPlacement,
   currentCharacterPlacement,
   writeBackgroundDrag,
   writeCharacterDrag,
+  writePropDrag,
 } from './character-placement.js';
 import type { ProjectStore } from './store.js';
 import type { ResourceEntry, ResourceType } from './types.js';
+import { PROJECT_SELECTION_EVENT, projectSelection } from './selection.js';
 
-type LibraryType = Extract<ResourceType, 'character' | 'background' | 'voice'>;
+type LibraryType = Extract<ResourceType, 'character' | 'prop' | 'background' | 'voice'>;
 const ACTIVE_LIBRARY_TAB_KEY = 'local-video.library-active-tab';
 
 /** C4: permite que otra superficie (el Director) pida mostrar un recurso. */
@@ -37,7 +41,10 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     if (currentCharacterPlacement()) return;
     for (const item of root.querySelectorAll('.resource-card')) item.classList.remove('is-placement-source');
   });
-  let activeType: LibraryType = sessionStorage.getItem(ACTIVE_LIBRARY_TAB_KEY) === 'background' ? 'background' : 'character';
+  const savedType = sessionStorage.getItem(ACTIVE_LIBRARY_TAB_KEY);
+  let activeType: LibraryType = ['character', 'prop', 'background', 'voice'].includes(savedType ?? '')
+    ? savedType as LibraryType
+    : 'character';
   let thumbnails = new Map<string, string>();
   const characterCatalogs = new Set(
     store.resources('character')
@@ -71,6 +78,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     if (!registerButton) return;
     if (activeType === 'background') registerButton.textContent = 'Agregar fondo';
     else if (activeType === 'character') registerButton.textContent = 'Crear personaje';
+    else if (activeType === 'prop') registerButton.textContent = 'Props incluidos';
     else if (activeType === 'voice') registerButton.textContent = 'Agregar voz';
   }
   updateRegisterButton();
@@ -96,7 +104,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   // filtro que pudiera ocultarlo y se destaca su tarjeta.
   window.addEventListener(REVEAL_RESOURCE_EVENT, (event) => {
     const resourceId = (event as CustomEvent<string>).detail;
-    const owner = (['character', 'background', 'voice'] as LibraryType[])
+    const owner = (['character', 'prop', 'background', 'voice'] as LibraryType[])
       .find((type) => store.resources(type).some((resource) => resource.id === resourceId));
     if (!owner) return;
     if (owner !== activeType) {
@@ -126,6 +134,8 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       registerFile?.click();
     } else if (activeType === 'character') {
       optional<HTMLElement>('#workspace-creator')?.click();
+    } else if (activeType === 'prop') {
+      notify({ message: 'Los props incluidos ya están disponibles para colocar.', level: 'info' });
     } else if (activeType === 'voice') {
       notify({ message: 'La carga de voces se habilitará en una próxima etapa.', level: 'info' });
     }
@@ -206,26 +216,29 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   }
 
   function resourceCard(resource: ResourceEntry): HTMLElement {
-    const card = document.createElement('button');
-    card.type = 'button';
+    const card = document.createElement('article');
     card.className = 'resource-card';
     card.dataset.resourceId = resource.id;
-    card.title = resource.type === 'character'
+    const primary = document.createElement('button');
+    primary.type = 'button';
+    primary.className = 'resource-card-primary';
+    primary.title = resource.type === 'character' || resource.type === 'prop'
       ? `Colocar ${resource.label} en el visor`
       : `Aplicar ${resource.label} a la escena seleccionada`;
     const thumbnail = resource.characterRef
       ? thumbnails.get(resource.characterRef.entryId)
+      : resource.type === 'prop' ? resource.thumbnail
       : resource.type === 'background' ? thumbnails.get(resource.id) : null;
     if (thumbnail) {
       const image = document.createElement('img');
       image.src = `/${thumbnail}`;
       image.alt = `Miniatura de ${resource.label}`;
-      card.append(image);
+      primary.append(image);
     } else {
       const preview = document.createElement('span');
       preview.className = 'render-job-icon';
       preview.textContent = resource.type === 'voice' ? '♪' : '▧';
-      card.append(preview);
+      primary.append(preview);
     }
     const name = document.createElement('strong');
     name.textContent = resource.label;
@@ -235,10 +248,11 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     const license = document.createElement('span');
     license.className = 'resource-license';
     license.textContent = resource.provenance?.license || 'Licencia sin detalle';
-    card.append(name, tags, license);
+    primary.append(name, tags, license);
+    card.append(primary);
     if (resource.type === 'character') {
       card.draggable = true;
-      card.addEventListener('click', () => {
+      primary.addEventListener('click', () => {
         beginCharacterPlacement(resource.id, resource.label);
         for (const item of root!.querySelectorAll('.resource-card')) item.classList.toggle('is-placement-source', item === card);
         setLibraryStatus(`Ahora hacé clic en el visor o arrastrá «${resource.label}» sobre el personaje que querés reemplazar.`, false);
@@ -249,18 +263,80 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
         card.classList.add('is-dragging');
       });
       card.addEventListener('dragend', () => card.classList.remove('is-dragging'));
+    } else if (resource.type === 'prop') {
+      card.draggable = true;
+      primary.addEventListener('click', () => {
+        beginPropPlacement(resource.id, resource.label);
+        for (const item of root!.querySelectorAll('.resource-card')) item.classList.toggle('is-placement-source', item === card);
+        setLibraryStatus(`Ahora hacé clic en el visor o arrastrá «${resource.label}» para agregarlo.`, false);
+      });
+      card.addEventListener('dragstart', (event) => {
+        beginPropPlacement(resource.id, resource.label);
+        if (event.dataTransfer) writePropDrag(event.dataTransfer, { resourceId: resource.id, label: resource.label, type: 'prop' });
+        card.classList.add('is-dragging');
+      });
+      card.addEventListener('dragend', () => card.classList.remove('is-dragging'));
     } else if (resource.type === 'background') {
       card.draggable = true;
-      card.addEventListener('click', () => apply(resource));
+      primary.addEventListener('click', () => apply(resource));
       card.addEventListener('dragstart', (event) => {
         if (event.dataTransfer) writeBackgroundDrag(event.dataTransfer, resource.id, resource.label);
         card.classList.add('is-dragging');
       });
       card.addEventListener('dragend', () => card.classList.remove('is-dragging'));
     } else {
-      card.addEventListener('click', () => apply(resource));
+      primary.addEventListener('click', () => apply(resource));
     }
+    appendAnimationPresets(card, resource);
     return card;
+  }
+
+  function appendAnimationPresets(card: HTMLElement, resource: ResourceEntry): void {
+    if (resource.type !== 'character' && resource.type !== 'prop') return;
+    const selection = projectSelection();
+    if (!selection || (selection.kind !== 'element' && selection.kind !== 'keyframe')) return;
+    const scene = store.project().scenes.find((candidate) => candidate.id === selection.sceneId);
+    const element = scene?.elements.find((candidate) => candidate.id === selection.elementId);
+    if (!scene || !element || element.type !== resource.type || element.resourceId !== resource.id) return;
+
+    const rawParameters = resource.capabilities?.parameters;
+    const declaredParameters = Array.isArray(rawParameters)
+      ? rawParameters.filter((value): value is string => typeof value === 'string')
+      : [];
+    const presets = listApplicablePresets(declaredParameters);
+    if (presets.length === 0) return;
+
+    const controls = document.createElement('section');
+    controls.className = 'resource-animation-presets';
+    const heading = document.createElement('span');
+    heading.className = 'resource-animation-heading';
+    heading.textContent = 'Animar seleccionado';
+    const buttons = document.createElement('div');
+    buttons.className = 'resource-animation-buttons';
+    for (const preset of presets) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'animation-preset';
+      button.textContent = preset.label;
+      button.title = `Aplicar «${preset.label}» al inicio de la escena`;
+      button.addEventListener('click', () => {
+        const error = store.dispatch({
+          type: 'apply-animation-preset',
+          sceneId: scene.id,
+          elementId: element.id,
+          presetId: preset.id,
+          anchor: { kind: 'scene', edge: 'start' },
+          intensity: 'medium',
+        });
+        setLibraryStatus(
+          error || `«${preset.label}» aplicado a ${resource.label} al inicio de la escena.`,
+          Boolean(error),
+        );
+      });
+      buttons.append(button);
+    }
+    controls.append(heading, buttons);
+    card.append(controls);
   }
 
   function apply(resource: ResourceEntry): void {
@@ -285,5 +361,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     }
   }
 
+  store.subscribe(render);
+  window.addEventListener(PROJECT_SELECTION_EVENT, render);
   render();
 }

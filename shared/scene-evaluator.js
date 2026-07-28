@@ -139,6 +139,21 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds, anima
       speaking,
     };
   });
+  if (animation) {
+    for (const propRuntime of (runtime.props ?? [])) {
+      const transform = propRuntime.transform;
+      elementParams[propRuntime.id] = {
+        params: {
+          'position.x': transform.x,
+          'position.y': transform.y,
+          scale: transform.scale,
+          rotationDegrees: transform.rotationDegrees,
+          opacity: transform.opacity,
+          ...(animatedParams?.[propRuntime.id] ?? {}),
+        },
+      };
+    }
+  }
   return {
     time,
     background: evaluateBackground(runtime.backgroundAnimation, time, duration),

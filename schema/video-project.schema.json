@@ -202,6 +202,37 @@
         }
       }
     },
+    "propElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "resourceId",
+        "transform"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "prop"
+        },
+        "resourceId": {
+          "$ref": "#/$defs/id"
+        },
+        "transform": {
+          "$ref": "#/$defs/transform"
+        },
+        "tracks": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/animationTrack"
+          }
+        }
+      }
+    },
     "textElement": {
       "type": "object",
       "additionalProperties": false,
@@ -357,6 +388,9 @@
             "oneOf": [
               {
                 "$ref": "#/$defs/characterElement"
+              },
+              {
+                "$ref": "#/$defs/propElement"
               },
               {
                 "$ref": "#/$defs/imageElement"

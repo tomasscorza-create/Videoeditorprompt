@@ -5,9 +5,11 @@ import { performance } from 'node:perf_hooks';
 import { evaluateScene } from '../../shared/scene-evaluator.js';
 import { buildSceneTiming, resolveAnimationScene } from '../../shared/animation-evaluator.js';
 import { composeFramesWithFfmpeg } from '../compositor/ffmpeg-compositor.mjs';
+import { composeFramesWithPixi } from '../compositor/pixi-compositor.mjs';
+import { buildPixiFrameFromV2 } from '../compositor/v2-frame-adapter.mjs';
 import { ensureDirectory, ffprobe, readJson, run, sha256, writeJson } from './common.mjs';
 
-export function exportDialogueJob(context, config, options) {
+export async function exportDialogueJob(context, config, options) {
   const report = options.report;
   const runNumber = Number(options.runNumber ?? 1);
   const runtime = readJson(path.join(context.runtimeRoot, 'scene-runtime.json'));
@@ -44,21 +46,60 @@ export function exportDialogueJob(context, config, options) {
   // Fase 3: componer los PNG es responsabilidad del compositor, detrás de un
   // contrato. Acá quedan las tres cosas que NO son composición: resolver el
   // tiempo, encodear el video y medir el resultado.
-  const composition = composeFramesWithFfmpeg({
-    context,
-    config,
-    runtime,
-    dialogueData,
-    framePlan,
-    animation,
-    framesDirectory,
-    fps,
-    renderDuration,
-    frameCount,
-    generatedPath,
-    report,
-    renderId,
-  });
+  const compositorBackend = selectCompositorBackend(runtime, options.compositorBackend);
+  let composition;
+  if (compositorBackend === 'pixi') {
+    const manifestCache = new Map();
+    const pixiVideo = {
+      width: config.video.width,
+      height: config.video.height,
+      ...(runtime.backgroundAnimation ? { backgroundColor: '#071022' } : {}),
+    };
+    const pixiFrames = framePlan.map((frame) => buildPixiFrameFromV2({
+      video: pixiVideo,
+      runtime,
+      evaluatedFrame: frame,
+      assetsRoot: context.assetsRoot,
+      subtitleSrc: frame.subtitlePath ? `generated/${frame.subtitlePath}` : null,
+      manifestCache,
+    }));
+    report('rendering_frames', {
+      stage: 'rendering_frames',
+      renderId,
+      frameCount,
+      fps,
+      contractVersion: 2,
+      compositorBackend,
+    });
+    composition = await composeFramesWithPixi({
+      video: pixiVideo,
+      frames: pixiFrames,
+      assetsRoot: context.assetsRoot,
+      assetMounts: [{ prefix: 'generated', root: context.generatedRoot }],
+      framesDirectory,
+      onProgress: ({ index, total }) => {
+        if (index === 0 || index + 1 === total || (index + 1) % 30 === 0) {
+          report('rendering_frames', { stage: 'rendering_frames', renderId, frameCount, completedFrames: index + 1 });
+        }
+      },
+    });
+  } else {
+    composition = composeFramesWithFfmpeg({
+      context,
+      config,
+      runtime,
+      dialogueData,
+      framePlan,
+      animation,
+      framesDirectory,
+      fps,
+      renderDuration,
+      frameCount,
+      generatedPath,
+      report,
+      renderId,
+    });
+  }
 
   const framePattern = composition.framePattern;
   const started = performance.now() - composition.seconds * 1000;
@@ -79,11 +120,24 @@ export function exportDialogueJob(context, config, options) {
     frameCount: composition.frameCount, fps, audioDurationSeconds: runtime.audio.durationSeconds,
     renderDurationSeconds: renderDuration, frameGenerationSeconds, encodingSeconds,
     totalSeconds: (performance.now() - started) / 1000,
+    compositorBackend: composition.backend,
+    compositorRenderer: composition.renderer,
     output: `${renderId}.mp4`, outputBytes: statSync(videoFile).size, probe: ffprobe(videoFile),
   };
   writeJson(path.join(context.resultRoot, `export-metrics-${runNumber}.json`), metrics);
   if (options.emitCompleted !== false) report('completed', { stage: 'export', renderId, result: `${renderId}.mp4` });
   return metrics;
+}
+
+export function selectCompositorBackend(runtime, requested = 'auto') {
+  if (!['auto', 'ffmpeg', 'pixi'].includes(requested)) {
+    throw new Error(`Backend de compositor desconocido: ${requested}`);
+  }
+  if (requested !== 'auto') return requested;
+  return (runtime.props?.length ?? 0) > 0
+    || runtime.characters.some((character) => character.characterRig?.version === 3)
+    ? 'pixi'
+    : 'ffmpeg';
 }
 
 /**
@@ -97,7 +151,10 @@ export function exportDialogueJob(context, config, options) {
  * expresiones de FFmpeg partan exactamente del mismo número.
  */
 function resolveSceneAnimation(config, dialogueData, durationSeconds) {
-  const animated = (config.characters ?? []).filter((character) => character.tracks?.length);
+  const animated = [
+    ...(config.characters ?? []).map((element) => ({ ...element, elementType: 'character' })),
+    ...(config.props ?? []).map((element) => ({ ...element, elementType: 'prop' })),
+  ].filter((element) => element.tracks?.length);
   if (animated.length === 0) return null;
   const centerOffsets = {
     'position.x': config.video.width / 2,
@@ -108,7 +165,7 @@ function resolveSceneAnimation(config, dialogueData, durationSeconds) {
     sceneId: 'scene',
     elements: animated.map((character) => ({
       elementId: character.id,
-      elementType: 'character',
+      elementType: character.elementType,
       tracks: character.tracks.map((track) => ({
         parameterId: track.parameterId,
         source: track.source,

@@ -9,7 +9,7 @@ import { createProgressReporter, serializeError } from './progress.mjs';
 import { loadAndValidateJobConfig } from './validate-scene-config.mjs';
 import { exportDialogueJob } from './export-dialogue.mjs';
 
-export function exportJob(context, options = {}) {
+export async function exportJob(context, options = {}) {
   const report = options.report || createProgressReporter(context);
   const runNumber = Number(options.runNumber ?? 1);
   if (!Number.isInteger(runNumber) || runNumber < 1) throw new Error('runNumber debe ser un entero positivo.');
@@ -111,7 +111,7 @@ if (isMain(import.meta.url)) {
   try {
     context = createJobContext();
     report = createProgressReporter(context);
-    exportJob(context, { runNumber: context.args.run || 1, report });
+    await exportJob(context, { runNumber: context.args.run || 1, report });
   } catch (error) {
     if (context) (report || createProgressReporter(context))('failed', serializeError(error, 'export'));
     else process.stderr.write(`${JSON.stringify({ version: 1, state: 'failed', ...serializeError(error, 'export') })}\n`);

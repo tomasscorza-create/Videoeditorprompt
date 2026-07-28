@@ -84,7 +84,7 @@ const first = await createDirectorProposal({
 assert.equal(first.cacheHit, false);
 assert.equal(first.project.scenes.length, 1);
 assert.equal(first.context.shortlistedEntries, 14);
-assert.equal(first.context.totalCatalogEntries, 16);
+assert.equal(first.context.totalCatalogEntries, 18);
 assert.equal(first.context.templateIds.length, 3);
 assert.ok(first.context.recommendedTemplateId);
 assert.equal(first.context.selectedTemplateId, first.context.recommendedTemplateId);

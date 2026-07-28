@@ -89,6 +89,14 @@ export function buildResourceSprites(manifest, options = {}) {
   if (manifest.states.mouth[mouth]) {
     sprites.push({ id: `mouth:${mouth}`, src: manifest.states.mouth[mouth], zIndex: top + 1, opacity: 1, transforms: [] });
   }
+  // Los rigs v2 adaptados a v3 conservan los gestos como capas completas de
+  // manos. Los rigs v3 articulados no tienen este grupo: expresan el gesto
+  // rotando piezas, así que este bloque es aditivo y no cambia su salida.
+  const pose = (manifest.poses ?? []).find((candidate) => candidate.id === poseId);
+  const hand = pose?.handState;
+  if (hand && manifest.states.hands?.[hand]) {
+    sprites.push({ id: `hands:${hand}`, src: manifest.states.hands[hand], zIndex: top + 2, opacity: 1, transforms: [] });
+  }
   return sprites;
 }
 

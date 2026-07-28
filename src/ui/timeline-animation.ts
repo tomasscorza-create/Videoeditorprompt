@@ -471,23 +471,31 @@ export function baseValueForParameter(
 }
 
 /**
- * Parámetros que el compositor vigente sabe llevar al MP4.
- *
- * `rotationDegrees` y `armRaise` pertenecen al vocabulario congelado pero el
- * runtime v2 todavía no los renderiza: el compilador los rechaza con
- * PROJECT_SCENE_UNSUPPORTED (`RENDERABLE_PARAMETERS` en
- * `scripts/stage3a/compile-video-project.mjs`). Ofrecerlos acá dejaría animar
- * algo que después no aparece en el video, el mismo motivo por el que los
- * recursos v3 siguen fuera de la biblioteca.
+ * Parámetros que cada camino puede llevar al MP4. Un recurso que declara un
+ * parámetro propio (hoy `armRaise`) es v3 y enruta la escena completa a PixiJS;
+ * por eso ahí también puede ofrecer rotación. Los rigs v2 conservan el conjunto
+ * histórico de FFmpeg.
  */
-const RENDERABLE_PARAMETERS: readonly string[] = ['position.x', 'position.y', 'scale', 'opacity'];
+const FFMPEG_RENDERABLE_PARAMETERS: readonly string[] = ['position.x', 'position.y', 'scale', 'opacity'];
+const PIXI_RENDERABLE_PARAMETERS: readonly string[] = [
+  ...FFMPEG_RENDERABLE_PARAMETERS,
+  'rotationDegrees',
+  'armRaise',
+];
 
 /** Parámetros animables de un elemento, según lo que el recurso declare. */
-export function listAnimatableParameters(declaredParameters: readonly string[] = []): string[] {
+export function listAnimatableParameters(
+  declaredParameters: readonly string[] = [],
+  elementType: 'character' | 'prop' = 'character',
+): string[] {
+  const usesPixi = elementType === 'prop'
+    || declaredParameters.some((id) => ANIMATION_PARAMETERS[id]?.requiresResourceSupport);
+  const renderable = usesPixi ? PIXI_RENDERABLE_PARAMETERS : FFMPEG_RENDERABLE_PARAMETERS;
   return Object.entries(ANIMATION_PARAMETERS)
+    .filter(([, parameter]) => parameter.elementTypes.includes(elementType))
     .filter(([id, parameter]) => !parameter.requiresResourceSupport || declaredParameters.includes(id))
     .map(([id]) => id)
-    .filter((id) => RENDERABLE_PARAMETERS.includes(id));
+    .filter((id) => renderable.includes(id));
 }
 
 /** Acota un valor al rango del parámetro antes de mandarlo al motor. */

@@ -4,6 +4,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { projectRoot } from './common.mjs';
 import { PipelineError } from './errors.mjs';
 import { resolveAsset } from './job-context.mjs';
+import { validateResourceManifestV3 } from '../stage2f/resource-manifest.mjs';
 
 export const SCENE_LIMITS = Object.freeze({
   maxAudioDurationSeconds: 120,
@@ -144,12 +145,18 @@ function resolveConfiguredAssets(config, context) {
 
 function validateDialogueSemantics(config) {
   const characterIds = new Set();
+  const elementIds = new Set();
   for (const [index, character] of config.characters.entries()) {
     if (characterIds.has(character.id)) semanticError(`/characters/${index}/id`, 'debe ser único');
     characterIds.add(character.id);
+    elementIds.add(character.id);
     if (character.blink.minIntervalSeconds > character.blink.maxIntervalSeconds) {
       semanticError(`/characters/${index}/blink/minIntervalSeconds`, 'no puede ser mayor que maxIntervalSeconds');
     }
+  }
+  for (const [index, prop] of (config.props ?? []).entries()) {
+    if (elementIds.has(prop.id)) semanticError(`/props/${index}/id`, 'debe ser único en la escena');
+    elementIds.add(prop.id);
   }
   const turnIds = new Set();
   for (const [index, turn] of config.dialogue.entries()) {
@@ -207,6 +214,14 @@ function resolveDialogueAssets(config, context) {
       ...(catalogEntry ? { catalogEntry: { id: catalogEntry.id, thumbnail: catalogEntry.thumbnail } } : {}),
     };
   });
+  context.resolvedProps = (config.props ?? []).map((prop, index) => {
+    const resolved = resolvePropManifest(context, prop.resourceManifest, `/props/${index}/resourceManifest`);
+    return {
+      id: prop.id,
+      resourceRig: resolved.resourceRig,
+      transform: prop.transform,
+    };
+  });
 }
 
 function resolveAssetCatalog(context, catalogPath) {
@@ -258,6 +273,43 @@ function resolveCharacterManifest(context, manifestPath, jsonPath) {
       suggestedAction: 'Corrija la sintaxis del manifest del personaje.',
     });
   }
+  if (manifest?.version === 3) {
+    validateResourceManifestV3(manifest);
+    if (manifest.kind !== 'character') {
+      characterManifestSemanticError(jsonPath, 'debe ser un recurso v3 de tipo character');
+    }
+    const manifestDirectory = path.posix.dirname(manifestPath);
+    const layerPaths = [
+      ...manifest.parts.flatMap((part) => part.layer ? [part.layer] : []),
+      ...Object.values(manifest.states.eyes ?? {}),
+      ...Object.values(manifest.states.mouth ?? {}),
+      ...Object.values(manifest.states.hands ?? {}),
+    ];
+    for (const [index, relativePath] of layerPaths.entries()) {
+      assertPortableRelativePath(relativePath, `${jsonPath}/layers/${index}`);
+      resolveAsset(context, path.posix.join(manifestDirectory, relativePath), `${jsonPath}/layers/${index}`);
+    }
+    assertPortableRelativePath(manifest.sourceDefinition, `${jsonPath}/sourceDefinition`);
+    resolveAsset(context, manifest.sourceDefinition, `${jsonPath}/sourceDefinition`);
+    return {
+      // El backend PixiJS lee las piezas desde el manifest. No se fabrica una
+      // vista de capas legacy que el recurso articulado no tiene.
+      assets: {},
+      characterRig: {
+        id: manifest.id,
+        version: 3,
+        manifestPath,
+        pivot: manifest.pivot,
+        provenance: manifest.provenance,
+        sourceDefinition: manifest.sourceDefinition,
+        variant: manifest.variant,
+        parts: manifest.parts,
+        poses: manifest.poses,
+        parameters: manifest.parameters,
+        bindings: manifest.bindings,
+      },
+    };
+  }
   const validateCharacterSchema = manifest?.version === 2 ? validateCharacterSchemaV2 : validateCharacterSchemaV1;
   assertSchema(validateCharacterSchema, manifest, {
     code: 'CHARACTER_MANIFEST_SCHEMA_INVALID',
@@ -306,6 +358,47 @@ function resolveCharacterManifest(context, manifestPath, jsonPath) {
         joints: manifest.joints,
         poses: manifest.poses,
       } : {}),
+    },
+  };
+}
+
+function resolvePropManifest(context, manifestPath, jsonPath) {
+  assertPortableRelativePath(manifestPath, jsonPath);
+  const manifestFile = resolveAsset(context, manifestPath, `${jsonPath}/manifest`);
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+  } catch (error) {
+    throw new PipelineError({
+      code: 'RESOURCE_MANIFEST_JSON_INVALID',
+      stage: 'validating_config',
+      message: 'El manifest del prop no contiene JSON válido.',
+      technicalDetail: error instanceof SyntaxError ? error.message : undefined,
+      suggestedAction: 'Corrija la sintaxis del manifest del recurso.',
+    });
+  }
+  validateResourceManifestV3(manifest);
+  if (manifest.kind !== 'prop') characterManifestSemanticError(jsonPath, 'debe ser un recurso v3 de tipo prop');
+  const manifestDirectory = path.posix.dirname(manifestPath);
+  for (const [index, part] of manifest.parts.entries()) {
+    if (!part.layer) continue;
+    assertPortableRelativePath(part.layer, `${jsonPath}/parts/${index}/layer`);
+    resolveAsset(context, path.posix.join(manifestDirectory, part.layer), `${jsonPath}/parts/${index}/layer`);
+  }
+  assertPortableRelativePath(manifest.sourceDefinition, `${jsonPath}/sourceDefinition`);
+  resolveAsset(context, manifest.sourceDefinition, `${jsonPath}/sourceDefinition`);
+  return {
+    resourceRig: {
+      id: manifest.id,
+      version: 3,
+      kind: 'prop',
+      manifestPath,
+      pivot: manifest.pivot,
+      parts: manifest.parts,
+      parameters: manifest.parameters,
+      bindings: manifest.bindings,
+      provenance: manifest.provenance,
+      sourceDefinition: manifest.sourceDefinition,
     },
   };
 }

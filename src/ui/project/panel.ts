@@ -254,10 +254,42 @@ export function initProjectEditor(store: ProjectStore): void {
 
   function elementsCard(scene: SceneView, index: number): HTMLElement {
     const characters = store.resources('character');
+    const props = store.resources('prop');
     const fields: HTMLElement[] = [];
     let characterNumber = 0;
 
     for (const element of scene.elements) {
+      if (element.type === 'prop') {
+        const group = document.createElement('div');
+        group.className = 'inspector-element-group';
+        group.dataset.inspectorElement = element.id;
+        group.append(subheading('Prop'));
+        const resource = select(
+          props.map((entry) => ({ value: entry.id, label: entry.label })),
+          element.resourceId ?? '',
+        );
+        resource.addEventListener('change', () => send({
+          type: 'set-prop-resource',
+          sceneId: scene.id,
+          elementId: element.id,
+          resourceId: resource.value,
+        }));
+        group.append(controlGrid(field('Recurso', resource)));
+        group.append(controlGrid(
+          transformField(scene, element, 'x', 'X', -1080, 2160, 1),
+          transformField(scene, element, 'y', 'Y', -1920, 3840, 1),
+          transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01),
+          transformField(scene, element, 'rotationDegrees', 'Rotación', -180, 180, 1),
+          transformField(scene, element, 'opacity', 'Opacidad', 0, 1, 0.01),
+          transformField(scene, element, 'zIndex', 'Capa', -1000, 1000, 1),
+        ));
+        group.append(...animationControls(scene, element));
+        group.append(actionButton('Quitar prop', () => send({
+          type: 'delete-element', sceneId: scene.id, elementId: element.id,
+        }), true));
+        fields.push(group);
+        continue;
+      }
       if (element.type !== 'character') {
         fields.push(note(`«${element.id}» todavía no tiene ajustes disponibles.`));
         continue;
@@ -328,13 +360,30 @@ export function initProjectEditor(store: ProjectStore): void {
       });
     });
     fields.push(subheading('Agregar desde la biblioteca'), field('Personaje', characterPicker), add);
+    if (props.length > 0) {
+      const propPicker = select(props.map((entry) => ({ value: entry.id, label: entry.label })), props[0]?.id ?? '');
+      fields.push(field('Prop', propPicker), actionButton('Agregar prop', () => {
+        if (!propPicker.value) return;
+        const propIndex = scene.elements.filter((element) => element.type === 'prop').length;
+        send({
+          type: 'add-prop',
+          sceneId: scene.id,
+          elementId: nextId(`${scene.id}-prop`, scene.elements.map((element) => element.id)),
+          resourceId: propPicker.value,
+          x: 540,
+          y: 960,
+          scale: 0.65,
+          zIndex: 40 + propIndex,
+        });
+      }));
+    }
     return sceneControlCard(scene, index, fields);
   }
 
   function transformField(
     scene: SceneView,
     element: ElementView,
-    key: 'x' | 'y' | 'scale' | 'zIndex',
+    key: 'x' | 'y' | 'scale' | 'rotationDegrees' | 'opacity' | 'zIndex',
     label: string,
     min: number,
     max: number,
@@ -347,7 +396,7 @@ export function initProjectEditor(store: ProjectStore): void {
     input.step = String(step);
     input.value = String(element.transform[key]);
     input.addEventListener('change', () => send({
-      type: 'set-character-transform',
+      type: 'set-element-transform',
       sceneId: scene.id,
       elementId: element.id,
       [key]: Number(input.value),
@@ -396,7 +445,8 @@ export function initProjectEditor(store: ProjectStore): void {
   }
 
   function animationControls(scene: SceneView, element: ElementView): HTMLElement[] {
-    const resource = store.resources('character').find((entry) => entry.id === element.resourceId);
+    const resource = store.resources(element.type as 'character' | 'prop')
+      .find((entry) => entry.id === element.resourceId);
     const declared = readStringCapability(resource?.capabilities, 'parameters');
     const scope = animationScope(scene);
     const lanes = buildAnimationLanes(element.id, element.tracks ?? [], scope);
@@ -440,7 +490,8 @@ export function initProjectEditor(store: ProjectStore): void {
     nodes.push(canvasMode);
 
     const parameterPicker = select(
-      listAnimatableParameters(declared).map((id) => ({ value: id, label: parameterLabel(id) })),
+      listAnimatableParameters(declared, element.type as 'character' | 'prop')
+        .map((id) => ({ value: id, label: parameterLabel(id) })),
       'position.x',
     );
     const animate = actionButton('Animar desde el cabezal', () => animateParameter(scene, element, parameterPicker.value));

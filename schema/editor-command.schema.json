@@ -34,6 +34,12 @@
       "$ref": "#/$defs/addCharacter"
     },
     {
+      "$ref": "#/$defs/addProp"
+    },
+    {
+      "$ref": "#/$defs/setPropResource"
+    },
+    {
       "$ref": "#/$defs/deleteElement"
     },
     {
@@ -41,6 +47,9 @@
     },
     {
       "$ref": "#/$defs/setCharacterTransform"
+    },
+    {
+      "$ref": "#/$defs/setElementTransform"
     },
     {
       "$ref": "#/$defs/setDialogueTurn"
@@ -83,6 +92,9 @@
     },
     {
       "$ref": "#/$defs/applyAnimationPreset"
+    },
+    {
+      "$ref": "#/$defs/removeAnimation"
     }
   ],
   "$defs": {
@@ -366,6 +378,32 @@
         }
       }
     },
+    "addProp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId", "resourceId", "x", "y", "scale", "zIndex"],
+      "properties": {
+        "type": { "const": "add-prop" },
+        "sceneId": { "$ref": "#/$defs/id" },
+        "elementId": { "$ref": "#/$defs/id" },
+        "resourceId": { "$ref": "#/$defs/id" },
+        "x": { "type": "number", "minimum": -1080, "maximum": 2160 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 3840 },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+      }
+    },
+    "setPropResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId", "resourceId"],
+      "properties": {
+        "type": { "const": "set-prop-resource" },
+        "sceneId": { "$ref": "#/$defs/id" },
+        "elementId": { "$ref": "#/$defs/id" },
+        "resourceId": { "$ref": "#/$defs/id" }
+      }
+    },
     "deleteElement": {
       "type": "object",
       "additionalProperties": false,
@@ -494,6 +532,23 @@
           "minimum": -1000,
           "maximum": 1000
         }
+      }
+    },
+    "setElementTransform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId"],
+      "minProperties": 4,
+      "properties": {
+        "type": { "const": "set-element-transform" },
+        "sceneId": { "$ref": "#/$defs/id" },
+        "elementId": { "$ref": "#/$defs/id" },
+        "x": { "type": "number", "minimum": -1080, "maximum": 2160 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 3840 },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "rotationDegrees": { "type": "number", "minimum": -180, "maximum": 180 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
       }
     },
     "setDialogueTurn": {
@@ -1119,6 +1174,41 @@
             "opacity",
             "armRaise"
           ]
+        }
+      }
+    },
+    "removeAnimation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Quita una animación completa. Las pistas manuales o personalizadas requieren confirmación explícita para evitar que una automatización destruya trabajo propio.",
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "parameterId"
+      ],
+      "properties": {
+        "type": {
+          "const": "remove-animation"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "parameterId": {
+          "enum": [
+            "position.x",
+            "position.y",
+            "scale",
+            "rotationDegrees",
+            "opacity",
+            "armRaise"
+          ]
+        },
+        "confirmCustomized": {
+          "type": "boolean"
         }
       }
     },

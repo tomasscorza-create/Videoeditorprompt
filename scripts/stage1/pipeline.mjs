@@ -8,15 +8,25 @@ import { publishPreview } from './publish-preview.mjs';
 import { verifyJob } from './verify-stage1.mjs';
 import { loadAndValidateJobConfig } from './validate-scene-config.mjs';
 
-export function runPipeline(context, options = {}) {
+export async function runPipeline(context, options = {}) {
   const verificationMode = options.verificationMode || 'full';
   const report = createProgressReporter(context);
   try {
     loadAndValidateJobConfig(context);
     const prepared = prepareJob(context, report);
-    const first = exportJob(context, { runNumber: 1, report, emitCompleted: false });
+    const first = await exportJob(context, {
+      runNumber: 1,
+      report,
+      emitCompleted: false,
+      compositorBackend: options.compositorBackend,
+    });
     const second = verificationMode === 'full'
-      ? exportJob(context, { runNumber: 2, report, emitCompleted: false })
+      ? await exportJob(context, {
+        runNumber: 2,
+        report,
+        emitCompleted: false,
+        compositorBackend: options.compositorBackend,
+      })
       : null;
     const verification = verificationMode === 'full' ? verifyJob(context) : verifyInteractiveJob(context);
     const published = verificationMode === 'full' ? publishPreview(context) : null;
@@ -67,7 +77,7 @@ function verifyInteractiveJob(context) {
 if (isMain(import.meta.url)) {
   try {
     const context = createJobContext();
-    const result = runPipeline(context);
+    const result = await runPipeline(context);
     process.stdout.write(`${JSON.stringify({ jobId: context.jobId, completed: true, passed: result.verification.passed })}\n`);
   } catch (error) {
     process.stderr.write(`${JSON.stringify({ version: 1, state: 'failed', ...serializeError(error, 'pipeline') })}\n`);

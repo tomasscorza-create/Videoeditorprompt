@@ -54,11 +54,14 @@ const LABELS: Record<string, (command: CommandLike, context?: LabelContext) => s
   'set-scene-background': (command, context) => `Cambió el fondo de ${sceneName(command.sceneId, context)}`,
   'set-transition': (command, context) => `Ajustó la transición que sale de ${sceneName(command.sceneId, context)}`,
   'add-character': (command, context) => `Agregó un personaje en ${sceneName(command.sceneId, context)}`,
+  'add-prop': (command, context) => `Agregó un prop en ${sceneName(command.sceneId, context)}`,
+  'set-prop-resource': (command, context) => `Cambió un prop de ${sceneName(command.sceneId, context)}`,
   'delete-element': (command, context) => `Quitó un elemento de ${sceneName(command.sceneId, context)}`,
   'place-character-resource': (command, context) => `Colocó un personaje en ${sceneName(command.sceneId, context)}`,
   'set-character-resource': (command, context) => `Cambió el personaje de ${sceneName(command.sceneId, context)}`,
   'set-character-animation': (command, context) => `Cambió el movimiento de un personaje en ${sceneName(command.sceneId, context)}`,
   'set-character-transform': (command, context) => `Movió un personaje en ${sceneName(command.sceneId, context)}`,
+  'set-element-transform': (command, context) => `Ajustó un elemento en ${sceneName(command.sceneId, context)}`,
   'add-dialogue-turn': (command, context) => `Agregó un diálogo en ${sceneName(command.sceneId, context)}`,
   'delete-dialogue-turn': (command, context) => `Eliminó un diálogo de ${sceneName(command.sceneId, context)}`,
   'set-dialogue-turn': (command, context) => `Cambió un diálogo de ${sceneName(command.sceneId, context)}`,
@@ -75,6 +78,7 @@ const LABELS: Record<string, (command: CommandLike, context?: LabelContext) => s
   'set-keyframe': (command, context) => `Ajustó un keyframe ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,
   'delete-keyframe': (command, context) => `Eliminó un keyframe ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,
   'delete-track': (command, context) => `Quitó la animación ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,
+  'remove-animation': (command, context) => `Quitó la animación ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,
 };
 
 export function describeCommand(command: CommandLike, context?: LabelContext): string {

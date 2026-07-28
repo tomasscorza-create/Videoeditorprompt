@@ -23,6 +23,7 @@ const commands = [
   'anim:test-presets',
   'compositor:test-contract',
   'compositor:test-headless',
+  'compositor:compare-v2',
   'director:test-plan',
   'director:test-context',
   'director:test-quality',

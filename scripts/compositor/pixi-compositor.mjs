@@ -77,7 +77,7 @@ function readBody(request) {
  * `file://`: sin servidor, PixiJS no se puede importar. Y de paso es el canal por
  * el que la página devuelve los frames.
  */
-function startJobServer({ assetsRoot, job, framesDirectory, onFrame }) {
+function startJobServer({ assetsRoot, assetMounts = [], job, framesDirectory, onFrame }) {
   const written = [];
   const pageLog = [];
   let settle = null;
@@ -150,8 +150,15 @@ function startJobServer({ assetsRoot, job, framesDirectory, onFrame }) {
     if (name === '/' || name === '/compositor.html') file = pagePath;
     else if (name === '/pixi.min.mjs') file = pixiPath;
     else {
-      const candidate = path.join(assetsRoot, name.replace(/^\/+/u, ''));
-      const relative = path.relative(assetsRoot, candidate);
+      const requested = name.replace(/^\/+/u, '');
+      const mount = assetMounts
+        .map((item) => ({ prefix: item.prefix.replace(/^\/+|\/+$/gu, ''), root: item.root }))
+        .sort((left, right) => right.prefix.length - left.prefix.length)
+        .find((item) => requested === item.prefix || requested.startsWith(`${item.prefix}/`));
+      const root = mount?.root ?? assetsRoot;
+      const relativeName = mount ? requested.slice(mount.prefix.length).replace(/^\/+/u, '') : requested;
+      const candidate = path.join(root, relativeName);
+      const relative = path.relative(root, candidate);
       if (relative.startsWith('..') || path.isAbsolute(relative)) {
         response.writeHead(403).end('fuera de la raíz');
         return;
@@ -180,7 +187,15 @@ function startJobServer({ assetsRoot, job, framesDirectory, onFrame }) {
  * relativos a `assetsRoot`. `framesDirectory` recibe `frame_0000.png` en adelante,
  * el mismo patrón que ya consume FFmpeg para encodear.
  */
-export async function composeFramesWithPixi({ video, frames, assetsRoot, framesDirectory, onProgress, timeoutMs }) {
+export async function composeFramesWithPixi({
+  video,
+  frames,
+  assetsRoot,
+  assetMounts,
+  framesDirectory,
+  onProgress,
+  timeoutMs,
+}) {
   if (!Array.isArray(frames) || frames.length === 0) {
     throw compositorError('COMPOSITOR_REQUEST_INVALID', 'El compositor necesita al menos un frame.', 'frames vacío', 'Verifique el plan temporal.');
   }
@@ -196,7 +211,13 @@ export async function composeFramesWithPixi({ video, frames, assetsRoot, framesD
       sprites: frame.sprites.map((sprite) => ({ ...sprite, src: `/${sprite.src.replace(/^\/+/u, '')}` })),
     })),
   };
-  const { server, port, finished, pageLog } = await startJobServer({ assetsRoot, job, framesDirectory, onFrame: onProgress });
+  const { server, port, finished, pageLog } = await startJobServer({
+    assetsRoot,
+    assetMounts,
+    job,
+    framesDirectory,
+    onFrame: onProgress,
+  });
   const budget = timeoutMs ?? Math.max(60000, frames.length * 4000);
   const started = Date.now();
   let browser = null;

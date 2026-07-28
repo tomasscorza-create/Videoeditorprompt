@@ -29,9 +29,9 @@ writeJson(configBPath, configB);
 
 const common = { 'assets-dir': 'public', 'work-dir': workRoot, 'output-dir': outputRoot };
 const contextA = createJobContext({ ...common, 'job-id': jobA, config: configAPath });
-const resultA = runPipeline(contextA);
+const resultA = await runPipeline(contextA);
 const contextB = createJobContext({ ...common, 'job-id': jobB, config: configBPath });
-const resultB = runPipeline(contextB);
+const resultB = await runPipeline(contextB);
 
 const runtimeA = readJson(path.join(contextA.runtimeRoot, 'scene-runtime.json'));
 const runtimeB = readJson(path.join(contextB.runtimeRoot, 'scene-runtime.json'));

@@ -253,6 +253,41 @@
       }
     },
     {
+      "id": "mono-articulado-azul-v1",
+      "type": "character",
+      "label": "Mono articulado azul",
+      "tags": [
+        "articulado",
+        "geometrico",
+        "mono",
+        "presentador"
+      ],
+      "characterRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "mono-articulado-azul-v1"
+      },
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "animationPresets": [
+          "idle-calm",
+          "talk-calm"
+        ],
+        "parameters": [
+          "armRaise"
+        ]
+      },
+      "provenance": {
+        "source": "Recurso v3 articulado original del proyecto.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
       "id": "voz-ald-mx-v1",
       "type": "voice",
       "label": "ALd — español de México (masculina)",
@@ -340,6 +375,28 @@
       "provenance": {
         "source": "Piper Voices, revisión fijada del modelo es_ES-davefx-medium.",
         "license": "Repositorio de voces MIT; dataset de origen declarado CC0."
+      }
+    },
+    {
+      "id": "cartel-dato-v1",
+      "type": "prop",
+      "label": "Cartel de dato",
+      "tags": [
+        "cartel",
+        "dato",
+        "prop"
+      ],
+      "resourceRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "cartel-dato-v1"
+      },
+      "thumbnail": "assets/resources/cartel-dato-v1/preview.png",
+      "capabilities": {
+        "parameters": []
+      },
+      "provenance": {
+        "source": "Definición geométrica original del proyecto para el prop piloto.",
+        "license": "Asset original para uso interno del proyecto."
       }
     },
     {

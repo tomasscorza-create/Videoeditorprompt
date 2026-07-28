@@ -45,6 +45,7 @@ test('creates-frozen-state-with-real-resources', () => {
   assert.equal(Object.isFrozen(state.project), true);
   const catalogCount = (type) => catalog.entries.filter((entry) => entry.type === type).length;
   assert.equal(listEditorResources(state, 'character').length, catalogCount('character'));
+  assert.equal(listEditorResources(state, 'prop').length, catalogCount('prop'));
   assert.equal(listEditorResources(state, 'voice').length, catalogCount('voice'));
   assert.equal(listEditorResources(state, 'background').length, catalogCount('background'));
 });
@@ -239,6 +240,45 @@ test('supports-incomplete-drafts-and-structural-authoring-commands', () => {
   assert.deepEqual(state.project.scenes[0].transitionToNext, { preset: 'cut', durationSeconds: 0 });
   state = command(state, { type: 'delete-scene', sceneId: 'escena-nueva' });
   assert.equal(state.project.scenes.length, 1);
+});
+
+test('adds-edits-animates-and-removes-a-prop-immutably', () => {
+  const initial = createProjectEditor(project, catalog);
+  let state = command(initial, {
+    type: 'add-prop',
+    sceneId: 'escena-presentacion',
+    elementId: 'cartel-dato',
+    resourceId: 'cartel-dato-v1',
+    x: 540,
+    y: 780,
+    scale: 0.6,
+    zIndex: 40,
+  });
+  assert.equal(initial.project.scenes[0].elements.some((element) => element.id === 'cartel-dato'), false);
+  state = command(state, {
+    type: 'set-element-transform',
+    sceneId: 'escena-presentacion',
+    elementId: 'cartel-dato',
+    rotationDegrees: -8,
+    opacity: 0.9,
+  });
+  state = command(state, {
+    type: 'create-track',
+    sceneId: 'escena-presentacion',
+    elementId: 'cartel-dato',
+    parameterId: 'rotationDegrees',
+    keyframes: [
+      { id: 'cartel-kf-1', anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0, value: -8, interpolation: 'ease' },
+      { id: 'cartel-kf-2', anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0.6, value: 8, interpolation: 'hold' },
+    ],
+  });
+  const prop = state.project.scenes[0].elements.find((element) => element.id === 'cartel-dato');
+  assert.equal(prop.type, 'prop');
+  assert.equal(prop.transform.rotationDegrees, -8);
+  assert.equal(prop.tracks[0].parameterId, 'rotationDegrees');
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+  state = command(state, { type: 'delete-element', sceneId: 'escena-presentacion', elementId: 'cartel-dato' });
+  assert.equal(state.project.scenes[0].elements.some((element) => element.id === 'cartel-dato'), false);
 });
 
 test('export-is-portable-and-passes-authoritative-validator', () => {

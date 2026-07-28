@@ -13,12 +13,12 @@ import { createProjectCompilationContext } from './project-compilation-context.m
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateRenderedProjectSchema = ajv.compile(readJson(path.join(projectRoot, 'schema', 'rendered-project.schema.json')));
 
-export function runProjectPipeline(context) {
+export async function runProjectPipeline(context) {
   const verificationMode = context.args?.['verification-mode'] === 'interactive' ? 'interactive' : 'full';
   const report = createProgressReporter(context);
   try {
     const compiled = compileVideoProject(context, { report, emitCompleted: false });
-    const sceneRuns = renderCompiledScenes(context, compiled.manifest, report, verificationMode);
+    const sceneRuns = await renderCompiledScenes(context, compiled.manifest, report, verificationMode);
     const assemblyPlan = buildAssemblyPlan(sceneRuns.map((scene, index) => ({
       id: scene.id,
       renderDurationSeconds: scene.renderDurationSeconds,
@@ -79,10 +79,11 @@ export function runProjectPipeline(context) {
   }
 }
 
-function renderCompiledScenes(context, compiledManifest, report, verificationMode) {
+async function renderCompiledScenes(context, compiledManifest, report, verificationMode) {
   const sceneWorkRoot = ensureDirectory(path.join(context.jobRoot, 'scene-work'));
   const sceneOutputRoot = ensureDirectory(path.join(context.jobRoot, 'scene-output'));
-  return compiledManifest.scenes.map((scene, index) => {
+  const renderedScenes = [];
+  for (const [index, scene] of compiledManifest.scenes.entries()) {
     const sceneJobId = createSceneJobId(index, scene.id);
     const configPath = resolveWithin(context.jobRoot, scene.config, `configuración de ${scene.id}`);
     report('preparing', { stage: 'rendering_scene', sceneId: scene.id, sceneIndex: index, sceneJobId });
@@ -94,7 +95,7 @@ function renderCompiledScenes(context, compiledManifest, report, verificationMod
       'output-dir': sceneOutputRoot,
       'tts-root': context.ttsRoot,
     });
-    const result = runPipeline(sceneContext, { verificationMode });
+    const result = await runPipeline(sceneContext, { verificationMode });
     const runtime = readJson(path.join(sceneContext.runtimeRoot, 'scene-runtime.json'));
     if (runtime.version !== 2 || typeof runtime.dialoguePath !== 'string') {
       renderedTurnError(`la escena ${scene.id} no publicó un runtime de diálogo v2`);
@@ -113,7 +114,7 @@ function renderCompiledScenes(context, compiledManifest, report, verificationMod
         suggestedAction: 'Revise el evaluador, los assets y las herramientas antes de ensamblar el proyecto.',
       });
     }
-    return {
+    renderedScenes.push({
       index,
       id: scene.id,
       sceneJobId,
@@ -127,8 +128,9 @@ function renderCompiledScenes(context, compiledManifest, report, verificationMod
       renderDurationSeconds: metrics.renderDurationSeconds,
       turns: dialogue.turns,
       verificationPassed: result.verification.passed,
-    };
-  });
+    });
+  }
+  return renderedScenes;
 }
 
 export function buildAssemblyPlan(scenes) {
@@ -398,7 +400,7 @@ if (isMain(import.meta.url)) {
   let context;
   try {
     context = createProjectCompilationContext();
-    const result = runProjectPipeline(context);
+    const result = await runProjectPipeline(context);
     process.stdout.write(`${JSON.stringify({
       version: 1,
       jobId: context.jobId,
