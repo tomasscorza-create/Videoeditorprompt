@@ -222,7 +222,11 @@ export async function editProjectWithAi(
   baseProjectRevision: string;
   projectRevision: string;
   context: DirectorContextSummary;
-  status?: 'applied' | 'no-change';
+  status?: 'proposed' | 'no-change';
+  explanation: {
+    summary: string;
+    changes: string[];
+  };
   modelIdentity?: { model: string; digest: string | null; runtimeVersion: string | null };
   usage?: {
     promptEvalCount: number | null;

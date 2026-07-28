@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { ANIMATION_PARAMETERS } from '../../shared/animation-contract.js';
+import { ANIMATION_PRESETS, listApplicablePresets } from '../../shared/animation-presets.js';
 import { applyProjectEditorCommand, createProjectEditor } from '../../shared/project-editor.js';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
@@ -67,12 +69,14 @@ export async function editProjectWithDirector(options) {
             'Podés editar textos, voces, gestos, pausas, posición, escala y profundidad,',
             'cambiar fondo o cámara y transición, y modificar la estructura:',
             'agregar/duplicar/borrar escenas, agregar/borrar turnos, reordenar escenas y reasignar el hablante.',
+            'También podés aplicar presets de keyframes compatibles y quitar solamente animaciones marcadas como removableByDirector.',
+            'Las capacidades de animación están resumidas por elemento; nunca inventes parámetros, presets ni pistas.',
             'Para una escena nueva con personajes, duplicá una existente (duplicate-scene) y ajustá sus textos.',
             'Usá IDs nuevos y portables (letras, números, guiones) para escenas y turnos que crees.',
             'No inventes IDs de recursos ni propiedades. No escribas explicaciones.',
             'Si la petición no se puede representar, devolvé commands vacío.',
             selection ? `Selección y alcance actuales: ${JSON.stringify(selection)}` : 'No hay una selección puntual activa.',
-            `Proyecto actual: ${JSON.stringify(summarizeProject(state.project))}`,
+            `Proyecto actual: ${JSON.stringify(summarizeEditableProject(state.project, state.catalog))}`,
           ].join('\n'),
         },
         { role: 'user', content: instruction },
@@ -91,14 +95,16 @@ export async function editProjectWithDirector(options) {
   if (!Array.isArray(commands) || commands.length > 12) throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA devolvió una lista de cambios inválida.');
   let next = state;
   for (const command of commands) next = applyProjectEditorCommand(next, command);
-  if (!cacheHit) writeJson(cachePath, { version: 2, commands });
+  const explanation = explainDirectorEdit(commands, state.project);
+  if (!cacheHit) writeJson(cachePath, { version: 3, commands });
   return {
-    version: 2,
+    version: 3,
     model,
     modelIdentity,
     cacheHit,
     commands,
-    status: commands.length ? 'applied' : 'no-change',
+    status: commands.length ? 'proposed' : 'no-change',
+    explanation,
     project: next.project,
     baseProjectRevision,
     projectRevision: hashJson(next.project),
@@ -211,6 +217,7 @@ function commandBatchSchema(project, catalog) {
         type: { const: 'reorder-scenes' },
         sceneIds: { type: 'array', items: id(sceneIds), minItems: sceneIds.length || 1, maxItems: sceneIds.length || 1 },
       }),
+      ...animationCommandSchemas(project, catalog),
     ],
   };
   return {
@@ -221,7 +228,54 @@ function commandBatchSchema(project, catalog) {
   };
 }
 
-function summarizeProject(project) {
+function animationCommandSchemas(project, catalog) {
+  const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
+  const schemas = [];
+  for (const scene of project.scenes) {
+    const sceneTurnIds = scene.dialogue.map((turn) => turn.id);
+    for (const element of scene.elements) {
+      if (!['character', 'prop'].includes(element.type)) continue;
+      const capability = summarizeElementAnimation(element, resources.get(element.resourceId));
+      if (capability.applicablePresetIds.length > 0) {
+        schemas.push(object(['type', 'sceneId', 'elementId', 'presetId'], {
+          type: { const: 'apply-animation-preset' },
+          sceneId: { const: scene.id },
+          elementId: { const: element.id },
+          presetId: enumOf(capability.applicablePresetIds),
+          anchor: animationAnchorSchema(sceneTurnIds),
+          intensity: { enum: ['soft', 'medium', 'strong'] },
+        }));
+      }
+      for (const track of capability.activeTracks.filter((entry) => entry.removableByDirector)) {
+        schemas.push(object(['type', 'sceneId', 'elementId', 'parameterId'], {
+          type: { const: 'remove-animation' },
+          sceneId: { const: scene.id },
+          elementId: { const: element.id },
+          parameterId: { const: track.parameterId },
+        }));
+      }
+    }
+  }
+  return schemas;
+}
+
+function animationAnchorSchema(turnIds) {
+  const variants = [
+    object(['kind', 'edge'], { kind: { const: 'scene' }, edge: { enum: ['start', 'end'] } }),
+  ];
+  if (turnIds.length > 0) {
+    variants.push(object(['kind', 'turnId', 'edge'], {
+      kind: { const: 'turn' }, turnId: enumOf(turnIds), edge: { enum: ['start', 'end'] },
+    }));
+    variants.push(object(['kind', 'turnId', 'wordIndex'], {
+      kind: { const: 'word' }, turnId: enumOf(turnIds), wordIndex: { type: 'integer', minimum: 0, maximum: 99 },
+    }));
+  }
+  return { oneOf: variants };
+}
+
+export function summarizeEditableProject(project, catalog) {
+  const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
   return {
     id: project.id,
     title: project.title,
@@ -231,15 +285,22 @@ function summarizeProject(project) {
       title: scene.title,
       background: scene.background,
       transitionToNext: scene.transitionToNext || null,
-      characters: scene.elements.filter((element) => element.type === 'character').map((element) => ({
+      elements: scene.elements.map((element) => ({
         id: element.id,
+        type: element.type,
         resourceId: element.resourceId,
+        resourceLabel: resources.get(element.resourceId)?.label ?? null,
         poseId: element.poseId,
         animationPreset: element.animationPreset,
         x: element.transform.x,
         y: element.transform.y,
         scale: element.transform.scale,
+        rotationDegrees: element.transform.rotationDegrees,
+        opacity: element.transform.opacity,
         zIndex: element.transform.zIndex,
+        ...(['character', 'prop'].includes(element.type)
+          ? { animation: summarizeElementAnimation(element, resources.get(element.resourceId)) }
+          : {}),
       })),
       dialogue: scene.dialogue.map((turn, turnIndex) => ({
         number: turnIndex + 1,
@@ -255,6 +316,91 @@ function summarizeProject(project) {
       })),
     })),
   };
+}
+
+function summarizeElementAnimation(element, resource) {
+  const declaredParameters = Array.isArray(resource?.capabilities?.parameters)
+    ? resource.capabilities.parameters.filter((value) => typeof value === 'string')
+    : [];
+  const supportedParameterIds = Object.entries(ANIMATION_PARAMETERS)
+    .filter(([parameterId, parameter]) => parameter.elementTypes.includes(element.type)
+      && (!parameter.requiresResourceSupport || declaredParameters.includes(parameterId)))
+    .map(([parameterId]) => parameterId);
+  const activeTracks = (element.tracks ?? []).map((track) => ({
+    parameterId: track.parameterId,
+    source: track.source.kind,
+    ...(track.source.kind === 'preset' ? {
+      presetId: track.source.presetId,
+      customized: track.source.customized,
+    } : { customized: true }),
+    removableByDirector: track.source.kind === 'preset' && track.source.customized === false,
+  }));
+  const protectedParameters = new Set(
+    activeTracks.filter((track) => !track.removableByDirector).map((track) => track.parameterId),
+  );
+  const supportedPresetIds = listApplicablePresets(declaredParameters)
+    .filter((preset) => supportedParameterIds.includes(preset.parameterId))
+    .map((preset) => preset.id);
+  const applicablePresetIds = supportedPresetIds
+    .filter((presetId) => !protectedParameters.has(ANIMATION_PRESETS[presetId].parameterId));
+  return {
+    supportedParameterIds,
+    supportedPresetIds,
+    applicablePresetIds,
+    activeTracks,
+  };
+}
+
+export function explainDirectorEdit(commands, project) {
+  const sceneNumbers = new Map(project.scenes.map((scene, index) => [scene.id, index + 1]));
+  const changes = commands.map((command) => explainDirectorCommand(command, sceneNumbers));
+  return {
+    summary: commands.length === 0
+      ? 'El Director no encontró cambios representables.'
+      : `El Director propone ${commands.length} cambio${commands.length === 1 ? '' : 's'}.`,
+    changes,
+  };
+}
+
+function explainDirectorCommand(command, sceneNumbers) {
+  const sceneNumber = sceneNumbers.get(command.sceneId);
+  const scene = sceneNumber ? ` en la escena ${sceneNumber}` : '';
+  if (command.type === 'apply-animation-preset') {
+    const label = ANIMATION_PRESETS[command.presetId]?.label ?? command.presetId;
+    return `Aplicar «${label}» al elemento ${command.elementId}${scene}.`;
+  }
+  if (command.type === 'remove-animation') {
+    return `Quitar la animación de ${humanParameter(command.parameterId)} del elemento ${command.elementId}${scene}.`;
+  }
+  const labels = {
+    'set-project-title': 'Cambiar el título del proyecto.',
+    'set-scene-title': `Cambiar el título${scene}.`,
+    'set-dialogue-turn': `Editar un diálogo${scene}.`,
+    'set-character-resource': `Cambiar un personaje${scene}.`,
+    'set-character-animation': `Cambiar el movimiento base de un personaje${scene}.`,
+    'set-scene-background': `Cambiar el fondo${scene}.`,
+    'set-character-transform': `Ajustar la posición o escala de un personaje${scene}.`,
+    'set-transition': `Ajustar la transición${scene}.`,
+    'add-scene': 'Agregar una escena.',
+    'duplicate-scene': `Duplicar una escena${scene}.`,
+    'delete-scene': `Eliminar una escena${scene}.`,
+    'add-dialogue-turn': `Agregar un diálogo${scene}.`,
+    'delete-dialogue-turn': `Eliminar un diálogo${scene}.`,
+    'set-dialogue-speaker': `Cambiar quién habla${scene}.`,
+    'reorder-scenes': 'Reordenar las escenas.',
+  };
+  return labels[command.type] ?? `Aplicar ${String(command.type).replaceAll('-', ' ')}${scene}.`;
+}
+
+function humanParameter(parameterId) {
+  return {
+    'position.x': 'posición horizontal',
+    'position.y': 'posición vertical',
+    scale: 'escala',
+    rotationDegrees: 'rotación',
+    opacity: 'opacidad',
+    armRaise: 'elevación del brazo',
+  }[parameterId] ?? parameterId;
 }
 
 function object(required, properties) {
@@ -285,13 +431,20 @@ function normalizeEditSelection(value, project) {
   if (typeof value !== 'object' || Array.isArray(value)) {
     throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'La selección de edición no es válida.');
   }
-  const kind = ['scene', 'element', 'dialogue'].includes(value.kind) ? value.kind : null;
+  const kind = ['scene', 'element', 'dialogue', 'keyframe'].includes(value.kind) ? value.kind : null;
   const scene = project.scenes.find((entry) => entry.id === value.sceneId);
   if (!kind || !scene) {
     throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'La selección ya no existe en el proyecto.');
   }
-  if (kind === 'element' && !scene.elements.some((entry) => entry.id === value.elementId)) {
+  if (['element', 'keyframe'].includes(kind) && !scene.elements.some((entry) => entry.id === value.elementId)) {
     throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'El elemento seleccionado ya no existe.');
+  }
+  if (kind === 'keyframe') {
+    const element = scene.elements.find((entry) => entry.id === value.elementId);
+    const track = element?.tracks?.find((entry) => entry.parameterId === value.parameterId);
+    if (!track?.keyframes.some((entry) => entry.id === value.keyframeId)) {
+      throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'El keyframe seleccionado ya no existe.');
+    }
   }
   if (kind === 'dialogue' && !scene.dialogue.some((entry) => entry.id === value.turnId)) {
     throw directorEditError('DIRECTOR_EDIT_SELECTION_INVALID', 'El diálogo seleccionado ya no existe.');
@@ -299,8 +452,9 @@ function normalizeEditSelection(value, project) {
   return {
     kind,
     sceneId: scene.id,
-    ...(kind === 'element' ? { elementId: value.elementId } : {}),
+    ...(['element', 'keyframe'].includes(kind) ? { elementId: value.elementId } : {}),
     ...(kind === 'dialogue' ? { turnId: value.turnId } : {}),
+    ...(kind === 'keyframe' ? { parameterId: value.parameterId, keyframeId: value.keyframeId } : {}),
   };
 }
 

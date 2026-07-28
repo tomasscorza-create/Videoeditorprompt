@@ -1,6 +1,7 @@
 import { summarizeCommands } from '../command-labels.js';
 import { required } from '../dom.js';
 import { notify } from '../notifications.js';
+import { formatDirectorEditConfirmation } from './edit-proposal.js';
 import { revealResource } from '../project/library.js';
 import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
@@ -149,6 +150,11 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       if (editing && store && 'commands' in result) {
         if (JSON.stringify(store.project()) !== JSON.stringify(editingProject)) {
           throw new Error('El proyecto cambió mientras el Director trabajaba. Repetí la petición sobre la versión actual.');
+        }
+        if (result.commands.length > 0 && !window.confirm(formatDirectorEditConfirmation(result.explanation))) {
+          report('La propuesta del Director no se aplicó. El proyecto conserva su estado anterior.', true);
+          notify({ message: 'Propuesta del Director cancelada sin modificar el proyecto.', level: 'info' });
+          return;
         }
         const commandError = store.dispatchBatch(result.commands);
         if (commandError) throw new Error(commandError);

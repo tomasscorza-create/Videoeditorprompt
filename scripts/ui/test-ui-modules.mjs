@@ -24,6 +24,7 @@ const sources = [
   'src/ui/director/quality-copy.ts',
   'src/ui/director/health-copy.ts',
   'src/ui/director/candidates-copy.ts',
+  'src/ui/director/edit-proposal.ts',
   'src/ui/command-labels.ts',
   'src/ui/command-registry.ts',
 ];
@@ -98,6 +99,7 @@ const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', '
 const qualityCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'quality-copy.js')).href);
 const healthCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'health-copy.js')).href);
 const candidatesCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'candidates-copy.js')).href);
+const editProposal = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'edit-proposal.js')).href);
 const commandLabels = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'command-labels.js')).href);
 const commandRegistry = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'command-registry.js')).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
@@ -649,6 +651,22 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('con dos dependencias caídas el badge pide revisar', down.badge === 'Revisar');
   check('un render en curso avisa sin ser error', down.dependencies[2].state === 'warn');
   check('sin modelo conocido no se inventa identidad', down.modelIdentity === null);
+}
+
+// ---- edit-proposal.ts: explicación visible antes de aplicar una edición IA ----
+{
+  const confirmation = editProposal.formatDirectorEditConfirmation({
+    summary: 'El Director propone 2 cambios.',
+    changes: [
+      'Aplicar «Aparecer» al personaje en la escena 1.',
+      'Cambiar el primer diálogo.',
+    ],
+  });
+  check('la propuesta explica cada cambio antes de pedir aprobación',
+    confirmation.includes('• Aplicar «Aparecer»')
+      && confirmation.includes('• Cambiar el primer diálogo.')
+      && confirmation.includes('El proyecto todavía no fue modificado.')
+      && confirmation.endsWith('¿Querés aplicar estos cambios?'));
 }
 
 // ---- command-labels.ts: qué cambió tras una edición IA (C3) y undo narrado (U1) ----
