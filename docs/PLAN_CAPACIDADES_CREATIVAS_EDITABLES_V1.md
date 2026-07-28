@@ -18,7 +18,7 @@ abajo con el detalle; esto es el mapa.
 | 2 · Evaluador paramétrico | Hecha | `94a3163` |
 | 3 · Compositor | **Parcial** | `e459a32` |
 | 4 · Edición visible | **Hecha** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee`, `df543d8` |
-| 5 · Presets editables | Hecha salvo el MP4 | `a709442`, `c55ce80` |
+| 5 · Presets editables | Hecha salvo la biblioteca | `a709442`, `c55ce80`, `df543d8` |
 | 6 · Director IA | Sin empezar | — |
 | 7 · Gate humano | Sin empezar | — |
 
@@ -698,8 +698,11 @@ Aplicar un preset desde el inspector se hizo en el lote 2 de la Fase 4
 (`c55ce80`): los presets aplicables aparecen por personaje, y `arm-raise` sigue
 sin aparecer porque ningún personaje v2 declara el parámetro.
 
-Falta: aplicarlo desde la biblioteca de recursos y el MP4 verificable (el render
-todavía no lee pistas).
+El MP4 verificable llegó con el lote 4 de la Fase 4 (`df543d8`):
+`pilots/animacion-render-01` aplica `enter-left` y `fade-in` y los dos aparecen
+en el video.
+
+Falta: aplicar un preset desde la biblioteca de recursos.
 
 ### Fase 6 — Director IA
 
