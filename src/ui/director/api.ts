@@ -226,6 +226,7 @@ export async function editProjectWithAi(
   explanation: {
     summary: string;
     changes: string[];
+    customizedTrackRemovalIndexes: number[];
   };
   modelIdentity?: { model: string; digest: string | null; runtimeVersion: string | null };
   usage?: {

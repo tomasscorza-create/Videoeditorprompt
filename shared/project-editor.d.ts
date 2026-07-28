@@ -28,6 +28,7 @@ export function repairMissingVoiceReferences(
   options?: { preferredVoiceId?: string },
 ): { project: unknown; replacements: VoiceReferenceReplacement[] };
 export function applyProjectEditorCommand(state: EditorState, command: Record<string, unknown>): EditorState;
+export function applyProjectEditorCommandBatch(state: EditorState, commands: ReadonlyArray<Record<string, unknown>>): EditorState;
 export function undoProjectEditor(state: EditorState): EditorState;
 export function redoProjectEditor(state: EditorState): EditorState;
 export function listEditorResources(state: EditorState, type: 'character' | 'prop' | 'voice' | 'background' | 'image'): readonly any[];

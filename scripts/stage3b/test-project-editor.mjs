@@ -6,6 +6,7 @@ import { loadAndValidateVideoProject } from '../stage3a/validate-video-project.m
 import {
   ProjectEditorError,
   applyProjectEditorCommand,
+  applyProjectEditorCommandBatch,
   createProjectEditor,
   exportEditorProject,
   listEditorResources,
@@ -88,6 +89,29 @@ test('edits-project-and-scene-titles-immutably', () => {
   assert.equal(sceneTitled.project.title, 'Video editorial');
   assert.equal(sceneTitled.project.scenes[1].title, 'Nuevo cierre');
   assert.equal(sceneTitled.revision, 2);
+});
+
+test('applies-a-command-batch-as-one-atomic-history-step', () => {
+  const initial = createProjectEditor(project, catalog);
+  const batched = applyProjectEditorCommandBatch(initial, [
+    { type: 'set-project-title', title: 'Título del lote' },
+    { type: 'set-scene-title', sceneId: 'escena-presentacion', title: 'Escena del lote' },
+  ]);
+  assert.equal(batched.project.title, 'Título del lote');
+  assert.equal(batched.project.scenes[0].title, 'Escena del lote');
+  assert.equal(batched.revision, 1);
+  assert.equal(batched.past.length, 1);
+  const undone = undoProjectEditor(batched);
+  assert.deepEqual(undone.project, initial.project);
+  const redone = redoProjectEditor(undone);
+  assert.deepEqual(redone.project, batched.project);
+
+  assert.throws(() => applyProjectEditorCommandBatch(initial, [
+    { type: 'set-project-title', title: 'No debe filtrarse' },
+    { type: 'delete-scene', sceneId: 'escena-inexistente' },
+  ]), (error) => error.code === 'EDITOR_SCENE_NOT_FOUND');
+  assert.equal(initial.project.title, project.title);
+  assert.equal(initial.past.length, 0);
 });
 
 test('edits-background-character-and-canvas-transform', () => {

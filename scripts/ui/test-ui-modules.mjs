@@ -661,12 +661,31 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
       'Aplicar «Aparecer» al personaje en la escena 1.',
       'Cambiar el primer diálogo.',
     ],
+    customizedTrackRemovalIndexes: [],
   });
   check('la propuesta explica cada cambio antes de pedir aprobación',
     confirmation.includes('• Aplicar «Aparecer»')
       && confirmation.includes('• Cambiar el primer diálogo.')
       && confirmation.includes('El proyecto todavía no fue modificado.')
       && confirmation.endsWith('¿Querés aplicar estos cambios?'));
+
+  const protectedExplanation = {
+    summary: 'El Director propone 2 cambios.',
+    changes: ['Cambiar un diálogo.', 'Quitar la escala personalizada.'],
+    customizedTrackRemovalIndexes: [1],
+  };
+  const protectedConfirmation = editProposal.formatCustomizedRemovalConfirmation(protectedExplanation);
+  check('la eliminación personalizada exige una advertencia específica',
+    protectedConfirmation.includes('• Quitar la escala personalizada.')
+      && !protectedConfirmation.includes('• Cambiar un diálogo.')
+      && protectedConfirmation.endsWith('¿Confirmás la eliminación personalizada?'));
+  const authorized = editProposal.authorizeCustomizedRemovals([
+    { type: 'set-dialogue-turn', sceneId: 's1', turnId: 't1', text: 'Nuevo' },
+    { type: 'remove-animation', sceneId: 's1', elementId: 'e1', parameterId: 'scale' },
+  ], [1]);
+  check('solo la UI añade confirmación al remove-animation aprobado',
+    !Object.hasOwn(authorized[0], 'confirmCustomized')
+      && authorized[1].confirmCustomized === true);
 }
 
 // ---- command-labels.ts: qué cambió tras una edición IA (C3) y undo narrado (U1) ----
@@ -813,6 +832,19 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('al rehacer, la etiqueta vuelve al lado de deshacer', base.pendingUndoLabel() === 'Renombró la escena 1');
   base.dispatch({ type: 'set-scene-title', sceneId: scene.id, title: 'Tercero' });
   check('una edición nueva descarta la pila de rehacer', base.pendingRedoLabel() === null);
+
+  const beforeBatch = structuredClone(base.project());
+  const historyBeforeBatch = base.getState().past.length;
+  base.dispatchBatch([
+    { type: 'set-project-title', title: 'Lote del Director' },
+    { type: 'set-scene-title', sceneId: scene.id, title: 'Escena por IA' },
+  ]);
+  check('el lote del Director ocupa un solo paso de historial', base.getState().past.length === historyBeforeBatch + 1);
+  check('el lote lleva una sola etiqueta que resume sus comandos',
+    base.pendingUndoLabel()?.includes('Cambió el título del proyecto') === true
+      && base.pendingUndoLabel()?.includes('Renombró la escena 1') === true);
+  base.undo();
+  check('un solo undo revierte el lote completo', JSON.stringify(base.project()) === JSON.stringify(beforeBatch));
 }
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed, failed: 0 })}\n`);

@@ -1,5 +1,6 @@
 import {
   applyProjectEditorCommand,
+  applyProjectEditorCommandBatch,
   createProjectEditor,
   exportEditorProject,
   listEditorResources,
@@ -9,7 +10,7 @@ import {
   validateRenderableProject,
   type EditorState,
 } from '../../../shared/project-editor.js';
-import { describeCommand } from '../command-labels.js';
+import { describeCommand, summarizeCommands } from '../command-labels.js';
 import type { ProjectView, ResourceEntry, ResourceType } from './types.js';
 
 // La UI solo consume proyectos PUBLICADOS por scripts/stage3b/publish-project.mjs.
@@ -141,12 +142,8 @@ export function createStore(initial: EditorState, revision = 'unknown', warnings
     dispatchBatch(commands) {
       try {
         const context = { sceneIds: sceneIds() };
-        let next = current;
-        for (const command of commands) next = applyProjectEditorCommand(next, command);
-        current = next;
-        // Cada comando del lote entra por separado en el historial del motor,
-        // así que se registra una etiqueta por comando.
-        for (const command of commands) undoLabels.push(describeCommand(command, context));
+        current = applyProjectEditorCommandBatch(current, commands);
+        if (commands.length > 0) undoLabels.push(summarizeCommands(commands, context));
         redoLabels.length = 0;
         notify();
         return null;

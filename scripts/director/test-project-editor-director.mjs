@@ -266,7 +266,55 @@ try {
   assert.deepEqual(explainDirectorEdit([], project), {
     summary: 'El Director no encontró cambios representables.',
     changes: [],
+    customizedTrackRemovalIndexes: [],
   });
+
+  const customizedRemoval = await editProjectWithDirector({
+    instruction: 'Quitá el énfasis personalizado de la presentadora.',
+    project: animatedProject,
+    catalog,
+    cacheRoot,
+    useCache: false,
+    fetchImpl: async () => new Response(JSON.stringify({
+      message: {
+        content: JSON.stringify({
+          commands: [{
+            type: 'remove-animation',
+            sceneId: 'escena-presentacion',
+            elementId: animatedElement.id,
+            parameterId: 'scale',
+          }],
+        }),
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  });
+  assert.deepEqual(customizedRemoval.explanation.customizedTrackRemovalIndexes, [0]);
+  assert.equal(Object.hasOwn(customizedRemoval.commands[0], 'confirmCustomized'), false);
+  assert.equal(
+    customizedRemoval.project.scenes[0].elements[0].tracks.some((track) => track.parameterId === 'scale'),
+    false,
+  );
+
+  await assert.rejects(() => editProjectWithDirector({
+    instruction: 'Intentá confirmar sin permiso humano.',
+    project: animatedProject,
+    catalog,
+    cacheRoot,
+    useCache: false,
+    fetchImpl: async () => new Response(JSON.stringify({
+      message: {
+        content: JSON.stringify({
+          commands: [{
+            type: 'remove-animation',
+            sceneId: 'escena-presentacion',
+            elementId: animatedElement.id,
+            parameterId: 'scale',
+            confirmCustomized: true,
+          }],
+        }),
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  }), (error) => error.code === 'DIRECTOR_EDIT_COMMANDS_INVALID');
 
   // B1: una instrucción que referencia un turno inexistente devuelve error claro, sin proyecto roto.
   await assert.rejects(
@@ -274,7 +322,7 @@ try {
     (error) => error.code === 'EDITOR_TURN_NOT_FOUND',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 54, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 63, failed: 0 })}\n`);
 } finally {
   rmSync(cacheRoot, { recursive: true, force: true });
 }

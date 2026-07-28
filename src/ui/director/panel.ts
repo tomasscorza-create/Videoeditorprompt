@@ -1,7 +1,11 @@
 import { summarizeCommands } from '../command-labels.js';
 import { required } from '../dom.js';
 import { notify } from '../notifications.js';
-import { formatDirectorEditConfirmation } from './edit-proposal.js';
+import {
+  authorizeCustomizedRemovals,
+  formatCustomizedRemovalConfirmation,
+  formatDirectorEditConfirmation,
+} from './edit-proposal.js';
 import { revealResource } from '../project/library.js';
 import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
@@ -156,7 +160,19 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
           notify({ message: 'Propuesta del Director cancelada sin modificar el proyecto.', level: 'info' });
           return;
         }
-        const commandError = store.dispatchBatch(result.commands);
+        if (
+          result.explanation.customizedTrackRemovalIndexes.length > 0
+          && !window.confirm(formatCustomizedRemovalConfirmation(result.explanation))
+        ) {
+          report('La eliminación de animación personalizada fue cancelada. El proyecto conserva su estado anterior.', true);
+          notify({ message: 'No se eliminó la animación personalizada.', level: 'info' });
+          return;
+        }
+        const executableCommands = authorizeCustomizedRemovals(
+          result.commands,
+          result.explanation.customizedTrackRemovalIndexes,
+        );
+        const commandError = store.dispatchBatch(executableCommands);
         if (commandError) throw new Error(commandError);
       } else if (store) {
         const replacementError = store.replaceProject(result.project);

@@ -69,7 +69,8 @@ export async function editProjectWithDirector(options) {
             'Podés editar textos, voces, gestos, pausas, posición, escala y profundidad,',
             'cambiar fondo o cámara y transición, y modificar la estructura:',
             'agregar/duplicar/borrar escenas, agregar/borrar turnos, reordenar escenas y reasignar el hablante.',
-            'También podés aplicar presets de keyframes compatibles y quitar solamente animaciones marcadas como removableByDirector.',
+            'También podés aplicar presets de keyframes compatibles y quitar animaciones existentes.',
+            'Si removableByDirector es false, proponé quitarla solo cuando la petición lo pida explícitamente: la UI solicitará confirmación humana especial.',
             'Las capacidades de animación están resumidas por elemento; nunca inventes parámetros, presets ni pistas.',
             'Para una escena nueva con personajes, duplicá una existente (duplicate-scene) y ajustá sus textos.',
             'Usá IDs nuevos y portables (letras, números, guiones) para escenas y turnos que crees.',
@@ -93,9 +94,18 @@ export async function editProjectWithDirector(options) {
     usage = result.usage || null;
   }
   if (!Array.isArray(commands) || commands.length > 12) throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA devolvió una lista de cambios inválida.');
+  if (commands.some((command) => Object.hasOwn(command, 'confirmCustomized'))) {
+    throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA no puede confirmar por sí misma la eliminación de trabajo personalizado.');
+  }
+  const customizedTrackRemovalIndexes = findCustomizedTrackRemovalIndexes(commands, state.project);
   let next = state;
-  for (const command of commands) next = applyProjectEditorCommand(next, command);
-  const explanation = explainDirectorEdit(commands, state.project);
+  for (const [index, command] of commands.entries()) {
+    const executable = customizedTrackRemovalIndexes.includes(index)
+      ? { ...command, confirmCustomized: true }
+      : command;
+    next = applyProjectEditorCommand(next, executable);
+  }
+  const explanation = explainDirectorEdit(commands, state.project, customizedTrackRemovalIndexes);
   if (!cacheHit) writeJson(cachePath, { version: 3, commands });
   return {
     version: 3,
@@ -246,7 +256,7 @@ function animationCommandSchemas(project, catalog) {
           intensity: { enum: ['soft', 'medium', 'strong'] },
         }));
       }
-      for (const track of capability.activeTracks.filter((entry) => entry.removableByDirector)) {
+      for (const track of capability.activeTracks) {
         schemas.push(object(['type', 'sceneId', 'elementId', 'parameterId'], {
           type: { const: 'remove-animation' },
           sceneId: { const: scene.id },
@@ -351,7 +361,7 @@ function summarizeElementAnimation(element, resource) {
   };
 }
 
-export function explainDirectorEdit(commands, project) {
+export function explainDirectorEdit(commands, project, customizedTrackRemovalIndexes = []) {
   const sceneNumbers = new Map(project.scenes.map((scene, index) => [scene.id, index + 1]));
   const changes = commands.map((command) => explainDirectorCommand(command, sceneNumbers));
   return {
@@ -359,7 +369,20 @@ export function explainDirectorEdit(commands, project) {
       ? 'El Director no encontró cambios representables.'
       : `El Director propone ${commands.length} cambio${commands.length === 1 ? '' : 's'}.`,
     changes,
+    customizedTrackRemovalIndexes: [...customizedTrackRemovalIndexes],
   };
+}
+
+function findCustomizedTrackRemovalIndexes(commands, project) {
+  return commands.flatMap((command, index) => {
+    if (command.type !== 'remove-animation') return [];
+    const scene = project.scenes.find((entry) => entry.id === command.sceneId);
+    const element = scene?.elements.find((entry) => entry.id === command.elementId);
+    const track = element?.tracks?.find((entry) => entry.parameterId === command.parameterId);
+    const customized = track?.source?.kind === 'manual'
+      || (track?.source?.kind === 'preset' && track.source.customized === true);
+    return customized ? [index] : [];
+  });
 }
 
 function explainDirectorCommand(command, sceneNumbers) {

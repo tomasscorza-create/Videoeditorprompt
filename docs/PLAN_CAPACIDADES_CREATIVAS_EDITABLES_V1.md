@@ -25,16 +25,15 @@ abajo con el detalle; esto es el mapa.
 | 3 · Compositor | **Hecha: selección por escena integrada y verificada** | `e459a32`, `75d2a87`, `c424f63`, `9896d66` |
 | 4 · Edición visible | **Hecha** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee`, `df543d8` |
 | 5 · Presets editables | **Hecha** | `a709442`, `c55ce80`, `df543d8`, `9896d66` |
-| 6 · Director IA | Contexto y propuesta explicada hechos; cierre pendiente | `9896d66`, pendiente de commit |
+| 6 · Director IA | **Hecha** | `9896d66`, `4e93720`, pendiente de commit |
 | 7 · Gate humano | Sin empezar | — |
 
 ### El próximo paso
 
-**Fase 6 — cerrar protección y undo del Director IA.** El Director ya recibe un
-resumen compacto por elemento, propone `apply-animation-preset` y
-`remove-animation`, y muestra una explicación determinista antes de modificar
-el proyecto. El próximo lote debe integrar la confirmación explícita para quitar
-una pista personalizada y convertir todo el lote aceptado en un único undo.
+**Fase 7 — gate humano.** La integración del Director quedó cerrada: recibe un
+resumen compacto por elemento, propone animaciones, explica el lote antes de
+aplicarlo, exige una aprobación adicional para eliminar trabajo personalizado y
+guarda el lote aceptado como un único undo.
 
 El render integral de 235 frames verificó en el mismo MP4 el rig articulado y el
 prop con una pista de rotación de **-8° a 8°**. PixiJS/WebGL compuso los frames y
@@ -47,12 +46,10 @@ como expresión continua y la opacidad por rangos de frames.
 
 ### Pendientes concretos, en orden de dependencia
 
-1. **Fase 6 — protección interactiva.** Integrar la confirmación cuando
-   `remove-animation` encuentre una pista manual o personalizada. Mientras no
-   exista esa confirmación, esas pistas se excluyen del esquema ofrecido a la IA.
-2. **Fase 6 — undo atómico.** La aplicación del lote aceptado debe producir
-   un solo paso de deshacer.
-3. **Fase 7 — gate humano.**
+1. **Fase 7 — video de entrada/salida.**
+2. **Fase 7 — presentación de un prop.**
+3. **Fase 7 — gesto articulado anclado a una palabra.**
+4. Registrar tiempos de autoría, ajustes posteriores y render de los tres casos.
 
 ### Deudas anotadas que no bloquean
 
@@ -922,15 +919,18 @@ personalizada no se sobrescribe silenciosamente.
 compactos; ambos aparecen inmediatamente en timeline e inspector y pueden
 personalizarse manualmente.
 
-**Estado parcial al 28 de julio de 2026:** ambos comandos están en el contrato
+**Estado: hecho al 28 de julio de 2026.** Ambos comandos están en el contrato
 cerrado y conectados a la edición contextual. El Director recibe por elemento
 tipo, recurso, parámetros, presets aplicables y un resumen de pistas con
 procedencia, `customized` y `removableByDirector`; nunca recibe los keyframes.
 El esquema estructurado solo ofrece combinaciones válidas por escena/elemento y
-excluye tanto eliminar como reemplazar pistas personalizadas. La respuesta queda
-como propuesta, trae una explicación humana derivada del lote validado y la UI
-la muestra antes de despachar los comandos. Falta la confirmación interactiva
-para permitir una eliminación personalizada y el undo único del lote.
+no permite reemplazar una pista personalizada. La respuesta queda como
+propuesta, trae una explicación humana derivada del lote validado y la UI la
+muestra antes de despachar los comandos. Si el lote quita una pista manual o
+personalizada, una segunda confirmación identifica exactamente esos cambios; la
+IA no puede incluir `confirmCustomized` por sí misma. Tras la aprobación, el
+lote se valida completo, se aplica de forma atómica y ocupa un único paso de
+undo/redo.
 
 ### Fase 7 — Gate humano
 

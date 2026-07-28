@@ -98,6 +98,26 @@ export function applyProjectEditorCommand(state, command) {
   });
 }
 
+/**
+ * Aplica un lote como una sola transacción de autoría y un solo paso de
+ * historial. Cada comando conserva exactamente la misma validación del camino
+ * individual; si cualquiera falla, el estado original permanece intacto.
+ */
+export function applyProjectEditorCommandBatch(state, commands) {
+  assertEditorState(state);
+  if (!Array.isArray(commands)) fail('EDITOR_COMMAND_INVALID', 'El lote de comandos debe ser un array.', '/commands');
+  if (commands.length === 0) return state;
+  let next = state;
+  for (const command of commands) next = applyProjectEditorCommand(next, command);
+  if (next.project === state.project) return next;
+  return freezeState({
+    ...next,
+    revision: state.revision + 1,
+    past: [...state.past, state.project].slice(-state.historyLimit),
+    future: [],
+  });
+}
+
 export function undoProjectEditor(state) {
   assertEditorState(state);
   if (state.past.length === 0) return state;
