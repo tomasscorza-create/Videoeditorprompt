@@ -8,7 +8,7 @@ Documento relacionado: `docs/PLAN_DE_ACCION_CREADOR_ELEMENTOS_2026-07-26.md`
 
 ## 0. Estado de ejecución y por dónde seguir
 
-Actualizado el 27 de julio de 2026. Cada fase tiene su propio bloque de estado más
+Actualizado el 28 de julio de 2026. Cada fase tiene su propio bloque de estado más
 abajo con el detalle; esto es el mapa.
 
 | Fase | Estado | Commits |
@@ -17,57 +17,69 @@ abajo con el detalle; esto es el mapa.
 | 1 · Creador y recurso v3 | Hecha | `8c54fd9`, `a947387`, `20dfbda` |
 | 2 · Evaluador paramétrico | Hecha | `94a3163` |
 | 3 · Compositor | **Parcial** | `e459a32` |
-| 4 · Edición visible | **Parcial** | `5b83df4`, `e7a0364` |
-| 5 · Presets editables | Hecha | `a709442` |
+| 4 · Edición visible | **Parcial: interfaz hecha, render no** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee` |
+| 5 · Presets editables | Hecha salvo el MP4 | `a709442`, `c55ce80` |
 | 6 · Director IA | Sin empezar | — |
 | 7 · Gate humano | Sin empezar | — |
 
 ### El próximo paso
 
-**La fila de animación en la timeline** (`src/ui/timeline.ts`), y después el
-inspector de keyframe y el modo animación del lienzo.
+**Que el render lea `tracks`.** Hoy el exportador arma el movimiento con
+expresiones FFmpeg (`createFfmpegMotionExpressions`) y no mira las pistas, así
+que lo que se anima se ve en la aplicación pero no aparece en el MP4.
 
-El estado visible ya está dibujado y especificado en
-`docs/FASE_0_CONTRATO_ANIMACION_V1.md`, secciones 5, 6 y 7: no hay que volver a
-decidir cómo se ve, solo construirlo.
-
-Todo el motor debajo ya existe —vocabulario, evaluador, pistas en el proyecto,
-comandos con undo/redo y presets—. **Lo que falta es casi todo interfaz: hoy no
-se puede animar nada desde la aplicación.**
+Ya se puede animar desde la interfaz de punta a punta: aplicar un preset, crear
+una pista, mover un keyframe, cambiar su interpolación, reanclarlo, deshacerlo y
+previsualizarlo en el lienzo. Falta el último tramo del gate: **previsualizar y
+exportar tienen que dar lo mismo**, y para eso el compilador tiene que consumir
+`shared/animation-evaluator.js` en vez de sus expresiones propias.
 
 ### Pendientes concretos, en orden de dependencia
 
-1. **Fase 4 — interfaz.** Fila de animación en la timeline con sus keyframes,
-   inspector de keyframe, modo animación del lienzo, y transiciones `cut`/`fade`
-   como bloques editables. Es el tramo más grande que queda.
-2. **Fase 4 — render.** El exportador todavía no lee `tracks`: hoy el movimiento
-   sale de expresiones FFmpeg armadas por `createFfmpegMotionExpressions`. Sin
-   esto, lo que se anime no aparece en el MP4 y el gate de la fase no cierra.
-3. **Fase 3 — compositor headless.** Spike trabado en
+1. **Fase 4 — render.** El exportador no lee `tracks`. Sin esto lo que se anime
+   no aparece en el MP4 y el gate de la fase no cierra.
+2. **Fase 3 — compositor headless.** Spike trabado en
    `scripts/compositor/pixi-compositor.mjs`, con el síntoma exacto anotado en su
    encabezado. Hasta que ande, los dos recursos v3 (`mono-articulado-azul-v1` y
    `cartel-dato-v1`) no se pueden renderizar, y por eso siguen deliberadamente
-   fuera del catálogo de autoría y de la biblioteca.
-4. **Fase 3 — extraer el compositor FFmpeg** detrás del contrato, más frames
+   fuera del catálogo de autoría y de la biblioteca. `armRaise` tampoco se puede
+   probar de verdad hasta entonces: ningún personaje v2 declara el parámetro.
+3. **Fase 3 — extraer el compositor FFmpeg** detrás del contrato, más frames
    dorados, comparación por SSIM y doble ejecución. Exige re-verificar la salida
    byte a byte del render v2, que necesita una corrida completa con Piper.
-5. **Fase 5 — aplicar presets desde el inspector y la biblioteca.** Depende de (1).
-6. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
+4. **Fase 5 — aplicar presets desde la biblioteca.** Desde el inspector ya se
+   aplican; falta el gesto equivalente en la biblioteca de recursos.
+5. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
    elemento y la explicación humana antes de aplicar. `apply-animation-preset` ya
    existe en el contrato de comandos.
-7. **Fase 7 — gate humano.**
+6. **Fase 7 — gate humano.**
 
 ### Deudas anotadas que no bloquean
 
 - Renombrar `animationPreset` (`idle-calm` / `talk-calm`) a `baseMotionId`: es
-  **movimiento base** continuo, no un preset de keyframes. Atado a la Fase 4,
-  cuando haga falta un adaptador de lectura de todos modos.
+  **movimiento base** continuo, no un preset de keyframes. La interfaz ya lo
+  rotula «movimiento base» en todos lados; falta el renombre del campo, que
+  conviene hacer junto con el adaptador de lectura del render.
 - El compilador v1 → v2 **sobrescribe** el catálogo de assets en vez de
   fusionarlo: regenerar el mono borraría `conejo-traje-v1`. El compilador v3 sí
   fusiona, y hay un test que lo cubre.
 - El ancla de palabra es un **prorrateo** por cantidad de palabras sobre la
   duración medida del turno, no alineación real: Piper no devuelve tiempos por
   palabra.
+- **Dos criterios de conteo de palabras.** La autoría cuenta sobre el texto del
+  proyecto (`shared/project-editor.js` ya lo hacía para `gestureAtWord`, y la
+  interfaz usa el mismo criterio); el evaluador cuenta sobre el texto normalizado
+  para Piper. Un turno con «50%» difiere en dos palabras. Se unifica moviendo
+  `normalizeSpanishTtsText` a `shared/`, o midiendo las palabras en el render.
+- **«Personalizar» una pista sin editarla no tiene comando.** El motor marca
+  `customized` como efecto de una edición; para el botón de la Fase 0 haría falta
+  un comando propio. Fingirlo con una edición vacía dejaría una mentira en el
+  historial de deshacer, así que el botón no existe todavía.
+- **El trabajo de render no guarda la revisión de tiempo.** Se deriva cuando el
+  render corresponde al proyecto abierto; una sesión restaurada vuelve a la regla
+  estricta y pierde la medición hasta el próximo render.
+- Arrastrar un personaje en el modo animación escribe dos comandos (`position.x`
+  y `position.y`), así que deshacerlo son dos pasos.
 - El límite de 8 pistas por elemento es letra muerta mientras haya 6 parámetros y
   una sola pista por parámetro; el que muerde es el de 256 keyframes por escena.
 
@@ -581,8 +593,48 @@ previsualiza y exporta desde la interfaz.
   que es el caso de los ocho personajes v2.
 - 14 comprobaciones en `npm run stage3b:test-keyframes`.
 
-Falta el resto de la fase: timeline de keyframes, inspector, modo animación del
-lienzo, transiciones como bloques editables, y que el render lea las pistas.
+**Lote 2, hecho el 28 de julio de 2026** (`c55ce80`): timeline e inspector.
+
+- `src/ui/timeline-animation.ts` traduce las pistas a lo que la interfaz dibuja.
+  No reimplementa el contrato: resuelve las anclas con `resolveAnchorSeconds`, la
+  misma función del motor, y toma mensajes y límites del catálogo de errores.
+- Fila «Animación» plegable colgada del elemento seleccionado, dentro del bloque
+  VISUAL. Una pista por parámetro, keyframes como diamantes, tramo punteado
+  cuando el valor queda congelado, y la procedencia rotulada en la etiqueta.
+- El diamante se selecciona, se arrastra, se corre frame a frame con las flechas
+  y abre un menú con interpolación, duplicar, reanclar y eliminar. **Arrastrar
+  cambia siempre el desplazamiento sobre el ancla, nunca el ancla**: mover un
+  keyframe no puede cambiar en silencio a qué turno pertenece.
+- Ficha de keyframe en el inspector con valor, ancla, desplazamiento, tiempo
+  resuelto de solo lectura, interpolación, procedencia y estado; y bloque por
+  personaje con los presets aplicables, «animar desde el cabezal» y sus pistas.
+- **Sin medición no se dibuja un diamante.** La fila dice cuántos keyframes hay y
+  que están pendientes de voz, en vez de ubicarlos en un lugar estimado por
+  cantidad de palabras.
+- El estado «requiere revisión» aparece en los tres niveles que pedía la Fase 0:
+  diamante hueco, insignia en el clip del elemento y mensaje en la ficha.
+
+**Lote 3, hecho el 28 de julio de 2026** (`45d1774`, `f31bcee`): medición y lienzo.
+
+- **Medir y reproducir se separaron.** Cualquier edición vencía el MP4 y devolvía
+  la timeline a «sin medir», con lo cual un keyframe arrastrado desaparecía de la
+  regla y la fase no podía cumplir su gate. `projectTimingFingerprint` cubre solo
+  lo que puede mover un milisegundo —texto, voz, ritmo, pausa, identidad y orden
+  de escenas y turnos, transición y fps—, así que mover o animar un personaje
+  conserva la medición. El transporte sigue exigiendo un render vigente, y el
+  badge tiene un tercer estado, «Medido · falta renderizar».
+- Modo animación del lienzo, por elemento y derivado de la selección: si la
+  selección se va a otro elemento, el modo no existe. Borde teñido, rótulo con el
+  frame y botón para volver a base. Con el modo apagado, mover cambia la base y
+  nunca un keyframe; con el modo encendido, al revés. Sin tiempo medido no se
+  puede activar.
+- El lienzo previsualiza la animación en el cabezal con `evaluateTrack`, el mismo
+  evaluador del render: una pista reemplaza el valor base de su parámetro.
+- Las transiciones `cut`/`fade` ya eran bloques editables en la unión entre
+  escenas (chip con clic para alternar y clic derecho para la duración), así que
+  ese punto de la fase estaba cubierto de antes.
+
+Falta de la fase: **que el render lea las pistas**.
 
 ### Fase 5 — Presets editables
 
@@ -610,8 +662,12 @@ portable y un MP4 verificable.
   aparece en ningún personaje v2.
 - 12 comprobaciones en `npm run anim:test-presets`.
 
-Falta: aplicarlo desde el inspector y la biblioteca (no existe esa UI) y el MP4
-verificable (el render todavía no lee pistas).
+Aplicar un preset desde el inspector se hizo en el lote 2 de la Fase 4
+(`c55ce80`): los presets aplicables aparecen por personaje, y `arm-raise` sigue
+sin aparecer porque ningún personaje v2 declara el parámetro.
+
+Falta: aplicarlo desde la biblioteca de recursos y el MP4 verificable (el render
+todavía no lee pistas).
 
 ### Fase 6 — Director IA
 
