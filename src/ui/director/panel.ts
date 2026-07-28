@@ -7,7 +7,7 @@ import { createProjectStore, type ProjectStore } from '../project/store.js';
 import { projectSelection } from '../project/selection.js';
 import { showFinalVideo } from '../viewer.js';
 import { EDITOR_WORKSPACE_EVENT, editorOutputState, editorWorkspace } from '../editor-workspace.js';
-import { projectFingerprint } from '../../../shared/project-fingerprint.js';
+import { projectFingerprint, projectTimingFingerprint } from '../../../shared/project-fingerprint.js';
 import {
   cancelDirectorProposal,
   cancelRenderJob,
@@ -694,6 +694,11 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       downloadName: job.result.downloadName,
       timeline: job.result.timeline ?? null,
       projectRevision,
+      // El trabajo guarda la revisión completa, no la de tiempo. Cuando el render
+      // corresponde al proyecto que está abierto, el proyecto medido es este y su
+      // revisión de tiempo se puede derivar; si no, se deja en null y la timeline
+      // vuelve a la regla estricta en vez de suponer una medición ajena.
+      timingRevision: current && currentProject ? projectTimingFingerprint(currentProject) : null,
       current,
       reveal: switchSource && (current || allowStaleReveal),
     });

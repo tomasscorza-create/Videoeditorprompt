@@ -97,11 +97,11 @@ export function initTimelineShell(): void {
   });
   window.addEventListener(EDITOR_WORKSPACE_EVENT, () => {
     render();
-    updateTimelineTime(editorWorkspace().currentTime);
+    syncPlayheadFromMedia();
   });
   window.addEventListener(EDITOR_PLAYBACK_EVENT, () => {
     updateToolbar();
-    updateTimelineTime(editorWorkspace().currentTime);
+    syncPlayheadFromMedia();
   });
   render();
 }
@@ -128,7 +128,14 @@ function render(): void {
   if (editorWorkspace().mode === 'creator') renderCreatorTimeline();
   else renderProject();
   updateToolbar();
-  updateTimelineTime(editorWorkspace().currentTime);
+  syncPlayheadFromMedia();
+}
+
+// El cabezal sigue al reproductor solo mientras haya un MP4 vigente. Con la
+// medición todavía válida pero el render vencido el cabezal es de la timeline:
+// lo mueve el usuario y ningún repintado lo devuelve a cero.
+function syncPlayheadFromMedia(): void {
+  updateTimelineTime(currentEditorOutput() ? editorWorkspace().currentTime : currentTime);
 }
 
 function renderCreatorTimeline(): void {
@@ -172,10 +179,20 @@ function renderProject(): void {
       cursor += width + 4;
     }
   }
-  setTimelineMode(Boolean(measured), !measured && outputState === 'stale' ? 'Cambios pendientes' : undefined);
+  // Medir y reproducir son dos cosas distintas: los tiempos del último render
+  // siguen valiendo mientras no cambie nada que altere una duración, aunque el
+  // MP4 ya no corresponda a lo que se ve.
+  setTimelineMode(
+    Boolean(measured),
+    measured
+      ? (outputState === 'current' ? undefined : 'Medido · falta renderizar')
+      : (outputState === 'stale' ? 'Cambios pendientes' : undefined),
+  );
   renderLayerStack(project, positions, sceneWidths, measured);
   setSummary(measured
-    ? `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · capas editables alineadas con la exportación actual.`
+    ? outputState === 'current'
+      ? `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · capas editables alineadas con la exportación actual.`
+      : `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · los tiempos siguen valiendo; el MP4 quedó viejo y no se reproduce.`
     : outputState === 'stale'
       ? `${project.scenes.length} escena(s) · cambios sin renderizar · el MP4 anterior quedó fuera del transporte.`
       : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`);
@@ -1976,6 +1993,7 @@ function setTimelineMode(measured: boolean, customLabel?: string): void {
   if (mode) {
     mode.textContent = customLabel ?? (measured ? 'Medido' : 'Sin medir');
     mode.classList.toggle('is-measured', measured);
+    mode.classList.toggle('is-outdated', measured && customLabel !== undefined);
   }
   renderTimelineModeExplanation(measured);
 }
@@ -1985,12 +2003,15 @@ function setTimelineMode(measured: boolean, customLabel?: string): void {
 function renderTimelineModeExplanation(measured: boolean): void {
   const popover = optional<HTMLElement>('#timeline-mode-popover');
   if (!popover) return;
+  const outdated = measured && editorOutputState() !== 'current';
   const title = document.createElement('strong');
-  title.textContent = measured ? 'Tiempos medidos' : 'Tiempos estimados';
+  title.textContent = outdated ? 'Tiempos medidos · MP4 viejo' : measured ? 'Tiempos medidos' : 'Tiempos estimados';
   const body = document.createElement('p');
-  body.textContent = measured
-    ? 'Estos tiempos salen del audio real generado en el último render: la duración de cada diálogo es la que va a tener el MP4.'
-    : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace al renderizar, cuando las voces se sintetizan.';
+  body.textContent = outdated
+    ? 'Hay cambios sin renderizar, así que el MP4 anterior no se reproduce. Los tiempos siguen siendo los medidos: lo que editaste no cambia la duración de ningún diálogo, y por eso la regla y los keyframes conservan su lugar.'
+    : measured
+      ? 'Estos tiempos salen del audio real generado en el último render: la duración de cada diálogo es la que va a tener el MP4.'
+      : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace al renderizar, cuando las voces se sintetizan.';
   popover.replaceChildren(title, body);
   if (!measured) {
     const cta = document.createElement('button');
@@ -2052,7 +2073,11 @@ function activeMedia(): HTMLMediaElement | null {
   return currentEditorOutput() ? editorWorkspace().media : null;
 }
 
+// La duración de trabajo es la medida cuando existe, aunque el MP4 esté vencido:
+// el cabezal y la regla siguen siendo verdaderos mientras el audio no cambie.
 function activeDuration(): number {
+  const measured = compatibleTimeline(store?.project().scenes ?? []);
+  if (measured) return measured.durationSeconds;
   return currentEditorOutput() ? editorWorkspace().duration : 0;
 }
 

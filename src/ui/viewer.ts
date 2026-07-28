@@ -35,6 +35,7 @@ export function showFinalVideo(options: {
   downloadName: string;
   timeline: MeasuredProjectTimeline | null;
   projectRevision?: string | null;
+  timingRevision?: string | null;
   current: boolean;
   reveal?: boolean;
 }): void {

@@ -19,7 +19,7 @@ import { initViewerWorkspace } from './viewer.js';
 import { initCharacterCreator } from './character-creator.js';
 import { initProjectFiles } from './project/files.js';
 import { setActiveEditorProject, syncActiveEditorProject } from './editor-workspace.js';
-import { projectFingerprint } from '../../shared/project-fingerprint.js';
+import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -78,7 +78,7 @@ function showRecoveryWarnings(warnings: readonly string[]): void {
 
 function attachProjectUi(store: ProjectStore): void {
   let projectRevision = projectFingerprint(store.project());
-  setActiveEditorProject(store.project().id, projectRevision);
+  setActiveEditorProject(store.project().id, projectRevision, projectTimingFingerprint(store.project()));
   initProjectIdentity(store);
   initOnboarding(store);
   initProjectFiles(store);
@@ -92,7 +92,7 @@ function attachProjectUi(store: ProjectStore): void {
     const nextRevision = projectFingerprint(store.project());
     if (nextRevision !== projectRevision) {
       projectRevision = nextRevision;
-      syncActiveEditorProject(store.project().id, nextRevision);
+      syncActiveEditorProject(store.project().id, nextRevision, projectTimingFingerprint(store.project()));
     }
     const status = optional<HTMLElement>('#save-status');
     if (status) status.textContent = `Guardado ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;

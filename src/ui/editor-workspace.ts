@@ -32,6 +32,8 @@ export interface MeasuredProjectTimeline {
 export interface RenderedOutput {
   projectId: string;
   projectRevision: string | null;
+  /** Revisión de lo que puede mover un tiempo, medida al renderizar. */
+  timingRevision: string | null;
   downloadName: string;
   url: string;
   timeline: MeasuredProjectTimeline | null;
@@ -57,6 +59,7 @@ let mode: WorkspaceMode = 'editor';
 let surface: EditorSurface = 'canvas';
 let activeProjectId: string | null = null;
 let activeProjectRevision: string | null = null;
+let activeTimingRevision: string | null = null;
 let output: RenderedOutput | null = null;
 let media: HTMLVideoElement | null = null;
 let mediaBound = false;
@@ -88,23 +91,45 @@ export function bindEditorMedia(video: HTMLVideoElement): void {
   notify();
 }
 
-export function setActiveEditorProject(projectId: string, projectRevision: string | null = null): void {
+export function setActiveEditorProject(
+  projectId: string,
+  projectRevision: string | null = null,
+  timingRevision: string | null = null,
+): void {
   activeProjectId = projectId;
   activeProjectRevision = projectRevision;
+  activeTimingRevision = timingRevision;
   syncOutputFreshness();
   notify();
 }
 
-export function syncActiveEditorProject(projectId: string, projectRevision: string): void {
+export function syncActiveEditorProject(
+  projectId: string,
+  projectRevision: string,
+  timingRevision: string | null = null,
+): void {
+  const wasStale = output?.stale;
+  const hadMeasurement = timingStillValid();
   activeProjectId = projectId;
   activeProjectRevision = projectRevision;
-  const wasStale = output?.stale;
+  activeTimingRevision = timingRevision;
   syncOutputFreshness();
   if (output?.stale && surface === 'playback') {
     showEditorCanvas();
     return;
   }
-  if (wasStale !== output?.stale) notify();
+  // La medición puede perderse (o recuperarse) sin que cambie la vigencia del
+  // MP4: un cambio de diálogo invalida los tiempos aunque el render ya estuviera
+  // vencido, y la timeline tiene que enterarse.
+  if (wasStale !== output?.stale || hadMeasurement !== timingStillValid()) notify();
+}
+
+/** La medición del último render sigue describiendo los tiempos de hoy. */
+function timingStillValid(): boolean {
+  return Boolean(output)
+    && output!.projectId === activeProjectId
+    && output!.timingRevision !== null
+    && output!.timingRevision === activeTimingRevision;
 }
 
 export function editorOutputState(): 'missing' | 'current' | 'stale' {
@@ -118,13 +143,22 @@ export function currentEditorOutput(): RenderedOutput | null {
 
 /**
  * Medición vigente que se corresponde con la estructura de escenas indicada, o
- * null. Un render de otro proyecto, vencido o con otra lista de escenas no mide
- * lo que hay en pantalla: la timeline y el inspector tienen que coincidir en
- * cuándo hay tiempo real, así que la regla vive acá una sola vez.
+ * null.
+ *
+ * Medir y reproducir son dos cosas distintas. El MP4 queda viejo apenas se toca
+ * cualquier cosa, y por eso el transporte se bloquea; pero la duración de cada
+ * turno la sintetizó Piper y la midió FFprobe, y sigue siendo verdadera mientras
+ * no cambie nada que la altere. Mover un personaje o animarlo no mueve un
+ * milisegundo, así que la regla de tiempo se conserva y los keyframes siguen
+ * ubicados. Si el diálogo, las voces, las pausas, las transiciones o la lista de
+ * escenas cambian, la medición deja de describir el proyecto y se descarta.
  */
 export function measuredTimelineFor(sceneIds: readonly string[]): MeasuredProjectTimeline | null {
   const timeline = output?.timeline;
-  if (!output || !timeline || output.stale || output.projectId !== activeProjectId) return null;
+  if (!output || !timeline || output.projectId !== activeProjectId) return null;
+  // Sin revisión de tiempo (render de una sesión anterior) se mantiene la regla
+  // estricta: solo un MP4 vigente mide.
+  if (!timingStillValid() && output.stale) return null;
   if (timeline.scenes.length !== sceneIds.length) return null;
   return timeline.scenes.every((scene, index) => scene.id === sceneIds[index]) ? timeline : null;
 }
@@ -170,6 +204,7 @@ export function registerRenderedOutput(options: {
   downloadName: string;
   timeline: MeasuredProjectTimeline | null;
   projectRevision?: string | null;
+  timingRevision?: string | null;
   current: boolean;
   reveal?: boolean;
 }): void {
@@ -179,6 +214,7 @@ export function registerRenderedOutput(options: {
   output = {
     projectId: options.projectId,
     projectRevision: options.projectRevision ?? null,
+    timingRevision: options.timingRevision ?? null,
     url: options.url,
     downloadName: options.downloadName,
     timeline: options.timeline,

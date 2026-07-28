@@ -1679,6 +1679,8 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   text-transform: uppercase;
 }
 .timeline-mode.is-measured { color: var(--ok); }
+/* Tiempos medidos que siguen valiendo, pero con el MP4 vencido. */
+.timeline-mode.is-measured.is-outdated { color: var(--warning); }
 .timeline-mode { cursor: pointer; }
 
 /* E4 — el badge de modo explica de dónde salen los tiempos. */

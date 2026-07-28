@@ -115,6 +115,40 @@ check(
     && fingerprint.projectFingerprint({ id: 'a', scenes: [] }) !== fingerprint.projectFingerprint({ id: 'b', scenes: [] }),
 );
 
+// ---- project-fingerprint.js: revisión de tiempo aparte de la visual (Fase 4) ----
+{
+  const base = {
+    id: 'p', title: 'T', video: { width: 1080, height: 1920, fps: 30 },
+    scenes: [{
+      id: 's1',
+      title: 'Escena 1',
+      background: { resourceId: 'fondo', cameraPreset: 'static' },
+      elements: [{ id: 'e1', type: 'character', transform: { x: 10, y: 20, scale: 1 } }],
+      dialogue: [{ id: 't1', text: 'Hola', voiceId: 'v1', gestureId: 'neutral', gapAfterSeconds: 0.2 }],
+      transitionToNext: { preset: 'cut', durationSeconds: 0 },
+    }],
+  };
+  const variant = (mutate) => { const copy = structuredClone(base); mutate(copy); return copy; };
+  const moved = variant((p) => { p.scenes[0].elements[0].transform.x = 400; });
+  const animated = variant((p) => { p.scenes[0].elements[0].tracks = [{ parameterId: 'opacity', keyframes: [] }]; });
+  const renamed = variant((p) => { p.scenes[0].title = 'Otro nombre'; });
+  const retexted = variant((p) => { p.scenes[0].dialogue[0].text = 'Hola de nuevo'; });
+  const repaused = variant((p) => { p.scenes[0].dialogue[0].gapAfterSeconds = 1; });
+  const revoiced = variant((p) => { p.scenes[0].dialogue[0].voiceId = 'v2'; });
+  const faded = variant((p) => { p.scenes[0].transitionToNext = { preset: 'fade', durationSeconds: 0.4 }; });
+
+  check('las dos revisiones no se confunden entre sí', fingerprint.projectTimingFingerprint(base).startsWith('timing-v1-'));
+  check('la revisión de tiempo es determinista', fingerprint.projectTimingFingerprint(base) === fingerprint.projectTimingFingerprint(structuredClone(base)));
+  check('mover un personaje cambia la revisión visual', fingerprint.projectFingerprint(moved) !== fingerprint.projectFingerprint(base));
+  check('mover un personaje no mueve un milisegundo', fingerprint.projectTimingFingerprint(moved) === fingerprint.projectTimingFingerprint(base));
+  check('animar tampoco cambia una duración', fingerprint.projectTimingFingerprint(animated) === fingerprint.projectTimingFingerprint(base));
+  check('renombrar una escena tampoco', fingerprint.projectTimingFingerprint(renamed) === fingerprint.projectTimingFingerprint(base));
+  check('cambiar el texto sí cambia el tiempo', fingerprint.projectTimingFingerprint(retexted) !== fingerprint.projectTimingFingerprint(base));
+  check('cambiar una pausa sí', fingerprint.projectTimingFingerprint(repaused) !== fingerprint.projectTimingFingerprint(base));
+  check('cambiar la voz sí', fingerprint.projectTimingFingerprint(revoiced) !== fingerprint.projectTimingFingerprint(base));
+  check('cambiar la transición sí, porque corre el inicio de la escena siguiente', fingerprint.projectTimingFingerprint(faded) !== fingerprint.projectTimingFingerprint(base));
+}
+
 const appHtml = readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
 const projectPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'panel.ts'), 'utf8');
 const directorPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'panel.ts'), 'utf8');
@@ -248,6 +282,47 @@ workspace.showWorkspaceMode('creator');
 snap = workspace.editorWorkspace();
 check('el modo creador fuerza lienzo y pausa el medio', snap.mode === 'creator' && snap.surface === 'canvas' && video.paused === true);
 check('cada transición notifica por evento', dispatched.length > 0);
+
+// ---- editor-workspace.ts: medir y reproducir son cosas distintas (Fase 4) ----
+{
+  workspace.setActiveEditorProject('proyecto-3', 'rev-1', 'timing-1');
+  workspace.registerRenderedOutput({
+    projectId: 'proyecto-3',
+    url: 'blob:video-3',
+    downloadName: 'proyecto-3.mp4',
+    timeline: { durationSeconds: 9, scenes: [{ id: 'escena-1', startSeconds: 0, endSeconds: 9 }] },
+    projectRevision: 'rev-1',
+    timingRevision: 'timing-1',
+    current: true,
+  });
+  check('con el render vigente hay medición', workspace.measuredTimelineFor(['escena-1'])?.durationSeconds === 9);
+
+  workspace.syncActiveEditorProject('proyecto-3', 'rev-2', 'timing-1');
+  check('una edición visual vence el MP4', workspace.editorOutputState() === 'stale' && workspace.currentEditorOutput() === null);
+  check('pero la medición del audio sigue valiendo', workspace.measuredTimelineFor(['escena-1'])?.durationSeconds === 9);
+
+  workspace.syncActiveEditorProject('proyecto-3', 'rev-3', 'timing-2');
+  check('cambiar algo que mueve un tiempo sí descarta la medición', workspace.measuredTimelineFor(['escena-1']) === null);
+
+  workspace.syncActiveEditorProject('proyecto-3', 'rev-1', 'timing-1');
+  check(
+    'volver a la revisión renderizada recupera medición y transporte',
+    workspace.editorOutputState() === 'current' && workspace.measuredTimelineFor(['escena-1']) !== null,
+  );
+  check('una lista de escenas distinta nunca se mide con esta medición', workspace.measuredTimelineFor(['otra-escena']) === null);
+
+  // Un render sin revisión de tiempo (sesión anterior) vuelve a la regla estricta.
+  workspace.registerRenderedOutput({
+    projectId: 'proyecto-3',
+    url: 'blob:video-4',
+    downloadName: 'proyecto-3.mp4',
+    timeline: { durationSeconds: 9, scenes: [{ id: 'escena-1', startSeconds: 0, endSeconds: 9 }] },
+    projectRevision: 'rev-1',
+    current: true,
+  });
+  workspace.syncActiveEditorProject('proyecto-3', 'rev-2', 'timing-1');
+  check('sin revisión de tiempo no se supone una medición ajena', workspace.measuredTimelineFor(['escena-1']) === null);
+}
 
 // ---- store.ts: comandos, undo/redo, suscripción ----
 const project = readJson(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'));
