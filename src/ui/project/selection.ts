@@ -1,7 +1,10 @@
 export type ProjectSelection =
   | { kind: 'scene'; sceneId: string }
   | { kind: 'element'; sceneId: string; elementId: string }
-  | { kind: 'dialogue'; sceneId: string; turnId: string };
+  | { kind: 'dialogue'; sceneId: string; turnId: string }
+  // Fase 4: un keyframe es seleccionable por sí mismo, y pertenece siempre a la
+  // pista de un parámetro de un elemento.
+  | { kind: 'keyframe'; sceneId: string; elementId: string; parameterId: string; keyframeId: string };
 
 export const PROJECT_SELECTION_EVENT = 'local-video:project-selection';
 let current: ProjectSelection | null = null;

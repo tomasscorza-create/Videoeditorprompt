@@ -1465,6 +1465,47 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .inspector-subheading { padding-top: .3rem; color: var(--accent); font-size: var(--fs-sm); font-weight: 700; }
 .inspector-note { color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 
+/* Fase 4 — bloque de animación del inspector (presets, pistas y ficha de keyframe). */
+.animation-preset-row { display: flex; flex-wrap: wrap; gap: .3rem; margin: .42rem .44rem; }
+.animation-preset {
+  padding: .28rem .5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: .8rem;
+  color: var(--text);
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.animation-preset:hover { border-color: var(--accent); color: var(--accent); }
+.animation-track-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: .4rem;
+  margin: .2rem .44rem;
+  padding: .25rem .35rem;
+  border: 1px solid var(--border);
+  border-radius: .35rem;
+}
+.animation-track-name { overflow: hidden; color: var(--text); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
+.animation-track-count { color: var(--muted); font: var(--fs-xs) ui-monospace, monospace; white-space: nowrap; }
+.animation-track-count.is-review { color: var(--warning); }
+.animation-track-row .danger-button { padding: .2rem .4rem; font-size: var(--fs-xs); }
+.animation-readonly {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  margin: .2rem .44rem;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.animation-readonly strong { color: var(--text); font-family: ui-monospace, monospace; text-align: right; }
+.animation-readonly.is-review strong { color: var(--warning); font-family: inherit; }
+.animation-actions { display: flex; flex-wrap: wrap; gap: .3rem; margin: .42rem .44rem; }
+.animation-actions button { padding: .28rem .5rem; font-size: var(--fs-xs); }
+.keyframe-card { border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong)); }
+
 /* === 11. Creador de personajes === */
 
 .character-creator-panel { display: grid; gap: .8rem; }
@@ -1814,6 +1855,93 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .dialogue-gap.has-pause { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--muted) 55%, transparent) 0 2px, transparent 2px 4px); }
 .dialogue-gap.is-dragging, .dialogue-gap:hover { border-left-color: var(--accent); }
 .dialogue-gap small { position: absolute; bottom: -.1rem; left: 2px; color: var(--muted); font: var(--fs-2xs) ui-monospace, monospace; white-space: nowrap; pointer-events: none; }
+/* Fase 4 — fila «Animación»: cuelga del elemento seleccionado dentro de VISUAL,
+   con una pista por parámetro y los keyframes como diamantes. */
+.authoring-track-row.is-animation-header, .authoring-track-row.is-animation-lane { min-height: 1.6rem; }
+.is-animation-header .authoring-track-label, .is-animation-lane .authoring-track-label {
+  padding-left: 1.1rem;
+  border-left: 2px solid color-mix(in srgb, var(--clip-character) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 88%, var(--clip-character));
+}
+.is-animation-lane .authoring-track-label strong { color: var(--accent); }
+.is-animation-header .authoring-track-lane, .is-animation-lane .authoring-track-lane { background-image: none; }
+.animation-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .1rem .4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: .8rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.animation-toggle:hover { border-color: var(--accent); color: var(--text); }
+.animation-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.animation-review-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: .6rem;
+  padding: 0 .25rem;
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+.authoring-clip .animation-review-badge { position: absolute; top: .15rem; right: .2rem; z-index: 2; }
+.animation-segment {
+  position: absolute;
+  top: 50%;
+  height: 0;
+  transform: translateY(-50%);
+  border-top: 2px solid var(--accent);
+  pointer-events: none;
+}
+.animation-segment.is-hold { border-top-style: dotted; border-top-color: var(--muted); }
+.animation-segment.is-linear { border-top-color: color-mix(in srgb, var(--accent) 75%, var(--muted)); }
+.animation-keyframe {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  width: .55rem;
+  height: .55rem;
+  padding: 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, white);
+  border-radius: .1rem;
+  background: var(--accent);
+  cursor: ew-resize;
+  touch-action: none;
+}
+/* Área de agarre cómoda sin agrandar el diamante. */
+.animation-keyframe::before { content: ""; position: absolute; inset: -5px; }
+.animation-keyframe:hover { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.animation-keyframe:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.animation-keyframe.is-selected { border-color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
+.animation-keyframe.is-dragging { opacity: .7; }
+/* Diamante hueco en color de advertencia: la referencia hay que resolverla. */
+.animation-keyframe.is-review, .animation-keyframe.is-out-of-scene {
+  border-color: var(--warning);
+  background: transparent;
+  cursor: help;
+}
+.animation-pending {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0 .3rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: .4rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
 .authoring-clip {
   position: absolute;
   top: .22rem;

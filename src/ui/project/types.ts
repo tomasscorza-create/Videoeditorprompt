@@ -20,6 +20,38 @@ export interface TransformView {
   y: number;
   scale: number;
   zIndex: number;
+  rotationDegrees: number;
+  opacity: number;
+}
+
+/**
+ * Pistas de animación del elemento (Fase 4). El vocabulario es el congelado en
+ * `shared/animation-contract.js`: acá solo se declara la forma que la interfaz
+ * lee, nunca una regla nueva.
+ */
+export type AnchorView =
+  | { kind: 'scene'; edge: 'start' | 'end' }
+  | { kind: 'turn'; turnId: string; edge: 'start' | 'end' }
+  | { kind: 'word'; turnId: string; wordIndex: number };
+
+export type InterpolationView = 'linear' | 'ease' | 'hold';
+
+export interface KeyframeView {
+  id: string;
+  anchor: AnchorView;
+  offsetSeconds: number;
+  value: number;
+  interpolation: InterpolationView;
+}
+
+export type TrackSourceView =
+  | { kind: 'preset'; presetId: string; version: number; customized: boolean }
+  | { kind: 'manual' };
+
+export interface TrackView {
+  parameterId: string;
+  source: TrackSourceView;
+  keyframes: KeyframeView[];
 }
 
 export interface ElementView {
@@ -30,6 +62,7 @@ export interface ElementView {
   poseId?: string;
   animationPreset?: string;
   transform: TransformView;
+  tracks?: TrackView[];
 }
 
 export interface TurnView {
@@ -58,5 +91,7 @@ export interface SceneView {
 export interface ProjectView {
   id: string;
   title: string;
+  /** Formato del video; la animación necesita los fps para ubicar un frame. */
+  video: { width: number; height: number; fps: number };
   scenes: SceneView[];
 }

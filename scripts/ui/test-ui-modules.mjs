@@ -17,6 +17,7 @@ const sources = [
   'src/ui/editor-workspace.ts',
   'src/ui/project/store.ts',
   'src/ui/timeline-geometry.ts',
+  'src/ui/timeline-animation.ts',
   'src/ui/director/api.ts',
   'src/ui/director/navigation.ts',
   'src/ui/notifications-queue.ts',
@@ -48,7 +49,7 @@ writeFileSync(path.join(outDir, 'package.json'), '{"type":"module"}\n');
 mkdirSync(path.join(outDir, 'shared'), { recursive: true });
 // El motor y todo lo que importa: `project-editor.js` lee el vocabulario
 // congelado de animación desde `animation-contract.js`.
-for (const name of ['project-editor.js', 'animation-contract.js', 'animation-presets.js']) {
+for (const name of ['project-editor.js', 'animation-contract.js', 'animation-presets.js', 'animation-evaluator.js']) {
   copyFileSync(path.join(projectRoot, 'shared', name), path.join(outDir, 'shared', name));
 }
 
@@ -90,6 +91,7 @@ assert.equal(existsSync(directorNavigationPath), true, 'director/navigation.js n
 const workspace = await import(pathToFileURL(workspacePath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
+const animation = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'timeline-animation.js')).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
 const directorNavigation = await import(pathToFileURL(directorNavigationPath).href);
 const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'notifications-queue.js')).href);
@@ -330,6 +332,96 @@ const rect = geometry.turnClipRect(2, 1.5, 60, 4);
 check('el clip medido arranca en start * pps', rect.left === 120);
 check('el ancho del clip medido es duración * pps', rect.width === 90);
 check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.01, 60, 4).width === 4);
+
+// ---- timeline-animation.ts: fila «Animación» y ficha de keyframe (Fase 4) ----
+{
+  const dialogue = [
+    { id: 't1', text: 'Hoy vemos un dato' },
+    { id: 't2', text: 'Y ahora el dato' },
+  ];
+  const reference = animation.sceneAnimationReference(dialogue);
+  check('el conteo de palabras usa el criterio del editor de autoría', reference.turns[0].wordCount === 4);
+
+  const measuredScene = {
+    startSeconds: 0,
+    endSeconds: 6.4,
+    turns: [
+      { id: 't1', startSeconds: 0, endSeconds: 2.133, durationSeconds: 2.133 },
+      { id: 't2', startSeconds: 2.133, endSeconds: 4.933, durationSeconds: 2.8 },
+    ],
+  };
+  const timing = animation.sceneAnimationTiming(measuredScene, reference);
+  check('sin render vigente no hay timing', animation.sceneAnimationTiming(null, reference) === null);
+  check('el timing toma el conteo de palabras del guion', timing.turns[1].wordCount === 4);
+
+  const tracks = [{
+    parameterId: 'position.x',
+    source: { kind: 'preset', presetId: 'enter-left', version: 1, customized: false },
+    keyframes: [
+      { id: 'kf-1', anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0, value: -100, interpolation: 'ease' },
+      { id: 'kf-2', anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0.6, value: 320, interpolation: 'hold' },
+    ],
+  }];
+  const [lane] = animation.buildAnimationLanes('e1', tracks, { timing, reference, fps: 30 });
+  check('la pista se rotula con su parámetro y su procedencia', lane.label === 'Posición X' && lane.sourceLabel === 'enter-left');
+  check('el keyframe resuelve a segundos y a frame de escena', lane.keyframes[1].seconds === 0.6 && lane.keyframes[1].sceneFrameIndex === 18);
+  check('el tramo hereda la interpolación del keyframe del que sale', lane.segments.length === 1 && lane.segments[0].interpolation === 'ease');
+  check('el último keyframe queda marcado para exigirle hold', lane.keyframes[1].isLast === true && lane.keyframes[0].isLast === false);
+  check('un keyframe resuelto no tiene nada que revisar', lane.keyframes.every((keyframe) => keyframe.status === 'ok') && lane.reviewCount === 0);
+
+  const unmeasured = animation.buildAnimationLanes('e1', tracks, { timing: null, reference, fps: 30 })[0];
+  check(
+    'sin medición no se inventa una posición para el keyframe',
+    unmeasured.keyframes.every((keyframe) => keyframe.seconds === null && keyframe.status === 'unmeasured')
+      && unmeasured.segments.length === 0,
+  );
+  check('sin medición el tiempo resuelto lo dice, no muestra un número', unmeasured.keyframes[0].timeLabel === 'pendiente de voz');
+
+  const broken = [{
+    parameterId: 'opacity',
+    source: { kind: 'manual' },
+    keyframes: [
+      { id: 'a', anchor: { kind: 'word', turnId: 't2', wordIndex: 9 }, offsetSeconds: 0, value: 0, interpolation: 'linear' },
+      { id: 'b', anchor: { kind: 'turn', turnId: 'inexistente', edge: 'start' }, offsetSeconds: 0, value: 1, interpolation: 'hold' },
+    ],
+  }];
+  const brokenLane = animation.buildAnimationLanes('e1', broken, { timing, reference, fps: 30 })[0];
+  check('una palabra que ya no existe se marca para revisión', brokenLane.keyframes[0].status === 'review');
+  check('un turno que desapareció también se marca', brokenLane.keyframes[1].status === 'review' && brokenLane.reviewCount === 2);
+  check('el mensaje de revisión es el del contrato, no uno inventado', brokenLane.keyframes[1].message.includes('inexistente'));
+  check('la insignia del elemento cuenta las referencias pendientes', animation.countAnchorsRequiringReview('e1', broken, reference) === 2);
+
+  const outside = [{
+    parameterId: 'opacity',
+    source: { kind: 'manual' },
+    keyframes: [
+      { id: 'a', anchor: { kind: 'scene', edge: 'end' }, offsetSeconds: 0, value: 1, interpolation: 'linear' },
+      { id: 'b', anchor: { kind: 'scene', edge: 'end' }, offsetSeconds: 2, value: 0, interpolation: 'hold' },
+    ],
+  }];
+  const outsideLane = animation.buildAnimationLanes('e1', outside, { timing, reference, fps: 30 })[0];
+  check('un keyframe que cae fuera de la escena es un error visible', outsideLane.keyframes.some((keyframe) => keyframe.status === 'out-of-scene'));
+
+  check('el desplazamiento del arrastre se ajusta al frame', animation.offsetForSeconds(2, 2.04, 30) === 0.0333);
+  check('el desplazamiento nunca supera el límite del contrato', animation.offsetForSeconds(0, 30, 30) === 5);
+  check('el teclado corre el keyframe un frame exacto', animation.nudgeOffsetSeconds(0, 1, 30) === 0.0333);
+  check('el teclado tampoco puede pasarse del límite', animation.nudgeOffsetSeconds(4.9, 30, 30) === 5);
+
+  const proposal = animation.nearestAnchorFor(2.2, timing, 30);
+  check('reanclar elige el borde semántico más cercano', proposal.anchor.kind === 'turn' && proposal.anchor.turnId === 't1' && proposal.anchor.edge === 'end');
+  check('reanclar conserva el instante con un desplazamiento chico', proposal.offsetSeconds === 0.0667);
+  check('el inicio de la escena gana cuando el instante está al principio', animation.nearestAnchorFor(0.05, timing, 30).anchor.kind === 'scene');
+
+  check('el valor se muestra con la unidad de su parámetro', animation.formatParameterValue('scale', 1.14) === '1.14×' && animation.formatParameterValue('position.x', 320) === '320 px');
+  check('una pista editada a mano lo declara en su procedencia', animation.trackSourceLabel({ kind: 'preset', presetId: 'enter-left', version: 1, customized: true }) === 'enter-left · editado');
+  check('los ids de keyframe nuevos no pisan a los existentes', animation.nextKeyframeId('position.x', ['kf-position-x-01']) === 'kf-position-x-02');
+  check(
+    'armRaise solo se ofrece si el recurso lo declara',
+    !animation.listAnimatableParameters([]).includes('armRaise') && animation.listAnimatableParameters(['armRaise']).includes('armRaise'),
+  );
+  check('el valor se acota al rango del parámetro antes de mandarlo al motor', animation.clampParameterValue('opacity', 2) === 1);
+  check('la base de un parámetro sale del transform del elemento', animation.baseValueForParameter('scale', { x: 0, y: 0, scale: 0.75, rotationDegrees: 0, opacity: 1 }) === 0.75);
+}
 
 // ---- notifications-queue.ts: cola de notificaciones transitorias (M1) ----
 {

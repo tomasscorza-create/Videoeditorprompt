@@ -67,6 +67,10 @@ function revealInInspector(selection: ProjectSelection): void {
 }
 
 function findTarget(inspector: HTMLElement, selection: ProjectSelection): HTMLElement | null {
+  if (selection.kind === 'keyframe') {
+    return inspector.querySelector<HTMLElement>(`[data-inspector-keyframe="${CSS.escape(selection.keyframeId)}"]`)
+      ?? inspector.querySelector<HTMLElement>(`[data-inspector-element="${CSS.escape(selection.elementId)}"]`);
+  }
   if (selection.kind === 'element') {
     return inspector.querySelector<HTMLElement>(`[data-inspector-element="${CSS.escape(selection.elementId)}"]`);
   }

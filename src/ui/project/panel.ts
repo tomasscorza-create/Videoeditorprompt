@@ -1,8 +1,25 @@
 import { optional } from '../dom.js';
 import { notify } from '../notifications.js';
+import { editorWorkspace, measuredTimelineFor } from '../editor-workspace.js';
 import type { ProjectStore } from './store.js';
 import type { ElementView, SceneView, TurnView } from './types.js';
-import { PROJECT_SELECTION_EVENT, projectSelection, type ProjectSelection } from './selection.js';
+import { PROJECT_SELECTION_EVENT, projectSelection, selectProjectItem, type ProjectSelection } from './selection.js';
+import {
+  baseValueForParameter,
+  buildAnimationLanes,
+  clampParameterValue,
+  listAnimatableParameters,
+  nearestAnchorFor,
+  nextKeyframeId,
+  parameterLabel,
+  sceneAnimationReference,
+  sceneAnimationTiming,
+  type AnimationKeyframeItem,
+  type AnimationLane,
+} from '../timeline-animation.js';
+import { ANIMATION_PARAMETERS } from '../../../shared/animation-contract.js';
+import { listApplicablePresets } from '../../../shared/animation-presets.js';
+import type { SceneTiming } from '../../../shared/animation-evaluator.js';
 
 const TRANSITIONS = ['cut', 'fade'];
 const PROPOSAL_TABS = ['scene', 'elements', 'background', 'transition'] as const;
@@ -64,7 +81,7 @@ export function initProjectEditor(store: ProjectStore): void {
     if (store.selectedSceneId() !== selection.sceneId) {
       send({ type: 'select-scene', sceneId: selection.sceneId });
     }
-    selectProposalTab(selection.kind === 'element' ? 'elements' : 'scene');
+    selectProposalTab(isElementSelection(selection) ? 'elements' : 'scene');
   });
 
   function renderInspector(): void {
@@ -72,7 +89,7 @@ export function initProjectEditor(store: ProjectStore): void {
     const selectedScene = project.scenes.find((item) => item.id === store.selectedSceneId());
     const selection = projectSelection();
     if (selection && selection.sceneId === selectedScene?.id) {
-      activeProposalTab = selection.kind === 'element' ? 'elements' : 'scene';
+      activeProposalTab = isElementSelection(selection) ? 'elements' : 'scene';
     }
     syncProposalTabs();
     if (project.scenes.length === 0) {
@@ -226,7 +243,11 @@ export function initProjectEditor(store: ProjectStore): void {
   }
 
   function elementsSection(): HTMLElement {
-    return focusedView(store.project().scenes.map((scene, index) => elementsCard(scene, index)));
+    const cards = store.project().scenes.map((scene, index) => elementsCard(scene, index));
+    // Fase 4: con un keyframe seleccionado, su ficha encabeza la pestaña; el
+    // resto del elemento sigue accesible debajo.
+    const keyframe = keyframeCard();
+    return focusedView(keyframe ? [keyframe, ...cards] : cards);
   }
 
   function elementsCard(scene: SceneView, index: number): HTMLElement {
@@ -280,6 +301,7 @@ export function initProjectEditor(store: ProjectStore): void {
         transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01),
         transformField(scene, element, 'zIndex', 'Capa', -1000, 1000, 1),
       ));
+      group.append(...animationControls(scene, element));
       const remove = actionButton('Quitar personaje', () => send({
         type: 'delete-element', sceneId: scene.id, elementId: element.id,
       }), true);
@@ -331,6 +353,281 @@ export function initProjectEditor(store: ProjectStore): void {
     return field(label, input);
   }
 
+  // ---- Fase 4: animación por keyframes en el inspector ----
+  //
+  // El estado visible está en docs/FASE_0_CONTRATO_ANIMACION_V1.md, sección 6.
+  // Todo cambio sale por los mismos comandos del motor que usa la timeline; acá
+  // no hay una segunda representación de las pistas.
+
+  interface AnimationScope {
+    timing: SceneTiming | null;
+    reference: ReturnType<typeof sceneAnimationReference>;
+    fps: number;
+  }
+
+  function animationScope(scene: SceneView): AnimationScope {
+    const project = store.project();
+    const measured = measuredTimelineFor(project.scenes.map((item) => item.id));
+    const reference = sceneAnimationReference(scene.dialogue);
+    return {
+      timing: sceneAnimationTiming(measured?.scenes.find((item) => item.id === scene.id) ?? null, reference),
+      reference,
+      fps: project.video?.fps ?? 30,
+    };
+  }
+
+  /**
+   * Referencia semántica desde la que colgar algo nuevo.
+   *
+   * Con medición vigente y el cabezal dentro de la escena se usa el punto
+   * semántico más cercano; si no, el inicio de la escena. Nunca un segundo
+   * absoluto inventado: sin voz medida no se sabe dónde cae el cabezal.
+   */
+  function anchorFromPlayhead(scope: AnimationScope): { anchor: ReturnType<typeof nearestAnchorFor>['anchor']; offsetSeconds: number } {
+    const { timing, fps } = scope;
+    const playhead = editorWorkspace().currentTime;
+    if (timing && playhead >= timing.startSeconds && playhead <= timing.endSeconds) {
+      const proposal = nearestAnchorFor(playhead, timing, fps);
+      return { anchor: proposal.anchor, offsetSeconds: proposal.offsetSeconds };
+    }
+    return { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0 };
+  }
+
+  function animationControls(scene: SceneView, element: ElementView): HTMLElement[] {
+    const resource = store.resources('character').find((entry) => entry.id === element.resourceId);
+    const declared = readStringCapability(resource?.capabilities, 'parameters');
+    const scope = animationScope(scene);
+    const lanes = buildAnimationLanes(element.id, element.tracks ?? [], scope);
+    const nodes: HTMLElement[] = [subheading('Animación por keyframes')];
+
+    const presets = document.createElement('div');
+    presets.className = 'animation-preset-row';
+    for (const preset of listApplicablePresets(declared)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'animation-preset';
+      button.textContent = preset.label;
+      button.title = `${preset.id} · anima ${parameterLabel(preset.parameterId)} desde ${anchorFromPlayhead(scope).anchor.kind === 'scene' ? 'el inicio de la escena' : 'la referencia más cercana al cabezal'}`;
+      button.addEventListener('click', () => {
+        const { anchor } = anchorFromPlayhead(scope);
+        send({
+          type: 'apply-animation-preset',
+          sceneId: scene.id,
+          elementId: element.id,
+          presetId: preset.id,
+          anchor,
+          intensity: 'medium',
+        });
+      });
+      presets.append(button);
+    }
+    nodes.push(presets);
+
+    const parameterPicker = select(
+      listAnimatableParameters(declared).map((id) => ({ value: id, label: parameterLabel(id) })),
+      'position.x',
+    );
+    const animate = actionButton('Animar desde el cabezal', () => animateParameter(scene, element, parameterPicker.value));
+    animate.title = 'Crea la pista con dos keyframes (una pista de un solo punto no cumple el contrato) o agrega uno si la pista ya existe.';
+    nodes.push(controlGrid(field('Parámetro', parameterPicker), field(' ', animate)));
+
+    if (lanes.length === 0) {
+      nodes.push(note('Este personaje todavía no tiene pistas. Aplicá un preset o animá un parámetro desde el cabezal.'));
+      return nodes;
+    }
+    for (const lane of lanes) nodes.push(trackRow(scene, element, lane));
+    return nodes;
+  }
+
+  function trackRow(scene: SceneView, element: ElementView, lane: AnimationLane): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'animation-track-row';
+    const name = document.createElement('span');
+    name.className = 'animation-track-name';
+    name.textContent = `${lane.label} · ${lane.sourceLabel}`;
+    const count = document.createElement('span');
+    count.className = 'animation-track-count';
+    count.textContent = lane.reviewCount > 0
+      ? `${lane.keyframes.length} kf · ⚠ ${lane.reviewCount}`
+      : `${lane.keyframes.length} kf`;
+    if (lane.reviewCount > 0) count.classList.add('is-review');
+    const remove = actionButton('Eliminar pista', () => send({
+      type: 'delete-track',
+      sceneId: scene.id,
+      elementId: element.id,
+      parameterId: lane.parameterId,
+    }), true);
+    row.append(name, count, remove);
+    return row;
+  }
+
+  function animateParameter(scene: SceneView, element: ElementView, parameterId: string): void {
+    const scope = animationScope(scene);
+    const start = anchorFromPlayhead(scope);
+    const tracks = element.tracks ?? [];
+    const taken = tracks.flatMap((track) => track.keyframes.map((keyframe) => keyframe.id));
+    const value = clampParameterValue(parameterId, baseValueForParameter(parameterId, element.transform));
+    const first = nextKeyframeId(parameterId, taken);
+    if (tracks.some((track) => track.parameterId === parameterId)) {
+      send({
+        type: 'add-keyframe',
+        sceneId: scene.id,
+        elementId: element.id,
+        parameterId,
+        keyframeId: first,
+        anchor: start.anchor,
+        offsetSeconds: start.offsetSeconds,
+        value,
+        interpolation: 'ease',
+      });
+      selectProjectItem({ kind: 'keyframe', sceneId: scene.id, elementId: element.id, parameterId, keyframeId: first });
+      return;
+    }
+    // `create-track` es atómico: la pista nace con los dos keyframes que el
+    // contrato exige, y el usuario ajusta el segundo valor desde su ficha.
+    const second = nextKeyframeId(parameterId, [...taken, first]);
+    send({
+      type: 'create-track',
+      sceneId: scene.id,
+      elementId: element.id,
+      parameterId,
+      source: { kind: 'manual' },
+      keyframes: [
+        { id: first, anchor: start.anchor, offsetSeconds: start.offsetSeconds, value, interpolation: 'ease' },
+        { id: second, anchor: start.anchor, offsetSeconds: followingOffset(start.offsetSeconds), value, interpolation: 'hold' },
+      ],
+    });
+    selectProjectItem({ kind: 'keyframe', sceneId: scene.id, elementId: element.id, parameterId, keyframeId: second });
+  }
+
+  function keyframeCard(): HTMLElement | null {
+    const selection = projectSelection();
+    if (selection?.kind !== 'keyframe') return null;
+    const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
+    const element = scene?.elements.find((item) => item.id === selection.elementId);
+    if (!scene || !element) return null;
+    const scope = animationScope(scene);
+    const lane = buildAnimationLanes(element.id, element.tracks ?? [], scope)
+      .find((item) => item.parameterId === selection.parameterId);
+    const keyframe = lane?.keyframes.find((item) => item.id === selection.keyframeId);
+    if (!lane || !keyframe) return null;
+
+    const edit = (patch: Record<string, unknown>): void => send({
+      type: 'set-keyframe',
+      sceneId: scene.id,
+      elementId: element.id,
+      parameterId: lane.parameterId,
+      keyframeId: keyframe.id,
+      ...patch,
+    });
+
+    const card = proposalCard();
+    card.classList.add('keyframe-card');
+    card.dataset.inspectorKeyframe = keyframe.id;
+    const heading = document.createElement('header');
+    heading.className = 'proposal-control-heading';
+    const eyebrow = document.createElement('span');
+    eyebrow.className = 'eyebrow';
+    eyebrow.textContent = 'Keyframe';
+    const title = document.createElement('strong');
+    title.textContent = `${lane.label} · ${keyframe.valueLabel}`;
+    heading.append(eyebrow, title);
+    card.append(heading);
+
+    const parameter = ANIMATION_PARAMETERS[lane.parameterId];
+    const value = document.createElement('input');
+    value.type = 'number';
+    value.min = String(parameter?.exclusiveMinimum ?? parameter?.minimum ?? 0);
+    value.max = String(parameter?.maximum ?? 1);
+    value.step = lane.parameterId === 'position.x' || lane.parameterId === 'position.y' ? '1' : '0.01';
+    value.value = String(keyframe.value);
+    value.addEventListener('change', () => edit({ value: clampParameterValue(lane.parameterId, Number(value.value)) }));
+
+    const offset = document.createElement('input');
+    offset.type = 'number';
+    offset.min = '-5';
+    offset.max = '5';
+    offset.step = '0.05';
+    offset.value = String(keyframe.offsetSeconds);
+    offset.addEventListener('change', () => edit({ offsetSeconds: Number(offset.value) }));
+
+    const interpolation = select(
+      ['linear', 'ease', 'hold'].map((id) => ({ value: id, label: id })),
+      keyframe.interpolation,
+    );
+    // El contrato obliga al último keyframe de la pista a congelar el valor.
+    interpolation.disabled = keyframe.isLast;
+    if (keyframe.isLast) interpolation.title = 'El último keyframe de una pista siempre usa hold: después de él el valor queda congelado.';
+    interpolation.addEventListener('change', () => edit({ interpolation: interpolation.value }));
+
+    card.append(controlGrid(
+      field('Valor', value),
+      field('Desplazamiento (s)', offset),
+      field('Interpolación', interpolation),
+    ));
+
+    card.append(readOnlyRow('Ancla', keyframe.anchorLabel));
+    card.append(readOnlyRow('Tiempo resuelto', keyframe.timeLabel));
+    card.append(readOnlyRow('Procedencia', lane.sourceLabel === 'manual' ? 'pista manual' : `preset ${lane.sourceLabel}`));
+
+    if (keyframe.status === 'ok') {
+      card.append(readOnlyRow('Estado', 'Normal'));
+    } else {
+      const state = readOnlyRow('Estado', `⚠ ${keyframe.message ?? 'Requiere revisión'}`);
+      state.classList.add('is-review');
+      card.append(state);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'animation-actions';
+    if (scope.timing && keyframe.seconds !== null) {
+      const proposal = nearestAnchorFor(keyframe.seconds, scope.timing, scope.fps);
+      const reanchor = actionButton(`Reanclar a ${proposal.label}`, () => edit({
+        anchor: proposal.anchor,
+        offsetSeconds: proposal.offsetSeconds,
+      }));
+      reanchor.title = 'Cuelga el keyframe de la referencia semántica más cercana, para que siga al diálogo si el texto cambia.';
+      actions.append(reanchor);
+    }
+    actions.append(actionButton('Duplicar keyframe', () => duplicateKeyframe(scene, element, lane, keyframe)));
+    actions.append(actionButton('Eliminar keyframe', () => {
+      send({
+        type: 'delete-keyframe',
+        sceneId: scene.id,
+        elementId: element.id,
+        parameterId: lane.parameterId,
+        keyframeId: keyframe.id,
+      });
+      selectProjectItem({ kind: 'element', sceneId: scene.id, elementId: element.id });
+    }, true));
+    card.append(actions);
+    return card;
+  }
+
+  function duplicateKeyframe(
+    scene: SceneView,
+    element: ElementView,
+    lane: AnimationLane,
+    keyframe: AnimationKeyframeItem,
+  ): void {
+    const taken = (element.tracks ?? []).flatMap((track) => track.keyframes.map((item) => item.id));
+    const keyframeId = nextKeyframeId(lane.parameterId, taken);
+    send({
+      type: 'add-keyframe',
+      sceneId: scene.id,
+      elementId: element.id,
+      parameterId: lane.parameterId,
+      keyframeId,
+      anchor: keyframe.anchor,
+      offsetSeconds: followingOffset(keyframe.offsetSeconds),
+      value: keyframe.value,
+      interpolation: keyframe.interpolation,
+    });
+    selectProjectItem({
+      kind: 'keyframe', sceneId: scene.id, elementId: element.id, parameterId: lane.parameterId, keyframeId,
+    });
+  }
+
   function dialogueText(scene: SceneView, turn: TurnView): HTMLTextAreaElement {
     const area = document.createElement('textarea');
     area.className = 'proposal-dialogue-text';
@@ -358,6 +655,33 @@ export function initProjectEditor(store: ProjectStore): void {
 
 function isProposalTab(value: string | undefined): value is ProposalTab {
   return PROPOSAL_TABS.some((tab) => tab === value);
+}
+
+/** Un keyframe pertenece a un elemento: las dos selecciones abren la misma pestaña. */
+function isElementSelection(selection: ProjectSelection | null): boolean {
+  return selection?.kind === 'element' || selection?.kind === 'keyframe';
+}
+
+/**
+ * Punto siguiente al crear o duplicar: medio segundo después, o antes si el
+ * desplazamiento ya está en el tope del contrato. Dos keyframes en el mismo
+ * punto son un error visible, no una elección implícita.
+ */
+function followingOffset(offsetSeconds: number): number {
+  const forward = Math.round((offsetSeconds + 0.5) * 1000) / 1000;
+  return forward <= 5 ? forward : Math.round((offsetSeconds - 0.5) * 1000) / 1000;
+}
+
+/** Dato derivado que la interfaz muestra pero nadie edita a mano. */
+function readOnlyRow(label: string, value: string): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'animation-readonly';
+  const name = document.createElement('span');
+  name.textContent = label;
+  const text = document.createElement('strong');
+  text.textContent = value;
+  row.append(name, text);
+  return row;
 }
 
 function focusedView(children: HTMLElement[]): HTMLElement {

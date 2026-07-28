@@ -116,6 +116,19 @@ export function currentEditorOutput(): RenderedOutput | null {
   return editorOutputState() === 'current' ? output : null;
 }
 
+/**
+ * Medición vigente que se corresponde con la estructura de escenas indicada, o
+ * null. Un render de otro proyecto, vencido o con otra lista de escenas no mide
+ * lo que hay en pantalla: la timeline y el inspector tienen que coincidir en
+ * cuándo hay tiempo real, así que la regla vive acá una sola vez.
+ */
+export function measuredTimelineFor(sceneIds: readonly string[]): MeasuredProjectTimeline | null {
+  const timeline = output?.timeline;
+  if (!output || !timeline || output.stale || output.projectId !== activeProjectId) return null;
+  if (timeline.scenes.length !== sceneIds.length) return null;
+  return timeline.scenes.every((scene, index) => scene.id === sceneIds[index]) ? timeline : null;
+}
+
 // M4 — Mejora progresiva: donde el navegador soporte View Transitions, el
 // cambio de superficie hace crossfade; donde no, el comportamiento es el de
 // siempre. El repintado ocurre síncrono en los listeners de `notify`, así que
