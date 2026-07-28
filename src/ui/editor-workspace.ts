@@ -63,6 +63,26 @@ let activeTimingRevision: string | null = null;
 let output: RenderedOutput | null = null;
 let media: HTMLVideoElement | null = null;
 let mediaBound = false;
+let playheadSeconds = 0;
+
+/**
+ * Instante de trabajo, compartido por timeline y lienzo.
+ *
+ * Con un MP4 vigente lo manda el reproductor; con la medición todavía válida
+ * pero el render vencido lo mueve la timeline, y el lienzo necesita leerlo para
+ * previsualizar la animación en ese instante. Por eso vive acá y no dentro de la
+ * timeline: es estado del espacio de trabajo, no de una de sus superficies.
+ */
+export function editorPlayhead(): number {
+  return playheadSeconds;
+}
+
+export function setEditorPlayhead(seconds: number): void {
+  const next = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  if (next === playheadSeconds) return;
+  playheadSeconds = next;
+  notifyPlayback();
+}
 
 export function editorWorkspace(): EditorWorkspaceSnapshot {
   const measuredDuration = output?.timeline?.durationSeconds ?? 0;

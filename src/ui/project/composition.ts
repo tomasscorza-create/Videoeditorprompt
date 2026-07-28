@@ -8,7 +8,31 @@ import {
   type CharacterPlacement,
 } from './character-placement.js';
 import type { ProjectStore } from './store.js';
+import type { ElementView, SceneView } from './types.js';
 import { PROJECT_SELECTION_EVENT, projectSelection, selectProjectItem } from './selection.js';
+import {
+  ANIMATION_MODE_EVENT,
+  isAnimationModeOn,
+  setAnimationMode,
+} from './animation-mode.js';
+import {
+  EDITOR_PLAYBACK_EVENT,
+  EDITOR_WORKSPACE_EVENT,
+  editorPlayhead,
+  measuredTimelineFor,
+} from '../editor-workspace.js';
+import {
+  baseValueForParameter,
+  buildAnimationLanes,
+  evaluateLanesAt,
+  keyframeCommandsForValue,
+  parameterLabel,
+  sceneAnimationReference,
+  sceneAnimationTiming,
+  type AnimationLane,
+} from '../timeline-animation.js';
+import { quantizeToFrame } from '../../../shared/animation-contract.js';
+import type { SceneTiming } from '../../../shared/animation-evaluator.js';
 
 interface AssetCatalogEntry {
   id: string;
@@ -61,6 +85,8 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       canvas.replaceChildren(...nodes);
     }
 
+    const scope = animationScope(store, scene);
+    let animatingElement: ElementView | null = null;
     for (const element of [...scene.elements].sort((a, b) => a.transform.zIndex - b.transform.zIndex)) {
       if (element.type !== 'character' || !element.resourceId) continue;
       const resource = store.resources('character').find((entry) => entry.id === element.resourceId);
@@ -72,19 +98,31 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       image.alt = resource?.label || 'Personaje';
       image.dataset.elementId = element.id;
       const selection = projectSelection();
-      image.classList.toggle('is-selected', selection?.kind === 'element' && selection.elementId === element.id);
+      image.classList.toggle(
+        'is-selected',
+        (selection?.kind === 'element' || selection?.kind === 'keyframe') && selection.elementId === element.id,
+      );
+      const animating = isAnimationModeOn(scene.id, element.id);
+      image.classList.toggle('is-animating', animating);
+      if (animating) animatingElement = element;
       image.draggable = false;
       image.tabIndex = 0;
-      image.style.left = `${element.transform.x / 10.8}%`;
-      image.style.top = `${element.transform.y / 19.2}%`;
+      // Una pista REEMPLAZA el valor base de su parámetro: la vista previa en el
+      // cabezal sale del mismo evaluador que produce el render.
+      const animated = elementParamsAt(element, scope);
+      const view = viewTransform(element, animated);
+      image.style.left = `${view.x / 10.8}%`;
+      image.style.top = `${view.y / 19.2}%`;
       image.style.zIndex = String(element.transform.zIndex);
-      image.style.opacity = String((element.transform as unknown as { opacity?: number }).opacity ?? 1);
-      image.style.transform = `translate(-50%, -50%) scale(${element.transform.scale})`;
-      bindElementInteraction(image, canvas, store, scene.id, element.id);
+      image.style.opacity = String(view.opacity);
+      image.style.transform = `translate(-50%, -50%) rotate(${view.rotationDegrees}deg) scale(${view.scale})`;
+      bindElementInteraction(image, canvas, store, scene, element);
       nodes.push(image);
     }
     const placement = currentCharacterPlacement();
     if (placement) nodes.push(placementHint(`Clic o soltar: colocar «${placement.label}»`));
+    canvas.classList.toggle('is-animation-mode', animatingElement !== null);
+    if (animatingElement) nodes.push(animationBanner(scope));
     nodes.push(label(`${scene.title} · ${scene.background.cameraPreset}`));
     canvas.replaceChildren(...nodes);
   };
@@ -95,16 +133,98 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   });
   bindPlacementEvents(canvas);
   window.addEventListener(PROJECT_SELECTION_EVENT, render);
+  window.addEventListener(ANIMATION_MODE_EVENT, render);
+  // El cabezal decide qué valor tiene cada parámetro animado, así que moverlo
+  // repinta el lienzo.
+  window.addEventListener(EDITOR_PLAYBACK_EVENT, render);
+  window.addEventListener(EDITOR_WORKSPACE_EVENT, render);
   render();
+}
+
+interface AnimationScope {
+  timing: SceneTiming | null;
+  reference: ReturnType<typeof sceneAnimationReference>;
+  fps: number;
+}
+
+function animationScope(store: ProjectStore, scene: SceneView): AnimationScope {
+  const project = store.project();
+  const measured = measuredTimelineFor(project.scenes.map((item) => item.id));
+  const reference = sceneAnimationReference(scene.dialogue);
+  return {
+    timing: sceneAnimationTiming(measured?.scenes.find((item) => item.id === scene.id) ?? null, reference),
+    reference,
+    fps: project.video?.fps ?? 30,
+  };
+}
+
+function elementLanes(element: ElementView, scope: AnimationScope): AnimationLane[] {
+  if (!element.tracks?.length) return [];
+  return buildAnimationLanes(element.id, element.tracks, scope);
+}
+
+function elementParamsAt(element: ElementView, scope: AnimationScope): Record<string, number> {
+  const lanes = elementLanes(element, scope);
+  return lanes.length === 0 ? {} : evaluateLanesAt(lanes, editorPlayhead());
+}
+
+function viewTransform(
+  element: ElementView,
+  animated: Record<string, number>,
+): { x: number; y: number; scale: number; rotationDegrees: number; opacity: number } {
+  return {
+    x: animated['position.x'] ?? element.transform.x,
+    y: animated['position.y'] ?? element.transform.y,
+    scale: animated.scale ?? element.transform.scale,
+    rotationDegrees: animated.rotationDegrees ?? element.transform.rotationDegrees ?? 0,
+    opacity: animated.opacity ?? element.transform.opacity ?? 1,
+  };
+}
+
+/**
+ * Rótulo persistente del modo animación.
+ *
+ * No puede ser un icono discreto en una barra: el riesgo de esta capacidad es
+ * mover un personaje sin saber si se cambió la base o se creó un keyframe, así
+ * que el lienzo entero se tiñe y el rótulo nombra el frame en el que se está
+ * escribiendo.
+ */
+function animationBanner(scope: AnimationScope): HTMLElement {
+  const banner = document.createElement('div');
+  banner.className = 'composition-animation-banner';
+  banner.style.zIndex = '2200';
+  const title = document.createElement('strong');
+  const frame = scope.timing
+    ? quantizeToFrame(Math.max(0, editorPlayhead() - scope.timing.startSeconds), scope.fps)
+    : null;
+  title.textContent = frame === null
+    ? '◆ Animando'
+    : `◆ Animando · posición · frame ${frame}`;
+  const body = document.createElement('span');
+  body.textContent = 'Mover el elemento crea o actualiza un keyframe acá. La posición base no se toca.';
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'composition-animation-exit';
+  back.textContent = 'Volver a base';
+  back.addEventListener('click', (event) => {
+    event.stopPropagation();
+    setAnimationMode(null);
+  });
+  banner.append(title, body, back);
+  return banner;
 }
 
 function bindElementInteraction(
   image: HTMLElement,
   canvas: HTMLElement,
   store: ProjectStore,
-  sceneId: string,
-  elementId: string,
+  scene: SceneView,
+  element: ElementView,
 ): void {
+  const sceneId = scene.id;
+  const elementId = element.id;
+  const live = (): ElementView | null => store.project().scenes.find((item) => item.id === sceneId)
+    ?.elements.find((candidate) => candidate.id === elementId) ?? null;
   image.addEventListener('click', (event) => {
     if (currentCharacterPlacement()) return;
     event.stopPropagation();
@@ -118,20 +238,26 @@ function bindElementInteraction(
     }
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
       event.preventDefault();
-      const element = store.project().scenes.find((scene) => scene.id === sceneId)?.elements.find((candidate) => candidate.id === elementId);
-      if (!element) return;
+      const current = live();
+      if (!current) return;
       const step = event.shiftKey ? 1 : 10;
-      const x = element.transform.x + (event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0);
-      const y = element.transform.y + (event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0);
-      store.dispatch({ type: 'set-character-transform', sceneId, elementId, x, y });
+      const from = viewTransform(current, elementParamsAt(current, animationScope(store, scene)));
+      const x = from.x + (event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0);
+      const y = from.y + (event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0);
+      applyPosition(store, scene, current, x, y);
     }
   });
   image.addEventListener('wheel', (event) => {
     if (!event.ctrlKey) return;
     event.preventDefault();
-    const element = store.project().scenes.find((scene) => scene.id === sceneId)?.elements.find((candidate) => candidate.id === elementId);
-    if (!element) return;
-    const scale = Math.max(0.05, Math.min(10, Math.round((element.transform.scale + (event.deltaY < 0 ? 0.05 : -0.05)) * 100) / 100));
+    const current = live();
+    if (!current) return;
+    const from = viewTransform(current, elementParamsAt(current, animationScope(store, scene)));
+    const scale = Math.max(0.05, Math.min(10, Math.round((from.scale + (event.deltaY < 0 ? 0.05 : -0.05)) * 100) / 100));
+    if (isAnimationModeOn(sceneId, elementId)) {
+      applyAnimated(store, scene, current, [{ parameterId: 'scale', value: scale }]);
+      return;
+    }
     store.dispatch({ type: 'set-character-transform', sceneId, elementId, scale });
   }, { passive: false });
   image.addEventListener('pointerdown', (event) => {
@@ -155,13 +281,64 @@ function bindElementInteraction(
       const y = Number(image.dataset.pendingY);
       delete image.dataset.pendingX;
       delete image.dataset.pendingY;
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        store.dispatch({ type: 'set-character-transform', sceneId, elementId, x, y });
-      }
+      const current = live();
+      if (Number.isFinite(x) && Number.isFinite(y) && current) applyPosition(store, scene, current, x, y);
     };
     image.addEventListener('pointermove', move);
     image.addEventListener('pointerup', finish);
   });
+}
+
+/**
+ * Mover el elemento: con el modo animación apagado cambia la base y NUNCA toca
+ * un keyframe; con el modo encendido crea o actualiza el keyframe del cabezal y
+ * NUNCA toca la base. Las dos direcciones importan igual.
+ */
+function applyPosition(store: ProjectStore, scene: SceneView, element: ElementView, x: number, y: number): void {
+  if (!isAnimationModeOn(scene.id, element.id)) {
+    store.dispatch({ type: 'set-character-transform', sceneId: scene.id, elementId: element.id, x, y });
+    return;
+  }
+  applyAnimated(store, scene, element, [
+    { parameterId: 'position.x', value: x },
+    { parameterId: 'position.y', value: y },
+  ]);
+}
+
+function applyAnimated(
+  store: ProjectStore,
+  scene: SceneView,
+  element: ElementView,
+  changes: Array<{ parameterId: string; value: number }>,
+): void {
+  const scope = animationScope(store, scene);
+  // El modo no puede activarse sin tiempo medido; si la medición se perdió
+  // mientras tanto, no se escribe nada en vez de anclar a un tiempo inventado.
+  if (!scope.timing) {
+    setAnimationMode(null);
+    reportPlacement('Sin voz medida no se puede ubicar un keyframe: renderizá para volver a animar en el lienzo.', true);
+    return;
+  }
+  const lanes = elementLanes(element, scope);
+  const taken = (element.tracks ?? []).flatMap((track) => track.keyframes.map((keyframe) => keyframe.id));
+  const commands = changes.flatMap((change) => keyframeCommandsForValue({
+    sceneId: scene.id,
+    elementId: element.id,
+    parameterId: change.parameterId,
+    value: change.value,
+    playheadSeconds: editorPlayhead(),
+    lane: lanes.find((lane) => lane.parameterId === change.parameterId) ?? null,
+    timing: scope.timing as SceneTiming,
+    fps: scope.fps,
+    baseValue: baseValueForParameter(change.parameterId, element.transform),
+    takenKeyframeIds: taken,
+  }));
+  if (commands.length === 0) return;
+  const error = store.dispatchBatch(commands);
+  reportPlacement(
+    error || `Keyframe de ${changes.map((change) => parameterLabel(change.parameterId)).join(' y ')} escrito en el cabezal.`,
+    Boolean(error),
+  );
 }
 
 function bindPlacementEvents(canvas: HTMLElement): void {

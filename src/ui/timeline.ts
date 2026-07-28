@@ -8,6 +8,7 @@ import {
   editorWorkspace,
   measuredTimelineFor,
   seekEditorPlayback,
+  setEditorPlayhead,
   showEditorCanvas,
   showRenderedPlayback,
   toggleEditorMute,
@@ -114,6 +115,9 @@ export function attachProjectTimeline(projectStore: ProjectStore): void {
 
 export function updateTimelineTime(timeSeconds: number): void {
   currentTime = clamp(timeSeconds, 0, activeDuration());
+  // El lienzo previsualiza la animación en este instante, así que el cabezal se
+  // publica en el estado del espacio de trabajo en vez de quedarse acá.
+  setEditorPlayhead(currentTime);
   const authoringPlayhead = optional<HTMLElement>('#authoring-playhead');
   if (authoringPlayhead) {
     authoringPlayhead.hidden = !isMeasured();

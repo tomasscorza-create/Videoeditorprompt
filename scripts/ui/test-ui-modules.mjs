@@ -496,6 +496,47 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   );
   check('el valor se acota al rango del parámetro antes de mandarlo al motor', animation.clampParameterValue('opacity', 2) === 1);
   check('la base de un parámetro sale del transform del elemento', animation.baseValueForParameter('scale', { x: 0, y: 0, scale: 0.75, rotationDegrees: 0, opacity: 1 }) === 0.75);
+
+  // ---- vista previa en el cabezal ----
+  check('antes del primer keyframe se sostiene su valor', animation.evaluateLanesAt([lane], 0)['position.x'] === -100);
+  check('después del último el valor queda congelado', animation.evaluateLanesAt([lane], 5)['position.x'] === 320);
+  check('en el medio interpola', animation.evaluateLanesAt([lane], 0.3)['position.x'] > -100 && animation.evaluateLanesAt([lane], 0.3)['position.x'] < 320);
+  check('una pista sin resolver no se evalúa: se prefiere la base', Object.keys(animation.evaluateLanesAt([unmeasured], 1)).length === 0);
+
+  // ---- modo animación del lienzo: mover escribe keyframes, no la base ----
+  const commandFor = (extra) => animation.keyframeCommandsForValue({
+    sceneId: 'escena-1',
+    elementId: 'e1',
+    parameterId: 'position.x',
+    value: 500,
+    playheadSeconds: 2.2,
+    lane: null,
+    timing,
+    fps: 30,
+    baseValue: 290,
+    takenKeyframeIds: [],
+    ...extra,
+  });
+
+  const created = commandFor({})[0];
+  check('sin pista, la pista nace con los dos keyframes que el contrato exige', created.type === 'create-track' && created.keyframes.length === 2);
+  check('el primero conserva la base al inicio de la escena', created.keyframes[0].value === 290 && created.keyframes[0].anchor.kind === 'scene');
+  check('el segundo lleva el valor nuevo al cabezal y cierra en hold', created.keyframes[1].value === 500 && created.keyframes[1].interpolation === 'hold');
+  check('la pista nueva es manual, no de preset', created.source.kind === 'manual');
+
+  const atSceneStart = commandFor({ playheadSeconds: 0 })[0];
+  check(
+    'con el cabezal sobre el ancla los dos keyframes no colisionan',
+    atSceneStart.keyframes[0].offsetSeconds !== atSceneStart.keyframes[1].offsetSeconds,
+  );
+
+  const added = commandFor({ lane })[0];
+  check('con la pista ya creada solo se agrega un keyframe', added.type === 'add-keyframe' && added.value === 500);
+
+  const updated = commandFor({ lane, playheadSeconds: 0.6 })[0];
+  check('sobre un keyframe existente se cambia su valor, no se duplica', updated.type === 'set-keyframe' && updated.keyframeId === 'kf-2');
+  check('mover al mismo valor no genera comando', commandFor({ lane, playheadSeconds: 0.6, value: 320 }).length === 0);
+  check('el valor se acota al rango antes de mandarlo', commandFor({ lane, value: 99999 })[0].value === 2160);
 }
 
 // ---- notifications-queue.ts: cola de notificaciones transitorias (M1) ----

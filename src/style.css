@@ -1325,6 +1325,48 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   transform: translateX(-50%);
   pointer-events: none;
 }
+/* Fase 4 — modo animación del lienzo. El estado NO puede ser un icono discreto:
+   el borde entero se tiñe y el rótulo dice en qué frame se está escribiendo. */
+.composition-canvas.is-animation-mode::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2150;
+  border: 3px solid var(--warning);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 45%, transparent);
+  pointer-events: none;
+}
+.composition-character.is-animating { outline-color: var(--warning); filter: drop-shadow(0 0 12px var(--warning)); }
+.composition-animation-banner {
+  position: absolute;
+  top: .65rem;
+  left: 50%;
+  display: grid;
+  gap: .15rem;
+  max-width: calc(100% - 1.3rem);
+  transform: translateX(-50%);
+  border: 1px solid var(--warning);
+  border-radius: .45rem;
+  padding: .35rem .6rem;
+  color: var(--text);
+  background: color-mix(in srgb, var(--warning) 22%, var(--surface));
+  text-align: center;
+}
+.composition-animation-banner strong { color: var(--warning); font-size: var(--fs-xs); }
+.composition-animation-banner span { color: var(--text); font-size: var(--fs-2xs); }
+.composition-animation-exit {
+  justify-self: center;
+  margin-top: .15rem;
+  padding: .15rem .5rem;
+  border: 1px solid var(--warning);
+  border-radius: .3rem;
+  color: var(--text);
+  background: var(--surface);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+.composition-animation-exit:hover { background: var(--surface-2); }
+.inspector-element-group > button.is-active { border-color: var(--warning); color: var(--warning); }
 .resource-card.is-placement-source { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .resource-card.is-dragging { opacity: .55; }
 .composition-label {

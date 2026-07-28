@@ -4,6 +4,7 @@ import { editorWorkspace, measuredTimelineFor } from '../editor-workspace.js';
 import type { ProjectStore } from './store.js';
 import type { ElementView, SceneView, TurnView } from './types.js';
 import { PROJECT_SELECTION_EVENT, projectSelection, selectProjectItem, type ProjectSelection } from './selection.js';
+import { ANIMATION_MODE_EVENT, isAnimationModeOn, setAnimationMode } from './animation-mode.js';
 import {
   baseValueForParameter,
   buildAnimationLanes,
@@ -83,6 +84,7 @@ export function initProjectEditor(store: ProjectStore): void {
     }
     selectProposalTab(isElementSelection(selection) ? 'elements' : 'scene');
   });
+  window.addEventListener(ANIMATION_MODE_EVENT, () => renderInspector());
 
   function renderInspector(): void {
     const project = store.project();
@@ -422,6 +424,20 @@ export function initProjectEditor(store: ProjectStore): void {
       presets.append(button);
     }
     nodes.push(presets);
+
+    // Modo animación del lienzo: por elemento, y solo con tiempo medido, porque
+    // sin medición no hay frame al que anclar el keyframe.
+    const animating = isAnimationModeOn(scene.id, element.id);
+    const canvasMode = actionButton(
+      animating ? '◆ Animando en el lienzo · volver a base' : 'Animar en el lienzo',
+      () => setAnimationMode(animating ? null : { sceneId: scene.id, elementId: element.id }),
+    );
+    canvasMode.classList.toggle('is-active', animating);
+    canvasMode.disabled = !animating && scope.timing === null;
+    canvasMode.title = canvasMode.disabled
+      ? 'Hace falta una voz medida para ubicar el keyframe: renderizá una vez y volvé.'
+      : 'Con el modo encendido, mover el personaje en el lienzo crea o actualiza el keyframe del cabezal en vez de cambiar su posición base.';
+    nodes.push(canvasMode);
 
     const parameterPicker = select(
       listAnimatableParameters(declared).map((id) => ({ value: id, label: parameterLabel(id) })),

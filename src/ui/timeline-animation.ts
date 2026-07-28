@@ -23,7 +23,7 @@ import {
   type AnimationAnchor,
   type AnimationInterpolation,
 } from '../../shared/animation-contract.js';
-import { resolveAnchorSeconds, type SceneTiming } from '../../shared/animation-evaluator.js';
+import { evaluateTrack, resolveAnchorSeconds, type SceneTiming } from '../../shared/animation-evaluator.js';
 import type { KeyframeView, TrackView } from './project/types.js';
 
 /**
@@ -261,6 +261,38 @@ function describeKeyframe(
   };
 }
 
+/**
+ * Valor de cada parámetro animado en un instante, para previsualizar en el
+ * lienzo. Usa `evaluateTrack`, el mismo evaluador que produce el render, así que
+ * la vista previa y el MP4 salen del mismo estado temporal.
+ *
+ * Una pista con algún keyframe sin resolver no se evalúa: se prefiere mostrar la
+ * base a mostrar un valor calculado con la mitad de los puntos.
+ */
+export function evaluateLanesAt(lanes: readonly AnimationLane[], timeSeconds: number): Record<string, number> {
+  const values: Record<string, number> = {};
+  for (const lane of lanes) {
+    if (lane.keyframes.length === 0) continue;
+    if (lane.keyframes.some((keyframe) => keyframe.seconds === null)) continue;
+    values[lane.parameterId] = evaluateTrack(
+      {
+        parameterId: lane.parameterId,
+        source: { kind: 'manual' },
+        keyframes: lane.keyframes.map((keyframe) => ({
+          id: keyframe.id,
+          anchor: keyframe.anchor,
+          seconds: keyframe.seconds as number,
+          frameIndex: keyframe.sceneFrameIndex ?? 0,
+          value: keyframe.value,
+          interpolation: keyframe.interpolation,
+        })),
+      },
+      timeSeconds,
+    );
+  }
+  return values;
+}
+
 /** Cuántas referencias de un elemento hay que revisar, para la insignia ⚠ n. */
 export function countAnchorsRequiringReview(
   elementId: string,
@@ -334,6 +366,80 @@ export function nearestAnchorFor(targetSeconds: number, timing: SceneTiming, fps
   }
   // `timing` siempre trae los dos bordes de escena, así que `best` nunca es null.
   return best as AnchorProposal;
+}
+
+/**
+ * Comandos para que un parámetro valga `value` en el cabezal, sin tocar la base.
+ *
+ * Es el corazón del modo animación del lienzo: con el modo encendido, mover el
+ * elemento crea o actualiza el keyframe del cabezal y nunca el transform base.
+ *
+ * Tres casos: si ya hay un keyframe en ese frame se le cambia el valor; si la
+ * pista existe se agrega uno; y si no existe la pista nace con la base al inicio
+ * de la escena y el valor nuevo en el cabezal, porque una pista de un solo
+ * keyframe no cumple el contrato.
+ */
+export function keyframeCommandsForValue(options: {
+  sceneId: string;
+  elementId: string;
+  parameterId: string;
+  value: number;
+  playheadSeconds: number;
+  lane: AnimationLane | null;
+  timing: SceneTiming;
+  fps: number;
+  baseValue: number;
+  takenKeyframeIds: readonly string[];
+}): Array<Record<string, unknown>> {
+  const { sceneId, elementId, parameterId, value, playheadSeconds, lane, timing, fps, baseValue } = options;
+  const target = clampParameterValue(parameterId, value);
+  const tolerance = 0.5 / fps;
+  const existing = lane?.keyframes.find(
+    (keyframe) => keyframe.seconds !== null && Math.abs(keyframe.seconds - playheadSeconds) <= tolerance,
+  ) ?? null;
+  if (existing) {
+    if (existing.value === target) return [];
+    return [{ type: 'set-keyframe', sceneId, elementId, parameterId, keyframeId: existing.id, value: target }];
+  }
+
+  const proposal = nearestAnchorFor(playheadSeconds, timing, fps);
+  const first = nextKeyframeId(parameterId, options.takenKeyframeIds);
+  if (lane) {
+    return [{
+      type: 'add-keyframe',
+      sceneId,
+      elementId,
+      parameterId,
+      keyframeId: first,
+      anchor: proposal.anchor,
+      offsetSeconds: proposal.offsetSeconds,
+      value: target,
+      interpolation: 'ease',
+    }];
+  }
+
+  const sceneStart: AnimationAnchor = { kind: 'scene', edge: 'start' };
+  // Si el cabezal cae justo sobre el inicio de la escena, los dos keyframes
+  // caerían en el mismo punto, que el contrato rechaza; se separan medio segundo.
+  const collides = proposal.anchor.kind === 'scene' && proposal.anchor.edge === 'start' && proposal.offsetSeconds === 0;
+  const second = nextKeyframeId(parameterId, [...options.takenKeyframeIds, first]);
+  return [{
+    type: 'create-track',
+    sceneId,
+    elementId,
+    parameterId,
+    source: { kind: 'manual' },
+    keyframes: [
+      { id: first, anchor: sceneStart, offsetSeconds: 0, value: clampParameterValue(parameterId, baseValue), interpolation: 'ease' },
+      {
+        id: second,
+        anchor: collides ? sceneStart : proposal.anchor,
+        offsetSeconds: collides ? 0.5 : proposal.offsetSeconds,
+        value: target,
+        interpolation: 'hold',
+      },
+    ],
+  }];
 }
 
 /** Id libre para un keyframe nuevo, único dentro del elemento. */

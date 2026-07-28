@@ -13,6 +13,7 @@ import { initProjectIdentity } from './project-identity.js';
 import { loadProjectStore, type ProjectStore } from './project/store.js';
 import { initSettingsModal, initTheme } from './theme.js';
 import { initSelectionMirror } from './selection-mirror.js';
+import { initAnimationMode } from './project/animation-mode.js';
 import { initTablists } from './tabs.js';
 import { initTimelineShell } from './timeline.js';
 import { initViewerWorkspace } from './viewer.js';
@@ -29,6 +30,7 @@ export function initShellUi(): void {
   initTablists();
   initCommandPalette();
   initSelectionMirror();
+  initAnimationMode();
   initCompositionZoom();
   initSettingsModal();
   initWorkspaceResize();
