@@ -24,10 +24,11 @@ abajo con el detalle; esto es el mapa.
 
 ### El próximo paso
 
-**El compositor headless de la Fase 3.** Es lo que desbloquea el resto: sin él,
-los dos recursos v3 siguen fuera de la biblioteca, `armRaise` no se puede probar
-con ningún personaje y la rotación tampoco se puede animar, porque el compositor
-de FFmpeg no rota la capa del personaje.
+**El checkpoint de la Fase 3, que es una decisión y no código.** El compositor
+headless ya compone rigs v3 y está medido: 0.211 s por frame en 1080×1920, unas
+2.4 veces más lento que el camino FFmpeg vigente, con ~870 MB de RAM. Falta
+decidir si se convierte en el predeterminado para rigs v3 y enchufarlo al
+pipeline; recién entonces los dos recursos v3 pueden entrar a la biblioteca.
 
 La Fase 4 está cerrada: se anima desde la interfaz, se previsualiza en el lienzo
 y **lo animado llega al MP4 por el mismo evaluador**, con la posición y la escala
@@ -35,15 +36,14 @@ como expresión continua y la opacidad por rangos de frames.
 
 ### Pendientes concretos, en orden de dependencia
 
-1. **Fase 3 — compositor headless.** Spike trabado en
-   `scripts/compositor/pixi-compositor.mjs`, con el síntoma exacto anotado en su
-   encabezado. Hasta que ande, los dos recursos v3 (`mono-articulado-azul-v1` y
-   `cartel-dato-v1`) no se pueden renderizar, y por eso siguen deliberadamente
-   fuera del catálogo de autoría y de la biblioteca. `armRaise` tampoco se puede
-   probar de verdad hasta entonces: ningún personaje v2 declara el parámetro.
-2. **Fase 3 — extraer el compositor FFmpeg** detrás del contrato, más frames
-   dorados, comparación por SSIM y doble ejecución. Exige re-verificar la salida
-   byte a byte del render v2, que necesita una corrida completa con Piper.
+1. **Fase 3 — enchufar el compositor al pipeline** después del checkpoint. Hasta
+   que eso pase, los dos recursos v3 (`mono-articulado-azul-v1` y
+   `cartel-dato-v1`) siguen deliberadamente fuera del catálogo de autoría y de la
+   biblioteca, y `armRaise` sigue sin ningún personaje que lo declare en una
+   escena renderizable.
+2. **Fase 3 — extraer el compositor FFmpeg** detrás del contrato. Exige
+   re-verificar la salida byte a byte del render v2, que necesita una corrida
+   completa con Piper.
 3. **Fase 5 — aplicar presets desde la biblioteca.** Desde el inspector ya se
    aplican; falta el gesto equivalente en la biblioteca de recursos.
 4. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
@@ -539,7 +539,8 @@ idénticos en dos ejecuciones.
 **Checkpoint de usuario:** revisar calidad, velocidad, consumo de RAM y
 equivalencia antes de cambiar el predeterminado para rigs v3.
 
-**Estado: PARCIAL al 27 de julio de 2026.** Hecho el contrato; el compositor no.
+**Estado: PARCIAL al 28 de julio de 2026.** El compositor headless funciona y
+está medido; falta la decisión del checkpoint y extraer el camino FFmpeg.
 
 Hecho:
 
@@ -549,21 +550,52 @@ Hecho:
   comprobaciones en `npm run compositor:test-contract`.
 - Decisión de motor, elegida por el usuario: Chrome headless corriendo el MISMO
   PixiJS que la vista previa, sin dependencias nativas nuevas.
+- **El compositor headless compone** (`npm run compositor:test-headless`, en la
+  suite central). Cuatro comprobaciones: formato del frame, doble ejecución con
+  PNG idénticos, `armRaise` moviendo la pieza articulada con recorrido monótono,
+  y comparación por SSIM contra los frames dorados de `pilots/compositor-v3/`.
+- Frames dorados versionados y regenerables con `npm run compositor:golden`.
+  La comparación es por SSIM con tolerancia (0.995), no por bytes: SwiftShader es
+  determinista dentro de una máquina y versión de navegador, pero entre máquinas
+  distintas no está garantizado.
+- `npm run compositor:benchmark` produce los números del checkpoint.
+
+**Los dos cuelgues que costaron encontrar**, anotados para no repetirlos:
+
+1. El diagnóstico anterior («se cuelga en `fetch('./job.json')`») era incorrecto.
+   La página recibía el plan y moría después, al primer uso del canvas, sin error
+   y sin traza. La causa era el flag `--default-background-color=00000000`:
+   aislando flag por flag con una página mínima se ve que con Chrome 151 ese flag
+   deja la página muerta. No hacía falta, porque los frames salen de leer el
+   canvas de Pixi —que ya tiene su propio alfa— y nunca se captura la ventana.
+2. Con el render ya funcionando, el proceso de Node no terminaba: el temporizador
+   del presupuesto no se cancelaba, y con el presupuesto por omisión son cuatro
+   segundos por frame, o sea más de quince minutos colgado después de haber
+   compuesto bien.
+
+**Medición del checkpoint** (Windows 11, Chrome 151 headless con SwiftShader,
+dos personajes v3 articulados en 1080×1920):
+
+| Métrica | Valor |
+| --- | --- |
+| 235 frames | 49.6 s |
+| Por frame | 0.211 s (4.74 fps) |
+| PNG generados | 46 MB |
+| RAM del navegador | ~870 MB sobre la línea base |
+| Comparación: camino FFmpeg vigente | 226 frames en ~21 s |
+
+O sea: **PixiJS headless es unas 2.4 veces más lento que el camino FFmpeg**, y a
+cambio dibuja rigs v3 articulados, que FFmpeg no puede componer. La decisión de
+cambiar el predeterminado es del checkpoint y no se tomó.
 
 Sin hacer:
 
-- El compositor headless quedó como spike que no funciona
-  (`scripts/compositor/pixi-compositor.mjs`). Se cuelga en `fetch('./job.json')`
-  desde la página, ya con PixiJS importado; el mismo GET responde bien desde Node,
-  así que el bloqueo es del navegador. Dos hipótesis para seguir: Chrome headless
-  suspendiendo la pestaña sin foco, y los POST de bitácora agotando el cupo de
-  conexiones por origen.
 - Extraer el compositor FFmpeg vigente detrás del contrato. Requiere re-verificar
   la salida byte a byte del render v2, que necesita una corrida completa con Piper.
-- Frames dorados, comparación visual por SSIM y doble ejecución: dependen de que
-  el compositor produzca frames.
-- El checkpoint de usuario sobre calidad, velocidad y RAM no se puede hacer
-  todavía porque no hay con qué medir.
+- Enchufar el compositor al pipeline de render. Hasta que eso pase, los dos
+  recursos v3 siguen fuera del catálogo de autoría y de la biblioteca: exponerlos
+  dejaría colocar en una escena algo que después no renderiza.
+- El checkpoint de usuario: los números están, la decisión no.
 
 ### Fase 4 — Edición visible completa
 

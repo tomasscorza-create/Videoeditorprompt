@@ -22,6 +22,7 @@ const commands = [
   'anim:test-evaluator',
   'anim:test-presets',
   'compositor:test-contract',
+  'compositor:test-headless',
   'director:test-plan',
   'director:test-context',
   'director:test-quality',

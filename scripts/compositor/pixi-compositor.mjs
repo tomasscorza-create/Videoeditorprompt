@@ -1,15 +1,17 @@
-// Fase 3 — compositor headless con PixiJS. TRABAJO SIN TERMINAR.
+// Fase 3 — compositor headless con PixiJS.
 //
-// ESTADO: no funciona todavía y no está enchufado a nada. Ningún comando de npm
-// lo usa y no entra en la suite. Se deja versionado porque el contrato, el
-// servidor y el diagnóstico ya son correctos y sirven de punto de partida.
+// ESTADO: funciona y está probado (`npm run compositor:test-headless`), pero
+// TODAVÍA NO ES EL PREDETERMINADO: el plan pide un checkpoint humano sobre
+// calidad, velocidad y RAM antes de cambiarlo. `npm run compositor:benchmark` da
+// esos números.
 //
-// SÍNTOMA EXACTO donde quedó: la página carga, importa PixiJS y registra
-// «modulo importado», y ahí se cuelga en `fetch('./job.json')`. El mismo servidor
-// responde ese GET en 200 sin problema cuando lo pide Node, así que el bloqueo es
-// del lado del navegador, no del servidor. Pistas para seguir: revisar si Chrome
-// headless suspende la pestaña que no está enfocada, y si los POST de bitácora
-// dejan conexiones abiertas que agotan el cupo por origen.
+// EL CUELGUE QUE COSTÓ ENCONTRAR, para no repetirlo: la página cargaba, importaba
+// PixiJS y se quedaba muerta apenas tocaba el canvas, sin error y sin traza. La
+// causa era el flag `--default-background-color=00000000` del navegador, no el
+// servidor ni el `fetch` ni PixiJS; aislando flag por flag con una página mínima
+// se ve que con ese flag Chrome 151 deja de responder al primer uso del canvas.
+// Tampoco hacía falta: los frames salen de leer el canvas de Pixi, que ya tiene
+// su propio alfa, y nunca se captura la ventana del navegador.
 //
 // Por qué así y no de otra forma:
 //
@@ -40,7 +42,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { projectRoot } from '../stage1/common.mjs';
+import { ensureDirectory, projectRoot } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
 import { resolveBrowserExecutable } from '../stage2f/rasterizer.mjs';
 
@@ -183,6 +185,9 @@ export async function composeFramesWithPixi({ video, frames, assetsRoot, framesD
     throw compositorError('COMPOSITOR_REQUEST_INVALID', 'El compositor necesita al menos un frame.', 'frames vacío', 'Verifique el plan temporal.');
   }
   const browserExecutable = resolveBrowserExecutable();
+  // El compositor es el que escribe los PNG, así que se hace cargo de su carpeta:
+  // un directorio que no existe no es un fallo del render.
+  ensureDirectory(framesDirectory);
   const browserProfile = mkdtempSync(path.join(tmpdir(), 'local-video-compositor-'));
   const job = {
     video,
@@ -195,6 +200,7 @@ export async function composeFramesWithPixi({ video, frames, assetsRoot, framesD
   const budget = timeoutMs ?? Math.max(60000, frames.length * 4000);
   const started = Date.now();
   let browser = null;
+  let budgetTimer = null;
 
   try {
     browser = spawn(browserExecutable, [
@@ -207,7 +213,11 @@ export async function composeFramesWithPixi({ video, frames, assetsRoot, framesD
       `--user-data-dir=${browserProfile}`,
       `--window-size=${video.width},${video.height}`,
       '--hide-scrollbars', '--force-device-scale-factor=1',
-      '--default-background-color=00000000',
+      // NO agregar `--default-background-color`: con Chrome 151 cuelga la página
+      // apenas empieza a usar el canvas, y el render se queda esperando sin decir
+      // por qué. Tampoco hace falta: los frames salen de leer el canvas de Pixi,
+      // que ya tiene su propio alfa por `backgroundAlpha: 0`, y nunca se captura
+      // la ventana del navegador.
       // WebGL por software: sin estos flags Chrome headless no da contexto y
       // PixiJS no arranca.
       '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
@@ -229,8 +239,12 @@ export async function composeFramesWithPixi({ video, frames, assetsRoot, framesD
       )));
       browser.once('error', (error) => reject(compositorError('COMPOSITOR_BROWSER_UNAVAILABLE', 'No se pudo lanzar el navegador.', String(error))));
     });
+    // El temporizador se guarda para cancelarlo al terminar. Si queda vivo, el
+    // bucle de eventos de Node no se vacía y el proceso sigue corriendo después
+    // de haber compuesto bien: con el presupuesto por omisión eso son cuatro
+    // segundos por frame, o sea más de quince minutos en una escena real.
     const timedOut = new Promise((resolve, reject) => {
-      setTimeout(() => reject(compositorError(
+      budgetTimer = setTimeout(() => reject(compositorError(
         'COMPOSITOR_TIMEOUT',
         'El compositor no terminó en el tiempo previsto.',
         `${frames.length} frames en más de ${budget} ms. Bitácora de la página: ${pageLog.join(' | ') || 'ninguna'}`,
@@ -256,7 +270,13 @@ export async function composeFramesWithPixi({ video, frames, assetsRoot, framesD
       seconds: (Date.now() - started) / 1000,
     };
   } finally {
+    if (budgetTimer !== null) clearTimeout(budgetTimer);
     server.close();
+    // `close()` deja de aceptar conexiones nuevas pero no corta las abiertas, y
+    // Chrome deja la suya viva por keep-alive: sin esto el socket mantiene el
+    // bucle de eventos y el proceso de Node no termina nunca, aunque el render
+    // haya salido bien.
+    server.closeAllConnections?.();
     if (browser && browser.exitCode === null) {
       browser.kill();
       // Windows mantiene tomados los archivos del perfil hasta que el proceso
