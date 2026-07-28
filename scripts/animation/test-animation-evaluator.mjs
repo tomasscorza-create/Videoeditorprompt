@@ -21,7 +21,7 @@ import {
   resolveAnimationScene,
 } from '../../shared/animation-evaluator.js';
 import { validateAnimationScene } from './animation-contract.mjs';
-import { applyOpacity } from '../stage1/export-dialogue.mjs';
+import { applyOpacity } from '../compositor/ffmpeg-compositor.mjs';
 
 const fixturesRoot = path.join(projectRoot, 'pilots', 'animacion-v1', 'fixtures');
 const scene = readJson(path.join(fixturesRoot, 'escena-v2-medida.json'));

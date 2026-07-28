@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { readFileSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { createFfmpegBackgroundExpressions, createFfmpegMotionExpressions, evaluateScene } from '../../shared/scene-evaluator.js';
+import { evaluateScene } from '../../shared/scene-evaluator.js';
 import { buildSceneTiming, resolveAnimationScene } from '../../shared/animation-evaluator.js';
+import { composeFramesWithFfmpeg } from '../compositor/ffmpeg-compositor.mjs';
 import { ensureDirectory, ffprobe, readJson, run, sha256, writeJson } from './common.mjs';
-import { resolveAsset } from './job-context.mjs';
 
 export function exportDialogueJob(context, config, options) {
   const report = options.report;
@@ -41,95 +41,28 @@ export function exportDialogueJob(context, config, options) {
     version: 2, jobId: context.jobId, renderId, temporalHash, frameCount, fps, frames: framePlan,
   });
 
-  const inputs = [];
-  const addAsset = (relativePath, name) => {
-    const index = inputs.length;
-    inputs.push(resolveAsset(context, relativePath, name));
-    return index;
-  };
-  const backgroundIndex = runtime.backgroundAnimation ? null : addAsset(runtime.assets.background, 'background');
-  const backgroundInputs = runtime.backgroundAnimation?.layers.map((layer) => ({
-    layer,
-    index: addAsset(layer.asset, `background/${layer.id}`),
-  })) || [];
-  const layerKeys = [
-    'body', 'eyesOpen', 'eyesClosed',
-    'mouthClosed', 'mouthMedium', 'mouthOpen', 'mouthRound', 'mouthLabiodental', 'mouthBilabial',
-    'handNeutral', 'handPoint', 'handCelebrate', 'handDoubt', 'handDeny',
-  ];
-  const characterInputs = runtime.characters.map((character) => ({
-    id: character.id,
-    indices: Object.fromEntries(layerKeys.map((key) => [key, addAsset(character.assets[key], `${character.id}/${key}`)])),
-    transform: character.transform,
-  }));
-  const subtitleInputs = dialogueData.turns.map((turn) => ({
-    turnId: turn.id,
-    index: inputs.push(generatedPath(turn.subtitlePath)) - 1,
-  }));
-  const enable = (predicate) => ranges(framePlan, predicate)
-    .map(([start, end]) => `between(n\\,${start}\\,${end})`).join('+') || '0';
-  const filters = [];
-  const scaledLabels = [];
+  // Fase 3: componer los PNG es responsabilidad del compositor, detrás de un
+  // contrato. Acá quedan las tres cosas que NO son composición: resolver el
+  // tiempo, encodear el video y medir el resultado.
+  const composition = composeFramesWithFfmpeg({
+    context,
+    config,
+    runtime,
+    dialogueData,
+    framePlan,
+    animation,
+    framesDirectory,
+    fps,
+    renderDuration,
+    frameCount,
+    generatedPath,
+    report,
+    renderId,
+  });
 
-  for (const [index, item] of characterInputs.entries()) {
-    const stateFor = (frame) => frame.characters.find((character) => character.id === item.id);
-    const prefix = `d${index}`;
-    filters.push(`[${item.indices.body}:v][${item.indices.eyesOpen}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).eyes === 'open')}'[${prefix}e1]`);
-    filters.push(`[${prefix}e1][${item.indices.eyesClosed}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).eyes === 'closed')}'[${prefix}e2]`);
-    filters.push(`[${prefix}e2][${item.indices.mouthClosed}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'closed')}'[${prefix}m1]`);
-    filters.push(`[${prefix}m1][${item.indices.mouthMedium}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'medium')}'[${prefix}m2]`);
-    filters.push(`[${prefix}m2][${item.indices.mouthOpen}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'open')}'[${prefix}m3]`);
-    filters.push(`[${prefix}m3][${item.indices.mouthRound}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'round')}'[${prefix}m4]`);
-    filters.push(`[${prefix}m4][${item.indices.mouthLabiodental}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'labiodental')}'[${prefix}m5]`);
-    filters.push(`[${prefix}m5][${item.indices.mouthBilabial}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).mouth === 'bilabial')}'[${prefix}m6]`);
-    filters.push(`[${prefix}m6][${item.indices.handNeutral}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'neutral')}'[${prefix}h1]`);
-    filters.push(`[${prefix}h1][${item.indices.handPoint}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'point')}'[${prefix}h2]`);
-    filters.push(`[${prefix}h2][${item.indices.handCelebrate}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'celebrate')}'[${prefix}h3]`);
-    filters.push(`[${prefix}h3][${item.indices.handDoubt}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'doubt')}'[${prefix}h4]`);
-    filters.push(`[${prefix}h4][${item.indices.handDeny}:v]overlay=0:0:format=auto:enable='${enable((frame) => stateFor(frame).gesture === 'deny')}'[${prefix}hands]`);
-    const animatedTracks = animation?.elements.find((element) => element.elementId === item.id)?.tracks ?? null;
-    const characterLabel = applyOpacity(filters, prefix, item.id, framePlan, animatedTracks, enable);
-    const motion = createFfmpegMotionExpressions(config, item.transform, dialogueData, item.id, animatedTracks);
-    filters.push(`[${characterLabel}]scale=w='${motion.scaleWidth}':h='${motion.scaleHeight}':eval=frame[${prefix}scaled]`);
-    scaledLabels.push({ label: `${prefix}scaled`, motion });
-  }
-
-  let sceneLabel;
-  if (runtime.backgroundAnimation) {
-    filters.push(`color=c=#071022:s=${config.video.width}x${config.video.height}:r=${fps}:d=${renderDuration}[bgbase]`);
-    sceneLabel = 'bgbase';
-    for (const [index, background] of backgroundInputs.entries()) {
-      const motion = createFfmpegBackgroundExpressions({ ...runtime, videoWidth: config.video.width, videoHeight: config.video.height }, background.layer);
-      filters.push(`[${background.index}:v]scale=w='${motion.scaleWidth}':h='${motion.scaleHeight}':eval=frame[bglayer${index}]`);
-      filters.push(`[${sceneLabel}][bglayer${index}]overlay=x='${motion.x}':y='${motion.y}':eval=frame:format=auto[bgscene${index}]`);
-      sceneLabel = `bgscene${index}`;
-    }
-  } else {
-    sceneLabel = `${backgroundIndex}:v`;
-  }
-  for (const [index, scaled] of scaledLabels.entries()) {
-    const output = `scene${index}`;
-    filters.push(`[${sceneLabel}][${scaled.label}]overlay=x='${scaled.motion.x}':y='${scaled.motion.y}':eval=frame:format=auto[${output}]`);
-    sceneLabel = output;
-  }
-  for (const [index, subtitle] of subtitleInputs.entries()) {
-    const output = `sub${index}`;
-    filters.push(`[${sceneLabel}][${subtitle.index}:v]overlay=0:0:format=auto:enable='${enable((frame) => frame.activeTurnId === subtitle.turnId)}'[${output}]`);
-    sceneLabel = output;
-  }
-  filters.push(`[${sceneLabel}]format=rgba[out]`);
-
-  const framePattern = path.join(framesDirectory, 'frame_%04d.png');
-  const started = performance.now();
-  report('rendering_frames', { stage: 'rendering_frames', renderId, frameCount, fps, contractVersion: 2 });
-  const framesStarted = performance.now();
-  const inputArgs = inputs.flatMap((file) => ['-loop', '1', '-framerate', String(fps), '-t', String(renderDuration), '-i', file]);
-  run('ffmpeg', [
-    '-hide_banner', '-loglevel', 'warning', '-y', ...inputArgs,
-    '-filter_complex', filters.join(';'), '-map', '[out]', '-frames:v', String(frameCount),
-    '-start_number', '0', framePattern,
-  ], { stage: 'rendering_frames', errorCode: 'FFMPEG_RENDER_EXIT_NONZERO' });
-  const frameGenerationSeconds = (performance.now() - framesStarted) / 1000;
+  const framePattern = composition.framePattern;
+  const started = performance.now() - composition.seconds * 1000;
+  const frameGenerationSeconds = composition.seconds;
   report('encoding', { stage: 'encoding', renderId, frameCount });
   const encodingStarted = performance.now();
   const videoFile = path.join(context.resultRoot, `${renderId}.mp4`);
@@ -139,12 +72,11 @@ export function exportDialogueJob(context, config, options) {
     '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-t', String(renderDuration), '-movflags', '+faststart', videoFile,
   ], { stage: 'encoding', errorCode: 'FFMPEG_ENCODE_EXIT_NONZERO' });
   const encodingSeconds = (performance.now() - encodingStarted) / 1000;
-  const frameFiles = readdirSync(framesDirectory).filter((name) => /^frame_\d{4}\.png$/.test(name)).sort();
   const frameHash = createHash('sha256');
-  for (const name of frameFiles) frameHash.update(readFileSync(path.join(framesDirectory, name)));
+  for (const file of composition.files) frameHash.update(readFileSync(file));
   const metrics = {
     version: 2, jobId: context.jobId, renderId, temporalHash, frameContentHash: frameHash.digest('hex'),
-    frameCount: frameFiles.length, fps, audioDurationSeconds: runtime.audio.durationSeconds,
+    frameCount: composition.frameCount, fps, audioDurationSeconds: runtime.audio.durationSeconds,
     renderDurationSeconds: renderDuration, frameGenerationSeconds, encodingSeconds,
     totalSeconds: (performance.now() - started) / 1000,
     output: `${renderId}.mp4`, outputBytes: statSync(videoFile).size, probe: ffprobe(videoFile),
@@ -188,55 +120,4 @@ function resolveSceneAnimation(config, dialogueData, durationSeconds) {
     })),
   };
   return resolveAnimationScene(document, buildSceneTiming(dialogueData, durationSeconds), config.video.fps);
-}
-
-// Pasos de alfa. Con 8 bits por canal, 1/64 deja un error máximo de 2 niveles de
-// 255: invisible, y acota cuántos filtros se encadenan por personaje.
-const OPACITY_LEVELS = 64;
-
-function quantizedOpacity(frame, characterId) {
-  const state = frame.characters.find((character) => character.id === characterId);
-  const value = Math.max(0, Math.min(1, state?.character.opacity ?? 1));
-  return Math.round(value * OPACITY_LEVELS);
-}
-
-/**
- * Opacidad del personaje sobre la cadena de filtros.
- *
- * Sin pista se conserva la entrada de siempre. Con pista, el valor sale del plan
- * de frames —que ya trae la pista evaluada— y se aplica por rangos de frames,
- * el mismo idioma con el que la escena ya enciende ojos, boca y gestos. Se hace
- * así porque `overlay` no acepta una expresión de alfa, y resolverlo por píxel
- * con `geq` costaría mil millones de evaluaciones por escena.
- */
-export function applyOpacity(filters, prefix, characterId, framePlan, animatedTracks, enable) {
-  const hasTrack = (animatedTracks ?? []).some((track) => track.parameterId === 'opacity');
-  if (!hasTrack) {
-    filters.push(`[${prefix}hands]fade=t=in:st=0:d=0.3:alpha=1[${prefix}character]`);
-    return `${prefix}character`;
-  }
-  const levels = [...new Set(framePlan.map((frame) => quantizedOpacity(frame, characterId)))]
-    .filter((level) => level < OPACITY_LEVELS)
-    .sort((left, right) => left - right);
-  let label = `${prefix}hands`;
-  for (const [index, level] of levels.entries()) {
-    const next = `${prefix}op${index}`;
-    const enabled = enable((frame) => quantizedOpacity(frame, characterId) === level);
-    filters.push(`[${label}]colorchannelmixer=aa=${(level / OPACITY_LEVELS).toFixed(4)}:enable='${enabled}'[${next}]`);
-    label = next;
-  }
-  return label;
-}
-
-function ranges(items, predicate) {
-  const result = [];
-  let start = null;
-  for (let index = 0; index < items.length; index += 1) {
-    if (predicate(items[index]) && start === null) start = index;
-    if ((!predicate(items[index]) || index === items.length - 1) && start !== null) {
-      result.push([start, predicate(items[index]) && index === items.length - 1 ? index : index - 1]);
-      start = null;
-    }
-  }
-  return result;
 }

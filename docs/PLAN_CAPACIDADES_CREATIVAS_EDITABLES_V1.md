@@ -41,9 +41,8 @@ como expresión continua y la opacidad por rangos de frames.
    `cartel-dato-v1`) siguen deliberadamente fuera del catálogo de autoría y de la
    biblioteca, y `armRaise` sigue sin ningún personaje que lo declare en una
    escena renderizable.
-2. **Fase 3 — extraer el compositor FFmpeg** detrás del contrato. Exige
-   re-verificar la salida byte a byte del render v2, que necesita una corrida
-   completa con Piper.
+2. **Fase 3 — comparar los dos compositores** sobre la misma escena v2. Decide si
+   se puede mezclar por escena dentro de un proyecto sin que se note el corte.
 3. **Fase 5 — aplicar presets desde la biblioteca.** Desde el inspector ya se
    aplican; falta el gesto equivalente en la biblioteca de recursos.
 4. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
@@ -588,10 +587,21 @@ O sea: **PixiJS headless es unas 2.4 veces más lento que el camino FFmpeg**, y 
 cambio dibuja rigs v3 articulados, que FFmpeg no puede componer. La decisión de
 cambiar el predeterminado es del checkpoint y no se tomó.
 
+- **El compositor FFmpeg vigente quedó detrás del contrato**
+  (`scripts/compositor/ffmpeg-compositor.mjs`), con la misma firma y la misma
+  forma de salida que el de PixiJS. No es código nuevo: es el mismo grafo de
+  filtros, movido tal cual. El exportador se quedó con lo que no es composición
+  —resolver el tiempo, encodear y medir— y pasó de 175 a 123 líneas.
+  **Comprobado byte a byte:** el mismo proyecto renderizado antes y después de la
+  extracción da MP4 idénticos, y también los `temporalHash` y los
+  `frameContentHash` de las dos escenas y de las dos pasadas.
+
 Sin hacer:
 
-- Extraer el compositor FFmpeg vigente detrás del contrato. Requiere re-verificar
-  la salida byte a byte del render v2, que necesita una corrida completa con Piper.
+- Comparar los dos compositores entre sí sobre la misma escena v2. Hace falta
+  antes de mezclarlos por escena: si no son equivalentes, un proyecto donde una
+  escena va por FFmpeg y la siguiente por PixiJS mostraría un salto en el corte,
+  porque los personajes v2 de la segunda escena los dibujaría el otro motor.
 - Enchufar el compositor al pipeline de render. Hasta que eso pase, los dos
   recursos v3 siguen fuera del catálogo de autoría y de la biblioteca: exponerlos
   dejaría colocar en una escena algo que después no renderiza.
