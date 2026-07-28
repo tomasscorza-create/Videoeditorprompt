@@ -1,9 +1,15 @@
 # Plan de acción — capacidades creativas editables V1
 
-Fecha: 27 de julio de 2026  
+Fecha: 27 de julio de 2026 · última actualización: 28 de julio de 2026  
 Estado: **en ejecución.** Ver «Estado de ejecución» abajo antes de retomar  
 Ámbito: aplicación local, motor, Editor, Creador, timeline y Director IA  
 Documento relacionado: `docs/PLAN_DE_ACCION_CREADOR_ELEMENTOS_2026-07-26.md`
+
+> **Para quien retoma:** la sección 0 alcanza para arrancar. Tiene el estado por
+> fase, el próximo paso, el mapa de archivos, los invariantes que no hay que
+> romper, las trampas que ya costaron caro, los comandos y las recetas de
+> verificación. El resto del documento es el plan original con el detalle de cada
+> fase, y solo hace falta para entender por qué algo está decidido como está.
 
 
 ## 0. Estado de ejecución y por dónde seguir
@@ -16,7 +22,7 @@ abajo con el detalle; esto es el mapa.
 | 0 · Contrato y prototipo | Hecha | `1a0d996` |
 | 1 · Creador y recurso v3 | Hecha | `8c54fd9`, `a947387`, `20dfbda` |
 | 2 · Evaluador paramétrico | Hecha | `94a3163` |
-| 3 · Compositor | **Parcial** | `e459a32` |
+| 3 · Compositor | **Parcial: los dos backends andan, falta elegir** | `e459a32`, `75d2a87`, `c424f63` |
 | 4 · Edición visible | **Hecha** | `5b83df4`, `e7a0364`, `c55ce80`, `45d1774`, `f31bcee`, `df543d8` |
 | 5 · Presets editables | Hecha salvo la biblioteca | `a709442`, `c55ce80`, `df543d8` |
 | 6 · Director IA | Sin empezar | — |
@@ -24,11 +30,27 @@ abajo con el detalle; esto es el mapa.
 
 ### El próximo paso
 
-**El checkpoint de la Fase 3, que es una decisión y no código.** El compositor
-headless ya compone rigs v3 y está medido: 0.211 s por frame en 1080×1920, unas
-2.4 veces más lento que el camino FFmpeg vigente, con ~870 MB de RAM. Falta
-decidir si se convierte en el predeterminado para rigs v3 y enchufarlo al
-pipeline; recién entonces los dos recursos v3 pueden entrar a la biblioteca.
+**Comparar los dos compositores sobre la misma escena v2 y sacar el SSIM.** Es un
+número que hace falta antes de decidir nada, y hoy no existe: PixiJS se comparó
+contra sus propios frames dorados, nunca contra FFmpeg.
+
+Por qué importa. Si se enruta por escena —PixiJS solo donde hay un recurso v3—,
+una escena con un prop v3 se va entera a PixiJS, **incluidos los personajes v2
+que también aparecen en la escena anterior**. El mismo mono dibujado por dos
+motores en escenas consecutivas del mismo video. Si los motores no son
+equivalentes, eso es un salto visible en el corte.
+
+Con ese número se elige entre tres caminos:
+
+- **Selectivo por escena** (lo que prescribe la sección 8: fallback explícito).
+  Solo viable si el SSIM entre compositores es alto.
+- **Selectivo por proyecto**: si alguna escena tiene v3, todo el proyecto va por
+  PixiJS. Elimina el salto a cambio de pagar 2.4× en todo el video.
+- **PixiJS predeterminado para todo.** Cambia el aspecto de los proyectos ya
+  renderizados si los motores difieren, así que exige el SSIM igual.
+
+Después de elegir: enchufarlo al pipeline y recién entonces exponer los dos
+recursos v3 en el catálogo y la biblioteca.
 
 La Fase 4 está cerrada: se anima desde la interfaz, se previsualiza en el lienzo
 y **lo animado llega al MP4 por el mismo evaluador**, con la posición y la escala
@@ -36,13 +58,14 @@ como expresión continua y la opacidad por rangos de frames.
 
 ### Pendientes concretos, en orden de dependencia
 
-1. **Fase 3 — enchufar el compositor al pipeline** después del checkpoint. Hasta
-   que eso pase, los dos recursos v3 (`mono-articulado-azul-v1` y
-   `cartel-dato-v1`) siguen deliberadamente fuera del catálogo de autoría y de la
-   biblioteca, y `armRaise` sigue sin ningún personaje que lo declare en una
-   escena renderizable.
-2. **Fase 3 — comparar los dos compositores** sobre la misma escena v2. Decide si
-   se puede mezclar por escena dentro de un proyecto sin que se note el corte.
+1. **Fase 3 — comparar los dos compositores** sobre la misma escena v2, por SSIM.
+   El paso previo, extraer el camino FFmpeg detrás del contrato, ya está hecho y
+   verificado byte a byte (`c424f63`).
+2. **Fase 3 — enchufar el compositor al pipeline** con el criterio que salga del
+   punto anterior. Hasta que eso pase, los dos recursos v3
+   (`mono-articulado-azul-v1` y `cartel-dato-v1`) siguen deliberadamente fuera del
+   catálogo de autoría y de la biblioteca, y `armRaise` sigue sin ningún personaje
+   que lo declare en una escena renderizable.
 3. **Fase 5 — aplicar presets desde la biblioteca.** Desde el inspector ya se
    aplican; falta el gesto equivalente en la biblioteca de recursos.
 4. **Fase 6 — Director.** Falta `remove-animation`, el resumen de capacidades por
@@ -82,6 +105,163 @@ como expresión continua y la opacidad por rangos de frames.
   filtros se encadenan; con el compositor de la Fase 3 deja de hacer falta.
 - El límite de 8 pistas por elemento es letra muerta mientras haya 6 parámetros y
   una sola pista por parámetro; el que muerde es el de 256 keyframes por escena.
+
+### Mapa de archivos: qué hace cada pieza
+
+Contrato y vocabulario (congelados en la Fase 0, nadie los reescribe):
+
+| Archivo | Qué es |
+| --- | --- |
+| `schema/animation-scene.schema.json` | Contrato de pistas y keyframes. `$id` = `https://local-video.invalid/schema/animation-scene-v1.json` |
+| `shared/animation-contract.js` | Vocabulario, límites, catálogo de errores, cuantización a frame, estado «requiere revisión». Puro: lo importan Node y el navegador |
+| `scripts/animation/animation-contract.mjs` | Validación contra el schema (necesita ajv, o sea Node). Reexporta todo lo de `shared/` |
+
+Motor temporal:
+
+| Archivo | Qué hace |
+| --- | --- |
+| `shared/animation-evaluator.js` | Resuelve anclas a segundos (`buildSceneTiming`, `resolveAnchorSeconds`, `resolveAnimationScene`) y evalúa pistas (`evaluateTrack`) |
+| `shared/animation-presets.js` | Los seis presets como DATO versionado y su expansión pura |
+| `shared/scene-evaluator.js` | Estado por frame (`evaluateScene`) y expresiones de FFmpeg (`createFfmpegMotionExpressions`, `createFfmpegTrackExpression`) |
+| `shared/project-editor.js` | Comandos de edición con undo/redo, incluidas las cinco de pistas y `apply-animation-preset` |
+| `shared/project-fingerprint.js` | `projectFingerprint` (todo el proyecto) y `projectTimingFingerprint` (solo lo que mueve un tiempo) |
+
+Render:
+
+| Archivo | Qué hace |
+| --- | --- |
+| `scripts/stage3a/compile-video-project.mjs` | Proyecto editable → `scene.config.json`. Copia las pistas y rechaza los parámetros que el compositor no lleva al MP4 (`RENDERABLE_PARAMETERS`) |
+| `scripts/stage1/export-dialogue.mjs` | Resuelve el tiempo, llama al compositor, encodea y mide. **Ya no compone** |
+| `scripts/compositor/ffmpeg-compositor.mjs` | Compositor vigente: overlays de FFmpeg. `composeFramesWithFfmpeg(...)` |
+| `scripts/compositor/pixi-compositor.mjs` | Compositor headless con PixiJS. `composeFramesWithPixi(...)`, misma forma de entrada y salida |
+| `shared/compositor-contract.js` | Recurso v3 + instancia → lista plana de sprites con su cadena de transformaciones |
+
+Interfaz (todo bajo `src/ui/`):
+
+| Archivo | Qué hace |
+| --- | --- |
+| `timeline-animation.ts` | Módulo PURO: pistas → filas dibujables, estado por keyframe, comandos del modo animación. Se prueba en `ui:test-modules` |
+| `timeline.ts` | Fila «Animación», diamantes, arrastre, menú y atajos |
+| `project/panel.ts` | Ficha de keyframe y bloque de animación por personaje |
+| `project/composition.ts` | Vista previa en el cabezal y modo animación del lienzo |
+| `project/animation-mode.ts` | Modo por elemento, derivado de la selección |
+| `editor-workspace.ts` | `measuredTimelineFor` (cuándo hay tiempo real) y `editorPlayhead` (el cabezal compartido) |
+
+### Invariantes que no hay que romper
+
+Cada uno está puesto ahí por una razón concreta; si un test falla por uno de
+estos, se revisa el cambio, no se afloja el test.
+
+1. **`BASELINE_TEMPORAL_HASH`** (`195bcd1b…`, en
+   `scripts/animation/test-animation-evaluator.mjs`) se capturó **antes** de
+   introducir la animación. Si falla, el plan temporal de una escena v2 cambió.
+2. **`evaluateScene` agrega la clave `elements` solo cuando recibe animación.**
+   Agregarla siempre cambiaría el `temporalHash` de todos los pilotos v2 sin que
+   nada haya cambiado de verdad.
+3. **Las pistas viajan en coordenadas de AUTORÍA** y se trasladan al espacio
+   centrado del runtime **una sola vez**, en `resolveSceneAnimation`
+   (`export-dialogue.mjs`). Si se traslada en el compilador además, se resta dos
+   veces media pantalla.
+4. **`createFfmpegTrackExpression` tiene que dar exactamente lo mismo que
+   `evaluateTrack`.** Hay una prueba que las compara por 120 muestras y hoy la
+   divergencia es **0**. No emitir `${to.value}-${from.value}` en la expresión:
+   con un valor negativo produce `--`, que JavaScript no parsea (FFmpeg sí). La
+   diferencia se precalcula en JS.
+5. **`RENDERABLE_PARAMETERS` vive en dos lados y tienen que coincidir:**
+   `scripts/stage3a/compile-video-project.mjs` (rechaza) y
+   `src/ui/timeline-animation.ts` (no ofrece). Hoy son `position.x`,
+   `position.y`, `scale` y `opacity`. Cuando el compositor de Pixi entre al
+   pipeline, `rotationDegrees` y `armRaise` se habilitan en los dos.
+6. **Medir y reproducir son cosas distintas.** `measuredTimelineFor` conserva la
+   medición mientras no cambie `projectTimingFingerprint`, aunque el MP4 esté
+   vencido; el transporte sigue exigiendo `currentEditorOutput()`. **No volver a
+   atar la medición al fingerprint completo**: sin esto no se puede editar un
+   keyframe dos veces seguidas, porque el primero lo saca de la regla.
+7. **Sin medición no se dibuja un diamante.** La fila dice cuántos keyframes hay
+   y que están pendientes de voz. Nunca una posición estimada por palabras.
+8. **`create-track` es atómico** y el último keyframe de una pista **siempre**
+   queda en `hold`. Una pista de un solo keyframe no cumple el contrato ni como
+   paso intermedio.
+9. **`scene-config-v2` referencia el contrato de animación por `$id`**, no lo
+   repite. Por eso `scripts/stage1/validate-scene-config.mjs` hace
+   `ajv.addSchema(readSchema('animation-scene.schema.json'))` antes de compilar.
+10. **Los dos compositores tienen la misma firma y la misma forma de salida**
+    (`{ backend, renderer, frameCount, files, framePattern, seconds }`). Es lo
+    que permite elegir uno u otro por escena sin tocar el exportador.
+11. **Los frames dorados se regeneran a mano**, con `npm run compositor:golden`.
+    Nunca automáticamente al fallar la comparación: eso convierte la prueba en un
+    espejo de lo que sea que el compositor esté haciendo hoy.
+12. **`pose_neutral.png` del mono articulado es byte a byte idéntico al del mono
+    v2** y `stage2f:test-resource` lo verifica. Si deja de coincidir, la
+    composición por piezas dejó de ser fiel.
+13. **Los dos recursos v3 están fuera del catálogo de autoría y de la
+    biblioteca a propósito.** El pipeline todavía no los renderiza; exponerlos
+    dejaría colocar en una escena algo que después no sale en el video.
+
+### Trampas que ya costaron caro
+
+- **`--default-background-color=00000000` cuelga Chrome 151.** La página muere al
+  primer uso del canvas, sin error y sin traza. No agregarlo de nuevo: los frames
+  salen de leer el canvas de Pixi, que ya tiene su propio alfa.
+- **El `setTimeout` del presupuesto del compositor hay que cancelarlo.** Si queda
+  vivo, Node no termina aunque el render haya salido bien: con el presupuesto por
+  omisión son cuatro segundos por frame, o sea quince minutos colgado.
+- **`chrome --headless=new <url>` sin trabajo termina al instante**, con código 0
+  y sin imprimir nada. Lo que lo mantiene vivo es el puerto de depuración.
+- **El `webSocketDebuggerUrl` de `/json/version` es el endpoint del navegador**,
+  no de una pestaña: contra él `Page.enable` no existe. Hay que crear el target y
+  hablar por `sessionId`. (El compositor actual no usa CDP y por eso lo evita.)
+- **El store reescribe `resourceCatalog`** de `assets/catalog/…` a
+  `assets/library/…` al abrir un proyecto, así que el fingerprint de un render
+  viejo nunca coincide con el del proyecto restaurado.
+
+### Comandos
+
+```bash
+npm test                          # 39 suites; la central
+npm run build                     # tsc + vite
+npm run anim:test-contract        # contrato de la Fase 0
+npm run anim:test-evaluator       # evaluador, paridad con la expresión de FFmpeg y opacidad
+npm run anim:test-presets         # los seis presets
+npm run stage3b:test-keyframes    # comandos de pista con undo/redo
+npm run stage3a:test-compiler     # las pistas llegan al runtime y se rechaza lo no renderizable
+npm run compositor:test-contract  # sprites y jerarquía de piezas
+npm run compositor:test-headless  # el compositor headless, contra frames dorados
+npm run ui:test-modules           # 218 comprobaciones de módulos puros de UI
+npm run compositor:golden         # regenerar frames dorados (a mano, a propósito)
+npm run compositor:benchmark      # números del checkpoint; acepta --frames=N
+```
+
+Render de punta a punta de un proyecto con animación (necesita Piper y FFmpeg):
+
+```bash
+node scripts/stage3a/project-pipeline.mjs --job-id=prueba-01 --project=pilots/animacion-render-01/project.json --assets-dir=public
+```
+
+### Recetas de verificación
+
+**Comprobar que un refactor del render no cambió nada.** Es la prueba que exige
+la sección 8 antes de tocar el compositor. Se rinde el mismo proyecto antes y
+después, y se comparan los MP4 de cada escena, los `temporalHash` y los
+`frameContentHash` de `export-metrics-{1,2}.json`, que están en
+`.local-video/work/<job-id>/scene-output/<escena>/`. Los dos MP4 de una misma
+escena (`render-1` y `render-2`) ya vienen comparados por el pipeline, que
+reporta `deterministic: true`.
+
+**Ver la interfaz en estado medido sin renderizar.** El fingerprint de un render
+viejo nunca coincide (ver «trampas»), así que hay que forzarlo:
+
+1. tomar `.local-video/app-input/<job>/project.json`, que es el proyecto exacto
+   que se renderizó;
+2. ponerle `resourceCatalog: 'assets/library/authoring-resources.json'` y pasarlo
+   por `repairMissingVoiceReferences`;
+3. calcular `projectFingerprint` de eso y escribirlo en `projectRevision` dentro
+   de `.local-video/app-jobs/<job>.json`;
+4. sembrar `localStorage['local-video.editor-session']` con
+   `{ version: 1, project, catalogRevision: 'x', lastJobId: '<job>', savedAt }`.
+
+Hacer copia del archivo del trabajo y del `localStorage` antes, y restaurarlos al
+terminar.
 
 ## 1. Decisión de producto
 
