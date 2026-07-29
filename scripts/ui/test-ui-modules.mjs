@@ -20,6 +20,7 @@ const sources = [
   'src/ui/timeline-animation.ts',
   'src/ui/director/api.ts',
   'src/ui/director/progress-copy.ts',
+  'src/ui/director/flow-guidance.ts',
   'src/ui/director/navigation.ts',
   'src/ui/notifications-queue.ts',
   'src/ui/director/quality-copy.ts',
@@ -96,6 +97,7 @@ const geometry = await import(pathToFileURL(geometryPath).href);
 const animation = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'timeline-animation.js')).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
 const directorProgress = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'progress-copy.js')).href);
+const directorFlow = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'flow-guidance.js')).href);
 const directorNavigation = await import(pathToFileURL(directorNavigationPath).href);
 const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'notifications-queue.js')).href);
 const qualityCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'quality-copy.js')).href);
@@ -252,6 +254,18 @@ check(
     && directorPanelSource.includes("label: 'Video actualizado'"),
 );
 check(
+  'el Director presenta el recorrido numerado y una siguiente acción',
+  appHtml.includes('id="director-next-step"')
+    && directorPanelSource.includes('director-step-number')
+    && directorPanelSource.includes('syncFlowGuidance'),
+);
+check(
+  'Render enumera sus requisitos sin reemplazar la validación del motor',
+  appHtml.includes('id="render-requirements"')
+    && directorPanelSource.includes('describeRenderRequirements')
+    && directorPanelSource.includes('store?.validate()'),
+);
+check(
   'la timeline solo transporta el render correspondiente a la edición actual',
   timelineSource.includes('currentEditorOutput()')
     && timelineSource.includes('el MP4 anterior quedó fuera del transporte'),
@@ -278,6 +292,78 @@ const unavailableProjectState = directorNavigation.updateDirectorNavigation(
   { type: 'project-availability-changed', available: false },
 );
 check('si deja de haber contenido vuelve a Idea', unavailableProjectState.page === 'command');
+
+// ---- director/flow-guidance.ts: siguiente acción y requisitos de U1 ----
+const baseFlow = {
+  mode: 'editing',
+  page: 'command',
+  projectAvailable: true,
+  validationError: null,
+  workspaceMode: 'editor',
+  healthChecked: true,
+  directorReady: true,
+  renderReady: true,
+  outputState: 'missing',
+  busyMode: null,
+};
+check(
+  'un proyecto válido sin MP4 orienta hacia Render',
+  directorFlow.describeDirectorFlow(baseFlow).action?.id === 'render',
+);
+check(
+  'los cambios posteriores al MP4 piden actualizarlo',
+  directorFlow.describeDirectorFlow({ ...baseFlow, outputState: 'stale' }).title === 'Actualizá el video',
+);
+check(
+  'un MP4 vigente cierra el recorrido sin CTA redundante',
+  directorFlow.describeDirectorFlow({ ...baseFlow, outputState: 'current' }).action === null,
+);
+const invalidFlow = directorFlow.describeDirectorFlow({
+  ...baseFlow,
+  page: 'render',
+  validationError: 'La escena 1 necesita dos turnos.',
+});
+check(
+  'un proyecto inválido lleva a la revisión y conserva el error concreto',
+  invalidFlow.action?.id === 'project' && invalidFlow.detail.includes('dos turnos'),
+);
+check(
+  'el modo Creador ofrece volver directamente al Editor',
+  directorFlow.describeDirectorFlow({ ...baseFlow, workspaceMode: 'creator' }).action?.id === 'editor',
+);
+check(
+  'sin contenido y sin Ollama el primer paso abre el diagnóstico',
+  directorFlow.describeDirectorFlow({
+    ...baseFlow,
+    mode: 'creation',
+    projectAvailable: false,
+    directorReady: false,
+  }).action?.id === 'health',
+);
+check(
+  'la generación IA en curso reemplaza la orientación por un estado temporal',
+  directorFlow.describeDirectorFlow({ ...baseFlow, busyMode: 'ai' }).eyebrow === 'En curso',
+);
+const renderRequirements = directorFlow.describeRenderRequirements(baseFlow);
+check(
+  'un proyecto renderizable completa los cuatro requisitos',
+  renderRequirements.length === 4 && renderRequirements.every((requirement) => requirement.state === 'complete'),
+);
+check(
+  'Piper pendiente no se presenta como fallo',
+  directorFlow.describeRenderRequirements({
+    ...baseFlow,
+    healthChecked: false,
+    renderReady: false,
+  }).find((requirement) => requirement.id === 'voice')?.state === 'pending',
+);
+check(
+  'Piper ausente bloquea solo el requisito de voces',
+  directorFlow.describeRenderRequirements({
+    ...baseFlow,
+    renderReady: false,
+  }).filter((requirement) => requirement.state === 'blocked').map((requirement) => requirement.id).join(',') === 'voice',
+);
 
 // ---- editor-workspace.ts: máquina de estados modo/superficie/vigencia ----
 const video = fakeVideo();

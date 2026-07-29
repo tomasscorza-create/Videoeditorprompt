@@ -11,7 +11,7 @@ import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
 import { projectSelection } from '../project/selection.js';
 import { showFinalVideo } from '../viewer.js';
-import { EDITOR_WORKSPACE_EVENT, editorOutputState, editorWorkspace } from '../editor-workspace.js';
+import { EDITOR_WORKSPACE_EVENT, editorOutputState, editorWorkspace, showWorkspaceMode } from '../editor-workspace.js';
 import { projectFingerprint, projectTimingFingerprint } from '../../../shared/project-fingerprint.js';
 import {
   cancelDirectorProposal,
@@ -33,6 +33,12 @@ import {
   type RenderJob,
 } from './api.js';
 import { describeDirectorProgress } from './progress-copy.js';
+import {
+  describeDirectorFlow,
+  describeRenderRequirements,
+  type DirectorFlowAction,
+  type DirectorFlowInput,
+} from './flow-guidance.js';
 import { compareCandidates, strongestCriterion } from './candidates-copy.js';
 import { summarizeHealth, type DependencyView } from './health-copy.js';
 import { summarizeQuality } from './quality-copy.js';
@@ -78,6 +84,11 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const constraintsRoot = required<HTMLElement>('#director-constraints');
   const proposalKind = required<HTMLElement>('#proposal-kind');
   const proposalTitle = required<HTMLInputElement>('#proposal-title');
+  const nextEyebrow = required<HTMLElement>('#director-next-eyebrow');
+  const nextTitle = required<HTMLElement>('#director-next-title');
+  const nextDetail = required<HTMLElement>('#director-next-detail');
+  const nextAction = required<HTMLButtonElement>('#director-next-action');
+  const renderRequirements = required<HTMLUListElement>('#render-requirements');
   const pageTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-director-page]'));
   const pagePanels = new Map<DirectorPage, HTMLElement>(
     DIRECTOR_PAGES.map((page) => [page, required<HTMLElement>(`#director-page-${page}`)] as [DirectorPage, HTMLElement]),
@@ -113,6 +124,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     }
   });
   refreshJobs.addEventListener('click', () => void refreshGallery(false));
+  nextAction.addEventListener('click', () => {
+    const action = nextAction.dataset.flowAction;
+    if (isDirectorFlowAction(action)) runFlowAction(action);
+  });
   // C5: el render sigue visible aunque el panel esté colapsado o en otra página.
   renderIndicator.addEventListener('click', () => {
     transitionNavigation({ type: 'render-opened' });
@@ -314,10 +329,16 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   }
 
   function syncPageNavigation(): void {
-    for (const descriptor of describeDirectorPages(navigation)) {
+    for (const [index, descriptor] of describeDirectorPages(navigation).entries()) {
       const tab = pageTabs.find((candidate) => candidate.dataset.directorPage === descriptor.page);
       if (tab) {
-        tab.textContent = descriptor.label;
+        const number = document.createElement('span');
+        number.className = 'director-step-number';
+        number.textContent = String(index + 1);
+        const label = document.createElement('span');
+        label.textContent = descriptor.label;
+        tab.replaceChildren(number, label);
+        tab.setAttribute('aria-label', `Paso ${index + 1}: ${descriptor.label}`);
         tab.disabled = !descriptor.enabled;
         tab.classList.toggle('is-active', descriptor.selected);
         tab.setAttribute('aria-selected', String(descriptor.selected));
@@ -326,6 +347,65 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       const panel = pagePanels.get(descriptor.page);
       if (panel) panel.hidden = !descriptor.selected;
     }
+    syncFlowGuidance();
+  }
+
+  function flowInput(): DirectorFlowInput {
+    return {
+      mode: navigation.mode,
+      page: navigation.page,
+      projectAvailable: hasAuthoredContent(store),
+      validationError: store?.validate() ?? null,
+      workspaceMode: editorWorkspace().mode,
+      healthChecked,
+      directorReady: readyForProposal,
+      renderReady: readyForRender,
+      outputState: editorOutputState(),
+      busyMode,
+    };
+  }
+
+  function syncFlowGuidance(): void {
+    const input = flowInput();
+    const guidance = describeDirectorFlow(input);
+    nextEyebrow.textContent = guidance.eyebrow;
+    nextTitle.textContent = guidance.title;
+    nextDetail.textContent = guidance.detail;
+    nextAction.hidden = guidance.action === null;
+    nextAction.textContent = guidance.action?.label ?? '';
+    nextAction.dataset.flowAction = guidance.action?.id ?? '';
+
+    renderRequirements.replaceChildren(...describeRenderRequirements(input).map((requirement) => {
+      const item = document.createElement('li');
+      item.className = `render-requirement is-${requirement.state}`;
+      const marker = document.createElement('span');
+      marker.className = 'render-requirement-marker';
+      marker.setAttribute('aria-hidden', 'true');
+      marker.textContent = requirement.state === 'complete' ? '✓' : requirement.state === 'pending' ? '…' : '!';
+      const copy = document.createElement('span');
+      const label = document.createElement('strong');
+      label.textContent = requirement.label;
+      const detail = document.createElement('span');
+      detail.textContent = requirement.detail;
+      copy.append(label, detail);
+      item.append(marker, copy);
+      return item;
+    }));
+  }
+
+  function runFlowAction(action: DirectorFlowAction): void {
+    if (action === 'editor') {
+      showWorkspaceMode('editor');
+      return;
+    }
+    if (action === 'health') {
+      void refreshHealth();
+      toggleHealthPopover(true);
+      healthBadge.focus();
+      return;
+    }
+    transitionNavigation({ type: 'select-page', page: action });
+    if (action === 'command') prompt.focus();
   }
 
   function readConstraints(): DirectorConstraints {
@@ -356,7 +436,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       renderHealthPopover(summary.dependencies, summary.modelIdentity);
       if (status.textContent === 'Comprobando el servicio local…') {
         report(readyForProposal
-          ? readyForRender ? 'Listo para crear una propuesta o renderizar.' : 'Director listo; falta Piper para renderizar.'
+          ? readyForRender ? 'Servicios locales listos.' : 'Director listo; falta Piper para renderizar.'
           : 'Ollama no está listo para crear propuestas.', readyForProposal);
       }
       syncButtons();
@@ -843,6 +923,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     renderTab?.classList.toggle('has-current-render', renderState.kind === 'current');
     if (renderTab) renderTab.title = renderState.message;
     cancel.disabled = busyMode === 'ai' ? proposalController === null : busyMode === 'render' ? currentJobId === null : true;
+    syncFlowGuidance();
   }
 
   function describeRenderAvailability(): {
@@ -959,6 +1040,10 @@ function hasAuthoredContent(store: ProjectStore | null): boolean {
 
 function isDirectorPage(value: string | undefined): value is DirectorPage {
   return DIRECTOR_PAGES.includes(value as DirectorPage);
+}
+
+function isDirectorFlowAction(value: string | undefined): value is DirectorFlowAction {
+  return ['command', 'project', 'render', 'editor', 'health'].includes(value ?? '');
 }
 
 /** Placeholder de carga: barras que ocupan el lugar del contenido real. */

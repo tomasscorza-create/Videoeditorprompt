@@ -155,6 +155,15 @@
               <button id="director-page-render-tab" class="tab" data-director-page="render" type="button" role="tab" aria-selected="false" aria-controls="director-page-render">Render</button>
             </div>
 
+            <section id="director-next-step" class="director-next-step" aria-label="Siguiente paso">
+              <div>
+                <span id="director-next-eyebrow" class="eyebrow">Comprobando</span>
+                <strong id="director-next-title">Preparando el recorrido</strong>
+              </div>
+              <p id="director-next-detail">Estamos revisando el proyecto y las herramientas locales.</p>
+              <button id="director-next-action" class="text-button" type="button" hidden>Continuar</button>
+            </section>
+
             <div class="status-block director-global-status">
               <span class="director-activity" aria-hidden="true"><span></span><span></span><span></span></span>
               <p id="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
@@ -252,6 +261,7 @@
                   <h2 id="render-title">Video final</h2>
                 </div>
               </header>
+              <ul id="render-requirements" class="render-requirements" aria-label="Requisitos para renderizar"></ul>
               <p id="render-readiness" class="render-readiness" role="status" aria-live="polite">Comprobando si el proyecto está listo para renderizar.</p>
               <div class="action-row director-primary-action">
                 <button id="director-render" class="primary-button" type="button" disabled>Renderizar video</button>
