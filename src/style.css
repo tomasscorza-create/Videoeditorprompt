@@ -792,6 +792,49 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 
 .director-column > section { padding: .72rem; }
 .editor-column > section { padding: 1rem; }
+.editor-column > .right-panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .7rem;
+  padding: .72rem 1rem .62rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(14px);
+}
+.right-panel-header .section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.right-panel-tabs {
+  display: flex;
+  align-items: baseline;
+  gap: .35rem;
+  min-width: 0;
+}
+.right-panel-tab {
+  min-height: auto;
+  border: 0;
+  padding: .18rem .08rem;
+  color: var(--muted);
+  background: transparent;
+  font-size: var(--fs-lg);
+  font-weight: 760;
+}
+.right-panel-tab:hover,
+.right-panel-tab.is-active {
+  color: var(--text);
+  background: transparent;
+}
+.right-panel-tab.is-active { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: .28rem; }
+.right-panel-tab:focus-visible { outline-offset: .18rem; }
+.right-panel-divider { color: var(--muted); font-size: var(--fs-lg); }
+.right-panel-page[hidden] { display: none; }
+.editor-column > .right-panel-page + .right-panel-page { border-top: 0; border-left: 0; }
 .file-primary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; padding-bottom: .75rem; margin-bottom: .75rem; border-bottom: 1px solid var(--border); }
 .file-primary-actions button { display: grid; gap: .15rem; text-align: left; padding: .65rem; }
 .file-primary-actions button span { color: var(--muted); font-size: var(--fs-xs); }
@@ -1485,6 +1528,47 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .resource-filter input { padding: .4rem .55rem; font-size: var(--fs-sm); }
 .resource-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
 .resource-list > .text-button { grid-column: 1 / -1; justify-self: start; }
+.editing-command-panel { display: grid; align-content: start; gap: .8rem; }
+.editing-command-header { display: grid; gap: .22rem; }
+.editing-command-header h2,
+.editing-command-header p { margin: 0; }
+.editing-command-header h2 { font-size: var(--fs-lg); }
+.editing-command-header p { color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
+.editing-selection-context {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr);
+  align-items: start;
+  gap: .55rem;
+  padding: .65rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-2));
+}
+.editing-context-marker {
+  display: inline-grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: .42rem;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight: 800;
+}
+.editing-selection-context h3,
+.editing-selection-context p { margin: 0; }
+.editing-selection-context h3 { font-size: var(--fs-md); }
+.editing-selection-context p { margin-top: .14rem; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
+.editing-tool-host {
+  min-height: 8rem;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  text-align: center;
+}
+.editing-tool-host .empty-state { max-width: 25rem; margin: 0; }
 .resource-card {
   display: grid;
   gap: .35rem;
@@ -2362,7 +2446,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   .workspace-resizer, .timeline-resizer, .side-banner { display: none; }
   .workspace { grid-template-columns: minmax(16rem, .8fr) minmax(23rem, 1.2fr); margin-inline: 0; overflow: visible; }
   .professional-timeline { margin-inline: .75rem; }
-  .editor-column { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(18rem, .7fr) minmax(24rem, 1.3fr); }
+  .editor-column { grid-column: 1 / -1; display: block; }
   .editor-column > section + section { border-top: 0; border-left: 1px solid var(--border); }
   .viewer-column { min-height: 44rem; }
   .professional-timeline { height: auto; min-height: 10.5rem; }

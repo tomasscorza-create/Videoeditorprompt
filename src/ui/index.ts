@@ -18,6 +18,7 @@ import { initTablists } from './tabs.js';
 import { initTimelineShell } from './timeline.js';
 import { initViewerWorkspace } from './viewer.js';
 import { initCharacterCreator } from './character-creator.js';
+import { initRightPanel } from './right-panel.js';
 import { initProjectFiles } from './project/files.js';
 import { setActiveEditorProject, syncActiveEditorProject } from './editor-workspace.js';
 import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
@@ -28,6 +29,7 @@ export { renderJobGallery } from './gallery.js';
 export function initShellUi(): void {
   initTheme();
   initTablists();
+  initRightPanel();
   initCommandPalette();
   initSelectionMirror();
   initAnimationMode();

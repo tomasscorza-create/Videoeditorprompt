@@ -15,6 +15,7 @@ const tsc = path.join(projectRoot, 'node_modules', 'typescript', 'bin', 'tsc');
 const sources = [
   'src/vite-env.d.ts',
   'src/ui/editor-workspace.ts',
+  'src/ui/right-panel.ts',
   'src/ui/project/store.ts',
   'src/ui/timeline-geometry.ts',
   'src/ui/timeline-animation.ts',
@@ -57,8 +58,10 @@ for (const name of ['project-editor.js', 'animation-contract.js', 'animation-pre
 }
 
 const workspacePath = path.join(outDir, 'src', 'ui', 'editor-workspace.js');
+const rightPanelPath = path.join(outDir, 'src', 'ui', 'right-panel.js');
 const storePath = path.join(outDir, 'src', 'ui', 'project', 'store.js');
 assert.equal(existsSync(workspacePath), true, 'editor-workspace.js no se compiló');
+assert.equal(existsSync(rightPanelPath), true, 'right-panel.js no se compiló');
 assert.equal(existsSync(storePath), true, 'store.js no se compiló');
 
 // Stubs mínimos de DOM para editor-workspace (solo despacha CustomEvent sobre window).
@@ -92,6 +95,7 @@ assert.equal(existsSync(apiPath), true, 'director/api.js no se compiló');
 assert.equal(existsSync(directorNavigationPath), true, 'director/navigation.js no se compiló');
 
 const workspace = await import(pathToFileURL(workspacePath).href);
+const rightPanel = await import(pathToFileURL(rightPanelPath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
 const animation = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'timeline-animation.js')).href);
@@ -159,6 +163,48 @@ const appHtml = readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
 const projectPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'panel.ts'), 'utf8');
 const directorPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'panel.ts'), 'utf8');
 const timelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'timeline.ts'), 'utf8');
+check(
+  'el panel derecho ofrece Recursos y Edición como páginas hermanas',
+  appHtml.includes('id="right-panel-resources-tab"')
+    && appHtml.includes('id="right-panel-editing-tab"')
+    && appHtml.includes('id="right-panel-resources"')
+    && appHtml.includes('id="right-panel-editing"'),
+);
+check(
+  'la cabecera elimina Catálogo local y conserva Recursos',
+  !appHtml.includes('Catálogo local')
+    && appHtml.includes('data-right-panel-page="resources"')
+    && appHtml.includes('data-right-panel-page="editing"'),
+);
+check(
+  'Edición expone un host único para herramientas contextuales futuras',
+  appHtml.includes('id="editing-selection-context"')
+    && appHtml.includes('id="editing-tool-host"')
+    && appHtml.includes('data-editing-host="selection-tools"'),
+);
+check(
+  'sin selección el panel de edición orienta sin mostrar controles ficticios',
+  rightPanel.describeEditingSelection(null).kind === 'none'
+    && rightPanel.describeEditingSelection(null).title === 'Sin selección',
+);
+check(
+  'un elemento prepara transformación, animación y apariencia',
+  rightPanel.describeEditingSelection({
+    kind: 'element',
+    sceneId: 'scene-1',
+    elementId: 'element-1',
+  }).detail.includes('transformación, animación y apariencia'),
+);
+check(
+  'un keyframe prepara valor, ancla e interpolación',
+  rightPanel.describeEditingSelection({
+    kind: 'keyframe',
+    sceneId: 'scene-1',
+    elementId: 'element-1',
+    parameterId: 'opacity',
+    keyframeId: 'keyframe-1',
+  }).detail.includes('valor, ancla, interpolación'),
+);
 check(
   'el Director expone un único control contextual de cancelación',
   (appHtml.match(/id="director-cancel"/g) ?? []).length === 1 && !appHtml.includes('director-proposal-cancel'),

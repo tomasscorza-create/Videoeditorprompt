@@ -14,6 +14,7 @@ import {
 import type { ProjectStore } from './store.js';
 import type { ResourceEntry, ResourceType } from './types.js';
 import { PROJECT_SELECTION_EVENT, projectSelection } from './selection.js';
+import { showRightPanelPage } from '../right-panel.js';
 
 type LibraryType = Extract<ResourceType, 'character' | 'prop' | 'background' | 'voice'>;
 const ACTIVE_LIBRARY_TAB_KEY = 'local-video.library-active-tab';
@@ -22,6 +23,7 @@ const ACTIVE_LIBRARY_TAB_KEY = 'local-video.library-active-tab';
 export const REVEAL_RESOURCE_EVENT = 'local-video:reveal-resource';
 
 export function revealResource(resourceId: string): void {
+  showRightPanelPage('resources');
   window.dispatchEvent(new CustomEvent<string>(REVEAL_RESOURCE_EVENT, { detail: resourceId }));
 }
 

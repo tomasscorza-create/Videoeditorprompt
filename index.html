@@ -361,19 +361,22 @@
           tabindex="0"
         ></div>
 
-        <aside class="workspace-panel editor-column" aria-label="Recursos e inspector">
-          <section id="resource-library" class="resource-library" aria-labelledby="library-title">
-            <header class="section-header compact">
-              <div>
-                <span class="eyebrow">Catálogo local</span>
-                <h2 id="library-title">Recursos</h2>
-              </div>
-              <div class="section-header-actions">
-                <button id="resource-register" class="text-button" type="button">Agregar fondo</button>
-                <button id="inspector-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel derecho" title="Ocultar panel"><svg class="icon" aria-hidden="true"><use href="#ui-icon-chevron-right"/></svg></button>
-              </div>
-              <input id="resource-register-file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
-            </header>
+        <aside class="workspace-panel editor-column" aria-label="Recursos y edición">
+          <header class="right-panel-header">
+            <div class="right-panel-tabs" role="tablist" aria-label="Páginas del panel derecho">
+              <button id="right-panel-resources-tab" class="right-panel-tab is-active" data-right-panel-page="resources" type="button" role="tab" aria-selected="true" aria-controls="right-panel-resources">Recursos</button>
+              <span class="right-panel-divider" aria-hidden="true">/</span>
+              <button id="right-panel-editing-tab" class="right-panel-tab" data-right-panel-page="editing" type="button" role="tab" aria-selected="false" aria-controls="right-panel-editing">Edición</button>
+            </div>
+            <div class="section-header-actions">
+              <button id="resource-register" class="text-button" type="button">Agregar fondo</button>
+              <button id="inspector-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel derecho" title="Ocultar panel"><svg class="icon" aria-hidden="true"><use href="#ui-icon-chevron-right"/></svg></button>
+            </div>
+            <input id="resource-register-file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
+          </header>
+
+          <section id="right-panel-resources" class="right-panel-page" role="tabpanel" aria-labelledby="right-panel-resources-tab">
+          <section id="resource-library" class="resource-library" aria-label="Biblioteca de recursos">
             <p id="resource-library-status" class="muted" role="status" aria-live="polite"></p>
             <div class="resource-tabs tabs" data-variant="ghost" role="tablist" aria-label="Tipos de recursos">
               <button class="tab is-active" data-resource-type="character" type="button" role="tab" aria-selected="true" aria-controls="resource-list">Personajes</button>
@@ -482,6 +485,31 @@
             </section>
             <button id="character-save" class="primary-button full-button" type="button">Guardar en la biblioteca</button>
             <p id="character-creator-status" class="muted" role="status" aria-live="polite"></p>
+          </section>
+          </section>
+
+          <section id="right-panel-editing" class="right-panel-page editing-command-panel" role="tabpanel" aria-labelledby="right-panel-editing-tab" hidden>
+            <header class="editing-command-header">
+              <span class="eyebrow">Panel de mando</span>
+              <h2>Edición manual</h2>
+              <p>Las herramientas disponibles aparecerán según lo que selecciones en el visor o la timeline.</p>
+            </header>
+            <section id="editing-selection-context" class="editing-selection-context" aria-labelledby="editing-selection-title">
+              <span class="editing-context-marker" aria-hidden="true">◇</span>
+              <div>
+                <h3 id="editing-selection-title">Sin selección</h3>
+                <p id="editing-selection-detail">Seleccioná una escena, elemento, diálogo o keyframe para comenzar.</p>
+              </div>
+            </section>
+            <div
+              id="editing-tool-host"
+              class="editing-tool-host"
+              data-editing-host="selection-tools"
+              data-selection-kind="none"
+              aria-live="polite"
+            >
+              <p class="empty-state">Este espacio alojará herramientas compatibles con la selección actual.</p>
+            </div>
           </section>
 
         </aside>

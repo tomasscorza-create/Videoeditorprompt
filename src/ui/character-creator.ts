@@ -15,6 +15,7 @@ import {
 } from '../../shared/character-design-presets.js';
 import { shapeAttributes } from '../../shared/shape-renderer.js';
 import { optional } from './dom.js';
+import { showRightPanelPage } from './right-panel.js';
 import { EDITOR_WORKSPACE_EVENT, editorWorkspace } from './editor-workspace.js';
 import {
   listCharacterDesigns,
@@ -85,6 +86,7 @@ export function initCharacterCreator(): void {
 }
 
 async function openCreator(): Promise<void> {
+  showRightPanelPage('resources');
   optional<HTMLDetailsElement>('#create-menu')?.removeAttribute('open');
   setStatus('Cargando plantilla y diseños…', false);
   try {
