@@ -7,6 +7,7 @@ import {
   editorOutputState,
   editorWorkspace,
   measuredTimelineFor,
+  playableEditorOutput,
   seekEditorPlayback,
   setEditorPlayhead,
   showEditorCanvas,
@@ -1605,7 +1606,7 @@ function handleShortcut(event: KeyboardEvent): void {
     }
   }
   if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
-  const hasOutput = Boolean(currentEditorOutput());
+  const hasOutput = Boolean(playableEditorOutput());
   if (event.code === 'Space' && hasOutput) {
     event.preventDefault();
     togglePlayback();
@@ -1666,7 +1667,7 @@ function updateToolbar(): void {
   const measured = isMeasured();
   const creator = editorWorkspace().mode === 'creator';
   const hasNavigation = !creator && Boolean(store?.project().scenes.length);
-  const hasOutput = !creator && Boolean(currentEditorOutput());
+  const hasOutput = !creator && Boolean(playableEditorOutput());
   const undo = optional<HTMLButtonElement>('#timeline-undo');
   const redo = optional<HTMLButtonElement>('#timeline-redo');
   const play = optional<HTMLButtonElement>('#timeline-play');

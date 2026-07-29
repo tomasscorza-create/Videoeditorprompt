@@ -131,6 +131,11 @@ check(
   fingerprint.projectFingerprint({ id: 'a', scenes: [] }) === fingerprint.projectFingerprint({ id: 'a', scenes: [] })
     && fingerprint.projectFingerprint({ id: 'a', scenes: [] }) !== fingerprint.projectFingerprint({ id: 'b', scenes: [] }),
 );
+check(
+  'la revisión visual sobrevive al reordenamiento de claves de PostgreSQL',
+  fingerprint.projectFingerprint({ id: 'a', video: { width: 1080, fps: 30 }, scenes: [] })
+    === fingerprint.projectFingerprint({ scenes: [], video: { fps: 30, width: 1080 }, id: 'a' }),
+);
 
 // ---- project-fingerprint.js: revisión de tiempo aparte de la visual (Fase 4) ----
 {
@@ -475,8 +480,9 @@ check(
     && directorPanelSource.includes('store?.validate()'),
 );
 check(
-  'la timeline solo transporta el render correspondiente a la edición actual',
+  'la timeline distingue el render vigente del histórico abierto explícitamente',
   timelineSource.includes('currentEditorOutput()')
+    && timelineSource.includes('playableEditorOutput()')
     && timelineSource.includes('el MP4 anterior quedó fuera del transporte'),
 );
 
@@ -618,6 +624,22 @@ workspace.registerRenderedOutput({
 });
 workspace.setActiveEditorProject('proyecto-2', 'snapshot-otro');
 check('cambiar de proyecto activo vence la salida', workspace.editorWorkspace().output.stale === true);
+
+workspace.registerRenderedOutput({
+  projectId: 'proyecto-historico',
+  url: 'blob:video-historico',
+  downloadName: 'historico.mp4',
+  timeline: null,
+  projectRevision: 'snapshot-historico',
+  current: false,
+  reveal: true,
+});
+await workspace.toggleEditorPlayback();
+check(
+  'un render histórico abierto explícitamente responde al botón Play',
+  workspace.editorWorkspace().surface === 'playback' && video.paused === false,
+);
+video.pause();
 
 workspace.showWorkspaceMode('creator');
 snap = workspace.editorWorkspace();

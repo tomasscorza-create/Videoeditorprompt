@@ -162,6 +162,15 @@ export function currentEditorOutput(): RenderedOutput | null {
 }
 
 /**
+ * Salida que el usuario puede reproducir. Un render histórico solo entra acá
+ * cuando ya fue abierto explícitamente en el visor; no vuelve vigente la
+ * timeline ni se mezcla con la edición actual.
+ */
+export function playableEditorOutput(): RenderedOutput | null {
+  return output && (editorOutputState() === 'current' || surface === 'playback') ? output : null;
+}
+
+/**
  * Medición vigente que se corresponde con la estructura de escenas indicada, o
  * null.
  *
@@ -265,7 +274,7 @@ export async function showRenderedPlayback(): Promise<void> {
 }
 
 export async function toggleEditorPlayback(): Promise<void> {
-  if (!media || !currentEditorOutput()) return;
+  if (!media || !playableEditorOutput()) return;
   if (surface !== 'playback') {
     await showRenderedPlayback();
     return;
@@ -281,7 +290,7 @@ export function seekEditorPlayback(timeSeconds: number): void {
 }
 
 export function toggleEditorMute(): void {
-  if (!media || !currentEditorOutput()) return;
+  if (!media || !playableEditorOutput()) return;
   media.muted = !media.muted;
   notify();
 }

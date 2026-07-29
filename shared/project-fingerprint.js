@@ -3,7 +3,7 @@ const FNV_PRIME_64 = 0x100000001b3n;
 const UINT64_MASK = 0xffffffffffffffffn;
 
 function fnv1aOfJson(value) {
-  const text = JSON.stringify(value);
+  const text = JSON.stringify(canonicalizeJson(value));
   let hash = FNV_OFFSET_64;
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
@@ -13,6 +13,19 @@ function fnv1aOfJson(value) {
     hash = (hash * FNV_PRIME_64) & UINT64_MASK;
   }
   return `${hash.toString(16).padStart(16, '0')}-${text.length}`;
+}
+
+/**
+ * PostgreSQL JSONB y otros backends pueden devolver las claves de un objeto en
+ * otro orden. La revisión representa el contenido del proyecto, no el orden de
+ * serialización incidental con el que llegó al navegador.
+ */
+function canonicalizeJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, canonicalizeJson(value[key])]),
+  );
 }
 
 // Revisión liviana para sincronización de UI. No reemplaza los SHA-256 de
