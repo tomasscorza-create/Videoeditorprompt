@@ -4,10 +4,10 @@ import {
   EDITOR_WORKSPACE_EVENT,
   EDITOR_PLAYBACK_EVENT,
   currentEditorOutput,
+  editorCanPlay,
   editorOutputState,
   editorWorkspace,
   measuredTimelineFor,
-  playableEditorOutput,
   seekEditorPlayback,
   setEditorPlayhead,
   showEditorCanvas,
@@ -138,7 +138,8 @@ function render(): void {
 // medición todavía válida pero el render vencido el cabezal es de la timeline:
 // lo mueve el usuario y ningún repintado lo devuelve a cero.
 function syncPlayheadFromMedia(): void {
-  updateTimelineTime(currentEditorOutput() ? editorWorkspace().currentTime : currentTime);
+  const state = editorWorkspace();
+  updateTimelineTime(state.currentTime);
 }
 
 function renderCreatorTimeline(): void {
@@ -1606,7 +1607,7 @@ function handleShortcut(event: KeyboardEvent): void {
     }
   }
   if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
-  const hasOutput = Boolean(playableEditorOutput());
+  const hasOutput = editorCanPlay();
   if (event.code === 'Space' && hasOutput) {
     event.preventDefault();
     togglePlayback();
@@ -1667,7 +1668,7 @@ function updateToolbar(): void {
   const measured = isMeasured();
   const creator = editorWorkspace().mode === 'creator';
   const hasNavigation = !creator && Boolean(store?.project().scenes.length);
-  const hasOutput = !creator && Boolean(playableEditorOutput());
+  const hasOutput = !creator && editorCanPlay();
   const undo = optional<HTMLButtonElement>('#timeline-undo');
   const redo = optional<HTMLButtonElement>('#timeline-redo');
   const play = optional<HTMLButtonElement>('#timeline-play');

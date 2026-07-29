@@ -33,7 +33,11 @@ export function initProjectFiles(store: ProjectStore): void {
     }, 450);
   };
   store.subscribe(save);
-  save();
+  // Una sesión local puede provenir de otra pestaña o de una recuperación
+  // anterior. No debe sobrescribir un proyecto durable existente apenas abre
+  // la aplicación, antes de que el usuario haga un cambio en esta sesión.
+  // Los proyectos nuevos sí se registran para que aparezcan en «Archivos».
+  void registerIfMissing(store);
 
   create.addEventListener('click', () => void createNewProject());
   open.addEventListener('click', () => {
@@ -44,6 +48,19 @@ export function initProjectFiles(store: ProjectStore): void {
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   });
+}
+
+async function registerIfMissing(store: ProjectStore): Promise<void> {
+  try {
+    const project = store.project() as unknown as { id: string };
+    const projects = await listSavedProjects();
+    if (!projects.some((item) => item.id === project.id)) {
+      await saveEditableProject(project);
+    }
+  } catch {
+    // La sesión local sigue siendo la copia de trabajo cuando el servicio
+    // durable no está disponible.
+  }
 }
 
 async function createNewProject(): Promise<void> {

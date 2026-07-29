@@ -76,7 +76,11 @@ if (!globalThis.CustomEvent) {
   };
 }
 const dispatched = [];
-globalThis.window = { dispatchEvent: (event) => { dispatched.push(event.type); return true; } };
+globalThis.window = {
+  dispatchEvent: (event) => { dispatched.push(event.type); return true; },
+  requestAnimationFrame: () => 1,
+  cancelAnimationFrame: () => {},
+};
 
 function fakeVideo() {
   return {
@@ -482,7 +486,7 @@ check(
 check(
   'la timeline distingue el render vigente del histórico abierto explícitamente',
   timelineSource.includes('currentEditorOutput()')
-    && timelineSource.includes('playableEditorOutput()')
+    && timelineSource.includes('editorCanPlay()')
     && timelineSource.includes('el MP4 anterior quedó fuera del transporte'),
 );
 
@@ -663,6 +667,11 @@ check('cada transición notifica por evento', dispatched.length > 0);
   workspace.syncActiveEditorProject('proyecto-3', 'rev-2', 'timing-1');
   check('una edición visual vence el MP4', workspace.editorOutputState() === 'stale' && workspace.currentEditorOutput() === null);
   check('pero la medición del audio sigue valiendo', workspace.measuredTimelineFor(['escena-1'])?.durationSeconds === 9);
+  check('con esa medición el lienzo puede previsualizar sin otro render', workspace.editorCanPlay() === true);
+  await workspace.toggleEditorPlayback();
+  check('Play inicia el preview de autoría sobre el lienzo', workspace.editorWorkspace().playing === true);
+  await workspace.toggleEditorPlayback();
+  check('Play vuelve a pausar el preview de autoría', workspace.editorWorkspace().playing === false);
 
   workspace.syncActiveEditorProject('proyecto-3', 'rev-3', 'timing-2');
   check('cambiar algo que mueve un tiempo sí descarta la medición', workspace.measuredTimelineFor(['escena-1']) === null);

@@ -64,6 +64,10 @@ let output: RenderedOutput | null = null;
 let media: HTMLVideoElement | null = null;
 let mediaBound = false;
 let playheadSeconds = 0;
+let authoringPlaying = false;
+let authoringFrame = 0;
+let authoringStartedAt = 0;
+let authoringStartSeconds = 0;
 
 /**
  * Instante de trabajo, compartido por timeline y lienzo.
@@ -81,6 +85,10 @@ export function setEditorPlayhead(seconds: number): void {
   const next = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
   if (next === playheadSeconds) return;
   playheadSeconds = next;
+  if (authoringPlaying) {
+    authoringStartSeconds = next;
+    authoringStartedAt = performance.now();
+  }
   notifyPlayback();
 }
 
@@ -92,9 +100,9 @@ export function editorWorkspace(): EditorWorkspaceSnapshot {
     activeProjectId,
     output,
     media,
-    currentTime: media?.currentTime ?? 0,
+    currentTime: surface === 'canvas' ? playheadSeconds : media?.currentTime ?? 0,
     duration: measuredDuration || media?.duration || 0,
-    playing: Boolean(media && !media.paused),
+    playing: authoringPlaying || Boolean(media && !media.paused),
     muted: Boolean(media?.muted),
   };
 }
@@ -170,6 +178,14 @@ export function playableEditorOutput(): RenderedOutput | null {
   return output && (editorOutputState() === 'current' || surface === 'playback') ? output : null;
 }
 
+/** Hay transporte de MP4 o preview de autoría medido disponible. */
+export function editorCanPlay(): boolean {
+  return Boolean(media && (
+    playableEditorOutput()
+    || (surface === 'canvas' && timingStillValid() && output?.timeline)
+  ));
+}
+
 /**
  * Medición vigente que se corresponde con la estructura de escenas indicada, o
  * null.
@@ -220,6 +236,7 @@ export function showWorkspaceMode(nextMode: WorkspaceMode): void {
   withViewTransition(() => {
     mode = nextMode;
     if (nextMode === 'creator') {
+      stopAuthoringPreview(false);
       media?.pause();
       surface = 'canvas';
     }
@@ -238,6 +255,7 @@ export function registerRenderedOutput(options: {
   reveal?: boolean;
 }): void {
   if (!media) throw new Error('El reproductor del Editor todavía no está disponible.');
+  stopAuthoringPreview(false);
   media.src = options.url;
   media.load();
   output = {
@@ -256,6 +274,7 @@ export function registerRenderedOutput(options: {
 
 export function showEditorCanvas(): void {
   withViewTransition(() => {
+    stopAuthoringPreview(false);
     media?.pause();
     mode = 'editor';
     surface = 'canvas';
@@ -265,6 +284,7 @@ export function showEditorCanvas(): void {
 
 export async function showRenderedPlayback(): Promise<void> {
   if (!media || !currentEditorOutput()) return;
+  stopAuthoringPreview(false);
   withViewTransition(() => {
     mode = 'editor';
     surface = 'playback';
@@ -274,7 +294,12 @@ export async function showRenderedPlayback(): Promise<void> {
 }
 
 export async function toggleEditorPlayback(): Promise<void> {
-  if (!media || !playableEditorOutput()) return;
+  if (!media) return;
+  if (surface === 'canvas' && editorOutputState() === 'stale' && timingStillValid() && output?.timeline) {
+    toggleAuthoringPreview();
+    return;
+  }
+  if (!playableEditorOutput()) return;
   if (surface !== 'playback') {
     await showRenderedPlayback();
     return;
@@ -313,4 +338,42 @@ function syncOutputFreshness(): void {
     ...output,
     stale: !matchesProject || (output.projectRevision !== null && !matchesRevision) || output.stale && output.projectRevision === null,
   };
+  if (!timingStillValid()) stopAuthoringPreview(false);
+}
+
+function toggleAuthoringPreview(): void {
+  if (authoringPlaying) {
+    stopAuthoringPreview();
+    return;
+  }
+  const duration = output?.timeline?.durationSeconds ?? 0;
+  if (!timingStillValid() || duration <= 0) return;
+  if (playheadSeconds >= duration - 1e-6) playheadSeconds = 0;
+  media?.pause();
+  authoringPlaying = true;
+  authoringStartSeconds = playheadSeconds;
+  authoringStartedAt = performance.now();
+  authoringFrame = window.requestAnimationFrame(advanceAuthoringPreview);
+  notifyPlayback();
+}
+
+function advanceAuthoringPreview(now: number): void {
+  if (!authoringPlaying) return;
+  const duration = output?.timeline?.durationSeconds ?? 0;
+  const next = authoringStartSeconds + Math.max(0, now - authoringStartedAt) / 1000;
+  playheadSeconds = Math.min(duration, next);
+  notifyPlayback();
+  if (playheadSeconds >= duration) {
+    stopAuthoringPreview();
+    return;
+  }
+  authoringFrame = window.requestAnimationFrame(advanceAuthoringPreview);
+}
+
+function stopAuthoringPreview(emit = true): void {
+  if (!authoringPlaying && authoringFrame === 0) return;
+  authoringPlaying = false;
+  if (authoringFrame !== 0) window.cancelAnimationFrame(authoringFrame);
+  authoringFrame = 0;
+  if (emit) notifyPlayback();
 }
