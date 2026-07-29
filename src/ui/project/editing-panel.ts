@@ -375,8 +375,46 @@ export function initEditingPanel(store: ProjectStore): void {
       card.append(contextNote('Sin pistas. Abrí Crear animación para aplicar un preset o agregar el primer keyframe.'));
       return card;
     }
-    for (const lane of lanes) card.append(trackRow(scene, element, lane));
+    for (const lane of lanes) {
+      const group = document.createElement('div');
+      group.className = 'editing-track-group';
+      group.append(trackRow(scene, element, lane), keyframePicker(scene, element, lane));
+      card.append(group);
+    }
     return card;
+  }
+
+  function keyframePicker(scene: SceneView, element: ElementView, lane: AnimationLane): HTMLElement {
+    const list = document.createElement('div');
+    list.className = 'editing-keyframe-list';
+    list.setAttribute('aria-label', `Keyframes de ${lane.label}`);
+    const selection = projectSelection();
+    for (const [index, keyframe] of lane.keyframes.entries()) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'editing-keyframe-item';
+      button.classList.toggle(
+        'is-active',
+        selection?.kind === 'keyframe'
+          && selection.elementId === element.id
+          && selection.parameterId === lane.parameterId
+          && selection.keyframeId === keyframe.id,
+      );
+      const name = document.createElement('strong');
+      name.textContent = `${index + 1}. ${keyframe.anchorLabel}`;
+      const detail = document.createElement('span');
+      detail.textContent = `${keyframe.valueLabel} · ${keyframe.timeLabel}`;
+      button.append(name, detail);
+      button.addEventListener('click', () => selectProjectItem({
+        kind: 'keyframe',
+        sceneId: scene.id,
+        elementId: element.id,
+        parameterId: lane.parameterId,
+        keyframeId: keyframe.id,
+      }));
+      list.append(button);
+    }
+    return list;
   }
 
   function keyframeEditor(

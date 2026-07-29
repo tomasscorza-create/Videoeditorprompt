@@ -45,19 +45,11 @@ import {
 } from './timeline-waveform.js';
 import { requestFrame } from './timeline-frames.js';
 import {
-  buildAnimationLanes,
   countAnchorsRequiringReview,
   duplicateKeyframeCommand,
-  nearestAnchorFor,
-  nudgeOffsetSeconds,
-  offsetForSeconds,
   sceneAnimationReference,
-  sceneAnimationTiming,
-  type AnimationKeyframeItem,
-  type AnimationLane,
 } from './timeline-animation.js';
 import type { ElementView } from './project/types.js';
-import { resolveAnchorSeconds, type SceneTiming } from '../../shared/animation-evaluator.js';
 
 const MIN_PIXELS_PER_SECOND = 20;
 const MAX_PIXELS_PER_SECOND = 220;
@@ -70,6 +62,7 @@ let store: ProjectStore | null = null;
 let pixelsPerSecond = DEFAULT_PIXELS_PER_SECOND;
 let snapEnabled = true;
 let currentTime = 0;
+let draggingPlayhead = false;
 
 export function initTimelineShell(): void {
   if (initialized) return;
@@ -123,9 +116,12 @@ export function updateTimelineTime(timeSeconds: number): void {
   if (authoringPlayhead) {
     authoringPlayhead.hidden = !isMeasured();
     authoringPlayhead.style.left = `calc(var(--timeline-label-width) + ${currentTime * pixelsPerSecond}px)`;
+    authoringPlayhead.setAttribute('aria-valuenow', currentTime.toFixed(3));
+    authoringPlayhead.setAttribute('aria-valuemax', activeDuration().toFixed(3));
+    authoringPlayhead.setAttribute('aria-valuetext', formatTimecode(currentTime));
   }
   updateTimecode();
-  followPlayhead();
+  if (!draggingPlayhead) followPlayhead();
 }
 
 function render(): void {
@@ -281,9 +277,6 @@ function renderLayerStack(
     // posición, con el mismo comando que usa el inspector.
     acceptCharacterDropOnLane(track, project, positions, sceneWidths);
     rows.push(track);
-    // Fase 4 — la fila «Animación» cuelga de la pista del elemento seleccionado,
-    // dentro del bloque VISUAL. No es un carril nuevo de primer nivel.
-    rows.push(...animationRowsForSlot(project, 'character', slot, positions, totalWidth, measured));
   }
   const maximumProps = Math.max(0, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'prop').length));
   for (let slot = 0; slot < maximumProps; slot += 1) {
@@ -310,7 +303,6 @@ function renderLayerStack(
       return [clip];
     });
     rows.push(authoringTrack(`P${slot + 1}`, `Prop ${slot + 1}`, totalWidth, clips));
-    rows.push(...animationRowsForSlot(project, 'prop', slot, positions, totalWidth, measured));
   }
   rows.push(trackDivider('AUDIO', 'Voces debajo de las capas visuales'));
   for (let slot = 0; slot < maximumCharacters; slot += 1) {
@@ -370,12 +362,68 @@ function renderLayerStack(
   playhead.id = 'authoring-playhead';
   playhead.className = 'authoring-playhead';
   playhead.hidden = !measured;
+  bindPlayheadDrag(playhead, root);
   rows.push(playhead);
   root.replaceChildren(...rows);
   syncClipRoving();
   // Dibujar ondas y filmstrips después de adjuntar: recién ahí los canvas tienen tamaño.
   if (waveform) drawWaveforms(root, waveform);
   if (measured && output) drawFilmstrips(root, output.url);
+}
+
+function bindPlayheadDrag(playhead: HTMLElement, root: HTMLElement): void {
+  playhead.tabIndex = 0;
+  playhead.setAttribute('role', 'slider');
+  playhead.setAttribute('aria-label', 'Posición del cabezal');
+  playhead.setAttribute('aria-valuemin', '0');
+  playhead.title = 'Arrastrá para mover el cabezal';
+
+  const moveToPointer = (event: PointerEvent): void => {
+    const ruler = root.querySelector<HTMLElement>('.authoring-track-ruler');
+    if (!ruler) return;
+    const bounds = ruler.getBoundingClientRect();
+    const seconds = clamp((event.clientX - bounds.left) / pixelsPerSecond, 0, activeDuration());
+    seekTo(snapTime(seconds));
+  };
+  const onMove = (event: PointerEvent): void => {
+    if (!draggingPlayhead) return;
+    event.preventDefault();
+    moveToPointer(event);
+  };
+  const onUp = (): void => {
+    if (!draggingPlayhead) return;
+    draggingPlayhead = false;
+    playhead.classList.remove('is-dragging');
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    followPlayhead();
+  };
+  playhead.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || !isMeasured()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    activeMedia()?.pause();
+    draggingPlayhead = true;
+    playhead.classList.add('is-dragging');
+    moveToPointer(event);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+  playhead.addEventListener('keydown', (event) => {
+    if (!isMeasured()) return;
+    const fps = projectFps();
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      const direction = event.key === 'ArrowRight' ? 1 : -1;
+      seekTo(currentTime + direction * (event.shiftKey ? 5 : 1) / fps);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      seekTo(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      seekTo(activeDuration());
+    }
+  });
 }
 
 function attachFilmstripCanvas(clip: HTMLElement, startSeconds: number, endSeconds: number): void {
@@ -434,35 +482,10 @@ function drawWaveforms(root: HTMLElement, waveform: WaveformPeaks): void {
   });
 }
 
-// ---- Fase 4: fila «Animación» (pistas y keyframes de un elemento) ----
-//
-// El estado visible está especificado en docs/FASE_0_CONTRATO_ANIMACION_V1.md,
-// sección 5: la fila cuelga del elemento seleccionado dentro del bloque VISUAL,
-// cada parámetro usado tiene su pista y los keyframes son diamantes. Nada de lo
-// que se dibuja acá se calcula acá: la resolución de anclas y el estado de cada
-// keyframe vienen de `timeline-animation.ts`, que a su vez usa el evaluador y el
-// contrato del motor.
-
-/** Elementos con la fila de animación plegada. Vacío = todas desplegadas. */
-const collapsedAnimation = new Set<string>();
-
-interface AnimationContext {
-  sceneId: string;
-  elementId: string;
-  timing: SceneTiming | null;
-  fps: number;
-}
-
+// La timeline solo muestra y selecciona clips. Las pistas y keyframes viven en Edición.
 function isElementSelected(elementId: string): boolean {
   const selection = projectSelection();
   return (selection?.kind === 'element' || selection?.kind === 'keyframe') && selection.elementId === elementId;
-}
-
-/** Elemento cuya fila de animación está abierta, si hay uno seleccionado. */
-function animatedSelection(): { sceneId: string; elementId: string } | null {
-  const selection = projectSelection();
-  if (selection?.kind !== 'element' && selection?.kind !== 'keyframe') return null;
-  return { sceneId: selection.sceneId, elementId: selection.elementId };
 }
 
 function projectFps(): number {
@@ -470,13 +493,9 @@ function projectFps(): number {
   return Number.isInteger(fps) && (fps as number) > 0 ? fps as number : 30;
 }
 
-// El campo viejo `animationPreset` es MOVIMIENTO BASE, no un preset de keyframes:
-// la Fase 0 congeló que ningún texto nuevo lo llame solo «animación».
 function elementClipDetail(element: ElementView): string {
   const parts = [`Escala ${element.transform.scale.toFixed(2)}`];
   if (element.type === 'character') parts.push(`movimiento base ${element.animationPreset ?? 'sin definir'}`);
-  const tracks = element.tracks?.length ?? 0;
-  if (tracks > 0) parts.push(`${tracks} pista${tracks === 1 ? '' : 's'}`);
   return parts.join(' · ');
 }
 
@@ -488,341 +507,20 @@ function reviewBadge(count: number): HTMLElement {
   return badge;
 }
 
-function animationRowsForSlot(
-  project: ReturnType<ProjectStore['project']>,
-  elementType: 'character' | 'prop',
-  slot: number,
-  positions: number[],
-  totalWidth: number,
-  measured: MeasuredProjectTimeline | null,
-): HTMLElement[] {
-  const target = animatedSelection();
-  if (!target) return [];
-  const sceneIndex = project.scenes.findIndex((scene) => scene.id === target.sceneId);
-  if (sceneIndex < 0) return [];
-  const scene = project.scenes[sceneIndex];
-  const element = scene.elements.filter((candidate) => candidate.type === elementType)[slot];
-  if (!element || element.id !== target.elementId) return [];
-
-  const reference = sceneAnimationReference(scene.dialogue);
-  const timing = sceneAnimationTiming(measured?.scenes[sceneIndex] ?? null, reference);
-  const fps = projectFps();
-  const lanes = buildAnimationLanes(element.id, element.tracks ?? [], { timing, reference, fps });
-  const context: AnimationContext = { sceneId: scene.id, elementId: element.id, timing, fps };
-  const collapsed = collapsedAnimation.has(element.id);
-  const sceneLeft = positions[sceneIndex] ?? 0;
-  const rows = [animationHeaderRow(element, lanes, sceneLeft, totalWidth, collapsed)];
-  if (!collapsed) {
-    for (const lane of lanes) rows.push(animationLaneRow(lane, context, sceneLeft, totalWidth));
-  }
-  return rows;
-}
-
-function animationHeaderRow(
-  element: ElementView,
-  lanes: AnimationLane[],
-  sceneLeft: number,
-  totalWidth: number,
-  collapsed: boolean,
-): HTMLElement {
-  const pending = lanes.reduce((total, lane) => total + lane.reviewCount, 0);
-  const toggle = document.createElement('button');
-  toggle.type = 'button';
-  toggle.className = 'animation-toggle';
-  toggle.style.left = `${sceneLeft}px`;
-  toggle.setAttribute('aria-expanded', String(!collapsed));
-  toggle.textContent = lanes.length === 0
-    ? '▾ Animación · sin pistas'
-    : `${collapsed ? '▸' : '▾'} Animación · ${lanes.length} pista${lanes.length === 1 ? '' : 's'}`;
-  toggle.title = lanes.length === 0
-    ? 'Este elemento todavía no tiene keyframes. Aplicá un preset desde el inspector.'
-    : 'Plegar o desplegar las pistas de animación de este elemento';
-  toggle.addEventListener('click', () => {
-    if (collapsed) collapsedAnimation.delete(element.id);
-    else collapsedAnimation.add(element.id);
-    render();
-  });
-  if (pending > 0) toggle.append(reviewBadge(pending));
-  const row = authoringTrack('ANIM', element.resourceId ?? element.id, totalWidth, []);
-  row.classList.add('is-animation-header');
-  row.querySelector('.authoring-track-lane')?.append(toggle);
-  return row;
-}
-
-function animationLaneRow(
-  lane: AnimationLane,
-  context: AnimationContext,
-  sceneLeft: number,
-  totalWidth: number,
-): HTMLElement {
-  const row = authoringTrack(lane.label, lane.sourceLabel, totalWidth, []);
-  row.classList.add('is-animation-lane');
-  const track = row.querySelector<HTMLElement>('.authoring-track-lane');
-  if (!track) return row;
-
-  for (const segment of lane.segments) {
-    const bar = document.createElement('span');
-    // El tramo describe la interpolación que SALE del keyframe de la izquierda,
-    // como fijó la Fase 0: punteado cuando el valor queda congelado.
-    bar.className = `animation-segment is-${segment.interpolation}`;
-    bar.style.left = `${segment.fromSeconds * pixelsPerSecond}px`;
-    bar.style.width = `${Math.max(1, (segment.toSeconds - segment.fromSeconds) * pixelsPerSecond)}px`;
-    track.append(bar);
-  }
-
-  const unpositioned = lane.keyframes.filter((keyframe) => keyframe.seconds === null);
-  for (const keyframe of lane.keyframes) {
-    if (keyframe.seconds === null) continue;
-    track.append(keyframeDiamond(keyframe, lane, context));
-  }
-  if (unpositioned.length > 0) {
-    // Sin medición no se dibuja un diamante en una posición inventada: se dice
-    // cuántos keyframes hay y por qué todavía no tienen lugar en la regla.
-    const note = document.createElement('span');
-    note.className = 'animation-pending';
-    note.style.left = `${sceneLeft}px`;
-    note.textContent = `${unpositioned.length} keyframe${unpositioned.length === 1 ? '' : 's'} · ${unpositioned[0].message ?? 'pendiente'}`;
-    note.title = unpositioned.map((keyframe) => `${keyframe.anchorLabel}: ${keyframe.message ?? ''}`).join('\n');
-    track.append(note);
-  }
-  return row;
-}
-
-function keyframeDiamond(
-  keyframe: AnimationKeyframeItem,
-  lane: AnimationLane,
-  context: AnimationContext,
-): HTMLElement {
-  const selection = projectSelection();
-  const node = document.createElement('button');
-  node.type = 'button';
-  node.className = `animation-keyframe is-${keyframe.status}`;
-  node.classList.toggle(
-    'is-selected',
-    selection?.kind === 'keyframe' && selection.keyframeId === keyframe.id && selection.elementId === context.elementId,
-  );
-  node.style.left = `${(keyframe.seconds ?? 0) * pixelsPerSecond}px`;
-  node.title = [
-    `${lane.label} ${keyframe.valueLabel}`,
-    `${keyframe.anchorLabel}${keyframe.offsetSeconds === 0 ? '' : ` ${keyframe.offsetSeconds > 0 ? '+' : ''}${keyframe.offsetSeconds} s`}`,
-    keyframe.timeLabel,
-    `interpolación ${keyframe.interpolation}`,
-    keyframe.message ?? '',
-  ].filter(Boolean).join(' · ');
-  node.setAttribute('aria-label', node.title);
-  node.addEventListener('click', () => {
-    selectKeyframe(context, lane.parameterId, keyframe.id);
-    if (keyframe.seconds !== null && isMeasured()) seekTo(keyframe.seconds);
-  });
-  node.addEventListener('contextmenu', (event) => {
-    event.preventDefault();
-    selectKeyframe(context, lane.parameterId, keyframe.id);
-    openContextMenu(node, keyframeMenuItems(keyframe, lane, context));
-  });
-  node.addEventListener('keydown', (event) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Delete') return;
-    // El foco está en el diamante: las flechas ajustan el keyframe frame a
-    // frame y no mueven el cabezal.
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.key === 'Delete') {
-      deleteKeyframe(context, lane.parameterId, keyframe.id);
-      return;
-    }
-    const frames = (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? 5 : 1);
-    sendAnimation({
-      type: 'set-keyframe',
-      sceneId: context.sceneId,
-      elementId: context.elementId,
-      parameterId: lane.parameterId,
-      keyframeId: keyframe.id,
-      offsetSeconds: nudgeOffsetSeconds(keyframe.offsetSeconds, frames, context.fps),
-    });
-  });
-  if (keyframe.status === 'ok' && context.timing) bindKeyframeDrag(node, keyframe, lane, context);
-  return node;
-}
-
-// Arrastrar un diamante cambia SIEMPRE el desplazamiento sobre su ancla, nunca
-// el ancla: mover un keyframe no puede cambiar en silencio a qué turno pertenece.
-function bindKeyframeDrag(
-  node: HTMLElement,
-  keyframe: AnimationKeyframeItem,
-  lane: AnimationLane,
-  context: AnimationContext,
+function deleteKeyframe(
+  context: { sceneId: string; elementId: string },
+  parameterId: string,
+  keyframeId: string,
 ): void {
-  const timing = context.timing;
-  if (!timing || keyframe.seconds === null) return;
-  let dragging = false;
-  let startX = 0;
-  let anchorSeconds = 0;
-  let current = keyframe.offsetSeconds;
-  const onMove = (event: PointerEvent): void => {
-    if (!dragging) return;
-    const target = snapKeyframeTime((keyframe.seconds ?? 0) + (event.clientX - startX) / pixelsPerSecond, timing);
-    current = offsetForSeconds(anchorSeconds, target, context.fps);
-    node.style.left = `${(anchorSeconds + current) * pixelsPerSecond}px`;
-  };
-  const onUp = (): void => {
-    if (!dragging) return;
-    dragging = false;
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    node.classList.remove('is-dragging');
-    if (current !== keyframe.offsetSeconds) {
-      sendAnimation({
-        type: 'set-keyframe',
-        sceneId: context.sceneId,
-        elementId: context.elementId,
-        parameterId: lane.parameterId,
-        keyframeId: keyframe.id,
-        offsetSeconds: current,
-      });
-    }
-  };
-  node.addEventListener('pointerdown', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    try {
-      anchorSeconds = resolveAnchorSeconds(keyframe.anchor, timing);
-    } catch {
-      return;
-    }
-    dragging = true;
-    startX = event.clientX;
-    current = keyframe.offsetSeconds;
-    node.classList.add('is-dragging');
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  });
-}
-
-// Imanta al cabezal y a los bordes medidos de escena y de turno, que son los
-// puntos con significado para una animación.
-function snapKeyframeTime(time: number, timing: SceneTiming): number {
-  const bounded = clamp(time, timing.startSeconds, timing.endSeconds);
-  if (!snapEnabled) return bounded;
-  const threshold = 8 / pixelsPerSecond;
-  const candidates = [
-    currentTime,
-    timing.startSeconds,
-    timing.endSeconds,
-    ...timing.turns.flatMap((turn) => [turn.startSeconds, turn.endSeconds]),
-  ];
-  const nearest = candidates.reduce(
-    (best, candidate) => (Math.abs(candidate - bounded) < Math.abs(best - bounded) ? candidate : best),
-    bounded,
-  );
-  return Math.abs(nearest - bounded) <= threshold ? nearest : bounded;
-}
-
-function keyframeMenuItems(
-  keyframe: AnimationKeyframeItem,
-  lane: AnimationLane,
-  context: AnimationContext,
-): MenuItem[] {
-  const setInterpolation = (interpolation: 'linear' | 'ease' | 'hold'): MenuItem => ({
-    label: `${keyframe.interpolation === interpolation ? '● ' : '○ '}${interpolation}`,
-    // El contrato obliga al último keyframe de la pista a congelar el valor.
-    disabled: keyframe.isLast && interpolation !== 'hold',
-    action: () => sendAnimation({
-      type: 'set-keyframe',
-      sceneId: context.sceneId,
-      elementId: context.elementId,
-      parameterId: lane.parameterId,
-      keyframeId: keyframe.id,
-      interpolation,
-    }),
-  });
-  const items: MenuItem[] = [
-    { label: `${lane.label} · ${keyframe.valueLabel}`, disabled: true },
-    { separator: true },
-    setInterpolation('linear'),
-    setInterpolation('ease'),
-    setInterpolation('hold'),
-    { separator: true },
-    { label: 'Duplicar keyframe', action: () => duplicateKeyframe(keyframe, lane, context) },
-  ];
-  if (context.timing && keyframe.seconds !== null) {
-    const proposal = nearestAnchorFor(keyframe.seconds, context.timing, context.fps);
-    items.push({
-      label: `Reanclar a ${proposal.label}`,
-      action: () => sendAnimation({
-        type: 'set-keyframe',
-        sceneId: context.sceneId,
-        elementId: context.elementId,
-        parameterId: lane.parameterId,
-        keyframeId: keyframe.id,
-        anchor: proposal.anchor,
-        offsetSeconds: proposal.offsetSeconds,
-      }),
-    });
-  }
-  items.push(
-    { separator: true },
-    { label: 'Eliminar keyframe', action: () => deleteKeyframe(context, lane.parameterId, keyframe.id) },
-    {
-      label: `Eliminar la pista ${lane.label}`,
-      action: () => sendAnimation({
-        type: 'delete-track',
-        sceneId: context.sceneId,
-        elementId: context.elementId,
-        parameterId: lane.parameterId,
-      }),
-    },
-  );
-  return items;
-}
-
-function duplicateKeyframe(keyframe: AnimationKeyframeItem, lane: AnimationLane, context: AnimationContext): void {
-  const element = findSelectedElement(context);
-  if (!element) return;
-  const taken = (element.tracks ?? []).flatMap((track) => track.keyframes.map((item) => item.id));
-  const command = duplicateKeyframeCommand({
-    sceneId: context.sceneId,
-    elementId: context.elementId,
-    parameterId: lane.parameterId,
-    keyframe,
-    takenKeyframeIds: taken,
-    fps: context.fps,
-  });
-  sendAnimation(command);
-  selectKeyframe(context, lane.parameterId, String(command.keyframeId));
-}
-
-function deleteKeyframe(context: AnimationContext, parameterId: string, keyframeId: string): void {
-  sendAnimation({
+  const error = store?.dispatch({
     type: 'delete-keyframe',
     sceneId: context.sceneId,
     elementId: context.elementId,
     parameterId,
     keyframeId,
   });
-  // Borrar hasta dejar menos de dos elimina la pista entera: la selección del
-  // keyframe deja de existir y vuelve al elemento.
-  selectProjectItem({ kind: 'element', sceneId: context.sceneId, elementId: context.elementId });
-}
-
-function findSelectedElement(context: AnimationContext): ElementView | null {
-  const scene = store?.project().scenes.find((item) => item.id === context.sceneId);
-  return scene?.elements.find((element) => element.id === context.elementId) ?? null;
-}
-
-function selectKeyframe(context: AnimationContext, parameterId: string, keyframeId: string): void {
-  selectProjectItem({
-    kind: 'keyframe',
-    sceneId: context.sceneId,
-    elementId: context.elementId,
-    parameterId,
-    keyframeId,
-  });
-  store?.dispatch({ type: 'select-scene', sceneId: context.sceneId });
-}
-
-/** Los rechazos del motor se muestran tal cual: son el contrato hablando. */
-function sendAnimation(command: Record<string, unknown>): void {
-  const error = store?.dispatch(command);
   if (error) notify({ message: error, level: 'error' });
+  else selectProjectItem({ kind: 'element', sceneId: context.sceneId, elementId: context.elementId });
 }
 
 // U3 — Los clips forman un único recorrido por teclado (roving tabindex):
@@ -1799,7 +1497,7 @@ function deleteSelection(): void {
     store.dispatch({ type: 'delete-scene', sceneId: scene.id });
   } else if (selection.kind === 'keyframe') {
     deleteKeyframe(
-      { sceneId: selection.sceneId, elementId: selection.elementId, timing: null, fps: projectFps() },
+      { sceneId: selection.sceneId, elementId: selection.elementId },
       selection.parameterId,
       selection.keyframeId,
     );

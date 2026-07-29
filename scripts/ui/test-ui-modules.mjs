@@ -238,6 +238,22 @@ check(
     && timelineSource.includes('duplicateKeyframeCommand({'),
 );
 check(
+  'seleccionar un elemento no inserta filas informativas en la timeline',
+  !timelineSource.includes('animationRowsForSlot')
+    && !timelineSource.includes("authoringTrack('ANIM'"),
+);
+check(
+  'las pistas y keyframes seleccionables viven en Edición',
+  editingPanelSource.includes("button.className = 'editing-keyframe-item'")
+    && editingPanelSource.includes('keyframePicker(scene, element, lane)'),
+);
+check(
+  'el cabezal se puede arrastrar y expone su posición como slider',
+  timelineSource.includes('bindPlayheadDrag(playhead, root)')
+    && timelineSource.includes("playhead.addEventListener('pointerdown'")
+    && timelineSource.includes("playhead.setAttribute('role', 'slider')"),
+);
+check(
   'la selección enlaza la edición derecha y no el antiguo inspector del Director',
   readFileSync(path.join(projectRoot, 'src', 'ui', 'selection-mirror.ts'), 'utf8')
     .includes("showRightPanelPage('editing')")

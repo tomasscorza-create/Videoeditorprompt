@@ -1569,6 +1569,22 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 .editing-subpage-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .editing-tool-stack { display: grid; gap: .7rem; }
+.editing-track-group { display: grid; gap: .35rem; }
+.editing-keyframe-list { display: grid; gap: .25rem; padding-left: .45rem; border-left: 2px solid var(--border); }
+.editing-keyframe-item {
+  display: grid;
+  gap: .08rem;
+  padding: .4rem .5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: transparent;
+  text-align: left;
+}
+.editing-keyframe-item strong { overflow: hidden; color: var(--text); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
+.editing-keyframe-item span { overflow: hidden; font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.editing-keyframe-item:hover { border-color: var(--border); background: var(--surface-2); }
+.editing-keyframe-item.is-active { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
 .editing-tool-card {
   display: grid;
   gap: .55rem;
@@ -2144,34 +2160,6 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .dialogue-gap.has-pause { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--muted) 55%, transparent) 0 2px, transparent 2px 4px); }
 .dialogue-gap.is-dragging, .dialogue-gap:hover { border-left-color: var(--accent); }
 .dialogue-gap small { position: absolute; bottom: -.1rem; left: 2px; color: var(--muted); font: var(--fs-2xs) ui-monospace, monospace; white-space: nowrap; pointer-events: none; }
-/* Fase 4 — fila «Animación»: cuelga del elemento seleccionado dentro de VISUAL,
-   con una pista por parámetro y los keyframes como diamantes. */
-.authoring-track-row.is-animation-header, .authoring-track-row.is-animation-lane { min-height: 1.6rem; }
-.is-animation-header .authoring-track-label, .is-animation-lane .authoring-track-label {
-  padding-left: 1.1rem;
-  border-left: 2px solid color-mix(in srgb, var(--clip-character) 70%, transparent);
-  background: color-mix(in srgb, var(--surface-2) 88%, var(--clip-character));
-}
-.is-animation-lane .authoring-track-label strong { color: var(--accent); }
-.is-animation-header .authoring-track-lane, .is-animation-lane .authoring-track-lane { background-image: none; }
-.animation-toggle {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
-  padding: .1rem .4rem;
-  border: 1px solid var(--border-strong);
-  border-radius: .8rem;
-  color: var(--muted);
-  background: var(--surface-2);
-  font-size: var(--fs-2xs);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.animation-toggle:hover { border-color: var(--accent); color: var(--text); }
-.animation-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .animation-review-badge {
   display: inline-flex;
   align-items: center;
@@ -2183,54 +2171,6 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   white-space: nowrap;
 }
 .authoring-clip .animation-review-badge { position: absolute; top: .15rem; right: .2rem; z-index: 2; }
-.animation-segment {
-  position: absolute;
-  top: 50%;
-  height: 0;
-  transform: translateY(-50%);
-  border-top: 2px solid var(--accent);
-  pointer-events: none;
-}
-.animation-segment.is-hold { border-top-style: dotted; border-top-color: var(--muted); }
-.animation-segment.is-linear { border-top-color: color-mix(in srgb, var(--accent) 75%, var(--muted)); }
-.animation-keyframe {
-  position: absolute;
-  top: 50%;
-  z-index: 3;
-  width: .55rem;
-  height: .55rem;
-  padding: 0;
-  transform: translate(-50%, -50%) rotate(45deg);
-  border: 1px solid color-mix(in srgb, var(--accent) 70%, white);
-  border-radius: .1rem;
-  background: var(--accent);
-  cursor: ew-resize;
-  touch-action: none;
-}
-/* Área de agarre cómoda sin agrandar el diamante. */
-.animation-keyframe::before { content: ""; position: absolute; inset: -5px; }
-.animation-keyframe:hover { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
-.animation-keyframe:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-.animation-keyframe.is-selected { border-color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
-.animation-keyframe.is-dragging { opacity: .7; }
-/* Diamante hueco en color de advertencia: la referencia hay que resolverla. */
-.animation-keyframe.is-review, .animation-keyframe.is-out-of-scene {
-  border-color: var(--warning);
-  background: transparent;
-  cursor: help;
-}
-.animation-pending {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 0 .3rem;
-  border: 1px dashed var(--border-strong);
-  border-radius: .4rem;
-  color: var(--muted);
-  background: var(--surface-2);
-  font-size: var(--fs-2xs);
-  white-space: nowrap;
-}
 .authoring-clip {
   position: absolute;
   top: .22rem;
@@ -2279,11 +2219,24 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   top: 0;
   bottom: 0;
   z-index: 8;
-  width: 1px;
-  border-left: 1px solid var(--danger);
-  pointer-events: none;
+  width: .8rem;
+  margin-left: -.4rem;
+  cursor: ew-resize;
+  touch-action: none;
 }
-.authoring-playhead::before { content: ""; position: absolute; top: 0; left: -.3rem; width: .6rem; height: .5rem; clip-path: polygon(0 0, 100% 0, 50% 100%); background: var(--danger); }
+.authoring-playhead::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px solid var(--danger);
+}
+.authoring-playhead::before { content: ""; position: absolute; top: 0; left: .1rem; width: .6rem; height: .5rem; clip-path: polygon(0 0, 100% 0, 50% 100%); background: var(--danger); }
+.authoring-playhead:hover::after,
+.authoring-playhead.is-dragging::after,
+.authoring-playhead:focus-visible::after { border-left-width: 2px; }
+.authoring-playhead:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .creator-timeline-state { display: flex; align-items: center; justify-content: center; gap: .6rem; min-height: 4.5rem; padding: 1rem; color: var(--muted); text-align: center; }
 .creator-timeline-state strong { color: var(--text); font-size: var(--fs-sm); }
 .creator-timeline-state span { font-size: var(--fs-xs); }
