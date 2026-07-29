@@ -239,8 +239,14 @@ export function validateRenderableProject(project, catalog) {
     }
     for (const [elementIndex, element] of characters.entries()) {
       const transform = element.transform;
-      if (transform.anchorX !== 0.5 || transform.anchorY !== 0.5 || transform.rotationDegrees !== 0 || transform.opacity !== 1) {
-        fail('EDITOR_SCENE_NOT_RENDERABLE', 'El render actual requiere ancla centrada, rotación 0 y opacidad 1.', `/scenes/${sceneIndex}/elements/${elementIndex}/transform`);
+      // Visor y exportación posicionan estos recursos desde el centro. El ancla
+      // de autoría se conserva como dato portable, pero no bloquea un render que
+      // ya la normaliza de la misma forma en ambos consumidores.
+      if (transform.rotationDegrees !== 0) {
+        fail('EDITOR_SCENE_NOT_RENDERABLE', 'Este personaje tiene rotación base. Restablecé Rotación a 0° o animala desde una pista compatible.', `/scenes/${sceneIndex}/elements/${elementIndex}/transform/rotationDegrees`);
+      }
+      if (transform.opacity !== 1) {
+        fail('EDITOR_SCENE_NOT_RENDERABLE', 'Este personaje tiene opacidad base incompatible. Ajustá Opacidad desde Edición para convertirla en una pista renderizable.', `/scenes/${sceneIndex}/elements/${elementIndex}/transform/opacity`);
       }
     }
   }

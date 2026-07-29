@@ -51,6 +51,13 @@ test('creates-frozen-state-with-real-resources', () => {
   assert.equal(listEditorResources(state, 'background').length, catalogCount('background'));
 });
 
+test('render-normalizes-authoring-anchors-to-the-centered-viewer-contract', () => {
+  const anchored = structuredClone(project);
+  anchored.scenes[1].elements[0].transform.anchorX = 0.2;
+  anchored.scenes[1].elements[0].transform.anchorY = 0.8;
+  assert.equal(validateRenderableProject(anchored, catalog), true);
+});
+
 test('repairs-only-missing-voice-references-without-mutating-the-project', () => {
   const legacy = structuredClone(project);
   legacy.scenes[0].dialogue[0].voiceId = 'voz-daniela-ar-v1';

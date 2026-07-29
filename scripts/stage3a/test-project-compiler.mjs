@@ -123,6 +123,18 @@ rotated.scenes[0].elements[0].transform.rotationDegrees = 12;
 assert.throws(() => compileCase('unsupported-rotation', rotated), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
 results.push({ name: 'unsupported-transform-is-explicit', passed: true });
 
+const offCenterAnchor = structuredClone(source);
+offCenterAnchor.scenes[1].elements[0].transform.anchorX = 0.2;
+offCenterAnchor.scenes[1].elements[0].transform.anchorY = 0.8;
+const offCenterRun = compileCase('centered-anchor-normalization', offCenterAnchor);
+const offCenterConfig = readJson(path.join(
+  contextFor('centered-anchor-normalization', path.join(projectsRoot, 'centered-anchor-normalization.json')).jobRoot,
+  offCenterRun.manifest.scenes[1].config,
+));
+assert.equal(offCenterConfig.characters[0].transform.toX, source.scenes[1].elements[0].transform.x - 540);
+assert.equal(offCenterConfig.characters[0].transform.baseY, source.scenes[1].elements[0].transform.y - 960);
+results.push({ name: 'authoring-anchor-is-normalized-to-centered-runtime', passed: true });
+
 const oneCharacter = structuredClone(source);
 oneCharacter.scenes[0].elements = oneCharacter.scenes[0].elements.slice(0, 1);
 oneCharacter.scenes[0].dialogue = oneCharacter.scenes[0].dialogue.map((turn) => ({ ...turn, speakerElementId: 'presentadora' }));

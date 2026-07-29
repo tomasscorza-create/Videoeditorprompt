@@ -185,9 +185,6 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     .sort((left, right) => left.element.transform.zIndex - right.element.transform.zIndex
       || left.sourceIndex - right.sourceIndex)
     .map(({ element, resource }) => {
-      if (element.transform.anchorX !== 0.5 || element.transform.anchorY !== 0.5) {
-        unsupportedScene(sceneIndex, `el prop ${element.id} requiere ancla 0.5/0.5`);
-      }
       return {
         id: element.id,
         resourceManifest: resolvePropManifest(resource, assetsRoot, sceneIndex),
@@ -339,7 +336,9 @@ function resolvePropManifest(resource, assetsRoot, sceneIndex) {
 
 function assertCompatibleCharacterTransform(element, sceneIndex) {
   const transform = element.transform;
-  if (transform.anchorX !== 0.5 || transform.anchorY !== 0.5) unsupportedScene(sceneIndex, `el personaje ${element.id} requiere ancla 0.5/0.5`);
+  // El compositor y la vista editable usan el centro del recurso. `anchorX/Y`
+  // siguen en el documento de autoría por portabilidad, pero el runtime vigente
+  // los normaliza a 0.5/0.5 en vez de rechazar todo el proyecto.
   if (transform.rotationDegrees !== 0) unsupportedScene(sceneIndex, `el personaje ${element.id} requiere rotación 0`);
   if (transform.opacity !== 1) unsupportedScene(sceneIndex, `el personaje ${element.id} requiere opacidad 1`);
 }
