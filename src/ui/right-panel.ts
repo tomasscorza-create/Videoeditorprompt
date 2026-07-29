@@ -1,5 +1,4 @@
 import { optional } from './dom.js';
-import type { ProjectSelection } from './project/selection.js';
 
 export type RightPanelPage = 'resources' | 'editing';
 
@@ -50,39 +49,6 @@ export function initRightPanel(): void {
   // Mostrar un recurso desde el Director también debe revelar su página contenedora.
   window.addEventListener(REVEAL_RESOURCE_EVENT, () => activate('resources'));
   activate(activePage);
-}
-
-export function describeEditingSelection(selection: ProjectSelection | null): {
-  kind: ProjectSelection['kind'] | 'none';
-  title: string;
-  detail: string;
-} {
-  if (!selection) {
-    return {
-      kind: 'none',
-      title: 'Sin selección',
-      detail: 'Seleccioná una escena, elemento, diálogo o keyframe para comenzar.',
-    };
-  }
-  const descriptions: Record<ProjectSelection['kind'], { title: string; detail: string }> = {
-    scene: {
-      title: 'Escena seleccionada',
-      detail: 'Ajustá sus propiedades; las operaciones de estructura siguen en la timeline.',
-    },
-    element: {
-      title: 'Elemento seleccionado',
-      detail: 'Ajustá transformación, animación y apariencia compatibles.',
-    },
-    dialogue: {
-      title: 'Diálogo seleccionado',
-      detail: 'Ajustá texto en pantalla, voz, subtítulos y pausa.',
-    },
-    keyframe: {
-      title: 'Keyframe seleccionado',
-      detail: 'Ajustá valor, ancla, interpolación y acciones de la pista.',
-    },
-  };
-  return { kind: selection.kind, ...descriptions[selection.kind] };
 }
 
 function readActivePage(): RightPanelPage {

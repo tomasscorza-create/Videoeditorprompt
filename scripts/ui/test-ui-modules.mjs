@@ -183,32 +183,41 @@ check(
 );
 check(
   'Edición expone un host único para herramientas contextuales',
-  appHtml.includes('id="editing-selection-context"')
-    && appHtml.includes('id="editing-tool-host"')
+  appHtml.includes('id="editing-tool-host"')
     && appHtml.includes('data-editing-host="selection-tools"'),
 );
 check(
-  'sin selección el panel de edición orienta sin mostrar controles ficticios',
-  rightPanel.describeEditingSelection(null).kind === 'none'
-    && rightPanel.describeEditingSelection(null).title === 'Sin selección',
+  'Edición elimina el encabezado explicativo y el badge contextual',
+  !appHtml.includes('Panel de mando')
+    && !appHtml.includes('Edición manual')
+    && !appHtml.includes('id="editing-selection-context"')
+    && !appHtml.includes('id="editing-selection-title"'),
 );
 check(
-  'un elemento prepara transformación, animación y apariencia',
-  rightPanel.describeEditingSelection({
+  'un elemento reparte la edición en tres subpáginas comprensibles',
+  editingPanel.editingSubpages({
     kind: 'element',
     sceneId: 'scene-1',
     elementId: 'element-1',
-  }).detail.includes('transformación, animación y apariencia'),
+  }).map((page) => page.label).join('|') === 'Ajustes|Crear animación|Pistas',
 );
 check(
-  'un keyframe prepara valor, ancla e interpolación',
-  rightPanel.describeEditingSelection({
+  'seleccionar un keyframe abre directamente Pistas',
+  editingPanel.defaultEditingSubpage({
     kind: 'keyframe',
     sceneId: 'scene-1',
     elementId: 'element-1',
     parameterId: 'opacity',
     keyframeId: 'keyframe-1',
-  }).detail.includes('valor, ancla, interpolación'),
+  }) === 'tracks',
+);
+check(
+  'un diálogo usa una página enfocada en texto y voz',
+  editingPanel.editingSubpages({
+    kind: 'dialogue',
+    sceneId: 'scene-1',
+    turnId: 'turn-1',
+  }).map((page) => page.label).join('|') === 'Texto y voz',
 );
 check(
   'Edición usa el cabezal compartido para crear keyframes con el helper canónico',

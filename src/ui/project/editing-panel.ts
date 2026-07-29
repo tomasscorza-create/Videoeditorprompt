@@ -9,7 +9,6 @@ import {
 } from '../editor-workspace.js';
 import { optional } from '../dom.js';
 import { notify } from '../notifications.js';
-import { describeEditingSelection } from '../right-panel.js';
 import {
   baseValueForParameter,
   buildAnimationLanes,
@@ -45,6 +44,13 @@ interface PlayheadReference {
   detail: string;
 }
 
+type EditingSubpage = 'scene' | 'dialogue' | 'adjustments' | 'create-animation' | 'tracks';
+
+interface EditingSubpageOption {
+  id: EditingSubpage;
+  label: string;
+}
+
 /**
  * U2: mando manual contextual del panel derecho.
  *
@@ -53,14 +59,12 @@ interface PlayheadReference {
  */
 export function initEditingPanel(store: ProjectStore): void {
   const host = optional<HTMLElement>('#editing-tool-host');
-  const title = optional<HTMLElement>('#editing-selection-title');
-  const detail = optional<HTMLElement>('#editing-selection-detail');
-  if (!host || !title || !detail) return;
+  if (!host) return;
   const toolHost = host;
-  const contextTitle = title;
-  const contextDetail = detail;
 
   let localMessage: { text: string; error: boolean } | null = null;
+  let activeSubpage: EditingSubpage = 'adjustments';
+  let selectionIdentity = '';
 
   const report = (message: string | null, ok = false): boolean => {
     localMessage = message ? { text: message, error: !ok } : null;
@@ -90,23 +94,68 @@ export function initEditingPanel(store: ProjectStore): void {
 
   function render(): void {
     const selection = projectSelection();
-    const description = describeEditingSelection(selection);
-    contextTitle.textContent = description.title;
-    contextDetail.textContent = description.detail;
-    toolHost.dataset.selectionKind = description.kind;
+    toolHost.dataset.selectionKind = selection?.kind ?? 'none';
 
     const nodes: HTMLElement[] = [];
     if (localMessage) nodes.push(statusMessage(localMessage.text, localMessage.error));
     if (!selection) {
       nodes.push(emptyState('Seleccioná una escena, diálogo, elemento o keyframe en el visor o la timeline.'));
-    } else if (selection.kind === 'scene') {
-      nodes.push(sceneEditor(selection));
-    } else if (selection.kind === 'dialogue') {
-      nodes.push(dialogueEditor(selection));
     } else {
-      nodes.push(elementEditor(selection));
+      const identity = editingSelectionIdentity(selection);
+      const pages = editingSubpages(selection);
+      if (identity !== selectionIdentity) {
+        selectionIdentity = identity;
+        activeSubpage = defaultEditingSubpage(selection);
+      }
+      if (!pages.some((page) => page.id === activeSubpage)) activeSubpage = pages[0].id;
+      nodes.push(subpageNavigation(pages));
+      if (selection.kind === 'scene') {
+        nodes.push(sceneEditor(selection));
+      } else if (selection.kind === 'dialogue') {
+        nodes.push(dialogueEditor(selection));
+      } else {
+        nodes.push(elementEditor(selection, activeSubpage));
+      }
     }
     toolHost.replaceChildren(...nodes);
+  }
+
+  function subpageNavigation(pages: EditingSubpageOption[]): HTMLElement {
+    const navigation = document.createElement('div');
+    navigation.className = 'editing-subpage-tabs';
+    navigation.dataset.editingSubnav = 'true';
+    navigation.setAttribute('role', 'tablist');
+    navigation.setAttribute('aria-label', 'Secciones de edición');
+    const buttons = pages.map((page) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'editing-subpage-tab';
+      button.textContent = page.label;
+      button.dataset.editingSubpage = page.id;
+      button.setAttribute('role', 'tab');
+      const selected = page.id === activeSubpage;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-selected', String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      button.addEventListener('click', () => {
+        activeSubpage = page.id;
+        render();
+      });
+      button.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const current = pages.findIndex((entry) => entry.id === activeSubpage);
+        const direction = event.key === 'ArrowRight' ? 1 : -1;
+        activeSubpage = pages[(current + direction + pages.length) % pages.length].id;
+        render();
+        requestAnimationFrame(() => {
+          toolHost.querySelector<HTMLButtonElement>(`[data-editing-subpage="${activeSubpage}"]`)?.focus();
+        });
+      });
+      return button;
+    });
+    navigation.append(...buttons);
+    return navigation;
   }
 
   function sceneEditor(selection: Extract<ProjectSelection, { kind: 'scene' }>): HTMLElement {
@@ -158,18 +207,27 @@ export function initEditingPanel(store: ProjectStore): void {
     return card;
   }
 
-  function elementEditor(selection: Extract<ProjectSelection, { kind: 'element' | 'keyframe' }>): HTMLElement {
+  function elementEditor(
+    selection: Extract<ProjectSelection, { kind: 'element' | 'keyframe' }>,
+    page: EditingSubpage,
+  ): HTMLElement {
     const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
     const element = scene?.elements.find((item) => item.id === selection.elementId);
     if (!scene || !element) return emptyState('El elemento seleccionado ya no existe.');
     const container = document.createElement('div');
     container.className = 'editing-tool-stack';
     container.dataset.inspectorElement = element.id;
-    if (selection.kind === 'keyframe') {
-      const keyframe = keyframeEditor(scene, element, selection);
-      if (keyframe) container.append(keyframe);
+    if (page === 'adjustments') {
+      container.append(baseElementEditor(scene, element));
+    } else if (page === 'create-animation') {
+      container.append(animationCreationEditor(scene, element));
+    } else {
+      if (selection.kind === 'keyframe') {
+        const keyframe = keyframeEditor(scene, element, selection);
+        if (keyframe) container.append(keyframe);
+      }
+      container.append(tracksEditor(scene, element));
     }
-    container.append(baseElementEditor(scene, element), animationEditor(scene, element));
     return container;
   }
 
@@ -234,7 +292,7 @@ export function initEditingPanel(store: ProjectStore): void {
     return field(label, control);
   }
 
-  function animationEditor(scene: SceneView, element: ElementView): HTMLElement {
+  function animationCreationEditor(scene: SceneView, element: ElementView): HTMLElement {
     const scope = animationScope(scene);
     const lanes = buildAnimationLanes(element.id, element.tracks ?? [], scope);
     const resource = store.resources(element.type === 'prop' ? 'prop' : 'character')
@@ -242,7 +300,7 @@ export function initEditingPanel(store: ProjectStore): void {
     const declared = readStringCapability(resource?.capabilities, 'parameters');
     const elementType = element.type === 'prop' ? 'prop' : 'character';
     const parameterIds = listAnimatableParameters(declared, elementType);
-    const card = editingCard('Animación', 'Keyframes y presets');
+    const card = editingCard('Crear animación', element.resourceId || element.id);
     const reference = describePlayheadReference(scope);
     card.append(playheadCard(reference));
 
@@ -305,11 +363,19 @@ export function initEditingPanel(store: ProjectStore): void {
     add.disabled = !reference.available || parameterIds.length === 0;
     add.title = add.disabled ? reference.detail : 'Usa la selección actual y la línea del cabezal como referencia.';
     card.append(grid(field('Parámetro', picker), field('Valor', value)), add);
+    if (lanes.length === 0) card.append(contextNote('Todavía no hay pistas. El primer keyframe creará una automáticamente.'));
+    return card;
+  }
+
+  function tracksEditor(scene: SceneView, element: ElementView): HTMLElement {
+    const scope = animationScope(scene);
+    const lanes = buildAnimationLanes(element.id, element.tracks ?? [], scope);
+    const card = editingCard('Pistas', element.resourceId || element.id);
     if (lanes.length === 0) {
-      card.append(contextNote('Sin pistas. Ubicá el cabezal, elegí un parámetro y agregá el primer keyframe.'));
-    } else {
-      for (const lane of lanes) card.append(trackRow(scene, element, lane));
+      card.append(contextNote('Sin pistas. Abrí Crear animación para aplicar un preset o agregar el primer keyframe.'));
+      return card;
     }
+    for (const lane of lanes) card.append(trackRow(scene, element, lane));
     return card;
   }
 
@@ -435,6 +501,31 @@ export function initEditingPanel(store: ProjectStore): void {
   window.addEventListener(EDITOR_WORKSPACE_EVENT, render);
   window.addEventListener(ANIMATION_MODE_EVENT, render);
   render();
+}
+
+export function editingSubpages(selection: ProjectSelection): EditingSubpageOption[] {
+  if (selection.kind === 'scene') return [{ id: 'scene', label: 'Escena' }];
+  if (selection.kind === 'dialogue') return [{ id: 'dialogue', label: 'Texto y voz' }];
+  return [
+    { id: 'adjustments', label: 'Ajustes' },
+    { id: 'create-animation', label: 'Crear animación' },
+    { id: 'tracks', label: 'Pistas' },
+  ];
+}
+
+export function defaultEditingSubpage(selection: ProjectSelection): EditingSubpage {
+  if (selection.kind === 'scene') return 'scene';
+  if (selection.kind === 'dialogue') return 'dialogue';
+  return selection.kind === 'keyframe' ? 'tracks' : 'adjustments';
+}
+
+function editingSelectionIdentity(selection: ProjectSelection): string {
+  if (selection.kind === 'keyframe') {
+    return `${selection.kind}:${selection.sceneId}:${selection.elementId}:${selection.keyframeId}`;
+  }
+  if (selection.kind === 'element') return `${selection.kind}:${selection.sceneId}:${selection.elementId}`;
+  if (selection.kind === 'dialogue') return `${selection.kind}:${selection.sceneId}:${selection.turnId}`;
+  return `${selection.kind}:${selection.sceneId}`;
 }
 
 export function selectedKeyframeId(
