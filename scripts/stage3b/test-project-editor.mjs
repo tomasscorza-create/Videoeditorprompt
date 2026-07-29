@@ -58,6 +58,12 @@ test('render-normalizes-authoring-anchors-to-the-centered-viewer-contract', () =
   assert.equal(validateRenderableProject(anchored, catalog), true);
 });
 
+test('render-accepts-character-base-rotation-through-the-pixi-adapter', () => {
+  const rotated = structuredClone(project);
+  rotated.scenes[0].elements[0].transform.rotationDegrees = 18;
+  assert.equal(validateRenderableProject(rotated, catalog), true);
+});
+
 test('repairs-only-missing-voice-references-without-mutating-the-project', () => {
   const legacy = structuredClone(project);
   legacy.scenes[0].dialogue[0].voiceId = 'voz-daniela-ar-v1';

@@ -120,8 +120,17 @@ results.push({ name: 'unsupported-elements-are-not-dropped', passed: true });
 
 const rotated = structuredClone(source);
 rotated.scenes[0].elements[0].transform.rotationDegrees = 12;
-assert.throws(() => compileCase('unsupported-rotation', rotated), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
-results.push({ name: 'unsupported-transform-is-explicit', passed: true });
+const rotatedRun = compileCase('base-rotation-pixi', rotated);
+const rotatedConfig = readJson(path.join(
+  contextFor('base-rotation-pixi', path.join(projectsRoot, 'base-rotation-pixi.json')).jobRoot,
+  rotatedRun.manifest.scenes[0].config,
+));
+assert.deepEqual(
+  rotatedConfig.characters[0].tracks.find((track) => track.parameterId === 'rotationDegrees')
+    .keyframes.map((keyframe) => keyframe.value),
+  [12, 12],
+);
+results.push({ name: 'base-rotation-selects-pixi-and-compiles-as-constant-track', passed: true });
 
 const offCenterAnchor = structuredClone(source);
 offCenterAnchor.scenes[1].elements[0].transform.anchorX = 0.2;
@@ -180,8 +189,17 @@ results.push({ name: 'animating-changes-the-compilation-identity', passed: true 
 
 const rotationTrack = structuredClone(source);
 rotationTrack.scenes[0].elements[0].tracks = [trackFor('rotationDegrees', [0, 12])];
-assert.throws(() => compileCase('animated-rotation', rotationTrack), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
-results.push({ name: 'unrenderable-animated-parameter-is-explicit', passed: true });
+const rotationTrackRun = compileCase('animated-rotation', rotationTrack);
+const rotationTrackConfig = readJson(path.join(
+  contextFor('animated-rotation', path.join(projectsRoot, 'animated-rotation.json')).jobRoot,
+  rotationTrackRun.manifest.scenes[0].config,
+));
+assert.deepEqual(
+  rotationTrackConfig.characters[0].tracks.find((track) => track.parameterId === 'rotationDegrees')
+    .keyframes.map((keyframe) => keyframe.value),
+  [0, 12],
+);
+results.push({ name: 'rotation-track-selects-pixi-for-legacy-character', passed: true });
 
 const articulated = structuredClone(source);
 articulated.scenes[0].elements[0].resourceId = 'mono-articulado-azul-v1';

@@ -237,6 +237,15 @@ check(
     && compositionSource.includes('image.style.opacity = String(view.opacity)'),
 );
 check(
+  'el visor ofrece controles directos separados para mover, escalar y rotar',
+  compositionSource.includes("transformHandle('rotate', 'Rotar elemento'")
+    && compositionSource.includes("transformHandle('scale', 'Escalar elemento'")
+    && compositionSource.includes("move.setAttribute('aria-label', 'Mover elemento')")
+    && compositionSource.includes('paintTransform(image, controls, next)')
+    && compositionSource.includes("'rotationDegrees',")
+    && compositionSource.includes("'scale',"),
+);
+check(
   'una animación de opacidad no constante desactiva el ajuste simple',
   editingPanelSource.includes("track.parameterId === 'opacity'")
     && editingPanelSource.includes('opacityTrack && !constantTrack')

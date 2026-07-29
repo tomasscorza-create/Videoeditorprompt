@@ -126,6 +126,12 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       image.style.transform = `translate(-50%, -50%) rotate(${view.rotationDegrees}deg) scale(${view.scale})`;
       bindElementInteraction(image, canvas, store, scene, element);
       nodes.push(image);
+      if (
+        (selection?.kind === 'element' || selection?.kind === 'keyframe')
+        && selection.elementId === element.id
+      ) {
+        nodes.push(transformControls(image, canvas, store, scene, element, view));
+      }
     }
     const placement = currentCharacterPlacement();
     if (placement) nodes.push(placementHint(`Clic o soltar: colocar «${placement.label}»`));
@@ -295,6 +301,180 @@ function bindElementInteraction(
     image.addEventListener('pointermove', move);
     image.addEventListener('pointerup', finish);
   });
+}
+
+function transformControls(
+  image: HTMLElement,
+  canvas: HTMLElement,
+  store: ProjectStore,
+  scene: SceneView,
+  element: ElementView,
+  view: ReturnType<typeof viewTransform>,
+): HTMLElement {
+  const controls = document.createElement('div');
+  controls.className = 'composition-transform-controls';
+  controls.setAttribute('role', 'group');
+  controls.setAttribute('aria-label', `Transformar ${element.resourceId || element.id}`);
+  positionTransformControls(controls, view);
+
+  const move = document.createElement('button');
+  move.type = 'button';
+  move.className = 'composition-transform-move';
+  move.setAttribute('aria-label', 'Mover elemento');
+  move.title = 'Arrastrar para mover';
+  const rotate = transformHandle('rotate', 'Rotar elemento', '↻');
+  const scale = transformHandle('scale', 'Escalar elemento', '↘');
+  controls.append(move, rotate, scale);
+
+  bindTransformPointer(move, canvas, (event, start) => {
+    const x = clamp(Math.round(start.view.x + (event.clientX - start.clientX) / start.bounds.width * 1080), -1080, 2160);
+    const y = clamp(Math.round(start.view.y + (event.clientY - start.clientY) / start.bounds.height * 1920), -1920, 3840);
+    const next = { ...start.view, x, y };
+    paintTransform(image, controls, next);
+    return next;
+  }, (next) => applyPosition(store, scene, liveElement(store, scene.id, element.id) ?? element, next.x, next.y), view);
+
+  bindTransformPointer(scale, canvas, (event, start) => {
+    const center = canvasPoint(start.bounds, start.view.x, start.view.y);
+    const initialDistance = Math.max(1, Math.hypot(start.clientX - center.x, start.clientY - center.y));
+    const distance = Math.hypot(event.clientX - center.x, event.clientY - center.y);
+    const next = { ...start.view, scale: clamp(Math.round(start.view.scale * distance / initialDistance * 100) / 100, 0.05, 10) };
+    paintTransform(image, controls, next);
+    return next;
+  }, (next) => applyTransformValue(store, scene, liveElement(store, scene.id, element.id) ?? element, 'scale', next.scale), view);
+
+  bindTransformPointer(rotate, canvas, (event, start) => {
+    const center = canvasPoint(start.bounds, start.view.x, start.view.y);
+    const initialAngle = Math.atan2(start.clientY - center.y, start.clientX - center.x);
+    const angle = Math.atan2(event.clientY - center.y, event.clientX - center.x);
+    const delta = (angle - initialAngle) * 180 / Math.PI;
+    const next = { ...start.view, rotationDegrees: normalizeDegrees(Math.round(start.view.rotationDegrees + delta)) };
+    paintTransform(image, controls, next);
+    return next;
+  }, (next) => applyTransformValue(
+    store,
+    scene,
+    liveElement(store, scene.id, element.id) ?? element,
+    'rotationDegrees',
+    next.rotationDegrees,
+  ), view);
+  return controls;
+}
+
+type ViewTransform = ReturnType<typeof viewTransform>;
+
+interface TransformPointerStart {
+  clientX: number;
+  clientY: number;
+  bounds: DOMRect;
+  view: ViewTransform;
+}
+
+function bindTransformPointer(
+  handle: HTMLElement,
+  canvas: HTMLElement,
+  update: (event: PointerEvent, start: TransformPointerStart) => ViewTransform,
+  commit: (view: ViewTransform) => void,
+  initialView: ViewTransform,
+): void {
+  handle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    handle.setPointerCapture(event.pointerId);
+    const start = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      bounds: canvas.getBoundingClientRect(),
+      view: initialView,
+    };
+    let pending = initialView;
+    const move = (moveEvent: PointerEvent): void => {
+      pending = update(moveEvent, start);
+    };
+    const finish = (): void => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', finish);
+      handle.removeEventListener('pointercancel', finish);
+      if (
+        pending.x === start.view.x
+        && pending.y === start.view.y
+        && pending.scale === start.view.scale
+        && pending.rotationDegrees === start.view.rotationDegrees
+      ) return;
+      commit(pending);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', finish);
+  });
+}
+
+function transformHandle(kind: string, label: string, text: string): HTMLButtonElement {
+  const handle = document.createElement('button');
+  handle.type = 'button';
+  handle.className = `composition-transform-handle is-${kind}`;
+  handle.setAttribute('aria-label', label);
+  handle.title = label;
+  handle.textContent = text;
+  return handle;
+}
+
+function liveElement(store: ProjectStore, sceneId: string, elementId: string): ElementView | null {
+  return store.project().scenes.find((scene) => scene.id === sceneId)
+    ?.elements.find((element) => element.id === elementId) ?? null;
+}
+
+function canvasPoint(bounds: DOMRect, x: number, y: number): { x: number; y: number } {
+  return {
+    x: bounds.left + x / 1080 * bounds.width,
+    y: bounds.top + y / 1920 * bounds.height,
+  };
+}
+
+function positionTransformControls(controls: HTMLElement, view: ViewTransform): void {
+  controls.style.left = `${view.x / 10.8}%`;
+  controls.style.top = `${view.y / 19.2}%`;
+  controls.style.width = `${Math.max(12, 32 * view.scale)}%`;
+  controls.style.height = `${Math.max(10, 26 * view.scale)}%`;
+  controls.style.transform = `translate(-50%, -50%) rotate(${view.rotationDegrees}deg)`;
+}
+
+function paintTransform(image: HTMLElement, controls: HTMLElement, view: ViewTransform): void {
+  image.style.left = `${view.x / 10.8}%`;
+  image.style.top = `${view.y / 19.2}%`;
+  image.style.transform = `translate(-50%, -50%) rotate(${view.rotationDegrees}deg) scale(${view.scale})`;
+  positionTransformControls(controls, view);
+}
+
+function applyTransformValue(
+  store: ProjectStore,
+  scene: SceneView,
+  element: ElementView,
+  parameterId: 'scale' | 'rotationDegrees',
+  value: number,
+): void {
+  if (isAnimationModeOn(scene.id, element.id)) {
+    applyAnimated(store, scene, element, [{ parameterId, value }]);
+    return;
+  }
+  store.dispatch({
+    type: 'set-element-transform',
+    sceneId: scene.id,
+    elementId: element.id,
+    [parameterId]: value,
+  });
+}
+
+function normalizeDegrees(value: number): number {
+  let normalized = value;
+  while (normalized > 180) normalized -= 360;
+  while (normalized < -180) normalized += 360;
+  return normalized;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
 }
 
 /**

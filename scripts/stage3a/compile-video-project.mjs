@@ -144,13 +144,19 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     resource: resources.get(element.resourceId),
   }));
   const characterManifestPaths = characterSources.map(({ resource }) => resolveCharacterManifest(resource, assetsRoot, sceneIndex));
-  const usesPixiCompositor = propElements.length > 0 || characterManifestPaths.some((manifestPath) => (
-    readJson(resolveAuthoringAsset(assetsRoot, manifestPath, `manifest técnico ${manifestPath}`)).version === 3
-  ));
+  const usesPixiCompositor = propElements.length > 0
+    || characterElements.some((element) => (
+      element.transform.rotationDegrees !== 0
+      || element.tracks?.some((track) => track.parameterId === 'rotationDegrees')
+    ))
+    || characterManifestPaths.some((manifestPath) => (
+      readJson(resolveAuthoringAsset(assetsRoot, manifestPath, `manifest técnico ${manifestPath}`)).version === 3
+    ));
   const technicalCatalogs = new Set(characterSources.map(({ resource }) => resource.characterRef.catalog));
   const useDirectManifests = technicalCatalogs.size > 1;
   const characters = characterSources.map(({ element, resource }, characterIndex) => {
     assertCompatibleCharacterTransform(element, sceneIndex);
+    const tracks = characterTracksForCompilation(element);
     if (element.poseId !== 'neutral') unsupportedScene(sceneIndex, `el personaje ${element.id} usa pose inicial ${element.poseId}; el runtime actual solo conserva neutral fuera de los turnos`);
     const motion = MOTION_PRESETS[element.animationPreset];
     if (!motion) unsupportedScene(sceneIndex, `el preset ${element.animationPreset} no tiene compilación disponible`);
@@ -177,7 +183,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
         maxIntervalSeconds: [4.3, 4.7][characterIndex],
         durationSeconds: 0.12,
       },
-      ...(element.tracks?.length ? { tracks: compileTracks(element, sceneIndex, usesPixiCompositor) } : {}),
+      ...(tracks.length ? { tracks: compileTracks({ ...element, tracks }, sceneIndex, usesPixiCompositor) } : {}),
     };
   });
   const props = propElements
@@ -260,11 +266,9 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
 /**
  * Parámetros animables que el runtime v2 sabe llevar al MP4.
  *
- * `rotationDegrees` y `armRaise` quedan afuera a propósito: el compositor
- * vigente compone con overlays de FFmpeg, no rota la capa del personaje —de
- * hecho ya rechaza un transform base con rotación— y una articulación necesita
- * el rig v3 con el compositor de la Fase 3. Ofrecerlos sería exportar algo
- * distinto de lo que muestra la vista previa.
+ * FFmpeg conserva el subconjunto histórico. Una rotación, un prop o un rig v3
+ * seleccionan Pixi automáticamente para que la edición directa del visor no
+ * produzca un MP4 distinto de la vista previa.
  */
 const FFMPEG_RENDERABLE_PARAMETERS = Object.freeze(['position.x', 'position.y', 'scale', 'opacity']);
 const PIXI_RENDERABLE_PARAMETERS = Object.freeze([
@@ -290,6 +294,37 @@ function compileTracks(element, sceneIndex, usesPixiCompositor) {
   // Las pistas viajan tal cual, en coordenadas de autoría: el exportador las
   // traslada al espacio centrado del runtime, que es donde vive el transform.
   return element.tracks.map((track) => structuredClone(track));
+}
+
+function characterTracksForCompilation(element) {
+  const tracks = (element.tracks ?? []).map((track) => structuredClone(track));
+  if (
+    element.transform.rotationDegrees === 0
+    || tracks.some((track) => track.parameterId === 'rotationDegrees')
+  ) return tracks;
+  return [
+    ...tracks,
+    {
+      parameterId: 'rotationDegrees',
+      source: { kind: 'manual' },
+      keyframes: [
+        {
+          id: `kf-rot-${element.id.slice(0, 40)}-start`,
+          anchor: { kind: 'scene', edge: 'start' },
+          offsetSeconds: 0,
+          value: element.transform.rotationDegrees,
+          interpolation: 'linear',
+        },
+        {
+          id: `kf-rot-${element.id.slice(0, 40)}-end`,
+          anchor: { kind: 'scene', edge: 'end' },
+          offsetSeconds: 0,
+          value: element.transform.rotationDegrees,
+          interpolation: 'hold',
+        },
+      ],
+    },
+  ];
 }
 
 function compileTurnLayout(presetId, characters, video, sceneIndex) {
@@ -339,7 +374,6 @@ function assertCompatibleCharacterTransform(element, sceneIndex) {
   // El compositor y la vista editable usan el centro del recurso. `anchorX/Y`
   // siguen en el documento de autoría por portabilidad, pero el runtime vigente
   // los normaliza a 0.5/0.5 en vez de rechazar todo el proyecto.
-  if (transform.rotationDegrees !== 0) unsupportedScene(sceneIndex, `el personaje ${element.id} requiere rotación 0`);
   if (transform.opacity !== 1) unsupportedScene(sceneIndex, `el personaje ${element.id} requiere opacidad 1`);
 }
 
