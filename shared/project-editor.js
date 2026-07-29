@@ -544,8 +544,8 @@ function applyMutation(project, catalog, command) {
       return;
     }
     case 'create-track': {
-      // Atómico a propósito: una pista de un solo keyframe no cumple el contrato,
-      // así que no puede existir ni siquiera como paso intermedio de la edición.
+      // Atómico a propósito: el primer rombo crea una pista armada con un único
+      // punto y el segundo punto define recién el primer tramo interpolado.
       const element = requireAnimatedElement(project, command);
       element.tracks ||= [];
       if (findTrack(element, command.parameterId)) {
@@ -563,7 +563,7 @@ function applyMutation(project, catalog, command) {
     case 'add-keyframe': {
       const element = requireAnimatedElement(project, command);
       const track = findTrack(element, command.parameterId);
-      if (!track) fail('EDITOR_TRACK_NOT_FOUND', 'La pista no existe; usá create-track para empezarla con dos keyframes.', '/command/parameterId');
+      if (!track) fail('EDITOR_TRACK_NOT_FOUND', 'La pista no existe; usá create-track para agregar el primer keyframe.', '/command/parameterId');
       if (track.source.kind === 'preset') {
         // Editar a mano una pista que vino de un preset no la regenera: queda
         // marcada y sigue siendo editable, como fijó la Fase 0.
@@ -600,8 +600,7 @@ function applyMutation(project, catalog, command) {
       const index = track.keyframes.findIndex((candidate) => candidate.id === command.keyframeId);
       if (index < 0) fail('EDITOR_KEYFRAME_NOT_FOUND', 'El keyframe no existe en la pista.', '/command/keyframeId');
       track.keyframes.splice(index, 1);
-      // Una pista con menos de dos keyframes deja de ser una animación: se
-      // elimina entera en vez de quedar en un estado que el contrato rechaza.
+      // Borrar el único punto elimina también la pista armada.
       if (track.keyframes.length < ANIMATION_LIMITS.minimumKeyframesPerTrack) {
         element.tracks = element.tracks.filter((candidate) => candidate !== track);
       } else {
@@ -769,13 +768,10 @@ function validateEditableTracks(element, resource, path) {
       fail('EDITOR_TRACK_INVALID', 'El recurso no declara ese parámetro animable.', `${trackPath}/parameterId`);
     }
     if (!Array.isArray(track.keyframes) || track.keyframes.length < ANIMATION_LIMITS.minimumKeyframesPerTrack) {
-      fail('EDITOR_TRACK_INVALID', 'Una pista necesita al menos dos keyframes; un valor fijo pertenece al transform base.', `${trackPath}/keyframes`);
+      fail('EDITOR_TRACK_INVALID', 'Una pista necesita al menos un keyframe.', `${trackPath}/keyframes`);
     }
     if (track.keyframes.length > ANIMATION_LIMITS.keyframesPerTrack) {
       fail('EDITOR_TRACK_INVALID', `Una pista admite hasta ${ANIMATION_LIMITS.keyframesPerTrack} keyframes.`, `${trackPath}/keyframes`);
-    }
-    if (track.keyframes.at(-1).interpolation !== 'hold') {
-      fail('EDITOR_TRACK_INVALID', 'El último keyframe de una pista debe usar hold.', `${trackPath}/keyframes`);
     }
     const offsets = new Map();
     for (const [keyframeIndex, keyframe] of track.keyframes.entries()) {
@@ -815,10 +811,6 @@ function sortKeyframes(track) {
     if (left > right) return 1;
     return a.offsetSeconds - b.offsetSeconds;
   });
-  // Después de mover un keyframe el último puede haber cambiado: el contrato
-  // exige que el que cierra la pista congele el valor.
-  const last = track.keyframes.at(-1);
-  if (last) last.interpolation = 'hold';
 }
 
 function requireAnimatedElement(project, command) {

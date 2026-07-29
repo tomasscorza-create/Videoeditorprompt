@@ -1215,7 +1215,7 @@
     "createTrack": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Crea una pista completa. Es atómico a propósito: una pista de un solo keyframe no cumple el contrato, así que no puede existir ni siquiera como paso intermedio.",
+      "description": "Crea una pista de forma atómica. Un único keyframe arma la propiedad en el cabezal; el segundo define el primer tramo.",
       "required": [
         "type",
         "sceneId",
@@ -1248,7 +1248,7 @@
         },
         "keyframes": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
           "maxItems": 32,
           "items": {
             "$ref": "#/$defs/animationKeyframe"

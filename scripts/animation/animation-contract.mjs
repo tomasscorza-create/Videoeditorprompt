@@ -80,11 +80,6 @@ export function validateAnimationScene(document) {
         failAnimation('ANIM_KEYFRAME_LIMIT_EXCEEDED', `${trackPath}/keyframes`, `${sceneKeyframes} keyframes`);
       }
 
-      const last = track.keyframes.at(-1);
-      if (last.interpolation !== 'hold') {
-        failAnimation('ANIM_INTERPOLATION_INVALID', `${trackPath}/keyframes/${track.keyframes.length - 1}/interpolation`, last.interpolation);
-      }
-
       const offsetsByAnchor = new Map();
       for (const [keyframeIndex, keyframe] of track.keyframes.entries()) {
         const keyframePath = `${trackPath}/keyframes/${keyframeIndex}`;

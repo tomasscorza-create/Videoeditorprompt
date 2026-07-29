@@ -248,10 +248,11 @@ check(
     && compositionSource.includes("'scale',"),
 );
 check(
-  'una animación de opacidad no constante desactiva el ajuste simple',
-  editingPanelSource.includes("track.parameterId === 'opacity'")
-    && editingPanelSource.includes('opacityTrack && !constantTrack')
-    && editingPanelSource.includes("output.textContent = 'Controlada por pista'"),
+  'cada ajuste animable muestra rombo y navegación sin salir de Ajustes',
+  editingPanelSource.includes("diamond.className = `keyframe-diamond-button")
+    && editingPanelSource.includes("jump('anterior', previous)")
+    && editingPanelSource.includes("jump('siguiente', next)")
+    && editingPanelSource.includes('setEditorPlayhead(target.seconds)'),
 );
 {
   const character = {
@@ -352,6 +353,13 @@ check(
     .includes("showRightPanelPage('editing')")
     && !readFileSync(path.join(projectRoot, 'src', 'ui', 'selection-mirror.ts'), 'utf8')
       .includes("querySelector<HTMLElement>('#scene-inspector')"),
+);
+check(
+  'el visor no conserva el rectángulo punteado anterior al marco de transformación',
+  !readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8')
+    .includes('.composition-character.is-linked-hover')
+    && !readFileSync(path.join(projectRoot, 'src', 'ui', 'selection-mirror.ts'), 'utf8')
+      .includes('.composition-character[data-element-id="${CSS.escape(elementId)}"]'),
 );
 check(
   'la creación de pista selecciona el keyframe editable del cabezal',
@@ -774,7 +782,7 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('la pista se rotula con su parámetro y su procedencia', lane.label === 'Posición X' && lane.sourceLabel === 'enter-left');
   check('el keyframe resuelve a segundos y a frame de escena', lane.keyframes[1].seconds === 0.6 && lane.keyframes[1].sceneFrameIndex === 18);
   check('el tramo hereda la interpolación del keyframe del que sale', lane.segments.length === 1 && lane.segments[0].interpolation === 'ease');
-  check('el último keyframe queda marcado para exigirle hold', lane.keyframes[1].isLast === true && lane.keyframes[0].isLast === false);
+  check('el último keyframe queda marcado según su orden temporal', lane.keyframes[1].isLast === true && lane.keyframes[0].isLast === false);
   check('un keyframe resuelto no tiene nada que revisar', lane.keyframes.every((keyframe) => keyframe.status === 'ok') && lane.reviewCount === 0);
 
   const unmeasured = animation.buildAnimationLanes('e1', tracks, { timing: null, reference, fps: 30 })[0];
@@ -862,30 +870,42 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
     lane: null,
     timing,
     fps: 30,
-    baseValue: 290,
     takenKeyframeIds: [],
     ...extra,
   });
 
   const created = commandFor({})[0];
-  check('sin pista, la pista nace con los dos keyframes que el contrato exige', created.type === 'create-track' && created.keyframes.length === 2);
-  check('el primero conserva la base al inicio de la escena', created.keyframes[0].value === 290 && created.keyframes[0].anchor.kind === 'scene');
-  check('el segundo lleva el valor nuevo al cabezal y cierra en hold', created.keyframes[1].value === 500 && created.keyframes[1].interpolation === 'hold');
+  check('sin pista, el primer rombo arma una pista con un único punto', created.type === 'create-track' && created.keyframes.length === 1);
+  check('el primer punto usa el valor y la posición exacta del cabezal', created.keyframes[0].value === 500 && created.keyframes[0].interpolation === 'hold');
   check('la pista nueva es manual, no de preset', created.source.kind === 'manual');
 
   const atSceneStart = commandFor({ playheadSeconds: 0 })[0];
-  check(
-    'con el cabezal sobre el ancla los dos keyframes no colisionan',
-    atSceneStart.keyframes[0].offsetSeconds !== atSceneStart.keyframes[1].offsetSeconds,
-  );
+  check('el primer rombo también puede caer exactamente al inicio', atSceneStart.keyframes.length === 1 && atSceneStart.keyframes[0].offsetSeconds === 0);
 
-  const added = commandFor({ lane })[0];
-  check('con la pista ya creada solo se agrega un keyframe', added.type === 'add-keyframe' && added.value === 500);
+  const added = commandFor({ lane });
+  check('un punto nuevo se agrega a la pista existente', added.at(-1).type === 'add-keyframe' && added.at(-1).value === 500);
+
+  const armedLane = animation.buildAnimationLanes('e1', [{
+    parameterId: 'position.x',
+    source: { kind: 'manual' },
+    keyframes: [
+      { id: 'kf-armed', anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0, value: 100, interpolation: 'hold' },
+    ],
+  }], { timing, reference, fps: 30 })[0];
+  const secondPoint = commandFor({ lane: armedLane, playheadSeconds: 1 });
+  check(
+    'el segundo rombo abre un tramo lineal desde el primero',
+    secondPoint[0].type === 'set-keyframe'
+      && secondPoint[0].keyframeId === 'kf-armed'
+      && secondPoint[0].interpolation === 'linear'
+      && secondPoint[1].type === 'add-keyframe'
+      && secondPoint[1].interpolation === 'hold',
+  );
 
   const updated = commandFor({ lane, playheadSeconds: 0.6 })[0];
   check('sobre un keyframe existente se cambia su valor, no se duplica', updated.type === 'set-keyframe' && updated.keyframeId === 'kf-2');
   check('mover al mismo valor no genera comando', commandFor({ lane, playheadSeconds: 0.6, value: 320 }).length === 0);
-  check('el valor se acota al rango antes de mandarlo', commandFor({ lane, value: 99999 })[0].value === 2160);
+  check('el valor se acota al rango antes de mandarlo', commandFor({ lane, value: 99999 }).at(-1).value === 2160);
 }
 
 // ---- notifications-queue.ts: cola de notificaciones transitorias (M1) ----

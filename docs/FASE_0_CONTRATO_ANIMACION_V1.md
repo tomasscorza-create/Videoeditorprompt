@@ -72,9 +72,8 @@ Tres reglas que estaban implícitas y ahora son parte del contrato:
 
 1. **La interpolación de un keyframe describe el tramo que sale de él** hacia el
    siguiente, no el que entra.
-2. **El último keyframe de una pista debe declarar `hold`.** Después de él el
-   valor queda congelado hasta el final de la escena. Que esté escrito en los
-   datos evita que «qué pasa al final» dependa de leer el evaluador.
+2. **Después del último keyframe el valor queda congelado.** Su interpolación no
+   abre ningún tramo porque no existe un punto siguiente.
 3. **Antes del primer keyframe se sostiene el valor del primer keyframe.** No se
    extrapola hacia atrás ni se mezcla con la base.
 
@@ -178,7 +177,6 @@ sugerida. La interfaz de la Fase 4 debe tomarlos de ahí, no reescribirlos.
 | `ANIM_KEYFRAME_ID_DUPLICATED` | Dos keyframes con el mismo id | Asignar ids únicos |
 | `ANIM_KEYFRAME_COLLISION` | Dos keyframes de una pista en la misma ancla y offset | Separarlos o borrar el duplicado |
 | `ANIM_KEYFRAME_ORDER_INVALID` | Offsets no crecientes dentro de la misma ancla | Ordenarlos antes de guardar |
-| `ANIM_INTERPOLATION_INVALID` | El último keyframe no usa `hold` | Cambiarlo a `hold` |
 
 ### 3.2 Compilación — solo después de FFprobe (Fase 2)
 

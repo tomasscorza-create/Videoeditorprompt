@@ -6,6 +6,7 @@ import {
   EDITOR_WORKSPACE_EVENT,
   editorPlayhead,
   measuredTimelineFor,
+  setEditorPlayhead,
 } from '../editor-workspace.js';
 import { optional } from '../dom.js';
 import { notify } from '../notifications.js';
@@ -14,6 +15,7 @@ import {
   buildAnimationLanes,
   clampParameterValue,
   duplicateKeyframeCommand,
+  evaluateLanesAt,
   keyframeCommandsForValue,
   listAnimatableParameters,
   nearestAnchorFor,
@@ -237,6 +239,9 @@ export function initEditingPanel(store: ProjectStore): void {
     const card = editingCard(element.type === 'prop' ? 'Prop' : 'Elemento', element.resourceId || element.id);
     const resourceType = element.type === 'prop' ? 'prop' : 'character';
     const resources = store.resources(resourceType);
+    const scope = animationScope(scene);
+    const lanes = buildAnimationLanes(element.id, element.tracks ?? [], scope);
+    const animatedValues = evaluateLanesAt(lanes, editorPlayhead());
     const resource = select(resources.map((item) => ({ value: item.id, label: item.label })), element.resourceId ?? '');
     resource.addEventListener('change', () => send({
       type: element.type === 'prop' ? 'set-prop-resource' : 'set-character-resource',
@@ -263,12 +268,25 @@ export function initEditingPanel(store: ProjectStore): void {
       }
     }
     card.append(grid(
-      transformField(scene, element, 'x', 'X', -1080, 2160, 1),
-      transformField(scene, element, 'y', 'Y', -1920, 3840, 1),
-      transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01),
-      transformField(scene, element, 'rotationDegrees', 'Rotación', -180, 180, 1),
-      opacityField(scene, element),
+      transformField(scene, element, 'x', 'position.x', 'X', -1080, 2160, 1, scope, lanes, animatedValues),
+      transformField(scene, element, 'y', 'position.y', 'Y', -1920, 3840, 1, scope, lanes, animatedValues),
+      transformField(scene, element, 'scale', 'scale', 'Escala', 0.01, 10, 0.01, scope, lanes, animatedValues),
+      transformField(scene, element, 'rotationDegrees', 'rotationDegrees', 'Rotación', -180, 180, 1, scope, lanes, animatedValues),
+      opacityField(scene, element, scope, lanes, animatedValues),
     ));
+    const selectedResource = resources.find((item) => item.id === element.resourceId);
+    const articulatedParameters = readStringCapability(selectedResource?.capabilities, 'parameters')
+      .filter((parameterId) => ANIMATION_PARAMETERS[parameterId]?.requiresResourceSupport);
+    if (articulatedParameters.length > 0) {
+      const articulation = document.createElement('section');
+      articulation.className = 'editing-articulation';
+      const title = document.createElement('strong');
+      title.textContent = 'Articulaciones';
+      articulation.append(title, grid(...articulatedParameters.map((parameterId) => (
+        articulatedField(scene, element, parameterId, scope, lanes, animatedValues)
+      ))));
+      card.append(articulation);
+    }
     card.append(layerOrderField(scene, element));
     return card;
   }
@@ -277,50 +295,76 @@ export function initEditingPanel(store: ProjectStore): void {
     scene: SceneView,
     element: ElementView,
     key: 'x' | 'y' | 'scale' | 'rotationDegrees',
+    parameterId: string,
     label: string,
     minimum: number,
     maximum: number,
     step: number,
+    scope: AnimationScope,
+    lanes: AnimationLane[],
+    animatedValues: Record<string, number>,
   ): HTMLElement {
-    const control = input('number', String(element.transform[key]), {
+    const control = input('number', String(animatedValues[parameterId] ?? element.transform[key]), {
       min: String(minimum), max: String(maximum), step: String(step),
     });
-    control.addEventListener('change', () => send({
-      type: 'set-element-transform',
-      sceneId: scene.id,
-      elementId: element.id,
-      [key]: Number(control.value),
-    }));
-    return field(label, control);
+    const lane = lanes.find((item) => item.parameterId === parameterId) ?? null;
+    const reference = describePlayheadReference(scope);
+    if (lane && !reference.available) {
+      control.disabled = true;
+      control.title = reference.detail;
+    }
+    control.addEventListener('change', () => {
+      if (lane) {
+        setKeyframedValue(scene, element, parameterId, Number(control.value), lane, scope);
+        return;
+      }
+      send({
+        type: 'set-element-transform',
+        sceneId: scene.id,
+        elementId: element.id,
+        [key]: Number(control.value),
+      });
+    });
+    return keyframedField(scene, element, parameterId, label, control, lane, scope);
   }
 
-  function opacityField(scene: SceneView, element: ElementView): HTMLElement {
-    const wrapper = document.createElement('label');
-    wrapper.className = 'inspector-field is-compact editing-opacity-field';
-    const heading = document.createElement('span');
-    heading.textContent = 'Opacidad';
+  function opacityField(
+    scene: SceneView,
+    element: ElementView,
+    scope: AnimationScope,
+    lanes: AnimationLane[],
+    animatedValues: Record<string, number>,
+  ): HTMLElement {
     const control = document.createElement('div');
     control.className = 'editing-opacity-control';
     const opacityTrack = (element.tracks ?? []).find((track) => track.parameterId === 'opacity');
     const constantTrack = opacityTrack && isConstantSceneOpacityTrack(opacityTrack) ? opacityTrack : null;
-    const controlledByAnimation = Boolean(opacityTrack && !constantTrack);
-    const initialOpacity = constantTrack?.keyframes[0]?.value ?? element.transform.opacity;
+    const lane = lanes.find((item) => item.parameterId === 'opacity') ?? null;
+    const reference = describePlayheadReference(scope);
+    const initialOpacity = animatedValues.opacity ?? constantTrack?.keyframes[0]?.value ?? element.transform.opacity;
     const range = input('range', String(Math.round(initialOpacity * 100)), {
       min: '0', max: '100', step: '1',
     });
     const output = document.createElement('output');
+    if (lane && !reference.available) {
+      range.disabled = true;
+      range.title = reference.detail;
+    }
     const paint = (): void => {
       const percent = Number(range.value);
       output.textContent = `${percent}%`;
       const preview = document.querySelector<HTMLElement>(
         `.composition-character[data-element-id="${CSS.escape(element.id)}"]`,
       );
-      if (preview && !controlledByAnimation) preview.style.opacity = String(percent / 100);
+      if (preview) preview.style.opacity = String(percent / 100);
     };
     range.addEventListener('input', paint);
     range.addEventListener('change', () => {
-      if (controlledByAnimation) return;
       const opacity = Number(range.value) / 100;
+      if (lane) {
+        setKeyframedValue(scene, element, 'opacity', opacity, lane, scope);
+        return;
+      }
       if (element.type === 'character') {
         const commands = constantCharacterOpacityCommands(scene, element, opacity);
         if (commands.length > 0) report(store.dispatchBatch(commands));
@@ -333,14 +377,121 @@ export function initEditingPanel(store: ProjectStore): void {
         });
       }
     });
-    if (controlledByAnimation) {
-      range.disabled = true;
-      range.title = 'La pista Opacidad controla este valor. Editala desde Pistas.';
-      output.textContent = 'Controlada por pista';
-    } else {
-      paint();
-    }
+    paint();
     control.append(range, output);
+    return keyframedField(scene, element, 'opacity', 'Opacidad', control, lane, scope, initialOpacity);
+  }
+
+  function articulatedField(
+    scene: SceneView,
+    element: ElementView,
+    parameterId: string,
+    scope: AnimationScope,
+    lanes: AnimationLane[],
+    animatedValues: Record<string, number>,
+  ): HTMLElement {
+    const parameter = ANIMATION_PARAMETERS[parameterId];
+    const lane = lanes.find((item) => item.parameterId === parameterId) ?? null;
+    const current = animatedValues[parameterId] ?? lane?.keyframes[0]?.value ?? 0;
+    const reference = describePlayheadReference(scope);
+    const control = input('number', String(current), {
+      min: String(parameter.exclusiveMinimum ?? parameter.minimum),
+      max: String(parameter.maximum),
+      step: '0.01',
+    });
+    control.disabled = !reference.available;
+    control.title = reference.available ? '' : reference.detail;
+    control.addEventListener('change', () => {
+      if (reference.available) setKeyframedValue(scene, element, parameterId, Number(control.value), lane, scope);
+    });
+    return keyframedField(scene, element, parameterId, parameterLabel(parameterId), control, lane, scope, current);
+  }
+
+  function setKeyframedValue(
+    scene: SceneView,
+    element: ElementView,
+    parameterId: string,
+    value: number,
+    lane: AnimationLane | null,
+    scope: AnimationScope,
+  ): boolean {
+    if (!scope.timing || !describePlayheadReference(scope).available) return false;
+    const commands = keyframeCommandsForValue({
+      sceneId: scene.id,
+      elementId: element.id,
+      parameterId,
+      value: clampParameterValue(parameterId, value),
+      playheadSeconds: editorPlayhead(),
+      lane,
+      timing: scope.timing,
+      fps: scope.fps,
+      takenKeyframeIds: (element.tracks ?? []).flatMap((track) => track.keyframes.map((item) => item.id)),
+    });
+    return sendBatch(commands);
+  }
+
+  function keyframedField(
+    scene: SceneView,
+    element: ElementView,
+    parameterId: string,
+    label: string,
+    control: HTMLElement,
+    lane: AnimationLane | null,
+    scope: AnimationScope,
+    currentValue?: number,
+  ): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'inspector-field is-compact keyframed-field';
+    const heading = document.createElement('div');
+    heading.className = 'keyframed-field-heading';
+    const text = document.createElement('span');
+    text.textContent = label;
+    const navigation = document.createElement('div');
+    navigation.className = 'keyframe-property-actions';
+    const playhead = editorPlayhead();
+    const reference = describePlayheadReference(scope);
+    const tolerance = 0.5 / scope.fps;
+    const resolved = lane?.keyframes.filter((item) => item.seconds !== null) ?? [];
+    const exact = resolved.find((item) => Math.abs((item.seconds as number) - playhead) <= tolerance) ?? null;
+    const previous = [...resolved].reverse()
+      .find((item) => (item.seconds as number) < playhead - tolerance) ?? null;
+    const next = resolved.find((item) => (item.seconds as number) > playhead + tolerance) ?? null;
+    const jump = (
+      direction: 'anterior' | 'siguiente',
+      target: AnimationLane['keyframes'][number] | null,
+    ): HTMLButtonElement => {
+      const button = actionButton(direction === 'anterior' ? '‹' : '›', () => {
+        if (target?.seconds !== null && target?.seconds !== undefined) setEditorPlayhead(target.seconds);
+      });
+      button.className = 'keyframe-jump-button';
+      button.disabled = !target;
+      button.setAttribute('aria-label', `Keyframe ${direction} de ${label}`);
+      return button;
+    };
+    const diamond = actionButton(exact ? '◆' : '◇', () => {
+      if (exact) {
+        send({
+          type: 'delete-keyframe',
+          sceneId: scene.id,
+          elementId: element.id,
+          parameterId,
+          keyframeId: exact.id,
+        });
+        return;
+      }
+      const value = currentValue ?? Number((control as HTMLInputElement).value);
+      setKeyframedValue(scene, element, parameterId, value, lane, scope);
+    });
+    diamond.className = `keyframe-diamond-button${exact ? ' is-active' : ''}`;
+    diamond.disabled = !reference.available;
+    diamond.setAttribute('aria-label', exact
+      ? `Eliminar keyframe de ${label} en el cabezal`
+      : `Agregar keyframe de ${label} en el cabezal`);
+    diamond.title = reference.available
+      ? (exact ? 'Keyframe activo en el cabezal. Clic para eliminarlo.' : 'Agregar un keyframe exactamente en el cabezal.')
+      : reference.detail;
+    navigation.append(jump('anterior', previous), diamond, jump('siguiente', next));
+    heading.append(text, navigation);
     wrapper.append(heading, control);
     return wrapper;
   }
@@ -425,7 +576,7 @@ export function initEditingPanel(store: ProjectStore): void {
         sceneId: scene.id, elementId: element.id, parameterId: picker.value,
         value: clampParameterValue(picker.value, Number(value.value)),
         playheadSeconds: editorPlayhead(), lane, timing: scope.timing, fps: scope.fps,
-        baseValue: baseValueForParameter(picker.value, element.transform), takenKeyframeIds: taken,
+        takenKeyframeIds: taken,
       });
       if (!sendBatch(commands)) return;
       const keyframeId = selectedKeyframeId(commands, lane, editorPlayhead(), scope.fps);
@@ -518,7 +669,6 @@ export function initEditingPanel(store: ProjectStore): void {
     const offset = input('number', String(keyframe.offsetSeconds), { min: '-5', max: '5', step: '0.05' });
     offset.addEventListener('change', () => edit({ offsetSeconds: Number(offset.value) }));
     const interpolation = select(['linear', 'ease', 'hold'].map((id) => ({ value: id, label: id })), keyframe.interpolation);
-    interpolation.disabled = keyframe.isLast;
     interpolation.addEventListener('change', () => edit({ interpolation: interpolation.value }));
     card.append(grid(field('Valor', value), field('Desplazamiento (s)', offset), field('Interpolación', interpolation)));
     card.append(
@@ -739,7 +889,9 @@ export function selectedKeyframeId(
   playheadSeconds: number,
   fps: number,
 ): string | null {
-  const command = commands[0];
+  const command = commands.find((item) => item.type === 'add-keyframe')
+    ?? commands.find((item) => item.type === 'create-track')
+    ?? commands[0];
   if (!command) return null;
   if (command.type === 'set-keyframe' || command.type === 'add-keyframe') return String(command.keyframeId);
   if (command.type === 'create-track') {

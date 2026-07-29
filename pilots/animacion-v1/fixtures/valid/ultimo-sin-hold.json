@@ -10,8 +10,8 @@
           "parameterId": "opacity",
           "source": { "kind": "manual" },
           "keyframes": [
-            { "id": "kf-op-1", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0, "value": 0, "interpolation": "linear" },
-            { "id": "kf-op-2", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0.4, "value": 1, "interpolation": "linear" }
+            { "id": "kf-opacity-1", "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 0, "value": 0, "interpolation": "linear" },
+            { "id": "kf-opacity-2", "anchor": { "kind": "scene", "edge": "end" }, "offsetSeconds": 0, "value": 1, "interpolation": "linear" }
           ]
         }
       ]

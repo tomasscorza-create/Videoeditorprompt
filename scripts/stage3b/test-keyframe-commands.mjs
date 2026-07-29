@@ -59,8 +59,8 @@ function keyframe(id, offsetSeconds, value, interpolation = 'linear') {
 assert.ok(validateProject(project), 'un proyecto sin pistas debe seguir siendo válido');
 pass('el-campo-tracks-es-aditivo', { accepted: true });
 
-// 2. La pista se crea atómicamente con sus dos keyframes. Una pista de un solo
-//    keyframe no cumple el contrato, así que no existe ni como paso intermedio.
+// 2. La pista se crea atómicamente y un solo keyframe es un estado válido:
+//    representa el primer rombo antes de definir un tramo.
 const createTrack = {
   type: 'create-track',
   sceneId,
@@ -85,13 +85,24 @@ const exported = JSON.parse(exportEditorProject(state));
 assert.ok(validateProject(exported), `el proyecto con pistas debe validar: ${JSON.stringify(validateProject.errors?.[0])}`);
 pass('dos-keyframes-crean-una-pista-valida', { accepted: true });
 
-// 3. El último keyframe siempre queda en hold, aunque se agregue en el medio.
+const armedTrack = apply(base, {
+  ...createTrack,
+  keyframes: [createTrack.keyframes[0]],
+});
+assert.equal(
+  armedTrack.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks[0].keyframes.length,
+  1,
+);
+assert.ok(validateProject(JSON.parse(exportEditorProject(armedTrack))));
+pass('un-keyframe-arma-la-pista-sin-inventar-otro-punto', { accepted: true });
+
+// 3. Agregar en el medio conserva las interpolaciones declaradas.
 state = apply(state, keyframe('kf-op-3', 0.2, 0.5, 'linear'));
 element = state.project.scenes[0].elements.find((candidate) => candidate.id === elementId);
 assert.deepEqual(element.tracks[0].keyframes.map((item) => item.id), ['kf-op-1', 'kf-op-3', 'kf-op-2']);
 assert.equal(element.tracks[0].keyframes.at(-1).interpolation, 'hold');
 assert.equal(element.tracks[0].keyframes[1].interpolation, 'linear');
-pass('los-keyframes-se-guardan-ordenados-y-el-ultimo-en-hold', { accepted: true });
+pass('los-keyframes-se-guardan-ordenados-y-conservan-interpolaciones', { accepted: true });
 
 // 4. Modificar un keyframe.
 state = apply(state, {
@@ -110,13 +121,14 @@ assert.equal(redone.project.scenes[0].elements.find((candidate) => candidate.id 
   .tracks[0].keyframes.find((item) => item.id === 'kf-op-3').value, 0.75);
 pass('las-pistas-se-deshacen-y-rehacen', { accepted: true });
 
-// 6. Borrar keyframes hasta dejar menos de dos elimina la pista entera.
+// 6. Un solo keyframe sigue armando la pista; borrar el último la elimina.
 let pruned = apply(state, { type: 'delete-keyframe', sceneId, elementId, parameterId: 'opacity', keyframeId: 'kf-op-3' });
 assert.equal(pruned.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks[0].keyframes.length, 2);
 pruned = apply(pruned, { type: 'delete-keyframe', sceneId, elementId, parameterId: 'opacity', keyframeId: 'kf-op-2' });
-assert.equal(pruned.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks, undefined,
-  'una pista que queda con un keyframe se elimina en vez de quedar inválida');
-pass('borrar-hasta-menos-de-dos-elimina-la-pista', { accepted: true });
+assert.equal(pruned.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks[0].keyframes.length, 1);
+pruned = apply(pruned, { type: 'delete-keyframe', sceneId, elementId, parameterId: 'opacity', keyframeId: 'kf-op-1' });
+assert.equal(pruned.project.scenes[0].elements.find((candidate) => candidate.id === elementId).tracks, undefined);
+pass('borrar-el-ultimo-keyframe-elimina-la-pista', { accepted: true });
 
 // 7. Eliminar la pista completa.
 const withoutTrack = apply(state, { type: 'delete-track', sceneId, elementId, parameterId: 'opacity' });

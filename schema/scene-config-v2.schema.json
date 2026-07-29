@@ -119,7 +119,7 @@
           "gestureAtWord": { "type": "integer", "minimum": 0, "maximum": 99 },
           "layout": {
             "type": "array",
-            "minItems": 2,
+            "minItems": 1,
             "maxItems": 2,
             "items": { "$ref": "#/$defs/turnLayout" }
           },

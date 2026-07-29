@@ -602,7 +602,7 @@
         },
         "keyframes": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
           "maxItems": 32,
           "items": {
             "$ref": "#/$defs/animationKeyframe"

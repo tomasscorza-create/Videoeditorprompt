@@ -25,7 +25,6 @@ import {
   measuredTimelineFor,
 } from '../editor-workspace.js';
 import {
-  baseValueForParameter,
   buildAnimationLanes,
   evaluateLanesAt,
   keyframeCommandsForValue,
@@ -632,7 +631,6 @@ function applyAnimated(
     lane: lanes.find((lane) => lane.parameterId === change.parameterId) ?? null,
     timing: scope.timing as SceneTiming,
     fps: scope.fps,
-    baseValue: baseValueForParameter(change.parameterId, element.transform),
     takenKeyframeIds: taken,
   }));
   if (commands.length === 0) return;

@@ -41,7 +41,6 @@ const invalidExpectations = {
   'campo-desconocido.json': 'ANIM_DOCUMENT_INVALID',
   'valor-fuera-de-rango.json': 'ANIM_DOCUMENT_INVALID',
   'offset-fuera-de-rango.json': 'ANIM_DOCUMENT_INVALID',
-  'pista-de-un-keyframe.json': 'ANIM_DOCUMENT_INVALID',
   'customized-en-manual.json': 'ANIM_DOCUMENT_INVALID',
   'elemento-duplicado.json': 'ANIM_ELEMENT_DUPLICATED',
   'armraise-en-prop.json': 'ANIM_PARAMETER_UNSUPPORTED',
@@ -49,7 +48,6 @@ const invalidExpectations = {
   'id-de-keyframe-repetido.json': 'ANIM_KEYFRAME_ID_DUPLICATED',
   'colision-de-keyframes.json': 'ANIM_KEYFRAME_COLLISION',
   'orden-invertido.json': 'ANIM_KEYFRAME_ORDER_INVALID',
-  'ultimo-sin-hold.json': 'ANIM_INTERPOLATION_INVALID',
 };
 
 const invalidFiles = readdirSync(path.join(fixturesRoot, 'invalid')).sort();

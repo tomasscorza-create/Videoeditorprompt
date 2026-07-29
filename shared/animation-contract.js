@@ -50,7 +50,7 @@ export const ANIMATION_LIMITS = Object.freeze({
   tracksPerElement: 8,
   keyframesPerTrack: 32,
   keyframesPerScene: 256,
-  minimumKeyframesPerTrack: 2,
+  minimumKeyframesPerTrack: 1,
   offsetSecondsMinimum: -5,
   offsetSecondsMaximum: 5,
 });
@@ -105,11 +105,6 @@ export const ANIMATION_ERROR_CATALOG = Object.freeze({
     tier: 'autoria',
     message: 'Los keyframes de un mismo ancla no están en orden creciente.',
     suggestedAction: 'Ordenar los keyframes del ancla por su desplazamiento antes de guardar.',
-  },
-  ANIM_INTERPOLATION_INVALID: {
-    tier: 'autoria',
-    message: 'El último keyframe de una pista debe usar la interpolación hold.',
-    suggestedAction: 'Cambiar la interpolación del último keyframe a hold: después de él el valor se congela.',
   },
   ANIM_ANCHOR_UNRESOLVED: {
     tier: 'compilacion',

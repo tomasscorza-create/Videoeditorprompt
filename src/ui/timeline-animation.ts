@@ -74,7 +74,7 @@ export interface AnimationKeyframeItem {
   seconds: number | null;
   /** Frame dentro de la escena, con la cuantización del contrato. */
   sceneFrameIndex: number | null;
-  /** Último de la pista en el orden guardado: el contrato lo obliga a `hold`. */
+  /** Último de la pista en el orden temporal visible. */
   isLast: boolean;
   message: string | null;
   anchorLabel: string;
@@ -187,10 +187,10 @@ export function buildAnimationLanes(
   );
 
   return tracks.map((track) => {
-    const keyframes = track.keyframes.map((keyframe, index) => describeKeyframe(
+    const keyframes = track.keyframes.map((keyframe) => describeKeyframe(
       keyframe,
       track.parameterId,
-      index === track.keyframes.length - 1,
+      false,
       { timing, fps, reviewMessage: pending.get(keyframe.id) ?? null },
     ));
     // En medido se muestran en el orden temporal real, que es el orden canónico
@@ -198,6 +198,9 @@ export function buildAnimationLanes(
     const ordered = [...keyframes].sort((left, right) => {
       if (left.seconds === null || right.seconds === null) return 0;
       return (left.seconds - right.seconds) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+    });
+    ordered.forEach((keyframe, index) => {
+      keyframe.isLast = index === ordered.length - 1;
     });
     const segments: AnimationSegment[] = [];
     for (let index = 0; index < ordered.length - 1; index += 1) {
@@ -389,9 +392,8 @@ export function nearestAnchorFor(targetSeconds: number, timing: SceneTiming, fps
  * elemento crea o actualiza el keyframe del cabezal y nunca el transform base.
  *
  * Tres casos: si ya hay un keyframe en ese frame se le cambia el valor; si la
- * pista existe se agrega uno; y si no existe la pista nace con la base al inicio
- * de la escena y el valor nuevo en el cabezal, porque una pista de un solo
- * keyframe no cumple el contrato.
+ * pista existe se agrega uno y se abre gradualmente el tramo anterior; y si no
+ * existe nace armada con un único punto exactamente en el cabezal.
  */
 export function keyframeCommandsForValue(options: {
   sceneId: string;
@@ -402,10 +404,9 @@ export function keyframeCommandsForValue(options: {
   lane: AnimationLane | null;
   timing: SceneTiming;
   fps: number;
-  baseValue: number;
   takenKeyframeIds: readonly string[];
 }): Array<Record<string, unknown>> {
-  const { sceneId, elementId, parameterId, value, playheadSeconds, lane, timing, fps, baseValue } = options;
+  const { sceneId, elementId, parameterId, value, playheadSeconds, lane, timing, fps } = options;
   const target = clampParameterValue(parameterId, value);
   const tolerance = 0.5 / fps;
   const existing = lane?.keyframes.find(
@@ -419,7 +420,24 @@ export function keyframeCommandsForValue(options: {
   const proposal = nearestAnchorFor(playheadSeconds, timing, fps);
   const first = nextKeyframeId(parameterId, options.takenKeyframeIds);
   if (lane) {
-    return [{
+    const temporal = lane.keyframes
+      .filter((keyframe) => keyframe.seconds !== null)
+      .sort((left, right) => (left.seconds as number) - (right.seconds as number));
+    const previous = [...temporal].reverse()
+      .find((keyframe) => (keyframe.seconds as number) < playheadSeconds - tolerance) ?? null;
+    const next = temporal.find((keyframe) => (keyframe.seconds as number) > playheadSeconds + tolerance) ?? null;
+    const commands: Array<Record<string, unknown>> = [];
+    if (previous && previous.interpolation === 'hold') {
+      commands.push({
+        type: 'set-keyframe',
+        sceneId,
+        elementId,
+        parameterId,
+        keyframeId: previous.id,
+        interpolation: 'linear',
+      });
+    }
+    commands.push({
       type: 'add-keyframe',
       sceneId,
       elementId,
@@ -428,15 +446,11 @@ export function keyframeCommandsForValue(options: {
       anchor: proposal.anchor,
       offsetSeconds: proposal.offsetSeconds,
       value: target,
-      interpolation: 'ease',
-    }];
+      interpolation: next ? 'linear' : 'hold',
+    });
+    return commands;
   }
 
-  const sceneStart: AnimationAnchor = { kind: 'scene', edge: 'start' };
-  // Si el cabezal cae justo sobre el inicio de la escena, los dos keyframes
-  // caerían en el mismo punto, que el contrato rechaza; se separan medio segundo.
-  const collides = proposal.anchor.kind === 'scene' && proposal.anchor.edge === 'start' && proposal.offsetSeconds === 0;
-  const second = nextKeyframeId(parameterId, [...options.takenKeyframeIds, first]);
   return [{
     type: 'create-track',
     sceneId,
@@ -444,14 +458,7 @@ export function keyframeCommandsForValue(options: {
     parameterId,
     source: { kind: 'manual' },
     keyframes: [
-      { id: first, anchor: sceneStart, offsetSeconds: 0, value: clampParameterValue(parameterId, baseValue), interpolation: 'ease' },
-      {
-        id: second,
-        anchor: collides ? sceneStart : proposal.anchor,
-        offsetSeconds: collides ? 0.5 : proposal.offsetSeconds,
-        value: target,
-        interpolation: 'hold',
-      },
+      { id: first, anchor: proposal.anchor, offsetSeconds: proposal.offsetSeconds, value: target, interpolation: 'hold' },
     ],
   }];
 }

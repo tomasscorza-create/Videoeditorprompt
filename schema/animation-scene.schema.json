@@ -38,7 +38,7 @@
       ]
     },
     "interpolation": {
-      "description": "Describe el tramo que SALE del keyframe hacia el siguiente. El último keyframe de una pista debe declarar hold.",
+      "description": "Describe el tramo que SALE del keyframe hacia el siguiente. En el último punto el valor queda congelado sin importar esta opción.",
       "enum": ["linear", "ease", "hold"]
     },
     "anchor": {
@@ -123,7 +123,7 @@
         "source": { "$ref": "#/$defs/source" },
         "keyframes": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
           "maxItems": 32,
           "items": { "$ref": "#/$defs/keyframe" }
         }

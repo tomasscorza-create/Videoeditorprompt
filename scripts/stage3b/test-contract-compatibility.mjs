@@ -47,13 +47,27 @@ function verdict(project) {
 
 assert.deepEqual(verdict(structuredClone(base)), { validator: true, editor: true, renderGate: true, compiler: true });
 
+const armedKeyframe = structuredClone(base);
+armedKeyframe.scenes[0].elements[0].tracks = [{
+  parameterId: 'opacity',
+  source: { kind: 'manual' },
+  keyframes: [{
+    id: 'kf-opacity-armed',
+    anchor: { kind: 'scene', edge: 'start' },
+    offsetSeconds: 0,
+    value: 0.8,
+    interpolation: 'hold',
+  }],
+}];
+assert.deepEqual(verdict(armedKeyframe), { validator: true, editor: true, renderGate: true, compiler: true });
+
 const duplicateScene = structuredClone(base);
 duplicateScene.scenes[1].id = duplicateScene.scenes[0].id;
 assert.deepEqual(verdict(duplicateScene), { validator: false, editor: false, renderGate: false, compiler: false });
 
 const futureTransform = structuredClone(base);
 futureTransform.scenes[0].elements[0].transform.rotationDegrees = 10;
-assert.deepEqual(verdict(futureTransform), { validator: true, editor: true, renderGate: false, compiler: false });
+assert.deepEqual(verdict(futureTransform), { validator: true, editor: true, renderGate: true, compiler: true });
 
 const missingTransition = structuredClone(base);
 delete missingTransition.scenes[0].transitionToNext;

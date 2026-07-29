@@ -41,7 +41,10 @@ export function initSelectionMirror(): void {
 
 /** Resalta a la vez el clip y el personaje que representan el mismo elemento. */
 function linkHover(elementId: string, on: boolean): void {
-  const selector = `.authoring-clip[data-element="${CSS.escape(elementId)}"], .composition-character[data-element-id="${CSS.escape(elementId)}"]`;
+  // El visor ya tiene un marco de transformación ajustado a los píxeles
+  // visibles. No volver a delinear la imagen completa: sus transparencias
+  // ocupan todo el lienzo y producían un segundo rectángulo punteado enorme.
+  const selector = `.authoring-clip[data-element="${CSS.escape(elementId)}"]`;
   for (const node of document.querySelectorAll<HTMLElement>(selector)) {
     node.classList.toggle(HIGHLIGHT_CLASS, on);
   }
