@@ -2326,6 +2326,27 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .authoring-clip strong { font-size: var(--fs-2xs); }
 .authoring-clip small { color: rgb(255 255 255 / .78); font-size: var(--fs-2xs); }
 .authoring-clip.is-selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+.timeline-keyframe-marker {
+  position: absolute;
+  top: calc(.28rem + var(--keyframe-offset, 0rem));
+  z-index: 4;
+  width: .48rem;
+  height: .48rem;
+  border: 1px solid rgb(255 255 255 / .9);
+  background: var(--accent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / .7);
+  transform: translateX(-50%) rotate(45deg);
+  cursor: pointer;
+}
+.timeline-keyframe-marker:hover,
+.timeline-keyframe-marker.is-selected {
+  z-index: 5;
+  border-color: #fff;
+  background: var(--warning);
+  box-shadow: 0 0 0 2px rgb(255 255 255 / .42), 0 1px 5px rgb(0 0 0 / .8);
+}
+.authoring-clip.has-keyframes strong,
+.authoring-clip.has-keyframes small { padding-left: .3rem; }
 /* C2 — el mismo elemento se resalta a la vez en la timeline y en el lienzo. */
 .authoring-clip.is-linked-hover { outline: 2px dashed color-mix(in srgb, var(--accent) 75%, transparent); outline-offset: -2px; }
 .inspector-element-group { display: grid; gap: .35rem; }

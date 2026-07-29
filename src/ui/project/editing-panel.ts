@@ -313,7 +313,8 @@ export function initEditingPanel(store: ProjectStore): void {
       control.disabled = true;
       control.title = reference.detail;
     }
-    control.addEventListener('change', () => {
+    const commit = (): void => {
+      if (control.value === '' || !Number.isFinite(Number(control.value))) return;
       if (lane) {
         setKeyframedValue(scene, element, parameterId, Number(control.value), lane, scope);
         return;
@@ -324,6 +325,13 @@ export function initEditingPanel(store: ProjectStore): void {
         elementId: element.id,
         [key]: Number(control.value),
       });
+    };
+    control.addEventListener('change', commit);
+    control.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      commit();
+      control.blur();
     });
     return keyframedField(scene, element, parameterId, label, control, lane, scope);
   }

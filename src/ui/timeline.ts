@@ -16,6 +16,7 @@ import {
   toggleEditorMute,
   toggleEditorPlayback,
   type MeasuredProjectTimeline,
+  type MeasuredScene,
 } from './editor-workspace.js';
 import type { ProjectStore } from './project/store.js';
 import type { SceneView } from './project/types.js';
@@ -47,9 +48,11 @@ import {
 } from './timeline-waveform.js';
 import { requestFrame } from './timeline-frames.js';
 import {
+  buildAnimationLanes,
   countAnchorsRequiringReview,
   duplicateKeyframeCommand,
   sceneAnimationReference,
+  sceneAnimationTiming,
 } from './timeline-animation.js';
 import type { ElementView } from './project/types.js';
 import { nextVisualZIndex } from './project/layers.js';
@@ -197,7 +200,7 @@ function renderProject(): void {
   setSummary(measured
     ? outputState === 'current'
       ? `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · capas editables alineadas con la exportación actual.`
-      : `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · los tiempos siguen valiendo; el MP4 quedó viejo y no se reproduce.`
+      : `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · Play usa su audio con los cambios visuales actuales.`
     : outputState === 'stale'
       ? `${project.scenes.length} escena(s) · cambios sin renderizar · el MP4 anterior quedó fuera del transporte.`
       : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`);
@@ -262,6 +265,7 @@ function renderLayerStack(
       // seleccionado: la insignia vive en la fila, no solo en el inspector.
       const pending = countAnchorsRequiringReview(element.id, element.tracks ?? [], sceneAnimationReference(scene.dialogue));
       if (pending > 0) clip.append(reviewBadge(pending));
+      appendElementKeyframes(clip, scene, element, measured?.scenes[sceneIndex] ?? null);
       // C2: el clip declara a qué elemento apunta para poder espejar la
       // selección y el hover con el lienzo.
       clip.dataset.scene = scene.id;
@@ -297,6 +301,7 @@ function renderLayerStack(
       );
       clip.dataset.scene = scene.id;
       clip.dataset.element = element.id;
+      appendElementKeyframes(clip, scene, element, measured?.scenes[sceneIndex] ?? null);
       const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
       clip.addEventListener('click', () => clipSingleClick(
         start,
@@ -486,10 +491,70 @@ function drawWaveforms(root: HTMLElement, waveform: WaveformPeaks): void {
   });
 }
 
-// La timeline solo muestra y selecciona clips. Las pistas y keyframes viven en Edición.
 function isElementSelected(elementId: string): boolean {
   const selection = projectSelection();
   return (selection?.kind === 'element' || selection?.kind === 'keyframe') && selection.elementId === elementId;
+}
+
+function appendElementKeyframes(
+  clip: HTMLElement,
+  scene: SceneView,
+  element: ElementView,
+  measured: MeasuredScene | null,
+): void {
+  if (!measured || !element.tracks?.length) return;
+  const reference = sceneAnimationReference(scene.dialogue);
+  const timing = sceneAnimationTiming(measured, reference);
+  if (!timing) return;
+  const lanes = buildAnimationLanes(element.id, element.tracks, {
+    timing,
+    reference,
+    fps: projectFps(),
+  });
+  const selected = projectSelection();
+  const clipWidth = Math.max(MIN_CLIP_WIDTH, (measured.endSeconds - measured.startSeconds) * pixelsPerSecond);
+  for (const [laneIndex, lane] of lanes.entries()) {
+    for (const keyframe of lane.keyframes) {
+      if (keyframe.seconds === null || keyframe.status === 'out-of-scene') continue;
+      const marker = document.createElement('span');
+      marker.className = 'timeline-keyframe-marker';
+      marker.classList.toggle(
+        'is-selected',
+        selected?.kind === 'keyframe'
+          && selected.sceneId === scene.id
+          && selected.elementId === element.id
+          && selected.parameterId === lane.parameterId
+          && selected.keyframeId === keyframe.id,
+      );
+      marker.style.left = `${clamp(
+        (keyframe.seconds - measured.startSeconds) * pixelsPerSecond,
+        4,
+        Math.max(4, clipWidth - 4),
+      )}px`;
+      marker.style.setProperty('--keyframe-offset', `${(laneIndex % 3) * 0.48}rem`);
+      marker.dataset.keyframe = keyframe.id;
+      marker.dataset.parameter = lane.parameterId;
+      marker.title = `${lane.label}: ${keyframe.valueLabel} · ${keyframe.timeLabel}`;
+      marker.addEventListener('pointerdown', (event) => event.stopPropagation());
+      marker.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        pauseEditorPlayback();
+        showEditorCanvas();
+        setEditorPlayhead(keyframe.seconds as number);
+        if (store?.selectedSceneId() !== scene.id) store?.dispatch({ type: 'select-scene', sceneId: scene.id });
+        selectProjectItem({
+          kind: 'keyframe',
+          sceneId: scene.id,
+          elementId: element.id,
+          parameterId: lane.parameterId,
+          keyframeId: keyframe.id,
+        });
+      });
+      clip.append(marker);
+    }
+  }
+  if (clip.querySelector('.timeline-keyframe-marker')) clip.classList.add('has-keyframes');
 }
 
 function projectFps(): number {
@@ -1781,7 +1846,7 @@ function renderTimelineModeExplanation(measured: boolean): void {
   title.textContent = outdated ? 'Tiempos medidos · MP4 viejo' : measured ? 'Tiempos medidos' : 'Tiempos estimados';
   const body = document.createElement('p');
   body.textContent = outdated
-    ? 'Hay cambios sin renderizar, así que el MP4 anterior no se reproduce. Los tiempos siguen siendo los medidos: lo que editaste no cambia la duración de ningún diálogo, y por eso la regla y los keyframes conservan su lugar.'
+    ? 'Hay cambios visuales sin renderizar. Play conserva el audio y los tiempos medidos, pero dibuja las escenas y keyframes actuales sobre el lienzo.'
     : measured
       ? 'Estos tiempos salen del audio real generado en el último render: la duración de cada diálogo es la que va a tener el MP4.'
       : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace al renderizar, cuando las voces se sintetizan.';

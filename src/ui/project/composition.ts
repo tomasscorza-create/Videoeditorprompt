@@ -67,7 +67,7 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   if (!canvas) return;
   activeStore = store;
   const assetEntries = new Map<string, AssetCatalogEntry>();
-  let renderVersion = 0;
+  const backgroundLayers = new Map<string, string[]>();
   const catalogPaths = new Set(
     [...store.resources('character'), ...store.resources('prop')]
       .flatMap((resource) => resource.characterRef?.catalog
@@ -84,9 +84,15 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       // El personaje conserva su ficha aunque una miniatura no pueda cargarse.
     }
   }
+  await Promise.all(store.resources('background').map(async (resource) => {
+    if (!resource.backgroundManifest) return;
+    backgroundLayers.set(
+      resource.backgroundManifest,
+      await loadBackgroundLayers(resource.backgroundManifest),
+    );
+  }));
 
   const render = (): void => {
-    const version = ++renderVersion;
     const project = store.project();
     const workspace = editorWorkspace();
     const measured = measuredTimelineFor(project.scenes.map((item) => item.id));
@@ -103,10 +109,9 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
     const nodes: HTMLElement[] = [];
     const background = store.resources('background').find((entry) => entry.id === scene.background.resourceId);
     if (background?.backgroundManifest) {
-      void appendBackground(canvas, background.backgroundManifest, nodes, () => version === renderVersion);
+      nodes.push(...backgroundNodes(backgroundLayers.get(background.backgroundManifest) ?? []));
     } else {
       nodes.push(label(scene.title));
-      canvas.replaceChildren(...nodes);
     }
 
     const scope = animationScope(store, scene);
@@ -795,30 +800,29 @@ function reportPlacement(message: string, isError: boolean): void {
   }
 }
 
-async function appendBackground(
-  canvas: HTMLElement,
-  manifestPath: string,
-  foregroundNodes: HTMLElement[],
-  isCurrent: () => boolean,
-): Promise<void> {
+async function loadBackgroundLayers(manifestPath: string): Promise<string[]> {
   try {
     const response = await fetch(`/${manifestPath}`, { cache: 'force-cache' });
     if (!response.ok) throw new Error(String(response.status));
     const manifest = await response.json() as { layers?: Record<string, string> };
     const base = manifestPath.slice(0, manifestPath.lastIndexOf('/') + 1);
-    const layers = ['far', 'mid', 'front'].flatMap((key) => manifest.layers?.[key] ? [manifest.layers[key]] : []);
-    const backgroundNodes = layers.map((layerPath) => {
-      const image = document.createElement('img');
-      image.className = 'composition-layer';
-      image.src = `/${base}${layerPath}`;
-      image.alt = '';
-      image.style.zIndex = '0';
-      return image;
-    });
-    if (isCurrent()) canvas.replaceChildren(...backgroundNodes, ...foregroundNodes);
+    return ['far', 'mid', 'front'].flatMap((key) => (
+      manifest.layers?.[key] ? [`/${base}${manifest.layers[key]}`] : []
+    ));
   } catch {
-    if (isCurrent()) canvas.replaceChildren(...foregroundNodes);
+    return [];
   }
+}
+
+function backgroundNodes(paths: readonly string[]): HTMLElement[] {
+  return paths.map((src) => {
+    const image = document.createElement('img');
+    image.className = 'composition-layer';
+    image.src = src;
+    image.alt = '';
+    image.style.zIndex = '0';
+    return image;
+  });
 }
 
 function label(text: string): HTMLElement {

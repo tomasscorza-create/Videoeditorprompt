@@ -249,7 +249,8 @@ check(
   'Edición usa el cabezal compartido para crear keyframes con el helper canónico',
   editingPanelSource.includes('editorPlayhead()')
     && editingPanelSource.includes('keyframeCommandsForValue({')
-    && editingPanelSource.includes('Agregar keyframe en el cabezal'),
+    && editingPanelSource.includes('Agregar keyframe en el cabezal')
+    && editingPanelSource.includes("if (event.key !== 'Enter') return;"),
 );
 check(
   'Opacidad muestra porcentaje y previsualiza mientras se desliza',
@@ -274,6 +275,19 @@ check(
   compositionSource.includes('measuredSceneAt(measured, editorPlayhead())')
     && compositionSource.includes('liveSubtitle(scene, previewTiming, editorPlayhead())')
     && compositionSource.includes('animatingElement !== null && !previewing'),
+);
+check(
+  'el preview precarga el fondo y no vuelve a pedirlo en cada frame',
+  compositionSource.includes('await loadBackgroundLayers(resource.backgroundManifest)')
+    && compositionSource.includes('backgroundNodes(backgroundLayers.get(background.backgroundManifest)')
+    && !compositionSource.includes('async function appendBackground('),
+);
+check(
+  'cada keyframe resuelto se dibuja como rombo en el clip de su elemento',
+  timelineSource.includes('function appendElementKeyframes(')
+    && timelineSource.includes('(keyframe.seconds - measured.startSeconds) * pixelsPerSecond')
+    && timelineSource.includes("marker.className = 'timeline-keyframe-marker'")
+    && timelineSource.includes("kind: 'keyframe',"),
 );
 check(
   'cada ajuste animable muestra rombo y navegación sin salir de Ajustes',
@@ -901,6 +915,15 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('antes del primer keyframe se sostiene su valor', animation.evaluateLanesAt([lane], 0)['position.x'] === -100);
   check('después del último el valor queda congelado', animation.evaluateLanesAt([lane], 5)['position.x'] === 320);
   check('en el medio interpola', animation.evaluateLanesAt([lane], 0.3)['position.x'] > -100 && animation.evaluateLanesAt([lane], 0.3)['position.x'] < 320);
+  const scaleLane = animation.buildAnimationLanes('e1', [{
+    parameterId: 'scale',
+    source: { kind: 'manual' },
+    keyframes: [
+      { id: 'scale-a', anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0, value: 0.7, interpolation: 'linear' },
+      { id: 'scale-b', anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 5, value: 1.2, interpolation: 'hold' },
+    ],
+  }], { timing, reference, fps: 30 })[0];
+  check('la escala interpola entre dos rombos', animation.evaluateLanesAt([scaleLane], 2.5).scale === 0.95);
   check('una pista sin resolver no se evalúa: se prefiere la base', Object.keys(animation.evaluateLanesAt([unmeasured], 1)).length === 0);
   const constantOpacity = animation.buildAnimationLanes('e1', [{
     parameterId: 'opacity',
