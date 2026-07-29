@@ -129,9 +129,46 @@ export function formatApiError(error: ApiError): string {
   const detail = error.code === 'PROJECT_SCENE_UNSUPPORTED'
     ? formatUnsupportedSceneDetail(error.technicalDetail)
     : null;
-  return [error.message, detail, error.suggestedAction, error.code ? `(${error.code})` : null]
+  return [error.message, detail, error.suggestedAction]
     .filter(Boolean)
     .join(' ');
+}
+
+export type ApiErrorKind = 'cancelled' | 'busy' | 'timeout' | 'dependency' | 'invalid-response' | 'error';
+
+export function classifyApiError(error: ApiError): ApiErrorKind {
+  const code = error.code ?? '';
+  if (code === 'DIRECTOR_CANCELLED' || code === 'OLLAMA_CANCELLED') return 'cancelled';
+  if (code === 'DIRECTOR_BUSY' || code === 'RENDER_BUSY') return 'busy';
+  if (code.includes('TIMEOUT')) return 'timeout';
+  if (
+    code === 'LOCAL_SERVICE_UNAVAILABLE'
+    || code === 'OLLAMA_UNAVAILABLE'
+    || code === 'OLLAMA_DIRECTOR_REQUEST_FAILED'
+    || code.startsWith('TTS_')
+  ) return 'dependency';
+  if (code === 'LOCAL_SERVICE_INVALID_RESPONSE' || code.includes('JSON_INVALID') || code === 'OLLAMA_RESPONSE_EMPTY') {
+    return 'invalid-response';
+  }
+  return 'error';
+}
+
+export function formatApiTechnicalDetails(error: ApiError): string | null {
+  const parts = [
+    error.code ? `Código: ${error.code}` : null,
+    error.technicalDetail?.trim() ? `Detalle: ${error.technicalDetail.trim().slice(0, 1200)}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join('\n') : null;
+}
+
+export interface DirectorStatus {
+  version: number;
+  state: 'idle' | 'running' | 'cancelling';
+  stage: string;
+  updatedAt: string;
+  candidateIndex?: number;
+  candidateCount?: number;
+  attempt?: number;
 }
 
 export interface DirectorConstraints {
@@ -191,6 +228,10 @@ export async function deleteSavedProject(id: string): Promise<void> {
 
 export async function getHealth(): Promise<LocalHealth> {
   return apiRequest<LocalHealth>('/api/health');
+}
+
+export async function getDirectorStatus(): Promise<DirectorStatus> {
+  return apiRequest<DirectorStatus>('/api/director/status');
 }
 
 export async function createProposal(
@@ -329,19 +370,31 @@ async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw friendlyError('Se canceló la generación de la propuesta.', 'Podés modificar el prompt y volver a intentarlo.');
+      throw friendlyError(
+        'DIRECTOR_CANCELLED',
+        'La operación del Director fue cancelada.',
+        'Podés modificar la petición y volver a intentarlo.',
+      );
     }
-    throw friendlyError('No se pudo conectar con el servicio local.', 'Iniciá la aplicación con npm run dev.');
+    throw friendlyError('LOCAL_SERVICE_UNAVAILABLE', 'No se pudo conectar con el servicio local.', 'Iniciá la aplicación con npm run dev.');
   }
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
-    throw friendlyError('El servicio local devolvió una respuesta inesperada.', 'Reiniciá npm run dev y volvé a intentar.');
+    throw friendlyError(
+      'LOCAL_SERVICE_INVALID_RESPONSE',
+      'El servicio local devolvió una respuesta inesperada.',
+      'Reiniciá npm run dev y volvé a intentar.',
+    );
   }
   let body: T & { error?: ApiError };
   try {
     body = await response.json() as T & { error?: ApiError };
   } catch {
-    throw friendlyError('El servicio local devolvió datos incompletos.', 'Reiniciá npm run dev y volvé a intentar.');
+    throw friendlyError(
+      'LOCAL_SERVICE_INVALID_RESPONSE',
+      'El servicio local devolvió datos incompletos.',
+      'Reiniciá npm run dev y volvé a intentar.',
+    );
   }
   if (!response.ok) {
     const error = new Error(body.error?.message || `HTTP ${response.status}`) as Error & { detail?: ApiError };
@@ -351,9 +404,9 @@ async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
   return body;
 }
 
-function friendlyError(message: string, suggestedAction: string) {
+function friendlyError(code: string, message: string, suggestedAction: string) {
   const error = new Error(message) as Error & { detail?: ApiError };
-  error.detail = { code: 'LOCAL_SERVICE_UNAVAILABLE', message, suggestedAction };
+  error.detail = { code, message, suggestedAction };
   return error;
 }
 

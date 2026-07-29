@@ -87,6 +87,10 @@ export async function createLocalAppServer(options = {}) {
   const projectDirector = options.projectDirector || editProjectWithDirector;
   const ollamaInspector = options.ollamaInspector || inspectOllama;
   let directorController = null;
+  let directorStatus = createDirectorStatus('idle', 'idle');
+  const updateDirectorStatus = (state, stage, detail = {}) => {
+    directorStatus = createDirectorStatus(state, stage, detail);
+  };
 
   const server = http.createServer(async (request, response) => {
     try {
@@ -124,6 +128,10 @@ export async function createLocalAppServer(options = {}) {
           renderBusy: Boolean(manager.activeJobId),
           persistence: persistenceRuntime.diagnostic,
         });
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/director/status') {
+        sendJson(response, 200, directorStatus);
         return;
       }
       if (request.method === 'GET' && url.pathname === '/api/library/resources') {
@@ -209,10 +217,12 @@ export async function createLocalAppServer(options = {}) {
         if (directorController) {
           const error = new Error('Ya existe una propuesta en generación.');
           error.code = 'DIRECTOR_BUSY';
+          error.suggestedAction = 'Esperá a que termine o cancelá la propuesta en curso.';
           throw error;
         }
         const body = await readJsonBody(request);
         directorController = new AbortController();
+        updateDirectorStatus('running', 'checking_model');
         let proposal;
         try {
           const modelInspection = await inspectDirectorIdentity(ollamaInspector, body.model);
@@ -229,9 +239,11 @@ export async function createLocalAppServer(options = {}) {
             catalog: currentCatalog(),
             resourceCatalog: library.catalogRelative,
             signal: directorController.signal,
+            onProgress: (progress) => updateDirectorStatus('running', progress.stage, progress),
           });
         } finally {
           directorController = null;
+          updateDirectorStatus('idle', 'idle');
         }
         sendJson(response, 200, {
           version: 1,
@@ -251,6 +263,7 @@ export async function createLocalAppServer(options = {}) {
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/director/cancel') {
+        if (directorController) updateDirectorStatus('cancelling', 'cancelling');
         directorController?.abort();
         sendJson(response, 200, { version: 1, cancelled: Boolean(directorController) });
         return;
@@ -260,10 +273,12 @@ export async function createLocalAppServer(options = {}) {
         if (directorController) {
           const error = new Error('El Director ya está procesando otra petición.');
           error.code = 'DIRECTOR_BUSY';
+          error.suggestedAction = 'Esperá a que termine o cancelá la petición en curso.';
           throw error;
         }
         const body = await readJsonBody(request);
         directorController = new AbortController();
+        updateDirectorStatus('running', 'checking_model');
         try {
           const modelInspection = await inspectDirectorIdentity(ollamaInspector, body.model);
           const result = await projectDirector({
@@ -275,10 +290,12 @@ export async function createLocalAppServer(options = {}) {
             selection: body.selection,
             catalog: currentCatalog(),
             signal: directorController.signal,
+            onProgress: (progress) => updateDirectorStatus('running', progress.stage, progress),
           });
           sendJson(response, 200, result);
         } finally {
           directorController = null;
+          updateDirectorStatus('idle', 'idle');
         }
         return;
       }
@@ -444,6 +461,18 @@ function assertJsonContentType(request) {
 
 function isAllowedOrigin(origin) {
   return typeof origin === 'string' && ALLOWED_ORIGINS.has(origin);
+}
+
+function createDirectorStatus(state, stage, detail = {}) {
+  return {
+    version: 1,
+    state,
+    stage,
+    updatedAt: new Date().toISOString(),
+    ...(Number.isInteger(detail.candidateIndex) ? { candidateIndex: detail.candidateIndex } : {}),
+    ...(Number.isInteger(detail.candidateCount) ? { candidateCount: detail.candidateCount } : {}),
+    ...(Number.isInteger(detail.attempt) ? { attempt: detail.attempt } : {}),
+  };
 }
 
 function isAllowedHost(header, address, configuredHost, configuredPort) {

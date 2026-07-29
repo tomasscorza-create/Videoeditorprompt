@@ -34,6 +34,7 @@ const DIRECTOR_TONES = new Set(['educational', 'ironic', 'serious', 'energetic',
 
 export async function createDirectorProposal(options) {
   const prompt = validatePrompt(options.prompt);
+  emitProgress(options, 'preparing_context');
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
   const catalog = options.catalog || loadAuthoringCatalog(assetsRoot);
   const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
@@ -86,6 +87,7 @@ export async function createDirectorProposal(options) {
   const cacheRoot = ensureDirectory(path.resolve(options.cacheRoot || path.join(projectRoot, '.local-video', 'director-cache')));
   const cachePath = path.join(cacheRoot, `${cacheKey}.json`);
   if (options.useCache !== false && existsSync(cachePath)) {
+    emitProgress(options, 'cache');
     const cached = readJson(cachePath);
     const normalized = normalizeDirectorPlan(cached.plan, catalog, {
       assetsRoot,
@@ -129,6 +131,9 @@ export async function createDirectorProposal(options) {
       promptHash: cacheKey,
       seedKey: hashJson({ cacheKey, candidateIndex, variant: variant + candidateIndex }),
       strategy: candidateStrategy(candidateIndex),
+      onProgress: options.onProgress,
+      candidateIndex: candidateIndex + 1,
+      candidateCount: bestOf,
     });
     candidates.push(candidate);
     generationRuns.push(candidate);
@@ -137,6 +142,7 @@ export async function createDirectorProposal(options) {
   let selection = defaultSelection();
   let qualityEscalations = 0;
   if (bestOf > 1) {
+    emitProgress(options, 'comparing');
     let judged = await judgeDirectorPlans({
       provider,
       plans: candidates.map((candidate) => candidate.plan),
@@ -150,6 +156,7 @@ export async function createDirectorProposal(options) {
     });
     if (!judged.qualityFloorMet) {
       qualityEscalations += 1;
+      emitProgress(options, 'repairing');
       const revisionIndex = judged.winnerIndex;
       const revisedCandidate = await generateCandidate({
         provider,
@@ -170,9 +177,13 @@ export async function createDirectorProposal(options) {
         seedKey: hashJson({ cacheKey, revisionIndex, qualityEscalations }),
         strategy: candidateStrategy(revisionIndex),
         initialFeedback: judgeRepairFeedback(judged),
+        onProgress: options.onProgress,
+        candidateIndex: revisionIndex + 1,
+        candidateCount: bestOf,
       });
       candidates[revisionIndex] = revisedCandidate;
       generationRuns.push(revisedCandidate);
+      emitProgress(options, 'comparing');
       judged = await judgeDirectorPlans({
         provider,
         plans: candidates.map((candidate) => candidate.plan),
@@ -236,6 +247,7 @@ export async function createDirectorProposal(options) {
       candidateElapsedMilliseconds: generationRuns.map((candidate) => candidate.elapsedMilliseconds),
     },
   };
+  emitProgress(options, 'finalizing');
   writeJson(cachePath, cached);
   return { ...cached, cacheKey, cacheHit: false, cachePath };
 }
@@ -269,6 +281,9 @@ async function generateCandidate({
   seedKey,
   strategy,
   initialFeedback = null,
+  onProgress,
+  candidateIndex,
+  candidateCount,
 }) {
   const startedAt = Date.now();
   let plan;
@@ -277,6 +292,12 @@ async function generateCandidate({
   let repairAttempts = 0;
   let feedback = initialFeedback;
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
+    onProgress?.({
+      stage: 'generating',
+      candidateIndex,
+      candidateCount,
+      attempt: attempt + 1,
+    });
     const result = await provider.generatePlan({
       schema,
       signal,
@@ -292,6 +313,12 @@ async function generateCandidate({
         maxOutputTokens: 4000,
         timeoutMs,
       },
+    });
+    onProgress?.({
+      stage: 'validating',
+      candidateIndex,
+      candidateCount,
+      attempt: attempt + 1,
     });
     if (typeof result.content !== 'string' || result.content.trim() === '') {
       directorError('OLLAMA_RESPONSE_EMPTY', 'El proveedor de IA no devolvió un plan utilizable.');
@@ -618,6 +645,10 @@ function seedFrom(hash) {
 
 function hashJson(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function emitProgress(options, stage, detail = {}) {
+  options.onProgress?.({ stage, ...detail });
 }
 
 function directorError(code, message, technicalDetail) {

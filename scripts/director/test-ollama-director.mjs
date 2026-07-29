@@ -76,10 +76,12 @@ const cacheRoot = mkdtempSync(path.join(os.tmpdir(), 'local-video-director-'));
 const health = await inspectOllama({ fetchImpl: fakeFetch });
 assert.equal(health.modelInstalled, true);
 assert.equal(health.digest, 'sha256:qwen3-test');
+const firstProgress = [];
 const first = await createDirectorProposal({
   prompt: 'Explicá de forma breve cómo colaborar con inteligencia artificial.',
   fetchImpl: fakeFetch,
   cacheRoot,
+  onProgress: (event) => firstProgress.push(event.stage),
 });
 assert.equal(first.cacheHit, false);
 assert.equal(first.project.scenes.length, 1);
@@ -89,6 +91,7 @@ assert.equal(first.context.templateIds.length, 3);
 assert.ok(first.context.recommendedTemplateId);
 assert.equal(first.context.selectedTemplateId, first.context.recommendedTemplateId);
 assert.equal(first.plan.narrativeTemplateId, first.context.selectedTemplateId);
+assert.deepEqual(firstProgress, ['preparing_context', 'generating', 'validating', 'finalizing']);
 const second = await createDirectorProposal({
   prompt: 'Explicá de forma breve cómo colaborar con inteligencia artificial.',
   fetchImpl: fakeFetch,
@@ -426,7 +429,7 @@ assert.equal(failCalls, 3);
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 73,
+  passed: 74,
   failed: 0,
   cacheHit: second.cacheHit,
   projectId: first.project.id,

@@ -16,9 +16,12 @@ import { projectFingerprint, projectTimingFingerprint } from '../../../shared/pr
 import {
   cancelDirectorProposal,
   cancelRenderJob,
+  classifyApiError,
   createProposal,
   editProjectWithAi,
   formatApiError,
+  formatApiTechnicalDetails,
+  getDirectorStatus,
   getHealth,
   getRenderJob,
   listRenderJobs,
@@ -29,6 +32,7 @@ import {
   type DirectorProposal,
   type RenderJob,
 } from './api.js';
+import { describeDirectorProgress } from './progress-copy.js';
 import { compareCandidates, strongestCriterion } from './candidates-copy.js';
 import { summarizeHealth, type DependencyView } from './health-copy.js';
 import { summarizeQuality } from './quality-copy.js';
@@ -65,6 +69,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const progressLabel = required<HTMLElement>('#render-progress-label');
   const renderReadiness = required<HTMLElement>('#render-readiness');
   const gallery = required<HTMLElement>('#render-job-gallery');
+  const jobDetails = required<HTMLElement>('#render-job-details');
   const renderIndicator = required<HTMLButtonElement>('#render-indicator');
   const renderIndicatorLabel = required<HTMLElement>('#render-indicator-label');
   const refreshJobs = required<HTMLButtonElement>('#jobs-refresh');
@@ -85,6 +90,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   let currentJobId: string | null = null;
   let busyMode: 'ai' | 'render' | null = null;
   let pollTimer: number | null = null;
+  let directorStatusTimer: number | null = null;
   let readyForProposal = false;
   let readyForRender = false;
   let healthChecked = false;
@@ -560,6 +566,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
 
   async function refreshGallery(resumeLastJob: boolean): Promise<void> {
     // M3: esqueleto mientras llega la respuesta, en lugar de un texto de espera.
+    hideJobDetails();
     if (gallery.childElementCount === 0 || gallery.querySelector('.empty-state')) {
       gallery.replaceChildren(skeleton(3, true));
     }
@@ -600,8 +607,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     card.type = 'button';
     card.className = 'render-job-card';
     card.classList.toggle('is-active', job.jobId === currentJobId);
-    card.disabled = job.state !== 'completed' || !job.result;
+    card.disabled = !((job.state === 'completed' && job.result) || job.state === 'failed');
     card.setAttribute('role', 'listitem');
+    if (job.state === 'failed') card.title = 'Ver por qué falló este render';
     const icon = document.createElement('span');
     icon.className = 'render-job-icon';
     icon.textContent = job.state === 'completed' ? '▶' : job.state === 'failed' ? '!' : '…';
@@ -620,12 +628,57 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     card.append(icon, copy, state);
     if (job.result) {
       card.addEventListener('click', () => {
+        hideJobDetails();
         const current = showCompleted(job, true, true);
         if (!current) report('Mostrando un render anterior. La edición actual permanece sin renderizar.', true);
         filesMenu.open = false;
       });
+    } else if (job.state === 'failed') {
+      card.addEventListener('click', () => showJobDetails(job));
     }
     return card;
+  }
+
+  function showJobDetails(job: RenderJob): void {
+    const error = job.error ?? {
+      message: 'El render falló sin conservar un detalle adicional.',
+      suggestedAction: 'Volvé al proyecto, revisá su estado e intentá renderizarlo otra vez.',
+    };
+    const header = document.createElement('header');
+    const title = document.createElement('strong');
+    title.textContent = 'No se pudo completar el render';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'text-button';
+    close.textContent = 'Cerrar';
+    close.addEventListener('click', hideJobDetails);
+    header.append(title, close);
+
+    const context = document.createElement('p');
+    context.className = 'render-job-detail-context';
+    context.textContent = `${job.projectId} · ${humanStage(job.stage)}`;
+    const message = document.createElement('p');
+    message.textContent = formatApiError(error);
+    const children: HTMLElement[] = [header, context, message];
+
+    const technical = formatApiTechnicalDetails(error);
+    if (technical) {
+      const details = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.textContent = 'Detalles técnicos';
+      const pre = document.createElement('pre');
+      pre.textContent = technical;
+      details.append(summary, pre);
+      children.push(details);
+    }
+    jobDetails.replaceChildren(...children);
+    jobDetails.hidden = false;
+    jobDetails.scrollIntoView({ block: 'nearest' });
+  }
+
+  function hideJobDetails(): void {
+    jobDetails.hidden = true;
+    jobDetails.replaceChildren();
   }
 
   function schedulePoll(): void {
@@ -737,8 +790,33 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     setBusy(null);
   }
 
+  function scheduleDirectorStatusPoll(delay = 0): void {
+    if (directorStatusTimer !== null) window.clearTimeout(directorStatusTimer);
+    directorStatusTimer = window.setTimeout(() => void pollDirectorStatus(), delay);
+  }
+
+  async function pollDirectorStatus(): Promise<void> {
+    if (busyMode !== 'ai') return;
+    try {
+      const progress = describeDirectorProgress(await getDirectorStatus());
+      if (progress) report(progress, true);
+    } catch {
+      // La petición principal conserva el error autoritativo. El progreso es
+      // auxiliar y no debe reemplazarlo por un segundo fallo.
+    }
+    if (busyMode === 'ai') scheduleDirectorStatusPoll(700);
+  }
+
+  function stopDirectorStatusPoll(): void {
+    if (directorStatusTimer !== null) window.clearTimeout(directorStatusTimer);
+    directorStatusTimer = null;
+  }
+
   function setBusy(mode: 'ai' | 'render' | null, message?: string): void {
+    const previousMode = busyMode;
     busyMode = mode;
+    if (mode === 'ai' && previousMode !== 'ai') scheduleDirectorStatusPoll();
+    if (mode !== 'ai') stopDirectorStatusPoll();
     root.classList.toggle('is-ai-busy', mode === 'ai');
     root.classList.toggle('is-render-busy', mode === 'render');
     root.setAttribute('aria-busy', String(mode !== null));
@@ -838,10 +916,18 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       ? (error as Error & { detail?: ApiError }).detail
       : null;
     const message = detail ? formatApiError(detail) : error instanceof Error ? error.message : String(error);
+    const kind = detail ? classifyApiError(detail) : 'error';
+    if (kind === 'cancelled') {
+      report(message, true);
+      return;
+    }
+    if (kind === 'busy') {
+      report(message, true);
+      notify({ message, level: 'info' });
+      return;
+    }
     report(message);
-    const isDependencyFailure = detail?.code === 'LOCAL_SERVICE_UNAVAILABLE'
-      || (detail?.code?.startsWith('OLLAMA') ?? false)
-      || (detail?.code?.startsWith('TTS') ?? false);
+    const isDependencyFailure = kind === 'dependency';
     notify({
       message,
       level: 'error',
@@ -854,6 +940,14 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
             healthBadge.focus();
           },
         }
+        : kind === 'timeout' || kind === 'invalid-response'
+          ? {
+            actionLabel: 'Volver a intentar',
+            onAction: () => {
+              transitionNavigation({ type: 'select-page', page: 'command' });
+              prompt.focus();
+            },
+          }
         : {}),
     });
   }

@@ -80,11 +80,13 @@ const library = {
 let receivedConstraints = null;
 let receivedGenerationOptions = null;
 let receivedModelIdentity = null;
-const director = async ({ prompt, signal, constraints, think, bestOf, modelIdentity }) => {
+const director = async ({ prompt, signal, constraints, think, bestOf, modelIdentity, onProgress }) => {
   receivedConstraints = constraints;
   receivedGenerationOptions = { think, bestOf };
   receivedModelIdentity = modelIdentity;
+  onProgress?.({ stage: 'preparing_context' });
   if (prompt === 'slow') {
+    onProgress?.({ stage: 'generating', candidateIndex: 1, candidateCount: 1, attempt: 1 });
     await new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })), { once: true });
     });
@@ -344,6 +346,12 @@ assert.equal(badHostStatus, 403);
 const cancelDirector = await request('/api/director/cancel', { method: 'POST' });
 assert.equal(cancelDirector.status, 200);
 assert.equal((await cancelDirector.json()).cancelled, false);
+const idleDirectorStatus = await request('/api/director/status');
+assert.equal(idleDirectorStatus.status, 200);
+assert.deepEqual(
+  (({ state, stage }) => ({ state, stage }))(await idleDirectorStatus.json()),
+  { state: 'idle', stage: 'idle' },
+);
 
 const slowProposal = request('/api/director/proposals', {
   method: 'POST',
@@ -351,16 +359,26 @@ const slowProposal = request('/api/director/proposals', {
   body: JSON.stringify({ prompt: 'slow' }),
 });
 await new Promise((resolve) => setImmediate(resolve));
+const runningDirectorStatus = await request('/api/director/status');
+assert.deepEqual(
+  (({ state, stage, candidateIndex, candidateCount, attempt }) => ({ state, stage, candidateIndex, candidateCount, attempt }))(await runningDirectorStatus.json()),
+  { state: 'running', stage: 'generating', candidateIndex: 1, candidateCount: 1, attempt: 1 },
+);
 const concurrentProposal = await request('/api/director/proposals', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ prompt: 'second' }),
 });
 assert.equal(concurrentProposal.status, 409);
+const concurrentError = (await concurrentProposal.json()).error;
+assert.equal(concurrentError.code, 'DIRECTOR_BUSY');
+assert.match(concurrentError.suggestedAction, /cancelá/u);
 const cancelSlow = await request('/api/director/cancel', { method: 'POST' });
 assert.equal(cancelSlow.status, 200);
 assert.equal((await cancelSlow.json()).cancelled, true);
 assert.equal((await slowProposal).status, 500);
+const finalDirectorStatus = await request('/api/director/status');
+assert.equal((await finalDirectorStatus.json()).state, 'idle');
 
 const missing = await request('/api/render-jobs/render-missing');
 assert.equal(missing.status, 404);

@@ -33,9 +33,11 @@ const fetchImpl = async (_url, options) => {
 };
 
 try {
+  const firstProgress = [];
   const first = await editProjectWithDirector({
     instruction: 'Cambiá el primer texto de la escena 2.',
     project, catalog, cacheRoot, fetchImpl,
+    onProgress: (event) => firstProgress.push(event.stage),
   });
   assert.equal(first.cacheHit, false);
   assert.equal(first.commands.length, 1);
@@ -46,6 +48,7 @@ try {
   assert.ok(first.context.shortlistedEntries <= first.context.totalCatalogEntries);
   assert.ok(first.context.resourceIds.includes('mono-azul-v1'));
   assert.ok(first.context.resourceIds.includes('voz-claude-mx-v1'));
+  assert.deepEqual(firstProgress, ['preparing_context', 'generating', 'validating', 'applying']);
   const second = await editProjectWithDirector({
     instruction: 'Cambiá el primer texto de la escena 2.',
     project, catalog, cacheRoot, fetchImpl,
@@ -322,7 +325,7 @@ try {
     (error) => error.code === 'EDITOR_TURN_NOT_FOUND',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 63, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 64, failed: 0 })}\n`);
 } finally {
   rmSync(cacheRoot, { recursive: true, force: true });
 }

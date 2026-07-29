@@ -19,6 +19,7 @@ const sources = [
   'src/ui/timeline-geometry.ts',
   'src/ui/timeline-animation.ts',
   'src/ui/director/api.ts',
+  'src/ui/director/progress-copy.ts',
   'src/ui/director/navigation.ts',
   'src/ui/notifications-queue.ts',
   'src/ui/director/quality-copy.ts',
@@ -94,6 +95,7 @@ const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
 const animation = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'timeline-animation.js')).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
+const directorProgress = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'progress-copy.js')).href);
 const directorNavigation = await import(pathToFileURL(directorNavigationPath).href);
 const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'notifications-queue.js')).href);
 const qualityCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'quality-copy.js')).href);
@@ -199,6 +201,48 @@ check(
     message: 'Falló.',
     technicalDetail: 'C:\\ruta\\privada\\archivo.json',
   }).includes('ruta'),
+);
+check(
+  'los códigos técnicos no contaminan el mensaje principal',
+  directorApi.formatApiError({ code: 'OLLAMA_TIMEOUT', message: 'Ollama tardó demasiado.', suggestedAction: 'Reintentá.' })
+    === 'Ollama tardó demasiado. Reintentá.',
+);
+check(
+  'el detalle técnico queda disponible bajo demanda',
+  directorApi.formatApiTechnicalDetails({
+    code: 'OLLAMA_TIMEOUT',
+    message: 'Ollama tardó demasiado.',
+    technicalDetail: 'elapsed=240000',
+  }).includes('Código: OLLAMA_TIMEOUT')
+    && directorApi.formatApiTechnicalDetails({
+      code: 'OLLAMA_TIMEOUT',
+      message: 'Ollama tardó demasiado.',
+      technicalDetail: 'elapsed=240000',
+    }).includes('elapsed=240000'),
+);
+check('cancelar no se clasifica como caída del servicio', directorApi.classifyApiError({ code: 'DIRECTOR_CANCELLED', message: 'Cancelado.' }) === 'cancelled');
+check('un timeout tiene una categoría propia', directorApi.classifyApiError({ code: 'OLLAMA_TIMEOUT', message: 'Tardó.' }) === 'timeout');
+check('una respuesta inválida no se confunde con Ollama caído', directorApi.classifyApiError({ code: 'LOCAL_SERVICE_INVALID_RESPONSE', message: 'Inválida.' }) === 'invalid-response');
+check(
+  'el progreso nombra candidato y reparación sin inventar porcentaje',
+  directorProgress.describeDirectorProgress({
+    version: 1,
+    state: 'running',
+    stage: 'generating',
+    updatedAt: new Date(0).toISOString(),
+    candidateIndex: 2,
+    candidateCount: 3,
+    attempt: 2,
+  }) === 'Reparando la propuesta 2 de 3…',
+);
+check(
+  'el progreso de cancelación es explícito',
+  directorProgress.describeDirectorProgress({
+    version: 1,
+    state: 'cancelling',
+    stage: 'cancelling',
+    updatedAt: new Date(0).toISOString(),
+  }) === 'Cancelando el trabajo del Director…',
 );
 
 check(

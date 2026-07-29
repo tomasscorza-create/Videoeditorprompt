@@ -136,7 +136,11 @@ async function requestJson(fetchImpl, url, options) {
         ? 'La operación del Director fue cancelada.'
         : timedOut ? 'Ollama agotó el tiempo permitido.' : 'No se pudo conectar con Ollama.',
       cause: error,
-      suggestedAction: 'Iniciá Ollama, verificá qwen3:8b y volvé a intentar.',
+      suggestedAction: cancelled
+        ? 'Podés modificar la petición y volver a intentarlo.'
+        : timedOut
+          ? 'Probá el modo rápido con una sola propuesta o volvé a intentar.'
+          : 'Iniciá Ollama, verificá qwen3:8b y volvé a intentar.',
     });
   } finally {
     clearTimeout(timeout);

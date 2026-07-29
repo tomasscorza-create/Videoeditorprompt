@@ -522,6 +522,32 @@ body:not(.is-resizing) .app-shell {
 .render-job-card { transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast); }
 .render-job-card:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-raised); }
 .render-job-card.is-active { border-color: var(--accent); }
+.render-job-details {
+  display: grid;
+  gap: .45rem;
+  margin-top: .6rem;
+  padding: .7rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 50%, var(--border));
+  border-radius: .55rem;
+  background: var(--surface-2);
+}
+.render-job-details[hidden] { display: none; }
+.render-job-details header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.render-job-details p { margin: 0; font-size: var(--fs-xs); line-height: 1.45; }
+.render-job-detail-context { color: var(--muted); }
+.render-job-details summary { color: var(--muted); font-size: var(--fs-xs); cursor: pointer; }
+.render-job-details pre {
+  overflow: auto;
+  max-height: 9rem;
+  margin: .4rem 0 0;
+  padding: .45rem;
+  border-radius: .35rem;
+  color: var(--muted);
+  background: var(--bg);
+  font-size: var(--fs-2xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 /* === 5. Banners laterales demo === */
 

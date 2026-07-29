@@ -19,6 +19,7 @@ const DIRECTOR_TEXT_MAX_LENGTH = 300;
 export async function editProjectWithDirector(options) {
   const startedAt = Date.now();
   const instruction = validateInstruction(options.instruction);
+  emitProgress(options, 'preparing_context');
   const state = createProjectEditor(options.project, options.catalog);
   const selection = normalizeEditSelection(options.selection, state.project);
   const baseProjectRevision = hashJson(state.project);
@@ -54,9 +55,11 @@ export async function editProjectWithDirector(options) {
   let usage = null;
   let cacheHit = false;
   if (options.useCache !== false && existsSync(cachePath)) {
+    emitProgress(options, 'cache');
     commands = readJson(cachePath).commands;
     cacheHit = true;
   } else {
+    emitProgress(options, 'generating', { candidateIndex: 1, candidateCount: 1, attempt: 1 });
     const result = await provider.generateCommands({
       schema,
       signal: options.signal,
@@ -84,6 +87,7 @@ export async function editProjectWithDirector(options) {
       ],
       options: { model, temperature: 0.1, seed: 17, maxOutputTokens: 1600, think: false, timeoutMs: 240_000 },
     });
+    emitProgress(options, 'validating', { candidateIndex: 1, candidateCount: 1, attempt: 1 });
     let parsed;
     try {
       parsed = JSON.parse(result.content || '');
@@ -98,6 +102,7 @@ export async function editProjectWithDirector(options) {
     throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA no puede confirmar por sí misma la eliminación de trabajo personalizado.');
   }
   const customizedTrackRemovalIndexes = findCustomizedTrackRemovalIndexes(commands, state.project);
+  emitProgress(options, 'applying');
   let next = state;
   for (const [index, command] of commands.entries()) {
     const executable = customizedTrackRemovalIndexes.includes(index)
@@ -126,6 +131,10 @@ export async function editProjectWithDirector(options) {
       elapsedMilliseconds: Date.now() - startedAt,
     },
   };
+}
+
+function emitProgress(options, stage, detail = {}) {
+  options.onProgress?.({ stage, ...detail });
 }
 
 function collectProjectResourceIds(project) {
