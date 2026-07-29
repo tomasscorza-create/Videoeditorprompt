@@ -843,17 +843,24 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       && job.projectId === currentProject.id
       && projectRevision !== null
       && projectRevision === projectFingerprint(currentProject));
+    const currentTimingRevision = currentProject && job.projectId === currentProject.id
+      ? projectTimingFingerprint(currentProject)
+      : null;
+    // Los jobs nuevos conservan por separado la revisión de voces y tiempos.
+    // Así un cambio puramente visual puede reutilizar su audio medido incluso
+    // después de recargar la aplicación. Para jobs anteriores solo se deriva
+    // cuando todo el proyecto todavía coincide.
+    const measuredTimingRevision = job.timingRevision ?? (current ? currentTimingRevision : null);
+    const timingMatches = currentTimingRevision !== null
+      && measuredTimingRevision !== null
+      && measuredTimingRevision === currentTimingRevision;
     showFinalVideo({
       projectId: job.projectId,
       url: `${job.result.videoUrl}?v=${encodeURIComponent(job.updatedAt ?? '')}`,
       downloadName: job.result.downloadName,
       timeline: job.result.timeline ?? null,
       projectRevision,
-      // El trabajo guarda la revisión completa, no la de tiempo. Cuando el render
-      // corresponde al proyecto que está abierto, el proyecto medido es este y su
-      // revisión de tiempo se puede derivar; si no, se deja en null y la timeline
-      // vuelve a la regla estricta en vez de suponer una medición ajena.
-      timingRevision: current && currentProject ? projectTimingFingerprint(currentProject) : null,
+      timingRevision: timingMatches ? measuredTimingRevision : null,
       current,
       reveal: switchSource && (current || allowStaleReveal),
     });

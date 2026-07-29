@@ -66,8 +66,6 @@ let mediaBound = false;
 let playheadSeconds = 0;
 let authoringPlaying = false;
 let authoringFrame = 0;
-let authoringStartedAt = 0;
-let authoringStartSeconds = 0;
 
 /**
  * Instante de trabajo, compartido por timeline y lienzo.
@@ -86,8 +84,7 @@ export function setEditorPlayhead(seconds: number): void {
   if (next === playheadSeconds) return;
   playheadSeconds = next;
   if (authoringPlaying) {
-    authoringStartSeconds = next;
-    authoringStartedAt = performance.now();
+    if (media) media.currentTime = Math.min(editorWorkspace().duration, next);
   }
   notifyPlayback();
 }
@@ -290,13 +287,13 @@ export async function showRenderedPlayback(): Promise<void> {
     surface = 'playback';
     notify();
   });
-  await media.play();
+  await playMediaReliably(media.currentTime);
 }
 
 export async function toggleEditorPlayback(): Promise<void> {
   if (!media) return;
   if (surface === 'canvas' && editorOutputState() === 'stale' && timingStillValid() && output?.timeline) {
-    toggleAuthoringPreview();
+    await toggleAuthoringPreview();
     return;
   }
   if (!playableEditorOutput()) return;
@@ -304,18 +301,23 @@ export async function toggleEditorPlayback(): Promise<void> {
     await showRenderedPlayback();
     return;
   }
-  if (media.paused) await media.play();
+  if (media.paused) await playMediaReliably(media.currentTime);
   else media.pause();
 }
 
 export function seekEditorPlayback(timeSeconds: number): void {
-  if (!media || !currentEditorOutput()) return;
+  if (!media || (!currentEditorOutput() && !authoringPlaying)) return;
   media.currentTime = Math.max(0, Math.min(editorWorkspace().duration, timeSeconds));
   notify();
 }
 
+export function pauseEditorPlayback(): void {
+  if (authoringPlaying) stopAuthoringPreview();
+  else media?.pause();
+}
+
 export function toggleEditorMute(): void {
-  if (!media || !playableEditorOutput()) return;
+  if (!media || !editorCanPlay()) return;
   media.muted = !media.muted;
   notify();
 }
@@ -341,7 +343,7 @@ function syncOutputFreshness(): void {
   if (!timingStillValid()) stopAuthoringPreview(false);
 }
 
-function toggleAuthoringPreview(): void {
+async function toggleAuthoringPreview(): Promise<void> {
   if (authoringPlaying) {
     stopAuthoringPreview();
     return;
@@ -349,19 +351,31 @@ function toggleAuthoringPreview(): void {
   const duration = output?.timeline?.durationSeconds ?? 0;
   if (!timingStillValid() || duration <= 0) return;
   if (playheadSeconds >= duration - 1e-6) playheadSeconds = 0;
-  media?.pause();
+  if (!media) return;
   authoringPlaying = true;
-  authoringStartSeconds = playheadSeconds;
-  authoringStartedAt = performance.now();
-  authoringFrame = window.requestAnimationFrame(advanceAuthoringPreview);
   notifyPlayback();
+  try {
+    await playMediaReliably(playheadSeconds);
+  } catch (error) {
+    stopAuthoringPreview();
+    console.warn('No se pudo iniciar la reproducción de referencia.', error);
+    return;
+  }
+  if (!authoringPlaying) {
+    media.pause();
+    return;
+  }
+  authoringFrame = window.requestAnimationFrame(advanceAuthoringPreview);
 }
 
-function advanceAuthoringPreview(now: number): void {
+function advanceAuthoringPreview(): void {
   if (!authoringPlaying) return;
+  if (!media || media.paused || media.ended) {
+    stopAuthoringPreview();
+    return;
+  }
   const duration = output?.timeline?.durationSeconds ?? 0;
-  const next = authoringStartSeconds + Math.max(0, now - authoringStartedAt) / 1000;
-  playheadSeconds = Math.min(duration, next);
+  playheadSeconds = Math.min(duration, media.currentTime);
   notifyPlayback();
   if (playheadSeconds >= duration) {
     stopAuthoringPreview();
@@ -373,7 +387,49 @@ function advanceAuthoringPreview(now: number): void {
 function stopAuthoringPreview(emit = true): void {
   if (!authoringPlaying && authoringFrame === 0) return;
   authoringPlaying = false;
+  media?.pause();
   if (authoringFrame !== 0) window.cancelAnimationFrame(authoringFrame);
   authoringFrame = 0;
   if (emit) notifyPlayback();
+}
+
+async function playMediaReliably(timeSeconds: number): Promise<void> {
+  if (!media) return;
+  const target = Math.max(0, Math.min(editorWorkspace().duration, timeSeconds));
+  if (Number.isFinite(target)) media.currentTime = target;
+  try {
+    await media.play();
+  } catch (firstError) {
+    // Después de reemplazar el src, Chromium puede rechazar el primer play con
+    // AbortError mientras termina load(). Reesperar el medio evita obligar a
+    // recargar toda la aplicación.
+    await waitForMediaReady(media);
+    media.currentTime = target;
+    try {
+      await media.play();
+    } catch {
+      throw firstError;
+    }
+  }
+}
+
+function waitForMediaReady(video: HTMLVideoElement): Promise<void> {
+  if (video.readyState >= 2) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => finish(new Error('El video no quedó listo para reproducirse.')), 5_000);
+    const ready = (): void => finish();
+    const failed = (): void => finish(video.error ?? new Error('El video no pudo cargarse.'));
+    const finish = (error?: unknown): void => {
+      window.clearTimeout(timeout);
+      video.removeEventListener('loadeddata', ready);
+      video.removeEventListener('canplay', ready);
+      video.removeEventListener('error', failed);
+      if (error) reject(error);
+      else resolve();
+    };
+    video.addEventListener('loadeddata', ready, { once: true });
+    video.addEventListener('canplay', ready, { once: true });
+    video.addEventListener('error', failed, { once: true });
+    video.load();
+  });
 }

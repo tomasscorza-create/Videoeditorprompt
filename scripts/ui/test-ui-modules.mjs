@@ -88,9 +88,22 @@ function fakeVideo() {
     muted: false,
     currentTime: 0,
     duration: 0,
+    readyState: 4,
+    ended: false,
+    error: null,
+    playCalls: 0,
+    playFailures: 0,
     src: '',
     load() {},
-    play() { this.paused = false; return Promise.resolve(); },
+    play() {
+      this.playCalls += 1;
+      if (this.playFailures > 0) {
+        this.playFailures -= 1;
+        return Promise.reject(new DOMException('Carga reemplazada', 'AbortError'));
+      }
+      this.paused = false;
+      return Promise.resolve();
+    },
     pause() { this.paused = true; },
     addEventListener() {},
   };
@@ -255,6 +268,12 @@ check(
     && compositionSource.includes("context.getImageData(0, 0, width, height)")
     && compositionSource.includes("'rotationDegrees',")
     && compositionSource.includes("'scale',"),
+);
+check(
+  'el preview vivo recorre escenas y subtítulos medidos sin mostrar controles de edición',
+  compositionSource.includes('measuredSceneAt(measured, editorPlayhead())')
+    && compositionSource.includes('liveSubtitle(scene, previewTiming, editorPlayhead())')
+    && compositionSource.includes('animatingElement !== null && !previewing'),
 );
 check(
   'cada ajuste animable muestra rombo y navegación sin salir de Ajustes',
@@ -668,10 +687,15 @@ check('cada transición notifica por evento', dispatched.length > 0);
   check('una edición visual vence el MP4', workspace.editorOutputState() === 'stale' && workspace.currentEditorOutput() === null);
   check('pero la medición del audio sigue valiendo', workspace.measuredTimelineFor(['escena-1'])?.durationSeconds === 9);
   check('con esa medición el lienzo puede previsualizar sin otro render', workspace.editorCanPlay() === true);
+  video.playFailures = 1;
+  const playCallsBeforeRetry = video.playCalls;
   await workspace.toggleEditorPlayback();
   check('Play inicia el preview de autoría sobre el lienzo', workspace.editorWorkspace().playing === true);
+  check('el preview reproduce el audio del MP4 medido', video.paused === false);
+  check('un play abortado durante load se reintenta sin recargar', video.playCalls === playCallsBeforeRetry + 2);
   await workspace.toggleEditorPlayback();
   check('Play vuelve a pausar el preview de autoría', workspace.editorWorkspace().playing === false);
+  check('pausar el preview también pausa su audio', video.paused === true);
 
   workspace.syncActiveEditorProject('proyecto-3', 'rev-3', 'timing-2');
   check('cambiar algo que mueve un tiempo sí descarta la medición', workspace.measuredTimelineFor(['escena-1']) === null);

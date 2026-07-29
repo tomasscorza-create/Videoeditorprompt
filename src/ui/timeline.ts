@@ -8,6 +8,7 @@ import {
   editorOutputState,
   editorWorkspace,
   measuredTimelineFor,
+  pauseEditorPlayback,
   seekEditorPlayback,
   setEditorPlayhead,
   showEditorCanvas,
@@ -405,7 +406,7 @@ function bindPlayheadDrag(playhead: HTMLElement, root: HTMLElement): void {
     if (event.button !== 0 || !isMeasured()) return;
     event.preventDefault();
     event.stopPropagation();
-    activeMedia()?.pause();
+    pauseEditorPlayback();
     draggingPlayhead = true;
     playhead.classList.add('is-dragging');
     moveToPointer(event);
@@ -1637,11 +1638,11 @@ function handleShortcut(event: KeyboardEvent): void {
     toggleMute();
   } else if (event.code === 'KeyJ' && hasOutput) {
     event.preventDefault();
-    activeMedia()?.pause();
+    pauseEditorPlayback();
     seekTo(currentTime - 1);
   } else if (event.code === 'KeyK' && hasOutput) {
     event.preventDefault();
-    activeMedia()?.pause();
+    pauseEditorPlayback();
   } else if (event.code === 'KeyL' && hasOutput) {
     event.preventDefault();
     void showRenderedPlayback();
@@ -1839,10 +1840,6 @@ function followPlayhead(): void {
   if (x < leftEdge || x > rightEdge) {
     scroll.scrollLeft = Math.max(0, x - scroll.clientWidth * 0.25);
   }
-}
-
-function activeMedia(): HTMLMediaElement | null {
-  return currentEditorOutput() ? editorWorkspace().media : null;
 }
 
 // La duración de trabajo es la medida cuando existe, aunque el MP4 esté vencido:

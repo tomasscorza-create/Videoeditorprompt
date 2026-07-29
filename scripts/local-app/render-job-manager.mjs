@@ -10,7 +10,7 @@ import { validateVideoProjectDocument } from '../stage3a/validate-video-project.
 import { cleanupCompletedJob } from './retention.mjs';
 import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
 import { publishRenderArtifacts } from '../storage/artifact-storage.mjs';
-import { projectFingerprint } from '../../shared/project-fingerprint.js';
+import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
 
 const JOB_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/;
 const MAX_IN_MEMORY_JOBS = 500;
@@ -55,6 +55,7 @@ export async function createRenderJobManager(options = {}) {
       jobId,
       projectId: project.id,
       projectRevision: projectFingerprint(project),
+      timingRevision: projectTimingFingerprint(project),
       state: 'queued',
       stage: 'queueing',
       createdAt: new Date().toISOString(),
@@ -411,6 +412,7 @@ function publicJob(job) {
     jobId: job.jobId,
     projectId: job.projectId,
     ...(job.projectRevision ? { projectRevision: job.projectRevision } : {}),
+    ...(job.timingRevision ? { timingRevision: job.timingRevision } : {}),
     state: job.state,
     stage: job.stage,
     createdAt: job.createdAt,

@@ -70,7 +70,7 @@ function renderViewerWorkspace(): void {
           ? 'Vista histórica: este MP4 no corresponde a la edición actual.'
           : 'Reproducción medida del proyecto. La timeline y el visor comparten el mismo transporte.'
         : outputState === 'stale'
-          ? 'Vista editable actualizada. Hay cambios sin renderizar; el MP4 anterior no se usará para reproducir.'
+          ? 'Preview actualizado: conserva el audio y los tiempos medidos mientras muestra los cambios visuales actuales.'
           : outputState === 'current'
             ? 'Vista editable sincronizada con el render vigente.'
             : 'Vista editable sin render. La duración real aparecerá al generar el primer MP4.';

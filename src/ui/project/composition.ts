@@ -22,7 +22,10 @@ import {
   EDITOR_PLAYBACK_EVENT,
   EDITOR_WORKSPACE_EVENT,
   editorPlayhead,
+  editorWorkspace,
   measuredTimelineFor,
+  type MeasuredProjectTimeline,
+  type MeasuredScene,
 } from '../editor-workspace.js';
 import {
   buildAnimationLanes,
@@ -85,7 +88,14 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   const render = (): void => {
     const version = ++renderVersion;
     const project = store.project();
-    const scene = project.scenes.find((item) => item.id === store.selectedSceneId()) ?? project.scenes[0];
+    const workspace = editorWorkspace();
+    const measured = measuredTimelineFor(project.scenes.map((item) => item.id));
+    const previewTiming = workspace.surface === 'canvas' && workspace.playing
+      ? measuredSceneAt(measured, editorPlayhead())
+      : null;
+    const previewing = previewTiming !== null;
+    const scene = project.scenes.find((item) => item.id === (previewTiming?.id ?? store.selectedSceneId()))
+      ?? project.scenes[0];
     if (!scene) {
       canvas.replaceChildren(empty('No hay una escena seleccionada.'));
       return;
@@ -117,7 +127,9 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       const selection = projectSelection();
       image.classList.toggle(
         'is-selected',
-        (selection?.kind === 'element' || selection?.kind === 'keyframe') && selection.elementId === element.id,
+        !previewing
+          && (selection?.kind === 'element' || selection?.kind === 'keyframe')
+          && selection.elementId === element.id,
       );
       const animating = isAnimationModeOn(scene.id, element.id);
       image.classList.toggle('is-animating', animating);
@@ -136,17 +148,20 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       bindElementInteraction(image, canvas, store, scene, element);
       nodes.push(image);
       if (
-        (selection?.kind === 'element' || selection?.kind === 'keyframe')
+        !previewing
+        && (selection?.kind === 'element' || selection?.kind === 'keyframe')
         && selection.elementId === element.id
       ) {
         nodes.push(transformControls(image, canvas, store, scene, element, view));
       }
     }
-    const placement = currentCharacterPlacement();
+    const placement = previewing ? null : currentCharacterPlacement();
     if (placement) nodes.push(placementHint(`Clic o soltar: colocar «${placement.label}»`));
-    canvas.classList.toggle('is-animation-mode', animatingElement !== null);
-    if (animatingElement) nodes.push(animationBanner(scope));
-    nodes.push(label(`${scene.title} · ${scene.background.cameraPreset}`));
+    canvas.classList.toggle('is-animation-mode', animatingElement !== null && !previewing);
+    if (animatingElement && !previewing) nodes.push(animationBanner(scope));
+    const subtitle = previewTiming ? liveSubtitle(scene, previewTiming, editorPlayhead()) : null;
+    if (subtitle) nodes.push(subtitle);
+    if (!previewing) nodes.push(label(`${scene.title} · ${scene.background.cameraPreset}`));
     canvas.replaceChildren(...nodes);
   };
 
@@ -162,6 +177,24 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   window.addEventListener(EDITOR_PLAYBACK_EVENT, render);
   window.addEventListener(EDITOR_WORKSPACE_EVENT, render);
   render();
+}
+
+function measuredSceneAt(timeline: MeasuredProjectTimeline | null, seconds: number): MeasuredScene | null {
+  if (!timeline?.scenes.length) return null;
+  return timeline.scenes.find((scene) => seconds >= scene.startSeconds && seconds < scene.endSeconds)
+    ?? (seconds >= timeline.durationSeconds ? timeline.scenes.at(-1) ?? null : null);
+}
+
+function liveSubtitle(scene: SceneView, timing: MeasuredScene, seconds: number): HTMLElement | null {
+  const measuredTurn = timing.turns?.find((turn) => seconds >= turn.startSeconds && seconds < turn.endSeconds);
+  if (!measuredTurn) return null;
+  const turn = scene.dialogue.find((item) => item.id === measuredTurn.id);
+  if (!turn) return null;
+  const subtitle = document.createElement('div');
+  subtitle.className = 'composition-live-subtitle';
+  subtitle.textContent = turn.text;
+  subtitle.setAttribute('aria-hidden', 'true');
+  return subtitle;
 }
 
 interface AnimationScope {
