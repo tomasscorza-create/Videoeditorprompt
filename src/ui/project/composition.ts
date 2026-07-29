@@ -245,10 +245,8 @@ function viewTransform(
 /**
  * Rótulo persistente del modo animación.
  *
- * No puede ser un icono discreto en una barra: el riesgo de esta capacidad es
- * mover un personaje sin saber si se cambió la base o se creó un keyframe, así
- * que el lienzo entero se tiñe y el rótulo nombra el frame en el que se está
- * escribiendo.
+ * El borde del lienzo mantiene visible el modo y este rótulo compacto aclara
+ * qué se escribe, sin cubrir al personaje ni sus tiradores.
  */
 function animationBanner(scope: AnimationScope): HTMLElement {
   const banner = document.createElement('div');
@@ -259,14 +257,14 @@ function animationBanner(scope: AnimationScope): HTMLElement {
     ? quantizeToFrame(Math.max(0, editorPlayhead() - scope.timing.startSeconds), scope.fps)
     : null;
   title.textContent = frame === null
-    ? '◆ Animando'
-    : `◆ Animando · posición · frame ${frame}`;
+    ? '◆ Animación temporal'
+    : `◆ Animación temporal · frame ${frame}`;
   const body = document.createElement('span');
-  body.textContent = 'Mover el elemento crea o actualiza un keyframe acá. La posición base no se toca.';
+  body.textContent = 'Mover, escalar o rotar escribe keyframes acá. La base no cambia.';
   const back = document.createElement('button');
   back.type = 'button';
   back.className = 'composition-animation-exit';
-  back.textContent = 'Volver a base';
+  back.textContent = 'Terminar';
   back.addEventListener('click', (event) => {
     event.stopPropagation();
     setAnimationMode(null);

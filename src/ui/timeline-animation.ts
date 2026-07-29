@@ -216,7 +216,9 @@ export function buildAnimationLanes(
       customized: track.source.kind === 'preset' && track.source.customized,
       keyframes: ordered,
       segments,
-      reviewCount: ordered.filter((keyframe) => keyframe.status === 'review').length,
+      reviewCount: ordered.filter(
+        (keyframe) => keyframe.status === 'review' || keyframe.status === 'out-of-scene',
+      ).length,
     };
   });
 }
@@ -265,9 +267,13 @@ function describeKeyframe(
     message: statusMessage(status, reviewMessage),
     anchorLabel: describeAnchor(keyframe.anchor),
     valueLabel: formatParameterValue(parameterId, keyframe.value),
-    timeLabel: sceneFrameIndex === null || seconds === null
-      ? 'pendiente de voz'
-      : `${seconds.toFixed(3)} s · frame ${sceneFrameIndex}`,
+    timeLabel: status === 'out-of-scene'
+      ? 'fuera de la escena'
+      : status === 'review'
+        ? 'requiere revisión'
+        : sceneFrameIndex === null || seconds === null
+          ? 'pendiente de medición'
+          : `${seconds.toFixed(3)} s · frame ${sceneFrameIndex}`,
   };
 }
 

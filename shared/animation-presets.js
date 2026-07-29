@@ -146,6 +146,18 @@ export const ANIMATION_PRESETS = Object.freeze({
   },
 });
 
+export function animationPresetWindow(presetId, intensityId = 'medium') {
+  const preset = ANIMATION_PRESETS[presetId];
+  if (!preset) failAnimation('ANIM_DOCUMENT_INVALID', '/presetId', `Preset desconocido: ${presetId}`);
+  const intensity = ANIMATION_INTENSITIES[intensityId];
+  if (!intensity) failAnimation('ANIM_DOCUMENT_INVALID', '/intensity', `Intensidad desconocida: ${intensityId}`);
+  const offsets = preset.steps.map((step) => round(step.atSeconds * intensity.duration));
+  return {
+    startOffsetSeconds: Math.min(...offsets),
+    endOffsetSeconds: Math.max(...offsets),
+  };
+}
+
 function clamp(value, parameter) {
   const minimum = parameter.exclusiveMinimum !== undefined
     // Un valor exactamente en el mínimo excluyente no es válido; se deja apenas
@@ -177,6 +189,7 @@ export function expandAnimationPreset(presetId, options = {}) {
   const anchor = options.anchor ?? { kind: 'scene', edge: 'start' };
   const parameter = ANIMATION_PARAMETERS[preset.parameterId];
   const baseValue = options.baseValue ?? (preset.parameterId === 'scale' ? 1 : 0);
+  const baseOffsetSeconds = options.offsetSeconds ?? 0;
   const prefix = options.keyframeIdPrefix ?? `kf-${presetId}`;
 
   const keyframes = preset.steps.map((step, index) => {
@@ -188,7 +201,7 @@ export function expandAnimationPreset(presetId, options = {}) {
     return {
       id: `${prefix}-${index + 1}`,
       anchor: structuredClone(anchor),
-      offsetSeconds: round(step.atSeconds * intensity.duration),
+      offsetSeconds: round(baseOffsetSeconds + step.atSeconds * intensity.duration),
       value: round(clamp(raw, parameter)),
       interpolation: step.interpolation,
     };

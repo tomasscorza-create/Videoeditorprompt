@@ -30,10 +30,19 @@ export interface ExpandedAnimationTrack {
   }>;
 }
 
+export function animationPresetWindow(
+  presetId: string,
+  intensity?: AnimationIntensity,
+): {
+  startOffsetSeconds: number;
+  endOffsetSeconds: number;
+};
+
 export function expandAnimationPreset(
   presetId: string,
   options?: {
     anchor?: AnimationAnchor;
+    offsetSeconds?: number;
     intensity?: AnimationIntensity;
     baseValue?: number;
     keyframeIdPrefix?: string;

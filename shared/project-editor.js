@@ -523,9 +523,13 @@ function applyMutation(project, catalog, command) {
     }
     case 'apply-animation-preset': {
       const element = requireAnimatedElement(project, command);
+      if (command.offsetSeconds !== undefined) {
+        numberInRange(command.offsetSeconds, -5, 5, '/command/offsetSeconds');
+      }
       const expanded = expandAnimationPreset(command.presetId, {
         anchor: command.anchor,
         intensity: command.intensity,
+        offsetSeconds: command.offsetSeconds,
         // La base se lee UNA vez, al aplicar. Si después se mueve el elemento la
         // pista no se mueve sola: eso reescribiría puntos que el usuario ya editó.
         baseValue: baseValueFor(element, ANIMATION_PRESETS[command.presetId]?.parameterId),
@@ -721,7 +725,7 @@ function assertCommandShape(command) {
     'reorder-scenes': { required: ['type', 'sceneIds'], optional: [] },
     'split-scene': { required: ['type', 'sceneId', 'atTurnId', 'newSceneId'], optional: [] },
     'reorder-dialogue-turns': { required: ['type', 'sceneId', 'turnIds'], optional: [] },
-    'apply-animation-preset': { required: ['type', 'sceneId', 'elementId', 'presetId'], optional: ['anchor', 'intensity'] },
+    'apply-animation-preset': { required: ['type', 'sceneId', 'elementId', 'presetId'], optional: ['anchor', 'offsetSeconds', 'intensity'] },
     'create-track': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframes'], optional: ['source'] },
     'add-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId', 'anchor', 'offsetSeconds', 'value', 'interpolation'], optional: [] },
     'set-keyframe': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframeId'], optional: ['anchor', 'offsetSeconds', 'value', 'interpolation'] },

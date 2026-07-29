@@ -10,6 +10,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import {
   ANIMATION_PRESETS,
+  animationPresetWindow,
   expandAnimationPreset,
   listApplicablePresets,
 } from '../../shared/animation-presets.js';
@@ -72,6 +73,18 @@ assert.ok(strong.keyframes[1].offsetSeconds < soft.keyframes[1].offsetSeconds, '
 assert.equal(soft.keyframes.length, strong.keyframes.length);
 pass('la-intensidad-escala-amplitud-y-duracion', { accepted: true });
 
+const shifted = expandAnimationPreset('emphasis-pulse', {
+  baseValue: 0.7,
+  intensity: 'medium',
+  offsetSeconds: -0.267,
+});
+assert.deepEqual(shifted.keyframes.map((keyframe) => keyframe.offsetSeconds), [-0.267, -0.087, 0.193]);
+assert.deepEqual(animationPresetWindow('emphasis-pulse', 'medium'), {
+  startOffsetSeconds: 0,
+  endOffsetSeconds: 0.46,
+});
+pass('el-desplazamiento-del-cabezal-se-conserva-en-todo-el-preset', { accepted: true });
+
 // 4. Los valores respetan el rango del parámetro.
 const clamped = expandAnimationPreset('enter-left', { baseValue: -1000, intensity: 'strong' });
 assert.ok(clamped.keyframes.every((keyframe) => keyframe.value >= -1080 && keyframe.value <= 2160));
@@ -91,11 +104,20 @@ pass('presets-articulados-solo-si-el-recurso-los-declara', { accepted: true });
 const base = createProjectEditor(project, catalog);
 const sceneId = base.project.scenes[0].id;
 const element = base.project.scenes[0].elements.find((candidate) => candidate.type === 'character');
-const command = { type: 'apply-animation-preset', sceneId, elementId: element.id, presetId: 'enter-left' };
+const command = {
+  type: 'apply-animation-preset',
+  sceneId,
+  elementId: element.id,
+  presetId: 'enter-left',
+  anchor: { kind: 'scene', edge: 'start' },
+  offsetSeconds: 0.25,
+};
 assert.ok(validateCommand(command), JSON.stringify(validateCommand.errors?.[0]));
 const applied = applyProjectEditorCommand(base, command);
 const track = applied.project.scenes[0].elements.find((candidate) => candidate.id === element.id).tracks[0];
 assert.equal(track.source.presetId, 'enter-left');
+assert.equal(track.keyframes[0].offsetSeconds, 0.25);
+assert.equal(track.keyframes[1].offsetSeconds, 0.85);
 assert.equal(track.keyframes.at(-1).value, element.transform.x, 'vuelve a la posición base del elemento');
 const exported = JSON.parse(exportEditorProject(applied));
 assert.ok(validateProject(exported), JSON.stringify(validateProject.errors?.[0]));

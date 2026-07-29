@@ -256,8 +256,17 @@ check(
   'Edición usa el cabezal compartido para crear keyframes con el helper canónico',
   editingPanelSource.includes('editorPlayhead()')
     && editingPanelSource.includes('keyframeCommandsForValue({')
-    && editingPanelSource.includes('Agregar keyframe en el cabezal')
+    && editingPanelSource.includes('offsetSeconds: placement.proposal.offsetSeconds')
+    && editingPanelSource.includes('Ir a Ajustes')
     && editingPanelSource.includes("if (event.key !== 'Enter') return;"),
+);
+check(
+  'Crear animación separa presets, mouse y edición manual sin duplicar el formulario de keyframes',
+  editingPanelSource.includes("'Animaciones prediseñadas'")
+    && editingPanelSource.includes("'Animar con el mouse'")
+    && editingPanelSource.includes("'Edición manual'")
+    && editingPanelSource.includes("'Abrir Pistas'")
+    && !editingPanelSource.includes("'Agregar keyframe en el cabezal'"),
 );
 check(
   'los ajustes usan filas compactas, dos decimales y opacidad porcentual en vivo',
@@ -869,7 +878,7 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
     unmeasured.keyframes.every((keyframe) => keyframe.seconds === null && keyframe.status === 'unmeasured')
       && unmeasured.segments.length === 0,
   );
-  check('sin medición el tiempo resuelto lo dice, no muestra un número', unmeasured.keyframes[0].timeLabel === 'pendiente de voz');
+  check('sin medición el tiempo resuelto lo dice, no muestra un número', unmeasured.keyframes[0].timeLabel === 'pendiente de medición');
 
   const broken = [{
     parameterId: 'opacity',
@@ -895,6 +904,11 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   }];
   const outsideLane = animation.buildAnimationLanes('e1', outside, { timing, reference, fps: 30 })[0];
   check('un keyframe que cae fuera de la escena es un error visible', outsideLane.keyframes.some((keyframe) => keyframe.status === 'out-of-scene'));
+  check(
+    'una pista fuera de escena cuenta el aviso y lo explica sin confundirlo con la voz',
+    outsideLane.reviewCount === 1
+      && outsideLane.keyframes.find((keyframe) => keyframe.status === 'out-of-scene')?.timeLabel === 'fuera de la escena',
+  );
 
   check('el desplazamiento del arrastre se ajusta al frame', animation.offsetForSeconds(2, 2.04, 30) === 0.0333);
   check('el desplazamiento nunca supera el límite del contrato', animation.offsetForSeconds(0, 30, 30) === 5);

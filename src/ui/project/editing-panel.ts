@@ -1,6 +1,10 @@
 import { ANIMATION_PARAMETERS } from '../../../shared/animation-contract.js';
-import { listApplicablePresets } from '../../../shared/animation-presets.js';
-import type { SceneTiming } from '../../../shared/animation-evaluator.js';
+import {
+  ANIMATION_PRESETS,
+  animationPresetWindow,
+  listApplicablePresets,
+} from '../../../shared/animation-presets.js';
+import { resolveAnchorSeconds, type SceneTiming } from '../../../shared/animation-evaluator.js';
 import {
   EDITOR_PLAYBACK_EVENT,
   EDITOR_WORKSPACE_EVENT,
@@ -11,13 +15,11 @@ import {
 import { optional } from '../dom.js';
 import { notify } from '../notifications.js';
 import {
-  baseValueForParameter,
   buildAnimationLanes,
   clampParameterValue,
   duplicateKeyframeCommand,
   evaluateLanesAt,
   keyframeCommandsForValue,
-  listAnimatableParameters,
   nearestAnchorFor,
   nextKeyframeId,
   parameterLabel,
@@ -47,6 +49,8 @@ interface PlayheadReference {
   label: string;
   detail: string;
 }
+
+type AnimationIntensity = 'soft' | 'medium' | 'strong';
 
 export type EditingSubpage =
   | 'scene'
@@ -83,10 +87,12 @@ export function initEditingPanel(store: ProjectStore): void {
   let localMessage: { text: string; error: boolean } | null = null;
   let activeSubpage: EditingSubpage = 'adjustments';
   let selectionIdentity = '';
+  let animationIntensity: AnimationIntensity = 'medium';
 
   const report = (message: string | null, ok = false): boolean => {
-    localMessage = message ? { text: message, error: !ok } : null;
-    if (message && !ok) notify({ message, level: 'error' });
+    const visibleMessage = message && !ok ? friendlyEditingError(message) : message;
+    localMessage = visibleMessage ? { text: visibleMessage, error: !ok } : null;
+    if (visibleMessage && !ok) notify({ message: visibleMessage, level: 'error' });
     render();
     return message === null;
   };
@@ -124,6 +130,7 @@ export function initEditingPanel(store: ProjectStore): void {
       if (identity !== selectionIdentity) {
         selectionIdentity = identity;
         activeSubpage = defaultEditingSubpage(selection);
+        animationIntensity = 'medium';
       }
       if (!pages.some((page) => page.id === activeSubpage)) activeSubpage = pages[0].id;
       nodes.push(subpageNavigation(pages));
@@ -691,76 +698,138 @@ export function initEditingPanel(store: ProjectStore): void {
     const resource = store.resources(element.type === 'prop' ? 'prop' : 'character')
       .find((item) => item.id === element.resourceId);
     const declared = readStringCapability(resource?.capabilities, 'parameters');
-    const elementType = element.type === 'prop' ? 'prop' : 'character';
-    const parameterIds = listAnimatableParameters(declared, elementType);
     const card = editingCard('Crear animación', element.resourceId || element.id);
     const reference = describePlayheadReference(scope);
     card.append(playheadCard(reference));
 
-    const presets = document.createElement('div');
-    presets.className = 'animation-preset-row';
-    for (const preset of listApplicablePresets(declared)) {
-      const button = actionButton(preset.label, () => {
-        if (!scope.timing || !reference.available) return;
-        const anchor = nearestAnchorFor(editorPlayhead(), scope.timing, scope.fps).anchor;
-        send({
-          type: 'apply-animation-preset', sceneId: scene.id, elementId: element.id,
-          presetId: preset.id, anchor, intensity: 'medium',
+    const presetSection = animationSection(
+      'Animaciones prediseñadas',
+      'Elegí un efecto completo. Se aplicará tomando el cabezal como referencia exacta.',
+    );
+    const intensity = select([
+      { value: 'soft', label: 'Suave' },
+      { value: 'medium', label: 'Media' },
+      { value: 'strong', label: 'Fuerte' },
+    ], animationIntensity);
+    intensity.addEventListener('change', () => {
+      animationIntensity = intensity.value as AnimationIntensity;
+      render();
+    });
+    presetSection.append(compactFieldRow('Intensidad', intensity, 'wide'));
+
+    const applicable = listApplicablePresets(declared);
+    const categories = [
+      { label: 'Entradas', ids: ['enter-left', 'enter-right'] },
+      { label: 'Visibilidad', ids: ['fade-in', 'fade-out'] },
+      { label: 'Énfasis', ids: ['emphasis-pulse'] },
+      {
+        label: 'Cuerpo y articulaciones',
+        ids: [
+          'arm-raise', 'left-arm-raise', 'right-elbow-bend', 'left-elbow-bend',
+          'head-tilt', 'head-nod', 'body-lean', 'body-bounce',
+        ],
+      },
+    ];
+    const protectedParameters = new Map<string, AnimationLane>();
+    for (const category of categories) {
+      const entries = applicable.filter((preset) => category.ids.includes(preset.id));
+      if (entries.length === 0) continue;
+      const group = document.createElement('section');
+      group.className = 'animation-preset-group';
+      const title = document.createElement('strong');
+      title.textContent = category.label;
+      const options = document.createElement('div');
+      options.className = 'animation-preset-grid';
+      for (const preset of entries) {
+        const definition = ANIMATION_PRESETS[preset.id];
+        const lane = lanes.find((item) => item.parameterId === preset.parameterId) ?? null;
+        const protectedLane = lane && (lane.sourceLabel === 'manual' || lane.customized) ? lane : null;
+        if (protectedLane) protectedParameters.set(preset.parameterId, protectedLane);
+        const placement = presetPlacement(scope, preset.id, animationIntensity);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'animation-preset';
+        button.classList.toggle(
+          'is-applied',
+          lane?.sourceLabel === preset.id && !lane.customized,
+        );
+        button.setAttribute('aria-label', `Aplicar ${preset.label}`);
+        const name = document.createElement('strong');
+        name.textContent = preset.label;
+        const detail = document.createElement('span');
+        const window = animationPresetWindow(preset.id, animationIntensity);
+        detail.textContent = `${parameterLabel(preset.parameterId)} · ${formatDuration(window.endOffsetSeconds - window.startOffsetSeconds)}`;
+        button.append(name, detail);
+        button.disabled = Boolean(protectedLane) || !placement.allowed;
+        button.title = protectedLane
+          ? `${parameterLabel(preset.parameterId)} ya tiene una pista manual o editada. Abrila en Pistas para decidir qué conservar.`
+          : placement.reason;
+        button.addEventListener('click', () => {
+          if (!scope.timing || !placement.allowed || !placement.proposal) return;
+          const applied = send({
+            type: 'apply-animation-preset',
+            sceneId: scene.id,
+            elementId: element.id,
+            presetId: preset.id,
+            anchor: placement.proposal.anchor,
+            offsetSeconds: placement.proposal.offsetSeconds,
+            intensity: animationIntensity,
+          });
+          if (applied) {
+            report(
+              `${preset.label} aplicada en ${formatSeconds(editorPlayhead())} · ${definition.steps.length} keyframes.`,
+              true,
+            );
+          }
         });
-      });
-      button.className = 'animation-preset';
-      button.disabled = !reference.available;
-      button.title = reference.available ? `Aplicar ${preset.label} desde la posición actual` : reference.detail;
-      presets.append(button);
+        options.append(button);
+      }
+      group.append(title, options);
+      presetSection.append(group);
     }
-    if (presets.childElementCount > 0) card.append(presets);
+    for (const [parameterId] of protectedParameters) {
+      const conflict = document.createElement('div');
+      conflict.className = 'animation-preset-conflict';
+      const text = document.createElement('span');
+      text.textContent = `${parameterLabel(parameterId)} ya tiene una pista manual o editada.`;
+      const open = actionButton('Abrir Pistas', () => {
+        activeSubpage = 'tracks';
+        render();
+      });
+      conflict.append(text, open);
+      presetSection.append(conflict);
+    }
+    card.append(presetSection);
 
     const animating = isAnimationModeOn(scene.id, element.id);
+    const mouseSection = animationSection(
+      'Animar con el mouse',
+      'Mover, escalar o rotar el elemento escribe keyframes en el cabezal sin cambiar su posición base.',
+    );
     const canvasMode = actionButton(
-      animating ? '◆ Animando en el lienzo · volver a base' : 'Animar en el lienzo',
+      animating ? '◆ Animación con mouse activa' : 'Activar animación con mouse',
       () => setAnimationMode(animating ? null : { sceneId: scene.id, elementId: element.id }),
     );
+    canvasMode.className = 'animation-mode-toggle';
     canvasMode.classList.toggle('is-active', animating);
     canvasMode.disabled = !animating && !reference.available;
-    canvasMode.title = canvasMode.disabled ? reference.detail : 'Mover el elemento crea o actualiza un keyframe en el cabezal.';
-    card.append(canvasMode);
+    canvasMode.title = canvasMode.disabled ? reference.detail : (animating
+      ? 'Volver a editar la posición base.'
+      : 'Mover, escalar o rotar escribirá keyframes en la posición actual.');
+    mouseSection.append(canvasMode);
+    card.append(mouseSection);
 
-    const picker = select(parameterIds.map((id) => ({ value: id, label: parameterLabel(id) })), parameterIds[0] ?? '');
-    const value = compactNumberInput(0, { step: 0.01 });
-    const syncValue = (): void => {
-      const parameter = ANIMATION_PARAMETERS[picker.value];
-      value.value = formatCompactNumber(baseValueForParameter(picker.value, element.transform));
-      value.min = String(parameter?.exclusiveMinimum ?? parameter?.minimum ?? 0);
-      value.max = String(parameter?.maximum ?? 1);
-      value.step = picker.value === 'position.x' || picker.value === 'position.y' ? '1' : '0.01';
-    };
-    picker.addEventListener('change', syncValue);
-    syncValue();
-    const add = actionButton('Agregar keyframe en el cabezal', () => {
-      if (!scope.timing || !reference.available || !picker.value) return;
-      const lane = lanes.find((item) => item.parameterId === picker.value) ?? null;
-      const taken = (element.tracks ?? []).flatMap((track) => track.keyframes.map((item) => item.id));
-      const commands = keyframeCommandsForValue({
-        sceneId: scene.id, elementId: element.id, parameterId: picker.value,
-        value: clampParameterValue(picker.value, Number(value.value)),
-        playheadSeconds: editorPlayhead(), lane, timing: scope.timing, fps: scope.fps,
-        takenKeyframeIds: taken,
-      });
-      if (!sendBatch(commands)) return;
-      const keyframeId = selectedKeyframeId(commands, lane, editorPlayhead(), scope.fps);
-      if (keyframeId) selectProjectItem({
-        kind: 'keyframe', sceneId: scene.id, elementId: element.id,
-        parameterId: picker.value, keyframeId,
-      });
-    });
-    add.disabled = !reference.available || parameterIds.length === 0;
-    add.title = add.disabled ? reference.detail : 'Usa la selección actual y la línea del cabezal como referencia.';
-    card.append(
-      compactFieldRow('Parámetro', picker, 'wide'),
-      compactFieldRow('Valor', value, 'number'),
-      add,
+    const manualSection = animationSection(
+      'Edición manual',
+      'Para crear un punto manual, abrí Ajustes y pulsá el rombo de la propiedad que quieras animar.',
     );
-    if (lanes.length === 0) card.append(contextNote('Todavía no hay pistas. El primer keyframe creará una automáticamente.'));
+    const openAdjustments = actionButton('Ir a Ajustes', () => {
+      activeSubpage = 'adjustments';
+      render();
+    });
+    openAdjustments.className = 'full-button';
+    manualSection.append(openAdjustments);
+    card.append(manualSection);
     return card;
   }
 
@@ -769,7 +838,9 @@ export function initEditingPanel(store: ProjectStore): void {
     const lanes = buildAnimationLanes(element.id, element.tracks ?? [], scope);
     const card = editingCard('Pistas', element.resourceId || element.id);
     if (lanes.length === 0) {
-      card.append(contextNote('Sin pistas. Abrí Crear animación para aplicar un preset o agregar el primer keyframe.'));
+      card.append(contextNote(
+        'Sin pistas. Aplicá una animación prediseñada o abrí Ajustes y pulsá el rombo de una propiedad.',
+      ));
       return card;
     }
     for (const lane of lanes) {
@@ -921,7 +992,7 @@ export function initEditingPanel(store: ProjectStore): void {
     return {
       available: true,
       label: `Cabezal en ${formatSeconds(editorPlayhead())}`,
-      detail: `Referencia: ${proposal.label}${formatOffset(proposal.offsetSeconds)}.`,
+      detail: `Punto exacto: ${humanPlayheadReference(proposal, scope.timing)}.`,
     };
   }
 
@@ -1263,6 +1334,104 @@ function contextNote(text: string): HTMLElement {
   return element;
 }
 
+function animationSection(title: string, description: string): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'animation-creation-section';
+  const heading = document.createElement('div');
+  heading.className = 'animation-section-heading';
+  const name = document.createElement('strong');
+  name.textContent = title;
+  const detail = document.createElement('p');
+  detail.textContent = description;
+  heading.append(name, detail);
+  section.append(heading);
+  return section;
+}
+
+function presetPlacement(
+  scope: AnimationScope,
+  presetId: string,
+  intensity: AnimationIntensity,
+): {
+  allowed: boolean;
+  reason: string;
+  proposal: ReturnType<typeof nearestAnchorFor> | null;
+} {
+  if (!scope.timing) return {
+    allowed: false,
+    reason: 'Renderizá una vez para medir la escena antes de ubicar esta animación.',
+    proposal: null,
+  };
+  const playhead = editorPlayhead();
+  if (playhead < scope.timing.startSeconds || playhead > scope.timing.endSeconds) return {
+    allowed: false,
+    reason: 'Mové el cabezal dentro de la escena seleccionada.',
+    proposal: null,
+  };
+  const proposal = nearestAnchorFor(playhead, scope.timing, scope.fps);
+  const resolved = resolveAnchorSeconds(proposal.anchor, scope.timing) + proposal.offsetSeconds;
+  if (Math.abs(resolved - playhead) > 0.5 / scope.fps) return {
+    allowed: false,
+    reason: 'No se pudo representar este punto con precisión. Acercá el cabezal a un diálogo o borde de escena.',
+    proposal: null,
+  };
+  const window = animationPresetWindow(presetId, intensity);
+  const tolerance = 0.5 / scope.fps;
+  if (
+    playhead + window.startOffsetSeconds < scope.timing.startSeconds - tolerance
+    || playhead + window.endOffsetSeconds > scope.timing.endSeconds + tolerance
+  ) {
+    return {
+      allowed: false,
+      reason: 'La animación no entra completa desde este punto. Alejá el cabezal del borde de la escena.',
+      proposal,
+    };
+  }
+  return {
+    allowed: true,
+    reason: `Aplicar exactamente en ${formatSeconds(playhead)}.`,
+    proposal,
+  };
+}
+
+function humanPlayheadReference(
+  proposal: ReturnType<typeof nearestAnchorFor>,
+  timing: SceneTiming,
+): string {
+  const anchor = proposal.anchor;
+  let reference: string;
+  if (anchor.kind === 'scene') {
+    reference = anchor.edge === 'start' ? 'el inicio de la escena' : 'el final de la escena';
+  } else {
+    const turnIndex = timing.turns.findIndex((turn) => turn.id === anchor.turnId);
+    const dialogue = turnIndex >= 0 ? turnIndex + 1 : null;
+    if (anchor.kind === 'turn') {
+      reference = dialogue === null
+        ? 'un diálogo'
+        : `${anchor.edge === 'start' ? 'el inicio' : 'el final'} del diálogo ${dialogue}`;
+    } else {
+      reference = dialogue === null
+        ? `la palabra ${anchor.wordIndex + 1} de un diálogo`
+        : `la palabra ${anchor.wordIndex + 1} del diálogo ${dialogue}`;
+    }
+  }
+  if (Math.abs(proposal.offsetSeconds) < 0.0005) return reference;
+  const distance = `${Math.abs(proposal.offsetSeconds).toFixed(2)} s`;
+  return proposal.offsetSeconds > 0
+    ? `${distance} después de ${reference}`
+    : `${distance} antes de ${reference}`;
+}
+
+function friendlyEditingError(message: string): string {
+  if (message.includes('EDITOR_TRACK_CUSTOMIZED')) {
+    return 'Esta propiedad ya tiene una pista manual o editada. Abrila en Pistas para decidir qué conservar.';
+  }
+  if (message.includes('ANIM_TRACK_OUT_OF_SCENE')) {
+    return 'La animación quedó fuera de la escena. Mové el cabezal más lejos del borde y volvé a intentarlo.';
+  }
+  return message.replace(/^[A-Z0-9_]+(?:\s+\([^)]*\))?:\s*/u, '');
+}
+
 function statusMessage(text: string, error: boolean): HTMLElement {
   const element = document.createElement('p');
   element.className = `editing-local-status${error ? ' is-error' : ' is-ok'}`;
@@ -1282,7 +1451,6 @@ function formatSeconds(seconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${remainder.toFixed(3).padStart(6, '0')}`;
 }
 
-function formatOffset(seconds: number): string {
-  if (Math.abs(seconds) < 0.0005) return '';
-  return ` ${seconds > 0 ? '+' : ''}${seconds.toFixed(3)} s`;
+function formatDuration(seconds: number): string {
+  return `${Number(seconds.toFixed(2))} s`;
 }
