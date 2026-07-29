@@ -449,6 +449,28 @@ export function keyframeCommandsForValue(options: {
   }];
 }
 
+/** Comando único para duplicar un keyframe sin repetir la regla de separación. */
+export function duplicateKeyframeCommand(options: {
+  sceneId: string;
+  elementId: string;
+  parameterId: string;
+  keyframe: Pick<AnimationKeyframeItem, 'anchor' | 'offsetSeconds' | 'value' | 'interpolation'>;
+  takenKeyframeIds: readonly string[];
+  fps: number;
+}): Record<string, unknown> {
+  return {
+    type: 'add-keyframe',
+    sceneId: options.sceneId,
+    elementId: options.elementId,
+    parameterId: options.parameterId,
+    keyframeId: nextKeyframeId(options.parameterId, options.takenKeyframeIds),
+    anchor: options.keyframe.anchor,
+    offsetSeconds: nudgeOffsetSeconds(options.keyframe.offsetSeconds, 1, options.fps),
+    value: options.keyframe.value,
+    interpolation: options.keyframe.interpolation,
+  };
+}
+
 /** Id libre para un keyframe nuevo, único dentro del elemento. */
 export function nextKeyframeId(parameterId: string, taken: Iterable<string>): string {
   const used = new Set(taken);

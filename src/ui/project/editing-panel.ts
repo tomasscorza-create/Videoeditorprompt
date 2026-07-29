@@ -1,0 +1,586 @@
+import { ANIMATION_PARAMETERS } from '../../../shared/animation-contract.js';
+import { listApplicablePresets } from '../../../shared/animation-presets.js';
+import type { SceneTiming } from '../../../shared/animation-evaluator.js';
+import {
+  EDITOR_PLAYBACK_EVENT,
+  EDITOR_WORKSPACE_EVENT,
+  editorPlayhead,
+  measuredTimelineFor,
+} from '../editor-workspace.js';
+import { optional } from '../dom.js';
+import { notify } from '../notifications.js';
+import { describeEditingSelection } from '../right-panel.js';
+import {
+  baseValueForParameter,
+  buildAnimationLanes,
+  clampParameterValue,
+  duplicateKeyframeCommand,
+  keyframeCommandsForValue,
+  listAnimatableParameters,
+  nearestAnchorFor,
+  parameterLabel,
+  sceneAnimationReference,
+  sceneAnimationTiming,
+  type AnimationLane,
+} from '../timeline-animation.js';
+import { ANIMATION_MODE_EVENT, isAnimationModeOn, setAnimationMode } from './animation-mode.js';
+import {
+  PROJECT_SELECTION_EVENT,
+  projectSelection,
+  selectProjectItem,
+  type ProjectSelection,
+} from './selection.js';
+import type { ProjectStore } from './store.js';
+import type { ElementView, SceneView } from './types.js';
+
+interface AnimationScope {
+  timing: SceneTiming | null;
+  reference: ReturnType<typeof sceneAnimationReference>;
+  fps: number;
+}
+
+interface PlayheadReference {
+  available: boolean;
+  label: string;
+  detail: string;
+}
+
+/**
+ * U2: mando manual contextual del panel derecho.
+ *
+ * No conserva un modelo propio. Lee selección, cabezal y medición compartidos y
+ * escribe únicamente mediante los comandos semánticos del ProjectStore.
+ */
+export function initEditingPanel(store: ProjectStore): void {
+  const host = optional<HTMLElement>('#editing-tool-host');
+  const title = optional<HTMLElement>('#editing-selection-title');
+  const detail = optional<HTMLElement>('#editing-selection-detail');
+  if (!host || !title || !detail) return;
+  const toolHost = host;
+  const contextTitle = title;
+  const contextDetail = detail;
+
+  let localMessage: { text: string; error: boolean } | null = null;
+
+  const report = (message: string | null, ok = false): boolean => {
+    localMessage = message ? { text: message, error: !ok } : null;
+    if (message && !ok) notify({ message, level: 'error' });
+    render();
+    return message === null;
+  };
+  const send = (command: Record<string, unknown>): boolean => report(store.dispatch(command));
+  const sendBatch = (commands: Array<Record<string, unknown>>): boolean => {
+    if (commands.length === 0) {
+      report('Ya existe un keyframe con ese valor en el cabezal.', true);
+      return false;
+    }
+    return report(store.dispatchBatch(commands));
+  };
+
+  function animationScope(scene: SceneView): AnimationScope {
+    const project = store.project();
+    const measured = measuredTimelineFor(project.scenes.map((item) => item.id));
+    const reference = sceneAnimationReference(scene.dialogue);
+    return {
+      timing: sceneAnimationTiming(measured?.scenes.find((item) => item.id === scene.id) ?? null, reference),
+      reference,
+      fps: project.video?.fps ?? 30,
+    };
+  }
+
+  function render(): void {
+    const selection = projectSelection();
+    const description = describeEditingSelection(selection);
+    contextTitle.textContent = description.title;
+    contextDetail.textContent = description.detail;
+    toolHost.dataset.selectionKind = description.kind;
+
+    const nodes: HTMLElement[] = [];
+    if (localMessage) nodes.push(statusMessage(localMessage.text, localMessage.error));
+    if (!selection) {
+      nodes.push(emptyState('Seleccioná una escena, diálogo, elemento o keyframe en el visor o la timeline.'));
+    } else if (selection.kind === 'scene') {
+      nodes.push(sceneEditor(selection));
+    } else if (selection.kind === 'dialogue') {
+      nodes.push(dialogueEditor(selection));
+    } else {
+      nodes.push(elementEditor(selection));
+    }
+    toolHost.replaceChildren(...nodes);
+  }
+
+  function sceneEditor(selection: Extract<ProjectSelection, { kind: 'scene' }>): HTMLElement {
+    const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
+    if (!scene) return emptyState('La escena seleccionada ya no existe.');
+    const card = editingCard('Escena', scene.title);
+    card.dataset.inspectorScene = scene.id;
+    const titleInput = input('text', scene.title, { maxLength: 120 });
+    titleInput.addEventListener('change', () => {
+      const value = titleInput.value.trim();
+      if (value) send({ type: 'set-scene-title', sceneId: scene.id, title: value });
+    });
+    card.append(field('Título', titleInput));
+    card.append(contextNote('Ordenar, duplicar, dividir y eliminar escenas corresponde a la timeline. Acá se ajustan sus propiedades.'));
+    return card;
+  }
+
+  function dialogueEditor(selection: Extract<ProjectSelection, { kind: 'dialogue' }>): HTMLElement {
+    const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
+    const turn = scene?.dialogue.find((item) => item.id === selection.turnId);
+    if (!scene || !turn) return emptyState('El diálogo seleccionado ya no existe.');
+    const index = scene.dialogue.findIndex((item) => item.id === turn.id);
+    const card = editingCard(`Diálogo ${index + 1}`, scene.title);
+    card.dataset.inspectorTurn = turn.id;
+
+    const text = document.createElement('textarea');
+    text.rows = Math.min(12, Math.max(3, Math.ceil(turn.text.length / 34)));
+    text.maxLength = 500;
+    text.value = turn.text;
+    text.addEventListener('change', () => {
+      const value = text.value.trim();
+      if (value) send({ type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, text: value });
+    });
+    const characters = scene.elements.filter((item) => item.type === 'character');
+    const speaker = select(characters.map((item) => ({ value: item.id, label: item.id })), turn.speakerElementId);
+    speaker.addEventListener('change', () => send({
+      type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, speakerElementId: speaker.value,
+    }));
+    const voice = select(store.resources('voice').map((item) => ({ value: item.id, label: item.label })), turn.voiceId);
+    voice.addEventListener('change', () => send({
+      type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, voiceId: voice.value,
+    }));
+    const gap = input('number', String(turn.gapAfterSeconds), { min: '0', max: '5', step: '0.05' });
+    gap.addEventListener('change', () => send({
+      type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, gapAfterSeconds: Number(gap.value),
+    }));
+    card.append(field('Texto y subtítulo', text), grid(field('Personaje', speaker), field('Voz', voice), field('Pausa posterior', gap)));
+    card.append(contextNote('Mover, dividir o borrar este turno corresponde a la timeline.'));
+    return card;
+  }
+
+  function elementEditor(selection: Extract<ProjectSelection, { kind: 'element' | 'keyframe' }>): HTMLElement {
+    const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
+    const element = scene?.elements.find((item) => item.id === selection.elementId);
+    if (!scene || !element) return emptyState('El elemento seleccionado ya no existe.');
+    const container = document.createElement('div');
+    container.className = 'editing-tool-stack';
+    container.dataset.inspectorElement = element.id;
+    if (selection.kind === 'keyframe') {
+      const keyframe = keyframeEditor(scene, element, selection);
+      if (keyframe) container.append(keyframe);
+    }
+    container.append(baseElementEditor(scene, element), animationEditor(scene, element));
+    return container;
+  }
+
+  function baseElementEditor(scene: SceneView, element: ElementView): HTMLElement {
+    const card = editingCard(element.type === 'prop' ? 'Prop' : 'Elemento', element.resourceId || element.id);
+    const resourceType = element.type === 'prop' ? 'prop' : 'character';
+    const resources = store.resources(resourceType);
+    const resource = select(resources.map((item) => ({ value: item.id, label: item.label })), element.resourceId ?? '');
+    resource.addEventListener('change', () => send({
+      type: element.type === 'prop' ? 'set-prop-resource' : 'set-character-resource',
+      sceneId: scene.id,
+      elementId: element.id,
+      resourceId: resource.value,
+    }));
+    card.append(field('Recurso', resource));
+    if (element.type === 'character') {
+      const selectedResource = resources.find((item) => item.id === element.resourceId);
+      const movementPresets = readStringCapability(selectedResource?.capabilities, 'animationPresets');
+      if (movementPresets.length > 0) {
+        const movement = select(movementPresets.map((value) => ({
+          value,
+          label: value === 'idle-calm' ? 'Reposo suave' : value === 'talk-calm' ? 'Habla suave' : value,
+        })), element.animationPreset ?? movementPresets[0]);
+        movement.addEventListener('change', () => send({
+          type: 'set-character-animation',
+          sceneId: scene.id,
+          elementId: element.id,
+          animationPreset: movement.value,
+        }));
+        card.append(field('Movimiento base', movement));
+      }
+    }
+    card.append(grid(
+      transformField(scene, element, 'x', 'X', -1080, 2160, 1),
+      transformField(scene, element, 'y', 'Y', -1920, 3840, 1),
+      transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01),
+      transformField(scene, element, 'rotationDegrees', 'Rotación', -180, 180, 1),
+      transformField(scene, element, 'opacity', 'Opacidad', 0, 1, 0.01),
+      transformField(scene, element, 'zIndex', 'Capa', -1000, 1000, 1),
+    ));
+    return card;
+  }
+
+  function transformField(
+    scene: SceneView,
+    element: ElementView,
+    key: 'x' | 'y' | 'scale' | 'rotationDegrees' | 'opacity' | 'zIndex',
+    label: string,
+    minimum: number,
+    maximum: number,
+    step: number,
+  ): HTMLElement {
+    const control = input('number', String(element.transform[key]), {
+      min: String(minimum), max: String(maximum), step: String(step),
+    });
+    control.addEventListener('change', () => send({
+      type: 'set-element-transform',
+      sceneId: scene.id,
+      elementId: element.id,
+      [key]: Number(control.value),
+    }));
+    return field(label, control);
+  }
+
+  function animationEditor(scene: SceneView, element: ElementView): HTMLElement {
+    const scope = animationScope(scene);
+    const lanes = buildAnimationLanes(element.id, element.tracks ?? [], scope);
+    const resource = store.resources(element.type === 'prop' ? 'prop' : 'character')
+      .find((item) => item.id === element.resourceId);
+    const declared = readStringCapability(resource?.capabilities, 'parameters');
+    const elementType = element.type === 'prop' ? 'prop' : 'character';
+    const parameterIds = listAnimatableParameters(declared, elementType);
+    const card = editingCard('Animación', 'Keyframes y presets');
+    const reference = describePlayheadReference(scope);
+    card.append(playheadCard(reference));
+
+    const presets = document.createElement('div');
+    presets.className = 'animation-preset-row';
+    for (const preset of listApplicablePresets(declared)) {
+      const button = actionButton(preset.label, () => {
+        if (!scope.timing || !reference.available) return;
+        const anchor = nearestAnchorFor(editorPlayhead(), scope.timing, scope.fps).anchor;
+        send({
+          type: 'apply-animation-preset', sceneId: scene.id, elementId: element.id,
+          presetId: preset.id, anchor, intensity: 'medium',
+        });
+      });
+      button.className = 'animation-preset';
+      button.disabled = !reference.available;
+      button.title = reference.available ? `Aplicar ${preset.label} desde la posición actual` : reference.detail;
+      presets.append(button);
+    }
+    if (presets.childElementCount > 0) card.append(presets);
+
+    const animating = isAnimationModeOn(scene.id, element.id);
+    const canvasMode = actionButton(
+      animating ? '◆ Animando en el lienzo · volver a base' : 'Animar en el lienzo',
+      () => setAnimationMode(animating ? null : { sceneId: scene.id, elementId: element.id }),
+    );
+    canvasMode.classList.toggle('is-active', animating);
+    canvasMode.disabled = !animating && !reference.available;
+    canvasMode.title = canvasMode.disabled ? reference.detail : 'Mover el elemento crea o actualiza un keyframe en el cabezal.';
+    card.append(canvasMode);
+
+    const picker = select(parameterIds.map((id) => ({ value: id, label: parameterLabel(id) })), parameterIds[0] ?? '');
+    const value = input('number', '0', { step: '0.01' });
+    const syncValue = (): void => {
+      const parameter = ANIMATION_PARAMETERS[picker.value];
+      value.value = String(baseValueForParameter(picker.value, element.transform));
+      value.min = String(parameter?.exclusiveMinimum ?? parameter?.minimum ?? 0);
+      value.max = String(parameter?.maximum ?? 1);
+      value.step = picker.value === 'position.x' || picker.value === 'position.y' ? '1' : '0.01';
+    };
+    picker.addEventListener('change', syncValue);
+    syncValue();
+    const add = actionButton('Agregar keyframe en el cabezal', () => {
+      if (!scope.timing || !reference.available || !picker.value) return;
+      const lane = lanes.find((item) => item.parameterId === picker.value) ?? null;
+      const taken = (element.tracks ?? []).flatMap((track) => track.keyframes.map((item) => item.id));
+      const commands = keyframeCommandsForValue({
+        sceneId: scene.id, elementId: element.id, parameterId: picker.value,
+        value: clampParameterValue(picker.value, Number(value.value)),
+        playheadSeconds: editorPlayhead(), lane, timing: scope.timing, fps: scope.fps,
+        baseValue: baseValueForParameter(picker.value, element.transform), takenKeyframeIds: taken,
+      });
+      if (!sendBatch(commands)) return;
+      const keyframeId = selectedKeyframeId(commands, lane, editorPlayhead(), scope.fps);
+      if (keyframeId) selectProjectItem({
+        kind: 'keyframe', sceneId: scene.id, elementId: element.id,
+        parameterId: picker.value, keyframeId,
+      });
+    });
+    add.disabled = !reference.available || parameterIds.length === 0;
+    add.title = add.disabled ? reference.detail : 'Usa la selección actual y la línea del cabezal como referencia.';
+    card.append(grid(field('Parámetro', picker), field('Valor', value)), add);
+    if (lanes.length === 0) {
+      card.append(contextNote('Sin pistas. Ubicá el cabezal, elegí un parámetro y agregá el primer keyframe.'));
+    } else {
+      for (const lane of lanes) card.append(trackRow(scene, element, lane));
+    }
+    return card;
+  }
+
+  function keyframeEditor(
+    scene: SceneView,
+    element: ElementView,
+    selection: Extract<ProjectSelection, { kind: 'keyframe' }>,
+  ): HTMLElement | null {
+    const scope = animationScope(scene);
+    const lane = buildAnimationLanes(element.id, element.tracks ?? [], scope)
+      .find((item) => item.parameterId === selection.parameterId);
+    const keyframe = lane?.keyframes.find((item) => item.id === selection.keyframeId);
+    if (!lane || !keyframe) return null;
+    const edit = (patch: Record<string, unknown>): boolean => send({
+      type: 'set-keyframe', sceneId: scene.id, elementId: element.id,
+      parameterId: lane.parameterId, keyframeId: keyframe.id, ...patch,
+    });
+    const card = editingCard('Keyframe seleccionado', `${lane.label} · ${keyframe.valueLabel}`);
+    card.classList.add('keyframe-card');
+    card.dataset.inspectorKeyframe = keyframe.id;
+    const parameter = ANIMATION_PARAMETERS[lane.parameterId];
+    const value = input('number', String(keyframe.value), {
+      min: String(parameter?.exclusiveMinimum ?? parameter?.minimum ?? 0),
+      max: String(parameter?.maximum ?? 1),
+      step: lane.parameterId === 'position.x' || lane.parameterId === 'position.y' ? '1' : '0.01',
+    });
+    value.addEventListener('change', () => edit({ value: clampParameterValue(lane.parameterId, Number(value.value)) }));
+    const offset = input('number', String(keyframe.offsetSeconds), { min: '-5', max: '5', step: '0.05' });
+    offset.addEventListener('change', () => edit({ offsetSeconds: Number(offset.value) }));
+    const interpolation = select(['linear', 'ease', 'hold'].map((id) => ({ value: id, label: id })), keyframe.interpolation);
+    interpolation.disabled = keyframe.isLast;
+    interpolation.addEventListener('change', () => edit({ interpolation: interpolation.value }));
+    card.append(grid(field('Valor', value), field('Desplazamiento (s)', offset), field('Interpolación', interpolation)));
+    card.append(
+      readOnlyRow('Ancla', keyframe.anchorLabel),
+      readOnlyRow('Tiempo', keyframe.timeLabel),
+      readOnlyRow('Origen', lane.sourceLabel === 'manual' ? 'pista manual' : `preset ${lane.sourceLabel}`),
+      readOnlyRow('Estado', keyframe.status === 'ok' ? 'Normal' : `⚠ ${keyframe.message ?? 'Requiere revisión'}`),
+    );
+    const actions = document.createElement('div');
+    actions.className = 'animation-actions';
+    const reanchor = actionButton('Usar posición del cabezal', () => {
+      if (!scope.timing || !isPlayheadInside(scope.timing)) return;
+      const proposal = nearestAnchorFor(editorPlayhead(), scope.timing, scope.fps);
+      edit({ anchor: proposal.anchor, offsetSeconds: proposal.offsetSeconds });
+    });
+    reanchor.disabled = !scope.timing || !isPlayheadInside(scope.timing);
+    reanchor.title = reanchor.disabled ? 'El cabezal debe estar dentro de esta escena medida.' : 'Mueve este keyframe a la línea del cabezal.';
+    actions.append(reanchor);
+    actions.append(actionButton('Duplicar', () => {
+      const command = duplicateKeyframeCommand({
+        sceneId: scene.id, elementId: element.id, parameterId: lane.parameterId, keyframe,
+        takenKeyframeIds: (element.tracks ?? []).flatMap((track) => track.keyframes.map((item) => item.id)),
+        fps: scope.fps,
+      });
+      if (!send(command)) return;
+      selectProjectItem({
+        kind: 'keyframe', sceneId: scene.id, elementId: element.id,
+        parameterId: lane.parameterId, keyframeId: String(command.keyframeId),
+      });
+    }));
+    actions.append(actionButton('Eliminar', () => {
+      if (!send({
+        type: 'delete-keyframe', sceneId: scene.id, elementId: element.id,
+        parameterId: lane.parameterId, keyframeId: keyframe.id,
+      })) return;
+      selectProjectItem({ kind: 'element', sceneId: scene.id, elementId: element.id });
+    }, true));
+    card.append(actions);
+    return card;
+  }
+
+  function trackRow(scene: SceneView, element: ElementView, lane: AnimationLane): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'animation-track-row';
+    const name = document.createElement('span');
+    name.className = 'animation-track-name';
+    name.textContent = `${lane.label} · ${lane.sourceLabel}`;
+    const count = document.createElement('span');
+    count.className = 'animation-track-count';
+    count.textContent = lane.reviewCount > 0 ? `${lane.keyframes.length} kf · ⚠ ${lane.reviewCount}` : `${lane.keyframes.length} kf`;
+    const remove = actionButton('Eliminar pista', () => send({
+      type: 'delete-track', sceneId: scene.id, elementId: element.id, parameterId: lane.parameterId,
+    }), true);
+    row.append(name, count, remove);
+    return row;
+  }
+
+  function describePlayheadReference(scope: AnimationScope): PlayheadReference {
+    if (!scope.timing) return {
+      available: false,
+      label: 'Cabezal sin medición',
+      detail: 'Renderizá una vez para medir las voces y ubicar keyframes sin inventar tiempos.',
+    };
+    if (!isPlayheadInside(scope.timing)) return {
+      available: false,
+      label: `Cabezal en ${formatSeconds(editorPlayhead())}`,
+      detail: 'Mové el cabezal dentro de la escena seleccionada.',
+    };
+    const proposal = nearestAnchorFor(editorPlayhead(), scope.timing, scope.fps);
+    return {
+      available: true,
+      label: `Cabezal en ${formatSeconds(editorPlayhead())}`,
+      detail: `Referencia: ${proposal.label}${formatOffset(proposal.offsetSeconds)}.`,
+    };
+  }
+
+  function isPlayheadInside(timing: SceneTiming): boolean {
+    const seconds = editorPlayhead();
+    return seconds >= timing.startSeconds && seconds <= timing.endSeconds;
+  }
+
+  const renderPlayback = (): void => {
+    const selection = projectSelection();
+    if (selection?.kind === 'element' || selection?.kind === 'keyframe') render();
+  };
+  store.subscribe(render);
+  window.addEventListener(PROJECT_SELECTION_EVENT, () => {
+    localMessage = null;
+    render();
+  });
+  window.addEventListener(EDITOR_PLAYBACK_EVENT, renderPlayback);
+  window.addEventListener(EDITOR_WORKSPACE_EVENT, render);
+  window.addEventListener(ANIMATION_MODE_EVENT, render);
+  render();
+}
+
+export function selectedKeyframeId(
+  commands: Array<Record<string, unknown>>,
+  lane: AnimationLane | null,
+  playheadSeconds: number,
+  fps: number,
+): string | null {
+  const command = commands[0];
+  if (!command) return null;
+  if (command.type === 'set-keyframe' || command.type === 'add-keyframe') return String(command.keyframeId);
+  if (command.type === 'create-track') {
+    const keyframes = command.keyframes;
+    if (!Array.isArray(keyframes)) return null;
+    return String((keyframes.at(-1) as { id?: unknown } | undefined)?.id ?? '') || null;
+  }
+  return lane?.keyframes.find(
+    (item) => item.seconds !== null && Math.abs(item.seconds - playheadSeconds) <= 0.5 / fps,
+  )?.id ?? null;
+}
+
+function editingCard(eyebrow: string, title: string): HTMLElement {
+  const card = document.createElement('section');
+  card.className = 'editing-tool-card';
+  const header = document.createElement('header');
+  header.className = 'proposal-control-heading';
+  const label = document.createElement('span');
+  label.className = 'eyebrow';
+  label.textContent = eyebrow;
+  const heading = document.createElement('strong');
+  heading.textContent = title;
+  header.append(label, heading);
+  card.append(header);
+  return card;
+}
+
+function playheadCard(reference: PlayheadReference): HTMLElement {
+  const row = document.createElement('div');
+  row.className = `editing-playhead-reference${reference.available ? ' is-ready' : ' is-pending'}`;
+  const marker = document.createElement('span');
+  marker.className = 'editing-playhead-marker';
+  marker.textContent = '│';
+  marker.setAttribute('aria-hidden', 'true');
+  const content = document.createElement('div');
+  const title = document.createElement('strong');
+  title.textContent = reference.label;
+  const detail = document.createElement('p');
+  detail.textContent = reference.detail;
+  content.append(title, detail);
+  row.append(marker, content);
+  return row;
+}
+
+function field(label: string, control: HTMLElement): HTMLElement {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'inspector-field is-compact';
+  const text = document.createElement('span');
+  text.textContent = label;
+  wrapper.append(text, control);
+  return wrapper;
+}
+
+function grid(...children: HTMLElement[]): HTMLElement {
+  const element = document.createElement('div');
+  element.className = 'proposal-control-grid';
+  element.append(...children);
+  return element;
+}
+
+function input(type: string, value: string, attributes: Record<string, string | number> = {}): HTMLInputElement {
+  const element = document.createElement('input');
+  element.type = type;
+  element.value = value;
+  for (const [key, attribute] of Object.entries(attributes)) {
+    if (key === 'maxLength') element.maxLength = Number(attribute);
+    else element.setAttribute(key, String(attribute));
+  }
+  return element;
+}
+
+function select(options: Array<{ value: string; label: string }>, current: string): HTMLSelectElement {
+  const element = document.createElement('select');
+  for (const option of options) {
+    const node = document.createElement('option');
+    node.value = option.value;
+    node.textContent = option.label;
+    node.selected = option.value === current;
+    element.append(node);
+  }
+  return element;
+}
+
+function actionButton(label: string, action: () => void, danger = false): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  if (danger) button.className = 'danger-button';
+  button.addEventListener('click', action);
+  return button;
+}
+
+function readOnlyRow(label: string, value: string): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'animation-readonly';
+  const name = document.createElement('span');
+  name.textContent = label;
+  const text = document.createElement('strong');
+  text.textContent = value;
+  row.append(name, text);
+  return row;
+}
+
+function emptyState(text: string): HTMLElement {
+  const element = document.createElement('p');
+  element.className = 'empty-state';
+  element.textContent = text;
+  return element;
+}
+
+function contextNote(text: string): HTMLElement {
+  const element = document.createElement('p');
+  element.className = 'editing-context-note';
+  element.textContent = text;
+  return element;
+}
+
+function statusMessage(text: string, error: boolean): HTMLElement {
+  const element = document.createElement('p');
+  element.className = `editing-local-status${error ? ' is-error' : ' is-ok'}`;
+  element.textContent = text;
+  element.setAttribute('role', 'status');
+  return element;
+}
+
+function readStringCapability(capabilities: Record<string, unknown> | undefined, key: string): string[] {
+  const values = capabilities?.[key];
+  return Array.isArray(values) ? values.filter((value): value is string => typeof value === 'string') : [];
+}
+
+function formatSeconds(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds - minutes * 60;
+  return `${String(minutes).padStart(2, '0')}:${remainder.toFixed(3).padStart(6, '0')}`;
+}
+
+function formatOffset(seconds: number): string {
+  if (Math.abs(seconds) < 0.0005) return '';
+  return ` ${seconds > 0 ? '+' : ''}${seconds.toFixed(3)} s`;
+}

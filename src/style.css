@@ -1569,6 +1569,40 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   text-align: center;
 }
 .editing-tool-host .empty-state { max-width: 25rem; margin: 0; }
+.editing-tool-stack { display: grid; gap: .7rem; }
+.editing-tool-card {
+  display: grid;
+  gap: .55rem;
+  padding: .7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+}
+.editing-playhead-reference {
+  display: grid;
+  grid-template-columns: 1rem 1fr;
+  gap: .45rem;
+  align-items: start;
+  padding: .55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.editing-playhead-reference.is-ready { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.editing-playhead-reference.is-pending { border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); }
+.editing-playhead-marker { color: var(--accent); font-weight: 800; }
+.editing-playhead-reference strong { font-size: var(--fs-sm); }
+.editing-playhead-reference p,
+.editing-context-note { margin: .18rem 0 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.45; }
+.editing-context-note { padding-top: .35rem; border-top: 1px solid var(--border); }
+.editing-local-status {
+  margin: 0;
+  padding: .5rem .6rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+}
+.editing-local-status.is-error { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.editing-local-status.is-ok { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
 .resource-card {
   display: grid;
   gap: .35rem;

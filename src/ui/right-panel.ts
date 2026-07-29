@@ -1,9 +1,5 @@
 import { optional } from './dom.js';
-import {
-  PROJECT_SELECTION_EVENT,
-  projectSelection,
-  type ProjectSelection,
-} from './project/selection.js';
+import type { ProjectSelection } from './project/selection.js';
 
 export type RightPanelPage = 'resources' | 'editing';
 
@@ -53,10 +49,7 @@ export function initRightPanel(): void {
   });
   // Mostrar un recurso desde el Director también debe revelar su página contenedora.
   window.addEventListener(REVEAL_RESOURCE_EVENT, () => activate('resources'));
-  window.addEventListener(PROJECT_SELECTION_EVENT, renderEditingContext);
-
   activate(activePage);
-  renderEditingContext();
 }
 
 export function describeEditingSelection(selection: ProjectSelection | null): {
@@ -74,39 +67,22 @@ export function describeEditingSelection(selection: ProjectSelection | null): {
   const descriptions: Record<ProjectSelection['kind'], { title: string; detail: string }> = {
     scene: {
       title: 'Escena seleccionada',
-      detail: 'Acá aparecerán sus propiedades visuales, cámara y ajustes generales.',
+      detail: 'Ajustá sus propiedades; las operaciones de estructura siguen en la timeline.',
     },
     element: {
       title: 'Elemento seleccionado',
-      detail: 'Acá aparecerán transformación, animación y apariencia compatibles.',
+      detail: 'Ajustá transformación, animación y apariencia compatibles.',
     },
     dialogue: {
       title: 'Diálogo seleccionado',
-      detail: 'Acá aparecerán texto en pantalla, voz, subtítulos y estilo.',
+      detail: 'Ajustá texto en pantalla, voz, subtítulos y pausa.',
     },
     keyframe: {
       title: 'Keyframe seleccionado',
-      detail: 'Acá aparecerán valor, ancla, interpolación y acciones de la pista.',
+      detail: 'Ajustá valor, ancla, interpolación y acciones de la pista.',
     },
   };
   return { kind: selection.kind, ...descriptions[selection.kind] };
-}
-
-function renderEditingContext(): void {
-  const title = optional<HTMLElement>('#editing-selection-title');
-  const detail = optional<HTMLElement>('#editing-selection-detail');
-  const host = optional<HTMLElement>('#editing-tool-host');
-  if (!title || !detail || !host) return;
-  const description = describeEditingSelection(projectSelection());
-  title.textContent = description.title;
-  detail.textContent = description.detail;
-  host.dataset.selectionKind = description.kind;
-  const empty = document.createElement('p');
-  empty.className = 'empty-state';
-  empty.textContent = description.kind === 'none'
-    ? 'Este espacio alojará herramientas compatibles con la selección actual.'
-    : 'La selección está lista. Las herramientas manuales se incorporarán aquí por módulos.';
-  host.replaceChildren(empty);
 }
 
 function readActivePage(): RightPanelPage {

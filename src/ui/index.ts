@@ -6,6 +6,7 @@ import { initCompositionPreview } from './project/composition.js';
 import { initCompositionZoom } from './project/composition-zoom.js';
 import { initResourceLibrary } from './project/library.js';
 import { initProjectEditor } from './project/panel.js';
+import { initEditingPanel } from './project/editing-panel.js';
 import { persistStore, restoreSession } from './project/persistence.js';
 import { initProjectTimeline } from './project/project-timeline.js';
 import { initOnboarding } from './onboarding.js';
@@ -87,6 +88,7 @@ function attachProjectUi(store: ProjectStore): void {
   initOnboarding(store);
   initProjectFiles(store);
   initProjectEditor(store);
+  initEditingPanel(store);
   initProjectTimeline(store);
   void initCompositionPreview(store);
   void initResourceLibrary(store);

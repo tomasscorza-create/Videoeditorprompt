@@ -47,8 +47,8 @@ import { requestFrame } from './timeline-frames.js';
 import {
   buildAnimationLanes,
   countAnchorsRequiringReview,
+  duplicateKeyframeCommand,
   nearestAnchorFor,
-  nextKeyframeId,
   nudgeOffsetSeconds,
   offsetForSeconds,
   sceneAnimationReference,
@@ -87,6 +87,7 @@ export function initTimelineShell(): void {
   optional<HTMLButtonElement>('#timeline-snap')?.addEventListener('click', toggleSnap);
   optional<HTMLButtonElement>('#timeline-mute')?.addEventListener('click', toggleMute);
   optional<HTMLButtonElement>('#timeline-duplicate')?.addEventListener('click', duplicateSelection);
+  optional<HTMLButtonElement>('#timeline-split')?.addEventListener('click', splitSelectedTurn);
   optional<HTMLButtonElement>('#timeline-delete')?.addEventListener('click', deleteSelection);
   const shortcutsDialog = optional<HTMLDialogElement>('#timeline-shortcuts-dialog');
   optional<HTMLButtonElement>('#timeline-shortcuts')?.addEventListener('click', () => shortcutsDialog?.showModal());
@@ -777,19 +778,16 @@ function duplicateKeyframe(keyframe: AnimationKeyframeItem, lane: AnimationLane,
   const element = findSelectedElement(context);
   if (!element) return;
   const taken = (element.tracks ?? []).flatMap((track) => track.keyframes.map((item) => item.id));
-  sendAnimation({
-    type: 'add-keyframe',
+  const command = duplicateKeyframeCommand({
     sceneId: context.sceneId,
     elementId: context.elementId,
     parameterId: lane.parameterId,
-    keyframeId: nextKeyframeId(lane.parameterId, taken),
-    anchor: keyframe.anchor,
-    // Un frame más adelante: dos keyframes en el mismo punto son un error del
-    // contrato, no una elección implícita.
-    offsetSeconds: nudgeOffsetSeconds(keyframe.offsetSeconds, 1, context.fps),
-    value: keyframe.value,
-    interpolation: keyframe.interpolation,
+    keyframe,
+    takenKeyframeIds: taken,
+    fps: context.fps,
   });
+  sendAnimation(command);
+  selectKeyframe(context, lane.parameterId, String(command.keyframeId));
 }
 
 function deleteKeyframe(context: AnimationContext, parameterId: string, keyframeId: string): void {
@@ -1758,17 +1756,36 @@ function toggleMute(): void {
 function duplicateSelection(): void {
   if (!store) return;
   const selection = projectSelection();
-  if (selection?.kind !== 'scene') return;
-  const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
-  if (!scene) return;
-  const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
-  const error = store.dispatch({
-    type: 'duplicate-scene',
-    sceneId: scene.id,
-    newSceneId,
-    title: `${scene.title} copia`,
-  });
-  if (!error) selectScene(newSceneId);
+  if (selection?.kind === 'scene') {
+    const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
+    if (!scene) return;
+    const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
+    const error = store.dispatch({
+      type: 'duplicate-scene',
+      sceneId: scene.id,
+      newSceneId,
+      title: `${scene.title} copia`,
+    });
+    if (!error) selectScene(newSceneId);
+    return;
+  }
+  if (selection?.kind === 'keyframe') {
+    const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
+    const element = scene?.elements.find((item) => item.id === selection.elementId);
+    const track = element?.tracks?.find((item) => item.parameterId === selection.parameterId);
+    const keyframe = track?.keyframes.find((item) => item.id === selection.keyframeId);
+    if (!element || !keyframe) return;
+    const command = duplicateKeyframeCommand({
+      sceneId: selection.sceneId,
+      elementId: selection.elementId,
+      parameterId: selection.parameterId,
+      keyframe,
+      takenKeyframeIds: (element.tracks ?? []).flatMap((item) => item.keyframes.map((entry) => entry.id)),
+      fps: projectFps(),
+    });
+    const error = store.dispatch(command);
+    if (!error) selectProjectItem({ ...selection, keyframeId: String(command.keyframeId) });
+  }
 }
 
 function deleteSelection(): void {
@@ -1957,6 +1974,7 @@ function updateToolbar(): void {
   const previous = optional<HTMLButtonElement>('#timeline-previous');
   const next = optional<HTMLButtonElement>('#timeline-next');
   const duplicate = optional<HTMLButtonElement>('#timeline-duplicate');
+  const split = optional<HTMLButtonElement>('#timeline-split');
   const remove = optional<HTMLButtonElement>('#timeline-delete');
   const snap = optional<HTMLButtonElement>('#timeline-snap');
   // U1: el botón anticipa qué se va a revertir cuando el store lo sabe.
@@ -1975,9 +1993,32 @@ function updateToolbar(): void {
   if (next) next.disabled = !hasNavigation;
   if (snap) snap.disabled = creator || !measured;
   const selection = projectSelection();
-  if (duplicate) duplicate.disabled = creator || selection?.kind !== 'scene' || (store?.project().scenes.length ?? 0) >= 8;
+  const sceneCount = store?.project().scenes.length ?? 0;
+  const canDuplicateScene = selection?.kind === 'scene' && sceneCount < 8;
+  const canDuplicateKeyframe = selection?.kind === 'keyframe';
+  if (duplicate) {
+    duplicate.disabled = creator || (!canDuplicateScene && !canDuplicateKeyframe);
+    duplicate.textContent = canDuplicateKeyframe ? 'Duplicar keyframe' : 'Duplicar escena';
+    duplicate.title = canDuplicateKeyframe ? 'Duplicar keyframe seleccionado' : 'Duplicar escena seleccionada';
+  }
+  let canSplitSelection = false;
+  if (selection?.kind === 'dialogue') {
+    const scene = store?.project().scenes.find((item) => item.id === selection.sceneId);
+    const index = scene?.dialogue.findIndex((item) => item.id === selection.turnId) ?? -1;
+    canSplitSelection = Boolean(scene) && canSplitAtIndex(scene!.dialogue.length, index) && sceneCount < 8;
+  }
+  if (split) {
+    split.disabled = creator || !canSplitSelection;
+    split.title = canSplitSelection
+      ? 'Dividir la escena antes del diálogo seleccionado (B)'
+      : 'Seleccioná un diálogo que deje al menos dos turnos a cada lado';
+  }
   if (remove) {
     remove.disabled = creator || !selection || (selection.kind === 'scene' && (store?.project().scenes.length ?? 0) <= 1);
+    const kind = selection?.kind === 'dialogue' ? 'diálogo'
+      : selection?.kind === 'keyframe' ? 'keyframe'
+        : selection?.kind === 'element' ? 'elemento' : 'escena';
+    remove.title = selection ? `Eliminar ${kind} (Supr)` : 'Seleccioná algo para eliminar';
   }
   optional<HTMLButtonElement>('#timeline-fit')?.toggleAttribute('disabled', creator || (!hasProject && !measured));
   syncPlayButton();

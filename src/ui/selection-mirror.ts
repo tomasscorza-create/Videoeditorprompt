@@ -5,6 +5,7 @@
 // en los personajes del lienzo). Solo agrega el vínculo visual que faltaba.
 
 import { PROJECT_SELECTION_EVENT, type ProjectSelection } from './project/selection.js';
+import { showRightPanelPage } from './right-panel.js';
 
 const HIGHLIGHT_CLASS = 'is-linked-hover';
 const PULSE_CLASS = 'is-selection-pulse';
@@ -52,8 +53,9 @@ function linkHover(elementId: string, on: boolean): void {
  * se espera al siguiente cuadro antes de buscar el nodo.
  */
 function revealInInspector(selection: ProjectSelection): void {
+  showRightPanelPage('editing');
   requestAnimationFrame(() => {
-    const inspector = document.querySelector<HTMLElement>('#scene-inspector');
+    const inspector = document.querySelector<HTMLElement>('#right-panel-editing');
     if (!inspector) return;
     const target = findTarget(inspector, selection);
     if (!target) return;
