@@ -274,13 +274,20 @@ function describeKeyframe(
  * la vista previa y el MP4 salen del mismo estado temporal.
  *
  * Una pista con algún keyframe sin resolver no se evalúa: se prefiere mostrar la
- * base a mostrar un valor calculado con la mitad de los puntos.
+ * base a mostrar un valor calculado con la mitad de los puntos. La excepción son
+ * las pistas constantes: su valor es seguro aunque todavía no exista medición.
  */
 export function evaluateLanesAt(lanes: readonly AnimationLane[], timeSeconds: number): Record<string, number> {
   const values: Record<string, number> = {};
   for (const lane of lanes) {
     if (lane.keyframes.length === 0) continue;
-    if (lane.keyframes.some((keyframe) => keyframe.seconds === null)) continue;
+    if (lane.keyframes.some((keyframe) => keyframe.seconds === null)) {
+      const constantValue = lane.keyframes[0].value;
+      if (lane.keyframes.every((keyframe) => keyframe.value === constantValue)) {
+        values[lane.parameterId] = constantValue;
+      }
+      continue;
+    }
     values[lane.parameterId] = evaluateTrack(
       {
         parameterId: lane.parameterId,

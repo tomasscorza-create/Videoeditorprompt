@@ -168,6 +168,7 @@ const projectPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'pro
 const directorPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'panel.ts'), 'utf8');
 const timelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'timeline.ts'), 'utf8');
 const editingPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'editing-panel.ts'), 'utf8');
+const compositionSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'composition.ts'), 'utf8');
 check(
   'el panel derecho ofrece Recursos y Edición como páginas hermanas',
   appHtml.includes('id="right-panel-resources-tab"')
@@ -225,6 +226,65 @@ check(
     && editingPanelSource.includes('keyframeCommandsForValue({')
     && editingPanelSource.includes('Agregar keyframe en el cabezal'),
 );
+check(
+  'Opacidad muestra porcentaje y previsualiza mientras se desliza',
+  editingPanelSource.includes("input('range'")
+    && editingPanelSource.includes("range.addEventListener('input', paint)")
+    && editingPanelSource.includes('output.textContent = `${percent}%`')
+    && compositionSource.includes('image.style.opacity = String(view.opacity)'),
+);
+check(
+  'una animación de opacidad no constante desactiva el ajuste simple',
+  editingPanelSource.includes("track.parameterId === 'opacity'")
+    && editingPanelSource.includes('opacityTrack && !constantTrack')
+    && editingPanelSource.includes("output.textContent = 'Controlada por pista'"),
+);
+{
+  const character = {
+    id: 'character-opacity',
+    type: 'character',
+    transform: { x: 0, y: 0, scale: 1, rotationDegrees: 0, opacity: 1, zIndex: 20 },
+    tracks: [],
+  };
+  const scene = { id: 'scene-opacity', elements: [character] };
+  const commands = editingPanel.constantCharacterOpacityCommands(scene, character, 0.35);
+  const createTrack = commands.find((command) => command.type === 'create-track');
+  check(
+    'la opacidad simple de personaje crea una pista constante compatible con render',
+    commands.every((command) => command.type !== 'set-element-transform')
+      && createTrack?.parameterId === 'opacity'
+      && createTrack.keyframes?.length === 2
+      && createTrack.keyframes.every((keyframe) => keyframe.value === 0.35)
+      && createTrack.keyframes[0].anchor.edge === 'start'
+      && createTrack.keyframes[1].anchor.edge === 'end',
+  );
+  check(
+    'volver a opacidad completa sin pista no genera historial vacío',
+    editingPanel.constantCharacterOpacityCommands(scene, character, 1).length === 0,
+  );
+}
+check(
+  'el orden visual se expresa sin exponer zIndex',
+  editingPanel.layerPositionLabel(0, 2) === 'Al fondo · 1 de 2'
+    && editingPanel.layerPositionLabel(1, 2) === 'Al frente · 2 de 2'
+    && !editingPanelSource.includes("transformField(scene, element, 'zIndex'"),
+);
+{
+  const scene = {
+    id: 'scene-layer',
+    elements: [
+      { id: 'back', type: 'character', transform: { zIndex: 20 } },
+      { id: 'front', type: 'character', transform: { zIndex: 21 } },
+    ],
+  };
+  const commands = editingPanel.layerOrderCommands(scene, 'back', 1);
+  check(
+    'mover al frente genera comandos semánticos y no intercambia estado por fuera del store',
+    commands.length > 0
+      && commands.every((command) => command.type === 'set-element-transform')
+      && commands.some((command) => command.elementId === 'front' && command.zIndex === 10),
+  );
+}
 check(
   'el Director ya no conserva una segunda implementación de edición manual',
   !projectPanelSource.includes('function animationControls(')
@@ -746,6 +806,18 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('después del último el valor queda congelado', animation.evaluateLanesAt([lane], 5)['position.x'] === 320);
   check('en el medio interpola', animation.evaluateLanesAt([lane], 0.3)['position.x'] > -100 && animation.evaluateLanesAt([lane], 0.3)['position.x'] < 320);
   check('una pista sin resolver no se evalúa: se prefiere la base', Object.keys(animation.evaluateLanesAt([unmeasured], 1)).length === 0);
+  const constantOpacity = animation.buildAnimationLanes('e1', [{
+    parameterId: 'opacity',
+    source: { kind: 'manual' },
+    keyframes: [
+      { id: 'opacity-start', anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0, value: 0.35, interpolation: 'linear' },
+      { id: 'opacity-end', anchor: { kind: 'scene', edge: 'end' }, offsetSeconds: 0, value: 0.35, interpolation: 'hold' },
+    ],
+  }], { timing: null, reference, fps: 30 })[0];
+  check(
+    'una opacidad constante sí se previsualiza aunque la escena todavía no esté medida',
+    animation.evaluateLanesAt([constantOpacity], 1).opacity === 0.35,
+  );
 
   // ---- modo animación del lienzo: mover escribe keyframes, no la base ----
   const commandFor = (extra) => animation.keyframeCommandsForValue({

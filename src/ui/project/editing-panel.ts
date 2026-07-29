@@ -17,6 +17,7 @@ import {
   keyframeCommandsForValue,
   listAnimatableParameters,
   nearestAnchorFor,
+  nextKeyframeId,
   parameterLabel,
   sceneAnimationReference,
   sceneAnimationTiming,
@@ -30,7 +31,7 @@ import {
   type ProjectSelection,
 } from './selection.js';
 import type { ProjectStore } from './store.js';
-import type { ElementView, SceneView } from './types.js';
+import type { ElementView, SceneView, TrackView } from './types.js';
 
 interface AnimationScope {
   timing: SceneTiming | null;
@@ -265,16 +266,16 @@ export function initEditingPanel(store: ProjectStore): void {
       transformField(scene, element, 'y', 'Y', -1920, 3840, 1),
       transformField(scene, element, 'scale', 'Escala', 0.01, 10, 0.01),
       transformField(scene, element, 'rotationDegrees', 'Rotación', -180, 180, 1),
-      transformField(scene, element, 'opacity', 'Opacidad', 0, 1, 0.01),
-      transformField(scene, element, 'zIndex', 'Capa', -1000, 1000, 1),
+      opacityField(scene, element),
     ));
+    card.append(layerOrderField(scene, element));
     return card;
   }
 
   function transformField(
     scene: SceneView,
     element: ElementView,
-    key: 'x' | 'y' | 'scale' | 'rotationDegrees' | 'opacity' | 'zIndex',
+    key: 'x' | 'y' | 'scale' | 'rotationDegrees',
     label: string,
     minimum: number,
     maximum: number,
@@ -290,6 +291,88 @@ export function initEditingPanel(store: ProjectStore): void {
       [key]: Number(control.value),
     }));
     return field(label, control);
+  }
+
+  function opacityField(scene: SceneView, element: ElementView): HTMLElement {
+    const wrapper = document.createElement('label');
+    wrapper.className = 'inspector-field is-compact editing-opacity-field';
+    const heading = document.createElement('span');
+    heading.textContent = 'Opacidad';
+    const control = document.createElement('div');
+    control.className = 'editing-opacity-control';
+    const opacityTrack = (element.tracks ?? []).find((track) => track.parameterId === 'opacity');
+    const constantTrack = opacityTrack && isConstantSceneOpacityTrack(opacityTrack) ? opacityTrack : null;
+    const controlledByAnimation = Boolean(opacityTrack && !constantTrack);
+    const initialOpacity = constantTrack?.keyframes[0]?.value ?? element.transform.opacity;
+    const range = input('range', String(Math.round(initialOpacity * 100)), {
+      min: '0', max: '100', step: '1',
+    });
+    const output = document.createElement('output');
+    const paint = (): void => {
+      const percent = Number(range.value);
+      output.textContent = `${percent}%`;
+      const preview = document.querySelector<HTMLElement>(
+        `.composition-character[data-element-id="${CSS.escape(element.id)}"]`,
+      );
+      if (preview && !controlledByAnimation) preview.style.opacity = String(percent / 100);
+    };
+    range.addEventListener('input', paint);
+    range.addEventListener('change', () => {
+      if (controlledByAnimation) return;
+      const opacity = Number(range.value) / 100;
+      if (element.type === 'character') {
+        const commands = constantCharacterOpacityCommands(scene, element, opacity);
+        if (commands.length > 0) report(store.dispatchBatch(commands));
+      } else {
+        send({
+          type: 'set-element-transform',
+          sceneId: scene.id,
+          elementId: element.id,
+          opacity,
+        });
+      }
+    });
+    if (controlledByAnimation) {
+      range.disabled = true;
+      range.title = 'La pista Opacidad controla este valor. Editala desde Pistas.';
+      output.textContent = 'Controlada por pista';
+    } else {
+      paint();
+    }
+    control.append(range, output);
+    wrapper.append(heading, control);
+    return wrapper;
+  }
+
+  function layerOrderField(scene: SceneView, element: ElementView): HTMLElement {
+    const ordered = orderedVisualElements(scene);
+    const index = ordered.findIndex((item) => item.id === element.id);
+    const section = document.createElement('section');
+    section.className = 'editing-layer-order';
+    const heading = document.createElement('div');
+    const label = document.createElement('span');
+    label.textContent = 'Orden visual';
+    const value = document.createElement('strong');
+    value.textContent = layerPositionLabel(index, ordered.length);
+    heading.append(label, value);
+    const actions = document.createElement('div');
+    actions.className = 'editing-layer-actions';
+    const move = (labelText: string, targetIndex: number): HTMLButtonElement => {
+      const button = actionButton(labelText, () => {
+        const commands = layerOrderCommands(scene, element.id, targetIndex);
+        if (commands.length > 0) report(store.dispatchBatch(commands));
+      });
+      button.disabled = index < 0 || targetIndex === index;
+      return button;
+    };
+    actions.append(
+      move('Al fondo', 0),
+      move('Atrás', Math.max(0, index - 1)),
+      move('Adelante', Math.min(ordered.length - 1, index + 1)),
+      move('Al frente', ordered.length - 1),
+    );
+    section.append(heading, actions);
+    return section;
   }
 
   function animationCreationEditor(scene: SceneView, element: ElementView): HTMLElement {
@@ -564,6 +647,139 @@ function editingSelectionIdentity(selection: ProjectSelection): string {
   if (selection.kind === 'element') return `${selection.kind}:${selection.sceneId}:${selection.elementId}`;
   if (selection.kind === 'dialogue') return `${selection.kind}:${selection.sceneId}:${selection.turnId}`;
   return `${selection.kind}:${selection.sceneId}`;
+}
+
+function orderedVisualElements(scene: SceneView): ElementView[] {
+  const sourceOrder = new Map(scene.elements.map((element, index) => [element.id, index]));
+  return scene.elements
+    .filter((element) => element.type === 'character' || element.type === 'prop')
+    .sort((left, right) => (
+      left.transform.zIndex - right.transform.zIndex
+      || (sourceOrder.get(left.id) ?? 0) - (sourceOrder.get(right.id) ?? 0)
+    ));
+}
+
+function isConstantSceneOpacityTrack(track: TrackView): boolean {
+  if (track.source.kind !== 'manual' || track.keyframes.length !== 2) return false;
+  const [first, second] = track.keyframes;
+  const sceneEdges = new Set(track.keyframes.map((keyframe) => (
+    keyframe.anchor.kind === 'scene' ? keyframe.anchor.edge : null
+  )));
+  return sceneEdges.has('start')
+    && sceneEdges.has('end')
+    && track.keyframes.every((keyframe) => keyframe.offsetSeconds === 0)
+    && first.value === second.value;
+}
+
+export function constantCharacterOpacityCommands(
+  scene: SceneView,
+  element: ElementView,
+  requestedOpacity: number,
+): Array<Record<string, unknown>> {
+  const opacity = clampParameterValue('opacity', requestedOpacity);
+  const track = (element.tracks ?? []).find((candidate) => candidate.parameterId === 'opacity');
+  const constantTrack = track && isConstantSceneOpacityTrack(track) ? track : null;
+  const commands: Array<Record<string, unknown>> = [];
+
+  // El compilador de personajes exige opacidad base 1. Una opacidad visual
+  // persistente se representa como una pista constante, que sí comparte el
+  // evaluador temporal con preview y render.
+  if (element.transform.opacity !== 1) {
+    commands.push({
+      type: 'set-element-transform',
+      sceneId: scene.id,
+      elementId: element.id,
+      opacity: 1,
+    });
+  }
+
+  if (opacity === 1) {
+    if (constantTrack) {
+      commands.push({
+        type: 'delete-track',
+        sceneId: scene.id,
+        elementId: element.id,
+        parameterId: 'opacity',
+      });
+    }
+    return commands;
+  }
+
+  if (constantTrack) {
+    for (const keyframe of constantTrack.keyframes) {
+      if (keyframe.value === opacity) continue;
+      commands.push({
+        type: 'set-keyframe',
+        sceneId: scene.id,
+        elementId: element.id,
+        parameterId: 'opacity',
+        keyframeId: keyframe.id,
+        value: opacity,
+      });
+    }
+    return commands;
+  }
+
+  if (track) return commands;
+  const takenIds = (element.tracks ?? []).flatMap((candidate) => (
+    candidate.keyframes.map((keyframe) => keyframe.id)
+  ));
+  const startKeyframeId = nextKeyframeId('opacity', takenIds);
+  const endKeyframeId = nextKeyframeId('opacity', [...takenIds, startKeyframeId]);
+  commands.push({
+    type: 'create-track',
+    sceneId: scene.id,
+    elementId: element.id,
+    parameterId: 'opacity',
+    source: { kind: 'manual' },
+    keyframes: [
+      {
+        id: startKeyframeId,
+        anchor: { kind: 'scene', edge: 'start' },
+        offsetSeconds: 0,
+        value: opacity,
+        interpolation: 'linear',
+      },
+      {
+        id: endKeyframeId,
+        anchor: { kind: 'scene', edge: 'end' },
+        offsetSeconds: 0,
+        value: opacity,
+        interpolation: 'hold',
+      },
+    ],
+  });
+  return commands;
+}
+
+export function layerOrderCommands(
+  scene: SceneView,
+  elementId: string,
+  requestedIndex: number,
+): Array<Record<string, unknown>> {
+  const ordered = orderedVisualElements(scene);
+  const currentIndex = ordered.findIndex((element) => element.id === elementId);
+  if (currentIndex < 0 || ordered.length < 2) return [];
+  const targetIndex = Math.max(0, Math.min(ordered.length - 1, requestedIndex));
+  if (targetIndex === currentIndex) return [];
+  const [selected] = ordered.splice(currentIndex, 1);
+  ordered.splice(targetIndex, 0, selected);
+  return ordered
+    .map((element, index) => ({
+      type: 'set-element-transform',
+      sceneId: scene.id,
+      elementId: element.id,
+      zIndex: (index + 1) * 10,
+    }))
+    .filter((command, index) => ordered[index].transform.zIndex !== command.zIndex);
+}
+
+export function layerPositionLabel(index: number, total: number): string {
+  if (index < 0 || total <= 0) return 'Sin posición';
+  if (total === 1) return 'Única capa';
+  if (index === 0) return `Al fondo · 1 de ${total}`;
+  if (index === total - 1) return `Al frente · ${total} de ${total}`;
+  return `${index + 1} de ${total}`;
 }
 
 export function selectedKeyframeId(

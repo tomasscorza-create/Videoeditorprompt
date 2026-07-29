@@ -1585,6 +1585,29 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .editing-keyframe-item span { overflow: hidden; font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .editing-keyframe-item:hover { border-color: var(--border); background: var(--surface-2); }
 .editing-keyframe-item.is-active { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
+.editing-opacity-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.8rem;
+  gap: .45rem;
+  align-items: center;
+}
+.editing-opacity-control input[type="range"] { min-width: 0; padding-inline: 0; }
+.editing-opacity-control output {
+  color: var(--text);
+  font: var(--fs-xs) ui-monospace, monospace;
+  text-align: right;
+}
+.editing-opacity-control input:disabled + output { color: var(--warning); font-family: inherit; }
+.editing-layer-order {
+  display: grid;
+  gap: .4rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--border);
+}
+.editing-layer-order > div:first-child { display: flex; justify-content: space-between; gap: .6rem; font-size: var(--fs-xs); }
+.editing-layer-order > div:first-child span { color: var(--muted); }
+.editing-layer-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
+.editing-layer-actions button { min-width: 0; padding: .38rem .3rem; font-size: var(--fs-xs); }
 .editing-tool-card {
   display: grid;
   gap: .55rem;
