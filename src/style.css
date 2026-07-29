@@ -1600,14 +1600,11 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .editing-opacity-control input:disabled + output { color: var(--warning); font-family: inherit; }
 .editing-layer-order {
   display: grid;
-  gap: .4rem;
+  gap: .25rem;
   padding-top: .5rem;
   border-top: 1px solid var(--border);
 }
-.editing-layer-order > div:first-child { display: flex; justify-content: space-between; gap: .6rem; font-size: var(--fs-xs); }
-.editing-layer-order > div:first-child span { color: var(--muted); }
-.editing-layer-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; }
-.editing-layer-actions button { min-width: 0; padding: .38rem .3rem; font-size: var(--fs-xs); }
+.editing-layer-order small { color: var(--muted); font-size: var(--fs-2xs); }
 .editing-tool-card {
   display: grid;
   gap: .55rem;

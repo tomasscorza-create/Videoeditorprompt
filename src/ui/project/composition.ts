@@ -11,6 +11,7 @@ import {
 } from './character-placement.js';
 import type { ProjectStore } from './store.js';
 import type { ElementView, SceneView } from './types.js';
+import { nextVisualZIndex } from './layers.js';
 import { PROJECT_SELECTION_EVENT, projectSelection, selectProjectItem } from './selection.js';
 import {
   ANIMATION_MODE_EVENT,
@@ -405,7 +406,7 @@ function placeResource(
       x,
       y,
       scale: 0.65,
-      zIndex: 40 + scene.elements.filter((element) => element.type === 'prop').length,
+      zIndex: nextVisualZIndex(scene),
     });
     reportPlacement(error || `«${placement.label}» se agregó a la escena.`, Boolean(error));
     if (!error) finishCharacterPlacement();
@@ -421,7 +422,7 @@ function placeResource(
       x,
       y,
       scale: 0.75,
-      zIndex: 20 + characters.length,
+      zIndex: nextVisualZIndex(scene),
     });
     reportPlacement(error || `«${placement.label}» se agregó a la escena.`, Boolean(error));
     if (!error) finishCharacterPlacement();
@@ -481,12 +482,12 @@ async function appendBackground(
     const manifest = await response.json() as { layers?: Record<string, string> };
     const base = manifestPath.slice(0, manifestPath.lastIndexOf('/') + 1);
     const layers = ['far', 'mid', 'front'].flatMap((key) => manifest.layers?.[key] ? [manifest.layers[key]] : []);
-    const backgroundNodes = layers.map((layerPath, index) => {
+    const backgroundNodes = layers.map((layerPath) => {
       const image = document.createElement('img');
       image.className = 'composition-layer';
       image.src = `/${base}${layerPath}`;
       image.alt = '';
-      image.style.zIndex = String(index);
+      image.style.zIndex = '0';
       return image;
     });
     if (isCurrent()) canvas.replaceChildren(...backgroundNodes, ...foregroundNodes);

@@ -50,6 +50,7 @@ import {
   sceneAnimationReference,
 } from './timeline-animation.js';
 import type { ElementView } from './project/types.js';
+import { nextVisualZIndex } from './project/layers.js';
 
 const MIN_PIXELS_PER_SECOND = 20;
 const MAX_PIXELS_PER_SECOND = 220;
@@ -1159,7 +1160,7 @@ function acceptCharacterDropOnLane(
       x: existing % 2 === 0 ? 360 : 720,
       y: 1180,
       scale: 0.75,
-      zIndex: 20 + existing,
+      zIndex: nextVisualZIndex(target),
     });
     if (error) notify({ message: error, level: 'error' });
     else selectElementCore(target.id, elementId);

@@ -24,6 +24,7 @@ import {
   type AnimationLane,
 } from '../timeline-animation.js';
 import { ANIMATION_MODE_EVENT, isAnimationModeOn, setAnimationMode } from './animation-mode.js';
+import { setVisualLayerCommands, visualElementsByLayer, visualLayerNumber } from './layers.js';
 import {
   PROJECT_SELECTION_EVENT,
   projectSelection,
@@ -345,33 +346,23 @@ export function initEditingPanel(store: ProjectStore): void {
   }
 
   function layerOrderField(scene: SceneView, element: ElementView): HTMLElement {
-    const ordered = orderedVisualElements(scene);
-    const index = ordered.findIndex((item) => item.id === element.id);
+    const layer = visualLayerNumber(scene, element.id);
+    const total = visualElementsByLayer(scene).length;
     const section = document.createElement('section');
     section.className = 'editing-layer-order';
-    const heading = document.createElement('div');
-    const label = document.createElement('span');
-    label.textContent = 'Orden visual';
-    const value = document.createElement('strong');
-    value.textContent = layerPositionLabel(index, ordered.length);
-    heading.append(label, value);
-    const actions = document.createElement('div');
-    actions.className = 'editing-layer-actions';
-    const move = (labelText: string, targetIndex: number): HTMLButtonElement => {
-      const button = actionButton(labelText, () => {
-        const commands = layerOrderCommands(scene, element.id, targetIndex);
-        if (commands.length > 0) report(store.dispatchBatch(commands));
-      });
-      button.disabled = index < 0 || targetIndex === index;
-      return button;
-    };
-    actions.append(
-      move('Al fondo', 0),
-      move('Atrás', Math.max(0, index - 1)),
-      move('Adelante', Math.min(ordered.length - 1, index + 1)),
-      move('Al frente', ordered.length - 1),
-    );
-    section.append(heading, actions);
+    const control = input('number', String(layer ?? 1), {
+      min: '1',
+      max: String(Math.max(1, total)),
+      step: '1',
+    });
+    control.addEventListener('input', () => {
+      if (control.value === '') return;
+      const commands = setVisualLayerCommands(scene, element.id, Number(control.value));
+      if (commands.length > 0) report(store.dispatchBatch(commands));
+    });
+    const hint = document.createElement('small');
+    hint.textContent = 'Fondo: capa 0 · el número más alto queda encima.';
+    section.append(field('Capa', control), hint);
     return section;
   }
 
@@ -649,16 +640,6 @@ function editingSelectionIdentity(selection: ProjectSelection): string {
   return `${selection.kind}:${selection.sceneId}`;
 }
 
-function orderedVisualElements(scene: SceneView): ElementView[] {
-  const sourceOrder = new Map(scene.elements.map((element, index) => [element.id, index]));
-  return scene.elements
-    .filter((element) => element.type === 'character' || element.type === 'prop')
-    .sort((left, right) => (
-      left.transform.zIndex - right.transform.zIndex
-      || (sourceOrder.get(left.id) ?? 0) - (sourceOrder.get(right.id) ?? 0)
-    ));
-}
-
 function isConstantSceneOpacityTrack(track: TrackView): boolean {
   if (track.source.kind !== 'manual' || track.keyframes.length !== 2) return false;
   const [first, second] = track.keyframes;
@@ -750,36 +731,6 @@ export function constantCharacterOpacityCommands(
     ],
   });
   return commands;
-}
-
-export function layerOrderCommands(
-  scene: SceneView,
-  elementId: string,
-  requestedIndex: number,
-): Array<Record<string, unknown>> {
-  const ordered = orderedVisualElements(scene);
-  const currentIndex = ordered.findIndex((element) => element.id === elementId);
-  if (currentIndex < 0 || ordered.length < 2) return [];
-  const targetIndex = Math.max(0, Math.min(ordered.length - 1, requestedIndex));
-  if (targetIndex === currentIndex) return [];
-  const [selected] = ordered.splice(currentIndex, 1);
-  ordered.splice(targetIndex, 0, selected);
-  return ordered
-    .map((element, index) => ({
-      type: 'set-element-transform',
-      sceneId: scene.id,
-      elementId: element.id,
-      zIndex: (index + 1) * 10,
-    }))
-    .filter((command, index) => ordered[index].transform.zIndex !== command.zIndex);
-}
-
-export function layerPositionLabel(index: number, total: number): string {
-  if (index < 0 || total <= 0) return 'Sin posición';
-  if (total === 1) return 'Única capa';
-  if (index === 0) return `Al fondo · 1 de ${total}`;
-  if (index === total - 1) return `Al frente · ${total} de ${total}`;
-  return `${index + 1} de ${total}`;
 }
 
 export function selectedKeyframeId(

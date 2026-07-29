@@ -61,10 +61,12 @@ for (const name of ['project-editor.js', 'animation-contract.js', 'animation-pre
 const workspacePath = path.join(outDir, 'src', 'ui', 'editor-workspace.js');
 const rightPanelPath = path.join(outDir, 'src', 'ui', 'right-panel.js');
 const editingPanelPath = path.join(outDir, 'src', 'ui', 'project', 'editing-panel.js');
+const layersPath = path.join(outDir, 'src', 'ui', 'project', 'layers.js');
 const storePath = path.join(outDir, 'src', 'ui', 'project', 'store.js');
 assert.equal(existsSync(workspacePath), true, 'editor-workspace.js no se compiló');
 assert.equal(existsSync(rightPanelPath), true, 'right-panel.js no se compiló');
 assert.equal(existsSync(editingPanelPath), true, 'editing-panel.js no se compiló');
+assert.equal(existsSync(layersPath), true, 'layers.js no se compiló');
 assert.equal(existsSync(storePath), true, 'store.js no se compiló');
 
 // Stubs mínimos de DOM para editor-workspace (solo despacha CustomEvent sobre window).
@@ -100,6 +102,7 @@ assert.equal(existsSync(directorNavigationPath), true, 'director/navigation.js n
 const workspace = await import(pathToFileURL(workspacePath).href);
 const rightPanel = await import(pathToFileURL(rightPanelPath).href);
 const editingPanel = await import(pathToFileURL(editingPanelPath).href);
+const layers = await import(pathToFileURL(layersPath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
 const animation = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'timeline-animation.js')).href);
@@ -264,10 +267,12 @@ check(
   );
 }
 check(
-  'el orden visual se expresa sin exponer zIndex',
-  editingPanel.layerPositionLabel(0, 2) === 'Al fondo · 1 de 2'
-    && editingPanel.layerPositionLabel(1, 2) === 'Al frente · 2 de 2'
-    && !editingPanelSource.includes("transformField(scene, element, 'zIndex'"),
+  'las capas se expresan como números simples con el fondo en cero',
+  editingPanelSource.includes("field('Capa', control)")
+    && editingPanelSource.includes("control.addEventListener('input'")
+    && editingPanelSource.includes('Fondo: capa 0')
+    && !editingPanelSource.includes('Al fondo')
+    && !editingPanelSource.includes('Al frente'),
 );
 {
   const scene = {
@@ -277,12 +282,29 @@ check(
       { id: 'front', type: 'character', transform: { zIndex: 21 } },
     ],
   };
-  const commands = editingPanel.layerOrderCommands(scene, 'back', 1);
+  const commands = layers.setVisualLayerCommands(scene, 'back', 2);
   check(
-    'mover al frente genera comandos semánticos y no intercambia estado por fuera del store',
+    'subir a capa 2 deja al elemento seleccionado por encima y normaliza 1..N',
     commands.length > 0
       && commands.every((command) => command.type === 'set-element-transform')
-      && commands.some((command) => command.elementId === 'front' && command.zIndex === 10),
+      && commands.some((command) => command.elementId === 'front' && command.zIndex === 1)
+      && commands.some((command) => command.elementId === 'back' && command.zIndex === 2),
+  );
+  check(
+    'la UI traduce zIndex históricos a capas humanas consecutivas',
+    layers.visualLayerNumber(scene, 'back') === 1
+      && layers.visualLayerNumber(scene, 'front') === 2,
+  );
+  check(
+    'un elemento nuevo obtiene automáticamente la capa superior siguiente',
+    layers.nextVisualZIndex(scene) === 22
+      && layers.nextVisualZIndex({ id: 'empty', elements: [] }) === 1,
+  );
+  check(
+    'todos los caminos de alta usan la misma asignación de capa',
+    compositionSource.includes('zIndex: nextVisualZIndex(scene)')
+      && timelineSource.includes('zIndex: nextVisualZIndex(target)')
+      && compositionSource.includes("image.style.zIndex = '0'"),
   );
 }
 check(
