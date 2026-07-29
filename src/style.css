@@ -1424,12 +1424,21 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .composition-transform-move {
   position: absolute;
   inset: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
   border: 0;
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-radius: 0;
+  color: transparent;
+  background: transparent;
+  box-shadow: none;
   cursor: move;
   pointer-events: auto;
   touch-action: none;
 }
+.composition-transform-move:hover,
+.composition-transform-move:focus,
+.composition-transform-move:active { color: transparent; background: transparent; box-shadow: none; }
 .composition-transform-handle {
   position: absolute;
   z-index: 2;

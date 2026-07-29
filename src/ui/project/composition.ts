@@ -49,6 +49,16 @@ interface AssetCatalog {
 let activeStore: ProjectStore | null = null;
 let renderActiveComposition: (() => void) | null = null;
 let placementEventsBound = false;
+const visualBoundsCache = new Map<string, Promise<VisualBounds>>();
+
+interface VisualBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const DEFAULT_VISUAL_BOUNDS: VisualBounds = { x: 0.18, y: 0.2, width: 0.64, height: 0.6 };
 
 export async function initCompositionPreview(store: ProjectStore): Promise<void> {
   const canvas = optional<HTMLElement>('#composition-canvas');
@@ -315,22 +325,62 @@ function transformControls(
   controls.className = 'composition-transform-controls';
   controls.setAttribute('role', 'group');
   controls.setAttribute('aria-label', `Transformar ${element.resourceId || element.id}`);
-  positionTransformControls(controls, view);
+  let visualBounds = DEFAULT_VISUAL_BOUNDS;
+  positionTransformControls(controls, view, visualBounds);
+  void visualBoundsFor(image).then((bounds) => {
+    visualBounds = bounds;
+    if (controls.isConnected) positionTransformControls(controls, view, visualBounds);
+  });
 
-  const move = document.createElement('button');
-  move.type = 'button';
+  const move = document.createElement('div');
   move.className = 'composition-transform-move';
+  move.setAttribute('role', 'button');
+  move.tabIndex = 0;
   move.setAttribute('aria-label', 'Mover elemento');
   move.title = 'Arrastrar para mover';
   const rotate = transformHandle('rotate', 'Rotar elemento', '↻');
   const scale = transformHandle('scale', 'Escalar elemento', '↘');
   controls.append(move, rotate, scale);
+  move.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 1 : 10;
+    applyPosition(
+      store,
+      scene,
+      liveElement(store, scene.id, element.id) ?? element,
+      view.x + (event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0),
+      view.y + (event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0),
+    );
+  });
+  rotate.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    applyTransformValue(
+      store,
+      scene,
+      liveElement(store, scene.id, element.id) ?? element,
+      'rotationDegrees',
+      normalizeDegrees(view.rotationDegrees + (event.key === 'ArrowLeft' ? -5 : 5)),
+    );
+  });
+  scale.addEventListener('keydown', (event) => {
+    if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    applyTransformValue(
+      store,
+      scene,
+      liveElement(store, scene.id, element.id) ?? element,
+      'scale',
+      clamp(Math.round((view.scale + (event.key === 'ArrowUp' ? 0.05 : -0.05)) * 100) / 100, 0.05, 10),
+    );
+  });
 
   bindTransformPointer(move, canvas, (event, start) => {
     const x = clamp(Math.round(start.view.x + (event.clientX - start.clientX) / start.bounds.width * 1080), -1080, 2160);
     const y = clamp(Math.round(start.view.y + (event.clientY - start.clientY) / start.bounds.height * 1920), -1920, 3840);
     const next = { ...start.view, x, y };
-    paintTransform(image, controls, next);
+    paintTransform(image, controls, next, visualBounds);
     return next;
   }, (next) => applyPosition(store, scene, liveElement(store, scene.id, element.id) ?? element, next.x, next.y), view);
 
@@ -339,7 +389,7 @@ function transformControls(
     const initialDistance = Math.max(1, Math.hypot(start.clientX - center.x, start.clientY - center.y));
     const distance = Math.hypot(event.clientX - center.x, event.clientY - center.y);
     const next = { ...start.view, scale: clamp(Math.round(start.view.scale * distance / initialDistance * 100) / 100, 0.05, 10) };
-    paintTransform(image, controls, next);
+    paintTransform(image, controls, next, visualBounds);
     return next;
   }, (next) => applyTransformValue(store, scene, liveElement(store, scene.id, element.id) ?? element, 'scale', next.scale), view);
 
@@ -349,7 +399,7 @@ function transformControls(
     const angle = Math.atan2(event.clientY - center.y, event.clientX - center.x);
     const delta = (angle - initialAngle) * 180 / Math.PI;
     const next = { ...start.view, rotationDegrees: normalizeDegrees(Math.round(start.view.rotationDegrees + delta)) };
-    paintTransform(image, controls, next);
+    paintTransform(image, controls, next, visualBounds);
     return next;
   }, (next) => applyTransformValue(
     store,
@@ -381,7 +431,6 @@ function bindTransformPointer(
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
-    handle.setPointerCapture(event.pointerId);
     const start = {
       clientX: event.clientX,
       clientY: event.clientY,
@@ -393,9 +442,9 @@ function bindTransformPointer(
       pending = update(moveEvent, start);
     };
     const finish = (): void => {
-      handle.removeEventListener('pointermove', move);
-      handle.removeEventListener('pointerup', finish);
-      handle.removeEventListener('pointercancel', finish);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
       if (
         pending.x === start.view.x
         && pending.y === start.view.y
@@ -404,9 +453,9 @@ function bindTransformPointer(
       ) return;
       commit(pending);
     };
-    handle.addEventListener('pointermove', move);
-    handle.addEventListener('pointerup', finish);
-    handle.addEventListener('pointercancel', finish);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
   });
 }
 
@@ -432,19 +481,84 @@ function canvasPoint(bounds: DOMRect, x: number, y: number): { x: number; y: num
   };
 }
 
-function positionTransformControls(controls: HTMLElement, view: ViewTransform): void {
-  controls.style.left = `${view.x / 10.8}%`;
-  controls.style.top = `${view.y / 19.2}%`;
-  controls.style.width = `${Math.max(12, 32 * view.scale)}%`;
-  controls.style.height = `${Math.max(10, 26 * view.scale)}%`;
+function positionTransformControls(
+  controls: HTMLElement,
+  view: ViewTransform,
+  bounds: VisualBounds,
+): void {
+  const localX = (bounds.x + bounds.width / 2 - 0.5) * 1080 * view.scale;
+  const localY = (bounds.y + bounds.height / 2 - 0.5) * 1920 * view.scale;
+  const radians = view.rotationDegrees * Math.PI / 180;
+  const rotatedX = localX * Math.cos(radians) - localY * Math.sin(radians);
+  const rotatedY = localX * Math.sin(radians) + localY * Math.cos(radians);
+  controls.style.left = `${(view.x + rotatedX) / 10.8}%`;
+  controls.style.top = `${(view.y + rotatedY) / 19.2}%`;
+  controls.style.width = `${Math.max(8, bounds.width * 100 * view.scale)}%`;
+  controls.style.height = `${Math.max(7, bounds.height * 100 * view.scale)}%`;
   controls.style.transform = `translate(-50%, -50%) rotate(${view.rotationDegrees}deg)`;
 }
 
-function paintTransform(image: HTMLElement, controls: HTMLElement, view: ViewTransform): void {
+function paintTransform(
+  image: HTMLElement,
+  controls: HTMLElement,
+  view: ViewTransform,
+  bounds: VisualBounds,
+): void {
   image.style.left = `${view.x / 10.8}%`;
   image.style.top = `${view.y / 19.2}%`;
   image.style.transform = `translate(-50%, -50%) rotate(${view.rotationDegrees}deg) scale(${view.scale})`;
-  positionTransformControls(controls, view);
+  positionTransformControls(controls, view, bounds);
+}
+
+function visualBoundsFor(image: HTMLImageElement | HTMLElement): Promise<VisualBounds> {
+  if (!(image instanceof HTMLImageElement) || !image.src) return Promise.resolve(DEFAULT_VISUAL_BOUNDS);
+  const cached = visualBoundsCache.get(image.src);
+  if (cached) return cached;
+  const measured = new Promise<VisualBounds>((resolve) => {
+    const inspect = (): void => {
+      try {
+        const width = 180;
+        const height = 320;
+        const sample = document.createElement('canvas');
+        sample.width = width;
+        sample.height = height;
+        const context = sample.getContext('2d', { willReadFrequently: true });
+        if (!context) return resolve(DEFAULT_VISUAL_BOUNDS);
+        context.drawImage(image as HTMLImageElement, 0, 0, width, height);
+        const pixels = context.getImageData(0, 0, width, height).data;
+        let minX = width;
+        let minY = height;
+        let maxX = -1;
+        let maxY = -1;
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            if (pixels[(y * width + x) * 4 + 3] <= 8) continue;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+        }
+        if (maxX < minX || maxY < minY) return resolve(DEFAULT_VISUAL_BOUNDS);
+        const paddingX = 4 / width;
+        const paddingY = 4 / height;
+        const x = Math.max(0, minX / width - paddingX);
+        const y = Math.max(0, minY / height - paddingY);
+        resolve({
+          x,
+          y,
+          width: Math.min(1 - x, (maxX - minX + 1) / width + paddingX * 2),
+          height: Math.min(1 - y, (maxY - minY + 1) / height + paddingY * 2),
+        });
+      } catch {
+        resolve(DEFAULT_VISUAL_BOUNDS);
+      }
+    };
+    if ((image as HTMLImageElement).complete) inspect();
+    else image.addEventListener('load', inspect, { once: true });
+  });
+  visualBoundsCache.set(image.src, measured);
+  return measured;
 }
 
 function applyTransformValue(

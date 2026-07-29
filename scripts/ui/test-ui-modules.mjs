@@ -241,7 +241,9 @@ check(
   compositionSource.includes("transformHandle('rotate', 'Rotar elemento'")
     && compositionSource.includes("transformHandle('scale', 'Escalar elemento'")
     && compositionSource.includes("move.setAttribute('aria-label', 'Mover elemento')")
-    && compositionSource.includes('paintTransform(image, controls, next)')
+    && compositionSource.includes('paintTransform(image, controls, next, visualBounds)')
+    && compositionSource.includes("window.addEventListener('pointermove', move)")
+    && compositionSource.includes("context.getImageData(0, 0, width, height)")
     && compositionSource.includes("'rotationDegrees',")
     && compositionSource.includes("'scale',"),
 );
