@@ -48,11 +48,25 @@ interface PlayheadReference {
   detail: string;
 }
 
-type EditingSubpage = 'scene' | 'dialogue' | 'adjustments' | 'create-animation' | 'tracks';
+export type EditingSubpage =
+  | 'scene'
+  | 'background'
+  | 'transition'
+  | 'dialogue'
+  | 'performance'
+  | 'adjustments'
+  | 'create-animation'
+  | 'tracks';
 
 interface EditingSubpageOption {
   id: EditingSubpage;
   label: string;
+}
+
+const EDITING_SUBPAGE_EVENT = 'local-video:editing-subpage';
+
+export function showEditingSubpage(page: EditingSubpage): void {
+  window.dispatchEvent(new CustomEvent(EDITING_SUBPAGE_EVENT, { detail: page }));
 }
 
 /**
@@ -114,9 +128,9 @@ export function initEditingPanel(store: ProjectStore): void {
       if (!pages.some((page) => page.id === activeSubpage)) activeSubpage = pages[0].id;
       nodes.push(subpageNavigation(pages));
       if (selection.kind === 'scene') {
-        nodes.push(sceneEditor(selection));
+        nodes.push(sceneEditor(selection, activeSubpage));
       } else if (selection.kind === 'dialogue') {
-        nodes.push(dialogueEditor(selection));
+        nodes.push(dialogueEditor(selection, activeSubpage));
       } else {
         nodes.push(elementEditor(selection, activeSubpage));
       }
@@ -162,9 +176,14 @@ export function initEditingPanel(store: ProjectStore): void {
     return navigation;
   }
 
-  function sceneEditor(selection: Extract<ProjectSelection, { kind: 'scene' }>): HTMLElement {
+  function sceneEditor(
+    selection: Extract<ProjectSelection, { kind: 'scene' }>,
+    page: EditingSubpage,
+  ): HTMLElement {
     const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
     if (!scene) return emptyState('La escena seleccionada ya no existe.');
+    if (page === 'background') return sceneBackgroundEditor(scene);
+    if (page === 'transition') return sceneTransitionEditor(scene);
     const card = editingCard('Escena', scene.title);
     card.dataset.inspectorScene = scene.id;
     const titleInput = input('text', scene.title, { maxLength: 120 });
@@ -172,18 +191,170 @@ export function initEditingPanel(store: ProjectStore): void {
       const value = titleInput.value.trim();
       if (value) send({ type: 'set-scene-title', sceneId: scene.id, title: value });
     });
-    card.append(field('Título', titleInput));
+    card.append(compactFieldRow('Título', titleInput, 'wide'));
     card.append(contextNote('Ordenar, duplicar, dividir y eliminar escenas corresponde a la timeline. Acá se ajustan sus propiedades.'));
     return card;
   }
 
-  function dialogueEditor(selection: Extract<ProjectSelection, { kind: 'dialogue' }>): HTMLElement {
+  function sceneBackgroundEditor(scene: SceneView): HTMLElement {
+    const card = editingCard('Fondo y cámara', scene.title);
+    const backgrounds = store.resources('background');
+    const current = backgrounds.find((item) => item.id === scene.background.resourceId);
+    const background = select(
+      backgrounds.map((item) => ({ value: item.id, label: item.label })),
+      scene.background.resourceId,
+    );
+    const camera = select(
+      (readStringCapability(current?.capabilities, 'cameraPresets').length > 0
+        ? readStringCapability(current?.capabilities, 'cameraPresets')
+        : [scene.background.cameraPreset])
+        .map((value) => ({ value, label: readableOption(value) })),
+      scene.background.cameraPreset,
+    );
+    background.addEventListener('change', () => {
+      const resource = backgrounds.find((item) => item.id === background.value);
+      const presets = readStringCapability(resource?.capabilities, 'cameraPresets');
+      send({
+        type: 'set-scene-background',
+        sceneId: scene.id,
+        resourceId: background.value,
+        cameraPreset: presets.includes(scene.background.cameraPreset)
+          ? scene.background.cameraPreset
+          : (presets[0] ?? scene.background.cameraPreset),
+      });
+    });
+    camera.addEventListener('change', () => send({
+      type: 'set-scene-background',
+      sceneId: scene.id,
+      resourceId: scene.background.resourceId,
+      cameraPreset: camera.value,
+    }));
+    card.append(
+      compactFieldRow('Fondo', background, 'wide'),
+      compactFieldRow('Cámara', camera, 'wide'),
+    );
+    return card;
+  }
+
+  function sceneTransitionEditor(scene: SceneView): HTMLElement {
+    const project = store.project();
+    const index = project.scenes.findIndex((item) => item.id === scene.id);
+    const card = editingCard('Salida de escena', scene.title);
+    if (index < 0 || index === project.scenes.length - 1) {
+      card.append(contextNote('La última escena termina el video y no tiene transición de salida.'));
+      return card;
+    }
+    const preset = select([
+      { value: 'cut', label: 'Corte' },
+      { value: 'fade', label: 'Fundido' },
+    ], scene.transitionToNext?.preset ?? 'cut');
+    const duration = compactNumberInput(scene.transitionToNext?.durationSeconds ?? 0, {
+      min: 0, max: 2, step: 0.05,
+    });
+    const sync = (): void => {
+      const isCut = preset.value === 'cut';
+      duration.disabled = isCut;
+      if (isCut) duration.value = '0';
+    };
+    const apply = (): void => {
+      sync();
+      send({
+        type: 'set-transition',
+        sceneId: scene.id,
+        preset: preset.value,
+        durationSeconds: Number(duration.value),
+      });
+    };
+    sync();
+    preset.addEventListener('change', apply);
+    duration.addEventListener('change', apply);
+    card.append(
+      compactFieldRow('Tipo', preset),
+      compactFieldRow('Duración', duration, 'number', 's'),
+    );
+    return card;
+  }
+
+  function dialogueEditor(
+    selection: Extract<ProjectSelection, { kind: 'dialogue' }>,
+    page: EditingSubpage,
+  ): HTMLElement {
     const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
     const turn = scene?.dialogue.find((item) => item.id === selection.turnId);
     if (!scene || !turn) return emptyState('El diálogo seleccionado ya no existe.');
     const index = scene.dialogue.findIndex((item) => item.id === turn.id);
-    const card = editingCard(`Diálogo ${index + 1}`, scene.title);
+    const card = editingCard(page === 'performance' ? 'Interpretación' : `Diálogo ${index + 1}`, scene.title);
     card.dataset.inspectorTurn = turn.id;
+
+    if (page === 'performance') {
+      const characters = scene.elements.filter((item) => item.type === 'character');
+      const speaker = select(
+        characters.map((item, speakerIndex) => ({
+          value: item.id,
+          label: resourceLabel(store, item, `Personaje ${speakerIndex + 1}`),
+        })),
+        turn.speakerElementId,
+      );
+      const speakerElement = characters.find((item) => item.id === turn.speakerElementId);
+      const speakerResource = store.resources('character')
+        .find((item) => item.id === speakerElement?.resourceId);
+      const gestures = readStringCapability(speakerResource?.capabilities, 'poses');
+      const gesture = select(
+        gestures.map((value) => ({ value, label: readableOption(value) })),
+        turn.gestureId,
+      );
+      const voice = select(
+        store.resources('voice').map((item) => ({ value: item.id, label: item.label })),
+        turn.voiceId,
+      );
+      const gap = compactNumberInput(turn.gapAfterSeconds, { min: 0, max: 5, step: 0.05 });
+      speaker.addEventListener('change', () => {
+        const nextElement = characters.find((item) => item.id === speaker.value);
+        const nextResource = store.resources('character').find((item) => item.id === nextElement?.resourceId);
+        const nextGestures = readStringCapability(nextResource?.capabilities, 'poses');
+        const commands: Array<Record<string, unknown>> = [{
+          type: 'set-dialogue-speaker',
+          sceneId: scene.id,
+          turnId: turn.id,
+          speakerElementId: speaker.value,
+        }];
+        if (!nextGestures.includes(turn.gestureId) && nextGestures[0]) {
+          commands.push({
+            type: 'set-dialogue-turn',
+            sceneId: scene.id,
+            turnId: turn.id,
+            gestureId: nextGestures[0],
+          });
+        }
+        if (commands.length === 1) send(commands[0]);
+        else sendBatch(commands);
+      });
+      gesture.addEventListener('change', () => send({
+        type: 'set-dialogue-turn',
+        sceneId: scene.id,
+        turnId: turn.id,
+        gestureId: gesture.value,
+      }));
+      voice.addEventListener('change', () => send({
+        type: 'set-dialogue-turn',
+        sceneId: scene.id,
+        turnId: turn.id,
+        voiceId: voice.value,
+      }));
+      gap.addEventListener('change', () => send({
+        type: 'set-dialogue-turn',
+        sceneId: scene.id,
+        turnId: turn.id,
+        gapAfterSeconds: Number(gap.value),
+      }));
+      card.append(
+        compactFieldRow('Personaje', speaker, 'wide'),
+        compactFieldRow('Voz', voice, 'wide'),
+        compactFieldRow('Gesto', gesture, 'wide'),
+        compactFieldRow('Pausa', gap, 'number', 's'),
+      );
+      return card;
+    }
 
     const text = document.createElement('textarea');
     text.rows = Math.min(12, Math.max(3, Math.ceil(turn.text.length / 34)));
@@ -193,20 +364,7 @@ export function initEditingPanel(store: ProjectStore): void {
       const value = text.value.trim();
       if (value) send({ type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, text: value });
     });
-    const characters = scene.elements.filter((item) => item.type === 'character');
-    const speaker = select(characters.map((item) => ({ value: item.id, label: item.id })), turn.speakerElementId);
-    speaker.addEventListener('change', () => send({
-      type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, speakerElementId: speaker.value,
-    }));
-    const voice = select(store.resources('voice').map((item) => ({ value: item.id, label: item.label })), turn.voiceId);
-    voice.addEventListener('change', () => send({
-      type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, voiceId: voice.value,
-    }));
-    const gap = input('number', String(turn.gapAfterSeconds), { min: '0', max: '5', step: '0.05' });
-    gap.addEventListener('change', () => send({
-      type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, gapAfterSeconds: Number(gap.value),
-    }));
-    card.append(field('Texto y subtítulo', text), grid(field('Personaje', speaker), field('Voz', voice), field('Pausa posterior', gap)));
+    card.append(field('Texto y subtítulo', text));
     card.append(contextNote('Mover, dividir o borrar este turno corresponde a la timeline.'));
     return card;
   }
@@ -249,7 +407,7 @@ export function initEditingPanel(store: ProjectStore): void {
       elementId: element.id,
       resourceId: resource.value,
     }));
-    card.append(field('Recurso', resource));
+    card.append(compactFieldRow('Recurso', resource, 'wide'));
     if (element.type === 'character') {
       const selectedResource = resources.find((item) => item.id === element.resourceId);
       const movementPresets = readStringCapability(selectedResource?.capabilities, 'animationPresets');
@@ -264,16 +422,16 @@ export function initEditingPanel(store: ProjectStore): void {
           elementId: element.id,
           animationPreset: movement.value,
         }));
-        card.append(field('Movimiento base', movement));
+        card.append(compactFieldRow('Movimiento', movement, 'wide'));
       }
     }
-    card.append(grid(
+    card.append(
       transformField(scene, element, 'x', 'position.x', 'X', -1080, 2160, 1, scope, lanes, animatedValues),
       transformField(scene, element, 'y', 'position.y', 'Y', -1920, 3840, 1, scope, lanes, animatedValues),
       transformField(scene, element, 'scale', 'scale', 'Escala', 0.01, 10, 0.01, scope, lanes, animatedValues),
       transformField(scene, element, 'rotationDegrees', 'rotationDegrees', 'Rotación', -180, 180, 1, scope, lanes, animatedValues),
       opacityField(scene, element, scope, lanes, animatedValues),
-    ));
+    );
     const selectedResource = resources.find((item) => item.id === element.resourceId);
     const articulatedParameters = readStringCapability(selectedResource?.capabilities, 'parameters')
       .filter((parameterId) => ANIMATION_PARAMETERS[parameterId]?.requiresResourceSupport);
@@ -282,9 +440,9 @@ export function initEditingPanel(store: ProjectStore): void {
       articulation.className = 'editing-articulation';
       const title = document.createElement('strong');
       title.textContent = 'Articulaciones';
-      articulation.append(title, grid(...articulatedParameters.map((parameterId) => (
+      articulation.append(title, ...articulatedParameters.map((parameterId) => (
         articulatedField(scene, element, parameterId, scope, lanes, animatedValues)
-      ))));
+      )));
       card.append(articulation);
     }
     card.append(layerOrderField(scene, element));
@@ -304,8 +462,8 @@ export function initEditingPanel(store: ProjectStore): void {
     lanes: AnimationLane[],
     animatedValues: Record<string, number>,
   ): HTMLElement {
-    const control = input('number', String(animatedValues[parameterId] ?? element.transform[key]), {
-      min: String(minimum), max: String(maximum), step: String(step),
+    const control = compactNumberInput(animatedValues[parameterId] ?? element.transform[key], {
+      min: minimum, max: maximum, step,
     });
     const lane = lanes.find((item) => item.parameterId === parameterId) ?? null;
     const reference = describePlayheadReference(scope);
@@ -343,32 +501,26 @@ export function initEditingPanel(store: ProjectStore): void {
     lanes: AnimationLane[],
     animatedValues: Record<string, number>,
   ): HTMLElement {
-    const control = document.createElement('div');
-    control.className = 'editing-opacity-control';
     const opacityTrack = (element.tracks ?? []).find((track) => track.parameterId === 'opacity');
     const constantTrack = opacityTrack && isConstantSceneOpacityTrack(opacityTrack) ? opacityTrack : null;
     const lane = lanes.find((item) => item.parameterId === 'opacity') ?? null;
     const reference = describePlayheadReference(scope);
     const initialOpacity = animatedValues.opacity ?? constantTrack?.keyframes[0]?.value ?? element.transform.opacity;
-    const range = input('range', String(Math.round(initialOpacity * 100)), {
-      min: '0', max: '100', step: '1',
-    });
-    const output = document.createElement('output');
+    const control = compactNumberInput(initialOpacity * 100, { min: 0, max: 100, step: 0.01 });
     if (lane && !reference.available) {
-      range.disabled = true;
-      range.title = reference.detail;
+      control.disabled = true;
+      control.title = reference.detail;
     }
     const paint = (): void => {
-      const percent = Number(range.value);
-      output.textContent = `${percent}%`;
+      const percent = Number(control.value);
       const preview = document.querySelector<HTMLElement>(
         `.composition-character[data-element-id="${CSS.escape(element.id)}"]`,
       );
       if (preview) preview.style.opacity = String(percent / 100);
     };
-    range.addEventListener('input', paint);
-    range.addEventListener('change', () => {
-      const opacity = Number(range.value) / 100;
+    control.addEventListener('input', paint);
+    control.addEventListener('change', () => {
+      const opacity = Number(control.value) / 100;
       if (lane) {
         setKeyframedValue(scene, element, 'opacity', opacity, lane, scope);
         return;
@@ -386,8 +538,7 @@ export function initEditingPanel(store: ProjectStore): void {
       }
     });
     paint();
-    control.append(range, output);
-    return keyframedField(scene, element, 'opacity', 'Opacidad', control, lane, scope, initialOpacity);
+    return keyframedField(scene, element, 'opacity', 'Opacidad', control, lane, scope, initialOpacity, '%');
   }
 
   function articulatedField(
@@ -402,10 +553,10 @@ export function initEditingPanel(store: ProjectStore): void {
     const lane = lanes.find((item) => item.parameterId === parameterId) ?? null;
     const current = animatedValues[parameterId] ?? lane?.keyframes[0]?.value ?? 0;
     const reference = describePlayheadReference(scope);
-    const control = input('number', String(current), {
-      min: String(parameter.exclusiveMinimum ?? parameter.minimum),
-      max: String(parameter.maximum),
-      step: '0.01',
+    const control = compactNumberInput(current, {
+      min: parameter.exclusiveMinimum ?? parameter.minimum,
+      max: parameter.maximum,
+      step: 0.01,
     });
     control.disabled = !reference.available;
     control.title = reference.available ? '' : reference.detail;
@@ -447,13 +598,23 @@ export function initEditingPanel(store: ProjectStore): void {
     lane: AnimationLane | null,
     scope: AnimationScope,
     currentValue?: number,
+    suffix?: string,
   ): HTMLElement {
     const wrapper = document.createElement('div');
-    wrapper.className = 'inspector-field is-compact keyframed-field';
-    const heading = document.createElement('div');
-    heading.className = 'keyframed-field-heading';
+    wrapper.className = 'keyframed-field';
     const text = document.createElement('span');
+    text.className = 'compact-field-label';
     text.textContent = label;
+    const controlSlot = document.createElement('div');
+    controlSlot.className = 'compact-field-control is-number';
+    control.classList.add('compact-value-control');
+    controlSlot.append(control);
+    if (suffix) {
+      const unit = document.createElement('span');
+      unit.className = 'compact-field-unit';
+      unit.textContent = suffix;
+      controlSlot.append(unit);
+    }
     const navigation = document.createElement('div');
     navigation.className = 'keyframe-property-actions';
     const playhead = editorPlayhead();
@@ -499,8 +660,7 @@ export function initEditingPanel(store: ProjectStore): void {
       ? (exact ? 'Keyframe activo en el cabezal. Clic para eliminarlo.' : 'Agregar un keyframe exactamente en el cabezal.')
       : reference.detail;
     navigation.append(jump('anterior', previous), diamond, jump('siguiente', next));
-    heading.append(text, navigation);
-    wrapper.append(heading, control);
+    wrapper.append(text, controlSlot, navigation);
     return wrapper;
   }
 
@@ -509,10 +669,10 @@ export function initEditingPanel(store: ProjectStore): void {
     const total = visualElementsByLayer(scene).length;
     const section = document.createElement('section');
     section.className = 'editing-layer-order';
-    const control = input('number', String(layer ?? 1), {
-      min: '1',
-      max: String(Math.max(1, total)),
-      step: '1',
+    const control = compactNumberInput(layer ?? 1, {
+      min: 1,
+      max: Math.max(1, total),
+      step: 1,
     });
     control.addEventListener('input', () => {
       if (control.value === '') return;
@@ -521,7 +681,7 @@ export function initEditingPanel(store: ProjectStore): void {
     });
     const hint = document.createElement('small');
     hint.textContent = 'Fondo: capa 0 · el número más alto queda encima.';
-    section.append(field('Capa', control), hint);
+    section.append(compactFieldRow('Capa', control, 'number'), hint);
     return section;
   }
 
@@ -566,10 +726,10 @@ export function initEditingPanel(store: ProjectStore): void {
     card.append(canvasMode);
 
     const picker = select(parameterIds.map((id) => ({ value: id, label: parameterLabel(id) })), parameterIds[0] ?? '');
-    const value = input('number', '0', { step: '0.01' });
+    const value = compactNumberInput(0, { step: 0.01 });
     const syncValue = (): void => {
       const parameter = ANIMATION_PARAMETERS[picker.value];
-      value.value = String(baseValueForParameter(picker.value, element.transform));
+      value.value = formatCompactNumber(baseValueForParameter(picker.value, element.transform));
       value.min = String(parameter?.exclusiveMinimum ?? parameter?.minimum ?? 0);
       value.max = String(parameter?.maximum ?? 1);
       value.step = picker.value === 'position.x' || picker.value === 'position.y' ? '1' : '0.01';
@@ -595,7 +755,11 @@ export function initEditingPanel(store: ProjectStore): void {
     });
     add.disabled = !reference.available || parameterIds.length === 0;
     add.title = add.disabled ? reference.detail : 'Usa la selección actual y la línea del cabezal como referencia.';
-    card.append(grid(field('Parámetro', picker), field('Valor', value)), add);
+    card.append(
+      compactFieldRow('Parámetro', picker, 'wide'),
+      compactFieldRow('Valor', value, 'number'),
+      add,
+    );
     if (lanes.length === 0) card.append(contextNote('Todavía no hay pistas. El primer keyframe creará una automáticamente.'));
     return card;
   }
@@ -668,17 +832,25 @@ export function initEditingPanel(store: ProjectStore): void {
     card.classList.add('keyframe-card');
     card.dataset.inspectorKeyframe = keyframe.id;
     const parameter = ANIMATION_PARAMETERS[lane.parameterId];
-    const value = input('number', String(keyframe.value), {
-      min: String(parameter?.exclusiveMinimum ?? parameter?.minimum ?? 0),
-      max: String(parameter?.maximum ?? 1),
-      step: lane.parameterId === 'position.x' || lane.parameterId === 'position.y' ? '1' : '0.01',
+    const value = compactNumberInput(keyframe.value, {
+      min: parameter?.exclusiveMinimum ?? parameter?.minimum ?? 0,
+      max: parameter?.maximum ?? 1,
+      step: lane.parameterId === 'position.x' || lane.parameterId === 'position.y' ? 1 : 0.01,
     });
     value.addEventListener('change', () => edit({ value: clampParameterValue(lane.parameterId, Number(value.value)) }));
-    const offset = input('number', String(keyframe.offsetSeconds), { min: '-5', max: '5', step: '0.05' });
+    const offset = compactNumberInput(keyframe.offsetSeconds, { min: -5, max: 5, step: 0.05 });
     offset.addEventListener('change', () => edit({ offsetSeconds: Number(offset.value) }));
-    const interpolation = select(['linear', 'ease', 'hold'].map((id) => ({ value: id, label: id })), keyframe.interpolation);
+    const interpolation = select([
+      { value: 'linear', label: 'Lineal' },
+      { value: 'ease', label: 'Suave' },
+      { value: 'hold', label: 'Mantener' },
+    ], keyframe.interpolation);
     interpolation.addEventListener('change', () => edit({ interpolation: interpolation.value }));
-    card.append(grid(field('Valor', value), field('Desplazamiento (s)', offset), field('Interpolación', interpolation)));
+    card.append(
+      compactFieldRow('Valor', value, 'number'),
+      compactFieldRow('Desplazamiento', offset, 'number', 's'),
+      compactFieldRow('Interpolación', interpolation, 'wide'),
+    );
     card.append(
       readOnlyRow('Ancla', keyframe.anchorLabel),
       readOnlyRow('Tiempo', keyframe.timeLabel),
@@ -770,12 +942,26 @@ export function initEditingPanel(store: ProjectStore): void {
   window.addEventListener(EDITOR_PLAYBACK_EVENT, renderPlayback);
   window.addEventListener(EDITOR_WORKSPACE_EVENT, render);
   window.addEventListener(ANIMATION_MODE_EVENT, render);
+  window.addEventListener(EDITING_SUBPAGE_EVENT, (event) => {
+    const requested = (event as CustomEvent<EditingSubpage>).detail;
+    const selection = projectSelection();
+    if (!selection || !editingSubpages(selection).some((page) => page.id === requested)) return;
+    activeSubpage = requested;
+    render();
+  });
   render();
 }
 
 export function editingSubpages(selection: ProjectSelection): EditingSubpageOption[] {
-  if (selection.kind === 'scene') return [{ id: 'scene', label: 'Escena' }];
-  if (selection.kind === 'dialogue') return [{ id: 'dialogue', label: 'Texto y voz' }];
+  if (selection.kind === 'scene') return [
+    { id: 'scene', label: 'General' },
+    { id: 'background', label: 'Fondo' },
+    { id: 'transition', label: 'Transición' },
+  ];
+  if (selection.kind === 'dialogue') return [
+    { id: 'dialogue', label: 'Texto' },
+    { id: 'performance', label: 'Voz y gesto' },
+  ];
   return [
     { id: 'adjustments', label: 'Ajustes' },
     { id: 'create-animation', label: 'Crear animación' },
@@ -953,11 +1139,51 @@ function field(label: string, control: HTMLElement): HTMLElement {
   return wrapper;
 }
 
+function compactFieldRow(
+  label: string,
+  control: HTMLElement,
+  width: 'number' | 'wide' = 'wide',
+  suffix?: string,
+): HTMLElement {
+  const row = document.createElement('label');
+  row.className = 'compact-field-row';
+  const text = document.createElement('span');
+  text.className = 'compact-field-label';
+  text.textContent = label;
+  const slot = document.createElement('span');
+  slot.className = `compact-field-control is-${width}`;
+  control.classList.add('compact-value-control');
+  slot.append(control);
+  if (suffix) {
+    const unit = document.createElement('span');
+    unit.className = 'compact-field-unit';
+    unit.textContent = suffix;
+    slot.append(unit);
+  }
+  row.append(text, slot);
+  return row;
+}
+
 function grid(...children: HTMLElement[]): HTMLElement {
   const element = document.createElement('div');
   element.className = 'proposal-control-grid';
   element.append(...children);
   return element;
+}
+
+function formatCompactNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  return String(Math.round((value + Number.EPSILON) * 100) / 100);
+}
+
+function compactNumberInput(
+  value: number,
+  attributes: { min?: number; max?: number; step?: number } = {},
+): HTMLInputElement {
+  const control = input('number', formatCompactNumber(value), attributes as Record<string, number>);
+  control.classList.add('compact-number-input');
+  control.inputMode = 'decimal';
+  return control;
 }
 
 function input(type: string, value: string, attributes: Record<string, string | number> = {}): HTMLInputElement {
@@ -969,6 +1195,26 @@ function input(type: string, value: string, attributes: Record<string, string | 
     else element.setAttribute(key, String(attribute));
   }
   return element;
+}
+
+function readableOption(value: string): string {
+  const labels: Record<string, string> = {
+    neutral: 'Neutral',
+    point: 'Señalar',
+    celebrate: 'Celebrar',
+    doubt: 'Duda',
+    deny: 'Negar',
+    static: 'Estática',
+    'slow-pan': 'Paneo suave',
+    'slow-zoom': 'Zoom suave',
+    'idle-calm': 'Reposo suave',
+    'talk-calm': 'Habla suave',
+  };
+  return labels[value] ?? value.replaceAll('-', ' ');
+}
+
+function resourceLabel(store: ProjectStore, element: ElementView, fallback: string): string {
+  return store.resources('character').find((item) => item.id === element.resourceId)?.label ?? fallback;
 }
 
 function select(options: Array<{ value: string; label: string }>, current: string): HTMLSelectElement {

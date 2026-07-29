@@ -238,12 +238,19 @@ check(
   }) === 'tracks',
 );
 check(
-  'un diálogo usa una página enfocada en texto y voz',
+  'una escena reparte propiedades, fondo y transición sin scroll acumulado',
+  editingPanel.editingSubpages({
+    kind: 'scene',
+    sceneId: 'scene-1',
+  }).map((page) => page.label).join('|') === 'General|Fondo|Transición',
+);
+check(
+  'un diálogo separa el texto de su interpretación',
   editingPanel.editingSubpages({
     kind: 'dialogue',
     sceneId: 'scene-1',
     turnId: 'turn-1',
-  }).map((page) => page.label).join('|') === 'Texto y voz',
+  }).map((page) => page.label).join('|') === 'Texto|Voz y gesto',
 );
 check(
   'Edición usa el cabezal compartido para crear keyframes con el helper canónico',
@@ -253,10 +260,11 @@ check(
     && editingPanelSource.includes("if (event.key !== 'Enter') return;"),
 );
 check(
-  'Opacidad muestra porcentaje y previsualiza mientras se desliza',
-  editingPanelSource.includes("input('range'")
-    && editingPanelSource.includes("range.addEventListener('input', paint)")
-    && editingPanelSource.includes('output.textContent = `${percent}%`')
+  'los ajustes usan filas compactas, dos decimales y opacidad porcentual en vivo',
+  editingPanelSource.includes("wrapper.className = 'keyframed-field'")
+    && editingPanelSource.includes('formatCompactNumber')
+    && editingPanelSource.includes("control.addEventListener('input', paint)")
+    && editingPanelSource.includes("initialOpacity * 100")
     && compositionSource.includes('image.style.opacity = String(view.opacity)'),
 );
 check(
@@ -322,7 +330,7 @@ check(
 }
 check(
   'las capas se expresan como números simples con el fondo en cero',
-  editingPanelSource.includes("field('Capa', control)")
+  editingPanelSource.includes("compactFieldRow('Capa', control, 'number')")
     && editingPanelSource.includes("control.addEventListener('input'")
     && editingPanelSource.includes('Fondo: capa 0')
     && !editingPanelSource.includes('Al fondo')
@@ -365,7 +373,8 @@ check(
   'el Director ya no conserva una segunda implementación de edición manual',
   !projectPanelSource.includes('function animationControls(')
     && !projectPanelSource.includes('function keyframeCard(')
-    && projectPanelSource.includes("showRightPanelPage('editing')"),
+    && projectPanelSource.includes("showRightPanelPage('editing')")
+    && projectPanelSource.includes('showEditingSubpage(page)'),
 );
 check(
   'la timeline conserva acciones estructurales y comparte la duplicación de keyframes',

@@ -1653,12 +1653,48 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .editing-keyframe-item span { overflow: hidden; font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .editing-keyframe-item:hover { border-color: var(--border); background: var(--surface-2); }
 .editing-keyframe-item.is-active { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
-.keyframed-field-heading {
-  display: flex;
-  min-height: 1.45rem;
+.compact-field-row,
+.keyframed-field {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 1fr) minmax(0, 9rem);
+  min-height: 2rem;
   align-items: center;
-  justify-content: space-between;
-  gap: .35rem;
+  gap: .45rem;
+}
+.keyframed-field {
+  grid-template-columns: minmax(5.5rem, 1fr) 5.75rem 4.2rem;
+}
+.compact-field-label {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compact-field-control {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .25rem;
+}
+.compact-field-control.is-wide { width: min(100%, 12rem); justify-self: end; }
+.compact-field-control.is-number { width: 5.75rem; justify-self: end; }
+.compact-value-control {
+  width: 100%;
+  min-width: 0;
+  padding: .34rem .42rem;
+  font-size: var(--fs-sm);
+}
+.compact-number-input {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.compact-field-unit {
+  flex: none;
+  min-width: .7rem;
+  color: var(--muted);
+  font-size: var(--fs-xs);
 }
 .keyframe-property-actions { display: flex; align-items: center; gap: .08rem; }
 .keyframe-property-actions button {
@@ -1693,19 +1729,6 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   border-top: 1px solid var(--border);
 }
 .editing-articulation > strong { font-size: var(--fs-xs); }
-.editing-opacity-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.8rem;
-  gap: .45rem;
-  align-items: center;
-}
-.editing-opacity-control input[type="range"] { min-width: 0; padding-inline: 0; }
-.editing-opacity-control output {
-  color: var(--text);
-  font: var(--fs-xs) ui-monospace, monospace;
-  text-align: right;
-}
-.editing-opacity-control input:disabled + output { color: var(--warning); font-family: inherit; }
 .editing-layer-order {
   display: grid;
   gap: .25rem;

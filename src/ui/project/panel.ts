@@ -1,11 +1,11 @@
 import { optional } from '../dom.js';
 import { notify } from '../notifications.js';
 import { showRightPanelPage } from '../right-panel.js';
+import { showEditingSubpage, type EditingSubpage } from './editing-panel.js';
 import type { ProjectStore } from './store.js';
 import type { SceneView, TurnView } from './types.js';
 import { PROJECT_SELECTION_EVENT, selectProjectItem, type ProjectSelection } from './selection.js';
 
-const TRANSITIONS = ['cut', 'fade'];
 const PROPOSAL_TABS = ['scene', 'elements', 'background', 'transition'] as const;
 type ProposalTab = typeof PROPOSAL_TABS[number];
 
@@ -155,24 +155,11 @@ export function initProjectEditor(store: ProjectStore): void {
 
   function backgroundCard(scene: SceneView, index: number): HTMLElement {
     const backgrounds = store.resources('background');
-    const resource = select(
-      backgrounds.map((entry) => ({ value: entry.id, label: entry.label })),
-      scene.background.resourceId,
-    );
     const entry = backgrounds.find((item) => item.id === scene.background.resourceId);
-    const presets = readPresets(entry?.capabilities) ?? [scene.background.cameraPreset];
-    const camera = select(presets.map((value) => ({ value, label: value })), scene.background.cameraPreset);
-
-    const apply = (): void => send({
-      type: 'set-scene-background',
-      sceneId: scene.id,
-      resourceId: resource.value,
-      cameraPreset: camera.value,
-    });
-    resource.addEventListener('change', apply);
-    camera.addEventListener('change', apply);
     return sceneControlCard(scene, index, [
-      controlGrid(field('Fondo', resource), field('Cámara', camera)),
+      subheading(entry?.label ?? scene.background.resourceId),
+      note(`Cámara: ${scene.background.cameraPreset}`),
+      openEditingButton(scene.id, 'background', 'Editar fondo y cámara'),
     ]);
   }
 
@@ -184,40 +171,22 @@ export function initProjectEditor(store: ProjectStore): void {
   }
 
   function transitionCard(scene: SceneView, index: number): HTMLElement {
-    const preset = select(TRANSITIONS.map((value) => ({
-      value,
-      label: value === 'cut' ? 'Corte' : 'Fundido',
-    })), scene.transitionToNext?.preset ?? 'cut');
-    const duration = document.createElement('input');
-    duration.type = 'number';
-    duration.min = '0';
-    duration.max = '2';
-    duration.step = '0.05';
-    duration.value = String(scene.transitionToNext?.durationSeconds ?? 0);
-
-    // El motor exige duración 0 para «cut».
-    const syncDuration = (): void => {
-      const isCut = preset.value === 'cut';
-      duration.disabled = isCut;
-      if (isCut) duration.value = '0';
-    };
-    syncDuration();
-
-    const apply = (): void => {
-      syncDuration();
-      send({
-        type: 'set-transition',
-        sceneId: scene.id,
-        preset: preset.value,
-        durationSeconds: Number(duration.value),
-      });
-    };
-    preset.addEventListener('change', apply);
-    duration.addEventListener('change', apply);
-
+    const transition = scene.transitionToNext ?? { preset: 'cut', durationSeconds: 0 };
     return sceneControlCard(scene, index, [
-      controlGrid(field('Tipo', preset), field('Duración (s)', duration)),
+      subheading(transition.preset === 'cut' ? 'Corte' : 'Fundido'),
+      note(transition.preset === 'cut' ? 'Sin duración.' : `${transition.durationSeconds} s`),
+      openEditingButton(scene.id, 'transition', 'Editar transición'),
     ]);
+  }
+
+  function openEditingButton(sceneId: string, page: EditingSubpage, label: string): HTMLButtonElement {
+    const button = actionButton(label, () => {
+      selectProjectItem({ kind: 'scene', sceneId });
+      showRightPanelPage('editing');
+      showEditingSubpage(page);
+    });
+    button.classList.add('full-button');
+    return button;
   }
 
   function elementsSection(): HTMLElement {
@@ -294,13 +263,6 @@ function sceneControlCard(scene: SceneView, index: number, children: HTMLElement
   return card;
 }
 
-function controlGrid(...controls: HTMLElement[]): HTMLElement {
-  const grid = document.createElement('div');
-  grid.className = 'proposal-control-grid';
-  grid.append(...controls);
-  return grid;
-}
-
 function dialogueRows(text: string): number {
   const rows = text.split(/\r?\n/).reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 34)), 0);
   return Math.min(18, Math.max(3, rows));
@@ -325,33 +287,6 @@ function note(text: string): HTMLElement {
   element.className = 'inspector-note';
   element.textContent = text;
   return element;
-}
-
-function field(label: string, control: HTMLElement): HTMLElement {
-  const wrapper = document.createElement('label');
-  wrapper.className = 'inspector-field is-compact';
-  const span = document.createElement('span');
-  span.textContent = label;
-  wrapper.append(span, control);
-  return wrapper;
-}
-
-function select(options: Array<{ value: string; label: string }>, current: string): HTMLSelectElement {
-  const element = document.createElement('select');
-  for (const option of options) {
-    const node = document.createElement('option');
-    node.value = option.value;
-    node.textContent = option.label;
-    node.selected = option.value === current;
-    element.append(node);
-  }
-  return element;
-}
-
-function readPresets(capabilities: Record<string, unknown> | undefined): string[] | null {
-  const presets = capabilities?.cameraPresets;
-  if (!Array.isArray(presets)) return null;
-  return presets.filter((item): item is string => typeof item === 'string');
 }
 
 function actionButton(label: string, action: () => void, danger = false): HTMLButtonElement {
