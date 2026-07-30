@@ -18,5 +18,4 @@ export function evaluateWordMatchCut(
   seconds: number,
 ): WordMatchCutEvaluation;
 
-export const evaluateRapidPagesWord: typeof evaluateWordMatchCut;
 export function normalizeTemplateWord(value: unknown, fallback?: string, maxLength?: number): string;

@@ -32,12 +32,11 @@ export function evaluateWordMatchCut(definition, seconds) {
     offsetY: -settle * 3.2,
     rotationDegrees: direction * settle * 0.32,
     flashOpacity: Math.max(0, 1 - cutProgress / 0.16) * 0.12,
-    underlineProgress: Math.min(1, cutProgress / 0.46),
+    // El fibrón se traza una sola vez a lo largo del efecto: si dependiera del
+    // corte se redibujaría en cada página y leería como parpadeo.
+    underlineProgress: Math.min(1, (loopFrame / loopFrameCount) / 0.34),
   });
 }
-
-// Alias temporal para consumidores históricos del módulo.
-export const evaluateRapidPagesWord = evaluateWordMatchCut;
 
 export function normalizeTemplateWord(value, fallback = 'IDEA', maxLength = 24) {
   const normalized = String(value ?? '')

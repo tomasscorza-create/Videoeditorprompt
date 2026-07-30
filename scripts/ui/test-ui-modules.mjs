@@ -255,37 +255,16 @@ check(
   passed += 1;
 }
 {
-  const definition = videoTemplateCatalog.parseVideoTemplateDefinition(
-    readJson(path.join(projectRoot, 'public', 'assets', 'templates', 'rapid-pages-word-v1.json')),
-    'rapid-pages-word-v1',
-  );
-  const first = videoTemplateEvaluator.evaluateRapidPagesWord(definition, 0);
-  const repeated = videoTemplateEvaluator.evaluateRapidPagesWord(definition, definition.durationSeconds);
-  const advanced = videoTemplateEvaluator.evaluateRapidPagesWord(definition, 1);
-  check(
-    'la primera plantilla carga una palabra editable y límites acotados',
-    definition.defaultValues.word === 'IDEA'
-      && definition.fields[0].id === 'word'
-      && definition.fields[0].maxLength === 12
-      && definition.kind === 'word-match-cut'
-      && definition.cutFrames === 5
-      && definition.sequence.length === 16
-      && definition.pageSources.length === 8
-      && definition.pageSources.every((source) => existsSync(path.join(projectRoot, 'public', source.src))
-        && source.wordX > 0
-        && source.baselineY > 0
-        && source.maxWordWidth >= 60),
+  const catalog = videoTemplateCatalog.parseVideoTemplateCatalog(
+    readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'video-templates.json')),
   );
   check(
-    'el efecto de páginas es determinista y cierra su bucle en el mismo frame',
-    first.sourceIndex === repeated.sourceIndex
-      && first.rotationDegrees === repeated.rotationDegrees
-      && first.offsetX === repeated.offsetX,
-  );
-  check(
-    'el tiempo hace avanzar las páginas sin mover la palabra fuera del evaluador visual',
-    advanced.sourceIndex !== first.sourceIndex
-      && videoTemplateEvaluator.normalizeTemplateWord('  IMPACTO  ', 'IDEA', 24) === 'IMPACTO',
+    'el catálogo publicado solo ofrece plantillas generativas sin assets externos',
+    catalog.templates.length === 1
+      && catalog.templates[0].id === 'procedural-word-match-cut-v1'
+      && catalog.templates.every((template) => existsSync(
+        path.join(projectRoot, 'public', template.definitionPath),
+      )),
   );
 }
 {
@@ -295,11 +274,22 @@ check(
   );
   const first = videoTemplateEvaluator.evaluateWordMatchCut(definition, 0);
   const next = videoTemplateEvaluator.evaluateWordMatchCut(definition, definition.cutFrames / definition.fps);
+  const repeated = videoTemplateEvaluator.evaluateWordMatchCut(definition, definition.durationSeconds);
+  const advanced = videoTemplateEvaluator.evaluateWordMatchCut(definition, 1);
   check(
-    'la plantilla generativa conserva un contrato editable independiente',
+    'la plantilla generativa dura cuatro segundos con doce páginas distintas',
     definition.kind === 'procedural-word-match-cut'
-      && definition.pageStyles.length === 8
-      && new Set(definition.pageStyles.map((style) => style.layout)).size === 8
+      && definition.durationSeconds === 4
+      && definition.sequence.length === 24
+      && definition.pageStyles.length === 12
+      && new Set(definition.pageStyles.map((style) => style.layout)).size === 12
+      && new Set(definition.pageStyles.map((style) => style.seed)).size === 12,
+  );
+  check(
+    'la plantilla generativa declara una palabra editable y acotada',
+    definition.defaultValues.word === 'IDEA'
+      && definition.fields[0].id === 'word'
+      && definition.fields[0].maxLength === 12
       && definition.pageStyles.every((style) => style.seed > 0
         && style.age >= 0
         && style.bleed >= 0
@@ -307,9 +297,22 @@ check(
         && style.rightPhrase.length > 0),
   );
   check(
-    'la plantilla generativa usa la misma evaluación determinista por fotograma',
-    first.sourceIndex === definition.sequence[0]
-      && next.sourceIndex === definition.sequence[1],
+    'ninguna página se repite en dos cortes seguidos, ni al cerrar el bucle',
+    definition.sequence.every((index, position) => (
+      index !== definition.sequence[(position + 1) % definition.sequence.length]
+    )),
+  );
+  check(
+    'el efecto es determinista y cierra su bucle en el mismo frame',
+    first.sourceIndex === repeated.sourceIndex
+      && first.rotationDegrees === repeated.rotationDegrees
+      && first.offsetX === repeated.offsetX,
+  );
+  check(
+    'el tiempo hace avanzar las páginas sin mover la palabra fuera del evaluador visual',
+    next.sourceIndex === definition.sequence[1]
+      && advanced.sourceIndex !== first.sourceIndex
+      && videoTemplateEvaluator.normalizeTemplateWord('  IMPACTO  ', 'IDEA', 24) === 'IMPACTO',
   );
 }
 check(

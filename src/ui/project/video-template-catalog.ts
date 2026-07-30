@@ -32,20 +32,6 @@ export interface VideoTemplateTextField {
   maxLength: number;
 }
 
-export interface WordMatchCutDefinition {
-  version: 2;
-  id: string;
-  kind: 'word-match-cut';
-  label: string;
-  durationSeconds: number;
-  fps: number;
-  cutFrames: number;
-  sequence: number[];
-  pageSources: VideoTemplatePageSource[];
-  defaultValues: { word: string };
-  fields: VideoTemplateTextField[];
-}
-
 export interface ProceduralWordMatchCutDefinition {
   version: 2;
   id: string;
@@ -60,10 +46,28 @@ export interface ProceduralWordMatchCutDefinition {
   fields: VideoTemplateTextField[];
 }
 
-export type VideoTemplateDefinition = WordMatchCutDefinition | ProceduralWordMatchCutDefinition;
+export type VideoTemplateDefinition = ProceduralWordMatchCutDefinition;
+
+/** Cada layout describe una familia editorial real: márgenes, columnas y jerarquía. */
+export const PROCEDURAL_PAGE_LAYOUTS = [
+  'classic',
+  'novel',
+  'columns',
+  'editorial',
+  'typewriter',
+  'poetry',
+  'encyclopedia',
+  'essay',
+  'manuscript',
+  'ledger',
+  'newspaper',
+  'dictionary',
+] as const;
+
+export type ProceduralPageLayout = typeof PROCEDURAL_PAGE_LAYOUTS[number];
 
 export interface ProceduralPageStyle {
-  layout: 'classic' | 'novel' | 'columns' | 'editorial' | 'typewriter' | 'poetry' | 'encyclopedia' | 'essay';
+  layout: ProceduralPageLayout;
   seed: number;
   fontFamily: string;
   fontStyle: 'normal' | 'italic';
@@ -77,23 +81,6 @@ export interface ProceduralPageStyle {
   bleed: number;
   leftPhrase: string;
   rightPhrase: string;
-}
-
-export interface VideoTemplatePageSource {
-  src: string;
-  fontFamily: string;
-  fontStyle: 'normal' | 'italic';
-  fontWeight: number;
-  fontSize: number;
-  wordX: number;
-  baselineY: number;
-  maxWordWidth: number;
-  inkColor: string;
-  underlineColor: string;
-  inkOpacity: number;
-  blur: number;
-  rotationDegrees: number;
-  exposure: number;
 }
 
 export async function loadVideoTemplateCatalog(): Promise<VideoTemplateCatalog> {
@@ -128,7 +115,7 @@ export async function loadVideoTemplateDefinition(template: VideoTemplateSummary
 
 export function parseVideoTemplateDefinition(value: unknown, expectedId?: string): VideoTemplateDefinition {
   if (!isRecord(value) || value.version !== 2
-    || !['word-match-cut', 'procedural-word-match-cut'].includes(String(value.kind))
+    || value.kind !== 'procedural-word-match-cut'
     || !isNonEmptyString(value.id) || (expectedId !== undefined && value.id !== expectedId)
     || !isNonEmptyString(value.label) || !isFiniteInRange(value.durationSeconds, 0.5, 30)
     || !Number.isInteger(value.fps) || !isFiniteInRange(value.fps, 12, 60)
@@ -142,9 +129,7 @@ export function parseVideoTemplateDefinition(value: unknown, expectedId?: string
   if (field.id !== 'word' || value.defaultValues.word.length > field.maxLength) {
     throw new Error('La palabra de la plantilla es inválida.');
   }
-  const itemCount = value.kind === 'word-match-cut'
-    ? (Array.isArray(value.pageSources) ? value.pageSources.length : 0)
-    : (Array.isArray(value.pageStyles) ? value.pageStyles.length : 0);
+  const itemCount = Array.isArray(value.pageStyles) ? value.pageStyles.length : 0;
   if (itemCount < 4 || itemCount > 40
     || !value.sequence.every((index) => Number.isInteger(index) && index >= 0 && index < itemCount)) {
     throw new Error('La palabra o la secuencia de la plantilla es inválida.');
@@ -153,34 +138,24 @@ export function parseVideoTemplateDefinition(value: unknown, expectedId?: string
   if (Math.abs(value.durationSeconds - expectedDuration) > 1 / value.fps) {
     throw new Error('La duración de la plantilla no coincide con su secuencia.');
   }
-  const common = {
-    version: 2 as const,
+  return {
+    version: 2,
     id: value.id,
     label: value.label,
+    kind: 'procedural-word-match-cut',
     durationSeconds: value.durationSeconds,
     fps: value.fps,
     cutFrames: value.cutFrames,
     sequence: [...value.sequence] as number[],
     defaultValues: { word: value.defaultValues.word },
-    fields: [field] as [VideoTemplateTextField],
-  };
-  if (value.kind === 'procedural-word-match-cut') {
-    return {
-      ...common,
-      kind: 'procedural-word-match-cut',
-      pageStyles: (value.pageStyles as unknown[]).map(parseProceduralPageStyle),
-    };
-  }
-  return {
-    ...common,
-    kind: 'word-match-cut',
-    pageSources: (value.pageSources as unknown[]).map(parsePageSource),
+    fields: [field],
+    pageStyles: (value.pageStyles as unknown[]).map(parseProceduralPageStyle),
   };
 }
 
 function parseProceduralPageStyle(value: unknown): ProceduralPageStyle {
   if (!isRecord(value)
-    || !['classic', 'novel', 'columns', 'editorial', 'typewriter', 'poetry', 'encyclopedia', 'essay'].includes(String(value.layout))
+    || !(PROCEDURAL_PAGE_LAYOUTS as readonly string[]).includes(String(value.layout))
     || !Number.isInteger(value.seed) || !isFiniteInRange(value.seed, 1, 2147483647)
     || !isNonEmptyString(value.fontFamily) || !['normal', 'italic'].includes(String(value.fontStyle))
     || !Number.isInteger(value.fontWeight) || !isFiniteInRange(value.fontWeight, 300, 900)
@@ -192,7 +167,7 @@ function parseProceduralPageStyle(value: unknown): ProceduralPageStyle {
     throw new Error('Un estilo procedural de página es inválido.');
   }
   return {
-    layout: value.layout as ProceduralPageStyle['layout'],
+    layout: value.layout as ProceduralPageLayout,
     seed: value.seed,
     fontFamily: value.fontFamily,
     fontStyle: value.fontStyle as 'normal' | 'italic',
@@ -206,38 +181,6 @@ function parseProceduralPageStyle(value: unknown): ProceduralPageStyle {
     bleed: value.bleed,
     leftPhrase: value.leftPhrase,
     rightPhrase: value.rightPhrase,
-  };
-}
-
-function parsePageSource(value: unknown): VideoTemplatePageSource {
-  if (!isRecord(value) || !isPortablePath(value.src) || !/\.(png|jpe?g|webp)$/iu.test(value.src)
-    || !isNonEmptyString(value.fontFamily) || !['normal', 'italic'].includes(String(value.fontStyle))
-    || !Number.isInteger(value.fontWeight) || !isFiniteInRange(value.fontWeight, 300, 900)
-    || !isFiniteInRange(value.fontSize, 20, 120)
-    || !isFiniteInRange(value.wordX, 0, 4096) || !isFiniteInRange(value.baselineY, 0, 4096)
-    || !isFiniteInRange(value.maxWordWidth, 60, 800)
-    || !isHexColor(value.inkColor) || !isHexColor(value.underlineColor)
-    || !isFiniteInRange(value.inkOpacity, 0.35, 1)
-    || !isFiniteInRange(value.blur, 0, 1.5)
-    || !isFiniteInRange(value.rotationDegrees, -4, 4)
-    || !isFiniteInRange(value.exposure, 0.8, 1.2)) {
-    throw new Error('Una página de la plantilla es inválida.');
-  }
-  return {
-    src: value.src,
-    fontFamily: value.fontFamily,
-    fontStyle: value.fontStyle as 'normal' | 'italic',
-    fontWeight: value.fontWeight,
-    fontSize: value.fontSize,
-    wordX: value.wordX,
-    baselineY: value.baselineY,
-    maxWordWidth: value.maxWordWidth,
-    inkColor: value.inkColor,
-    underlineColor: value.underlineColor,
-    inkOpacity: value.inkOpacity,
-    blur: value.blur,
-    rotationDegrees: value.rotationDegrees,
-    exposure: value.exposure,
   };
 }
 
