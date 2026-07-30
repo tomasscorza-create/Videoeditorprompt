@@ -25,10 +25,10 @@ function invalidCase(name, expectedCode, change) {
 
 const valid = validate('valid');
 assert.equal(valid.project.scenes.length, 2);
-assert.equal(valid.catalog.entries.length, 19);
+assert.equal(valid.catalog.entries.length, 20);
 assert.deepEqual([...valid.resources.values()].map((entry) => entry.type), [
   'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character', 'character',
-  'voice', 'voice', 'voice', 'voice', 'prop', 'background', 'music', 'music', 'music',
+  'voice', 'voice', 'voice', 'voice', 'prop', 'template', 'background', 'music', 'music', 'music',
 ]);
 results.push({ name: 'valid-project-resolves-authoring-catalog', accepted: true });
 

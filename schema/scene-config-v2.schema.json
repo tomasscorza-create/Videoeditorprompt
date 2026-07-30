@@ -102,6 +102,22 @@
         }
       }
     },
+    "templates": {
+      "type": "array",
+      "description": "Efectos prearmados que se componen por código. Repiten su ciclo mientras dura la escena y solo los dibuja el compositor PixiJS.",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "definition", "word", "transform"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "definition": { "$ref": "#/$defs/assetPath" },
+          "word": { "type": "string", "minLength": 1, "maxLength": 24 },
+          "transform": { "$ref": "#/$defs/propTransform" }
+        }
+      }
+    },
     "dialogue": {
       "type": "array",
       "minItems": 2,

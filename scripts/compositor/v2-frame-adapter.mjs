@@ -130,5 +130,20 @@ export function buildPixiFrameFromV2({
   }
   frame.sprites.sort((left, right) => (left.zIndex - right.zIndex)
     || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+
+  // Una plantilla no es un PNG: el compositor la dibuja por código con el mismo
+  // módulo que la vista previa, así que viaja aparte de los sprites y solo lleva
+  // el segundo del frame. El backend FFmpeg nunca las recibe porque
+  // `selectCompositorBackend` fuerza PixiJS en cuanto la escena tiene una.
+  const templates = runtime.templates ?? [];
+  if (templates.length > 0) {
+    frame.templates = templates.map((template) => ({
+      id: template.id,
+      definition: template.definition,
+      word: template.word,
+      seconds: evaluatedFrame.timeSeconds ?? evaluatedFrame.time ?? 0,
+      transform: template.transform,
+    }));
+  }
   return frame;
 }

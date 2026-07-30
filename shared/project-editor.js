@@ -148,7 +148,7 @@ export function redoProjectEditor(state) {
 
 export function listEditorResources(state, type) {
   assertEditorState(state);
-  if (!['character', 'prop', 'voice', 'background', 'image'].includes(type)) fail('EDITOR_RESOURCE_TYPE_INVALID', `Tipo de recurso no soportado: ${type}.`, '/type');
+  if (!['character', 'prop', 'template', 'voice', 'background', 'image'].includes(type)) fail('EDITOR_RESOURCE_TYPE_INVALID', `Tipo de recurso no soportado: ${type}.`, '/type');
   return state.catalog.entries.filter((entry) => entry.type === type);
 }
 
@@ -197,8 +197,14 @@ export function validateEditableProject(project, catalog) {
         const resource = requireResource(resources, element.resourceId, 'prop', `${elementPath}/resourceId`);
         validateEditableTransform(element.transform, `${elementPath}/transform`);
         validateEditableTracks(element, resource, `${elementPath}/tracks`);
+      } else if (element.type === 'template') {
+        const resource = requireResource(resources, element.templateId, 'template', `${elementPath}/templateId`);
+        validateTemplateValues(element.values, resource, `${elementPath}/values`);
+        validateEditableTransform(element.transform, `${elementPath}/transform`);
+        // La plantilla resuelve su propio ciclo interno; no admite pistas de keyframes.
+        if (element.tracks) fail('EDITOR_ELEMENT_UNSUPPORTED', 'Una plantilla no admite pistas de animación: resuelve su propio ciclo.', `${elementPath}/tracks`);
       } else {
-        fail('EDITOR_ELEMENT_UNSUPPORTED', 'El editor vigente admite personajes y props; texto e imágenes siguen fuera del render.', `${elementPath}/type`);
+        fail('EDITOR_ELEMENT_UNSUPPORTED', 'El editor vigente admite personajes, props y plantillas; texto e imágenes siguen fuera del render.', `${elementPath}/type`);
       }
     }
     if (scene.elements.length > 20) fail('EDITOR_PROJECT_INVALID', 'Una escena admite hasta 20 elementos.', `${scenePath}/elements`);
@@ -365,6 +371,33 @@ function applyMutation(project, catalog, command) {
           scale: command.scale, rotationDegrees: 0, opacity: 1, zIndex: command.zIndex,
         },
       });
+      return;
+    }
+    case 'add-template': {
+      const scene = requireScene(project, command.sceneId);
+      portableId(command.elementId, '/command/elementId');
+      if (scene.elements.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 elementos.', '/command');
+      if (scene.elements.some((element) => element.id === command.elementId)) fail('EDITOR_PROJECT_INVALID', 'El ID del elemento ya existe.', '/command/elementId');
+      const resource = requireResource(resources, command.templateId, 'template', '/command/templateId');
+      validateTemplateValues({ word: command.word }, resource, '/command/word');
+      scene.elements.push({
+        id: command.elementId,
+        type: 'template',
+        templateId: command.templateId,
+        values: { word: command.word },
+        // La plantilla cubre el cuadro completo: queda centrada y sin escalar.
+        transform: {
+          x: project.video.width / 2, y: project.video.height / 2, anchorX: 0.5, anchorY: 0.5,
+          scale: 1, rotationDegrees: 0, opacity: 1, zIndex: command.zIndex,
+        },
+      });
+      return;
+    }
+    case 'set-template-word': {
+      const element = requireElement(requireScene(project, command.sceneId), command.elementId, 'template');
+      const resource = requireResource(resources, element.templateId, 'template', '/command/elementId');
+      validateTemplateValues({ word: command.word }, resource, '/command/word');
+      element.values = { ...element.values, word: command.word };
       return;
     }
     case 'set-prop-resource': {
@@ -653,6 +686,23 @@ function applyMutation(project, catalog, command) {
   }
 }
 
+/**
+ * Los campos de una plantilla son cerrados: el catálogo declara cuáles existen y
+ * la definición fija su longitud. El editor solo admite los que el recurso expone.
+ */
+function validateTemplateValues(values, resource, path) {
+  if (!values || typeof values !== 'object') fail('EDITOR_VALUE_INVALID', 'Faltan los valores de la plantilla.', path);
+  const declared = new Set(resource.capabilities.fields);
+  for (const key of Object.keys(values)) {
+    if (!declared.has(key)) fail('EDITOR_VALUE_INVALID', `La plantilla no declara el campo ${key}.`, path);
+  }
+  if (!declared.has('word')) return;
+  const word = values.word;
+  if (typeof word !== 'string' || word.trim().length === 0 || word.length > 24) {
+    fail('EDITOR_VALUE_INVALID', 'La palabra de la plantilla debe tener entre 1 y 24 caracteres.', path);
+  }
+}
+
 function validateEditableTransform(transform, path) {
   if (!transform) fail('EDITOR_VALUE_INVALID', 'Falta el transform del elemento.', path);
   numberInRange(transform.x, -1080, 2160, `${path}/x`);
@@ -712,6 +762,8 @@ function assertCommandShape(command) {
     'set-character-animation': { required: ['type', 'sceneId', 'elementId', 'animationPreset'], optional: [] },
     'add-character': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], optional: [] },
     'add-prop': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], optional: [] },
+    'add-template': { required: ['type', 'sceneId', 'elementId', 'templateId', 'word', 'zIndex'], optional: [] },
+    'set-template-word': { required: ['type', 'sceneId', 'elementId', 'word'], optional: [] },
     'set-prop-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId'], optional: [] },
     'delete-element': { required: ['type', 'sceneId', 'elementId'], optional: [] },
     'place-character-resource': { required: ['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y'], optional: [] },

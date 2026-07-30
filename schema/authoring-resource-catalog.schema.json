@@ -16,6 +16,7 @@
         "oneOf": [
           { "$ref": "#/$defs/characterResource" },
           { "$ref": "#/$defs/propResource" },
+          { "$ref": "#/$defs/templateResource" },
           { "$ref": "#/$defs/voiceResource" },
           { "$ref": "#/$defs/backgroundResource" },
           { "$ref": "#/$defs/imageResource" },
@@ -131,6 +132,49 @@
         "tags": { "$ref": "#/$defs/tags" },
         "asset": { "$ref": "#/$defs/assetPath" },
         "thumbnail": { "$ref": "#/$defs/assetPath" },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "templateResource": {
+      "type": "object",
+      "description": "Efecto prearmado que se compone por código. No tiene rig ni PNG: su definición declara las páginas y los campos editables.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "label",
+        "tags",
+        "templateRef",
+        "thumbnail",
+        "capabilities",
+        "provenance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "template" },
+        "label": { "$ref": "#/$defs/label" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "templateRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["definition"],
+          "properties": {
+            "definition": { "$ref": "#/$defs/assetPath" }
+          }
+        },
+        "thumbnail": { "$ref": "#/$defs/assetPath" },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fields"],
+          "properties": {
+            "fields": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/id" }
+            }
+          }
+        },
         "provenance": { "$ref": "#/$defs/provenance" }
       }
     },

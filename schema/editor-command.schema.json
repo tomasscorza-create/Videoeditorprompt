@@ -40,6 +40,12 @@
       "$ref": "#/$defs/setPropResource"
     },
     {
+      "$ref": "#/$defs/addTemplate"
+    },
+    {
+      "$ref": "#/$defs/setTemplateWord"
+    },
+    {
       "$ref": "#/$defs/deleteElement"
     },
     {
@@ -391,6 +397,30 @@
         "y": { "type": "number", "minimum": -1920, "maximum": 3840 },
         "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
         "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+      }
+    },
+    "addTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId", "templateId", "word", "zIndex"],
+      "properties": {
+        "type": { "const": "add-template" },
+        "sceneId": { "$ref": "#/$defs/id" },
+        "elementId": { "$ref": "#/$defs/id" },
+        "templateId": { "$ref": "#/$defs/id" },
+        "word": { "type": "string", "minLength": 1, "maxLength": 24 },
+        "zIndex": { "type": "integer", "minimum": -1000, "maximum": 1000 }
+      }
+    },
+    "setTemplateWord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "sceneId", "elementId", "word"],
+      "properties": {
+        "type": { "const": "set-template-word" },
+        "sceneId": { "$ref": "#/$defs/id" },
+        "elementId": { "$ref": "#/$defs/id" },
+        "word": { "type": "string", "minLength": 1, "maxLength": 24 }
       }
     },
     "setPropResource": {

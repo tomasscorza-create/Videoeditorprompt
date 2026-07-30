@@ -440,6 +440,31 @@
       }
     },
     {
+      "id": "procedural-word-match-cut-v1",
+      "type": "template",
+      "label": "Palabra entre páginas",
+      "tags": [
+        "texto",
+        "páginas",
+        "libro",
+        "generativa",
+        "match cut"
+      ],
+      "templateRef": {
+        "definition": "assets/templates/procedural-word-match-cut-v1.json"
+      },
+      "thumbnail": "assets/templates/procedural-word-match-cut-v1-thumb.svg",
+      "capabilities": {
+        "fields": [
+          "word"
+        ]
+      },
+      "provenance": {
+        "source": "Efecto original del proyecto: las páginas se construyen por código, sin imágenes de terceros.",
+        "license": "Asset original para uso interno del proyecto."
+      }
+    },
+    {
       "id": "fondo-estudio-parallax-v1",
       "type": "background",
       "label": "Estudio con parallax",
@@ -465,7 +490,11 @@
       "id": "musica-calma-v1",
       "type": "music",
       "label": "Pulso calmo",
-      "tags": ["educational", "inspirational", "calma"],
+      "tags": [
+        "educational",
+        "inspirational",
+        "calma"
+      ],
       "asset": "assets/audio/music/calm-loop-v1.wav",
       "loop": true,
       "gainDb": -6,
@@ -478,7 +507,11 @@
       "id": "musica-brillante-v1",
       "type": "music",
       "label": "Impulso brillante",
-      "tags": ["energetic", "inspirational", "ritmo"],
+      "tags": [
+        "energetic",
+        "inspirational",
+        "ritmo"
+      ],
       "asset": "assets/audio/music/bright-loop-v1.wav",
       "loop": true,
       "gainDb": -6,
@@ -491,7 +524,11 @@
       "id": "musica-enfoque-v1",
       "type": "music",
       "label": "Fondo de enfoque",
-      "tags": ["serious", "ironic", "enfoque"],
+      "tags": [
+        "serious",
+        "ironic",
+        "enfoque"
+      ],
       "asset": "assets/audio/music/focused-loop-v1.wav",
       "loop": true,
       "gainDb": -6,

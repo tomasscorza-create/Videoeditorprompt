@@ -49,10 +49,14 @@ import { resolveBrowserExecutable } from '../stage2f/rasterizer.mjs';
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pagePath = path.join(moduleDirectory, 'compositor-page.html');
 const pixiPath = path.join(projectRoot, 'node_modules', 'pixi.js', 'dist', 'pixi.min.mjs');
+const sharedRoot = path.join(projectRoot, 'shared');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8',
+  // Los módulos de `shared/` llegan como `.js`: sin este tipo el navegador se
+  // niega a ejecutarlos y la página muere antes de importar nada.
+  '.js': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
   '.json': 'application/json; charset=utf-8',
 };
@@ -149,6 +153,17 @@ function startJobServer({ assetsRoot, assetMounts = [], job, framesDirectory, on
     let file;
     if (name === '/' || name === '/compositor.html') file = pagePath;
     else if (name === '/pixi.min.mjs') file = pixiPath;
+    else if (name.startsWith('/shared/')) {
+      // Los módulos compartidos se sirven bajo su propia ruta para que sus
+      // imports relativos sigan resolviendo igual que en el navegador del editor.
+      const candidate = path.join(sharedRoot, name.slice('/shared/'.length));
+      const relative = path.relative(sharedRoot, candidate);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        response.writeHead(403).end('fuera de la raíz');
+        return;
+      }
+      file = candidate;
+    }
     else {
       const requested = name.replace(/^\/+/u, '');
       const mount = assetMounts

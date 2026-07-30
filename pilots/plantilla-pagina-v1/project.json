@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "id": "plantilla-pagina-v1",
+  "title": "Plantilla de páginas sobre diálogo",
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "seed": 31101,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "scenes": [
+    {
+      "id": "escena-presentacion",
+      "title": "Presentación",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-pan"
+      },
+      "elements": [
+        {
+          "id": "presentadora",
+          "type": "character",
+          "resourceId": "mono-azul-v1",
+          "transform": {
+            "x": 290,
+            "y": 1105,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.7,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 20
+          },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        },
+        {
+          "id": "analista",
+          "type": "character",
+          "resourceId": "mono-ciruela-v1",
+          "transform": {
+            "x": 790,
+            "y": 1105,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.7,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 21
+          },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        },
+        {
+          "id": "efecto-paginas",
+          "type": "template",
+          "templateId": "procedural-word-match-cut-v1",
+          "values": {
+            "word": "IDEA"
+          },
+          "transform": {
+            "x": 540,
+            "y": 960,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 1,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 30
+          }
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-presentacion-01",
+          "speakerElementId": "presentadora",
+          "text": "Esta es la primera escena de un proyecto editable.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "turno-presentacion-02",
+          "speakerElementId": "analista",
+          "text": "Los recursos y las voces se seleccionan mediante identificadores estables.",
+          "voiceId": "voz-davefx-es-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}

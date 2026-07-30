@@ -5,6 +5,7 @@ import { projectRoot } from './common.mjs';
 import { PipelineError } from './errors.mjs';
 import { resolveAsset } from './job-context.mjs';
 import { validateResourceManifestV3 } from '../stage2f/resource-manifest.mjs';
+import { parseVideoTemplateDefinition } from '../../shared/video-template-definition.js';
 
 export const SCENE_LIMITS = Object.freeze({
   maxAudioDurationSeconds: 120,
@@ -158,6 +159,10 @@ function validateDialogueSemantics(config) {
     if (elementIds.has(prop.id)) semanticError(`/props/${index}/id`, 'debe ser único en la escena');
     elementIds.add(prop.id);
   }
+  for (const [index, template] of (config.templates ?? []).entries()) {
+    if (elementIds.has(template.id)) semanticError(`/templates/${index}/id`, 'debe ser único en la escena');
+    elementIds.add(template.id);
+  }
   const turnIds = new Set();
   for (const [index, turn] of config.dialogue.entries()) {
     if (turnIds.has(turn.id)) semanticError(`/dialogue/${index}/id`, 'debe ser único');
@@ -220,6 +225,29 @@ function resolveDialogueAssets(config, context) {
       id: prop.id,
       resourceRig: resolved.resourceRig,
       transform: prop.transform,
+    };
+  });
+  context.resolvedTemplates = (config.templates ?? []).map((template, index) => {
+    assertPortableRelativePath(template.definition, `/templates/${index}/definition`);
+    const definitionFile = resolveAsset(context, template.definition, `templates/${index}/definition`);
+    let definition;
+    try {
+      definition = parseVideoTemplateDefinition(JSON.parse(readFileSync(definitionFile, 'utf8')));
+    } catch (error) {
+      semanticError(
+        `/templates/${index}/definition`,
+        `no cumple el contrato de plantilla: ${error instanceof Error ? error.message : 'formato inválido'}`,
+      );
+    }
+    const field = definition.fields.find((candidate) => candidate.id === 'word');
+    if (template.word.length > field.maxLength) {
+      semanticError(`/templates/${index}/word`, `supera el máximo de ${field.maxLength} caracteres de la plantilla`);
+    }
+    return {
+      id: template.id,
+      definition: template.definition,
+      word: template.word,
+      transform: template.transform,
     };
   });
 }

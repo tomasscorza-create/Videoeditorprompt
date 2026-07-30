@@ -233,6 +233,47 @@
         }
       }
     },
+    "templateElement": {
+      "type": "object",
+      "description": "Efecto prearmado del catálogo de plantillas. Ocupa el cuadro completo y repite su ciclo mientras dura la escena; los campos editables son cerrados y los declara la propia plantilla.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "templateId",
+        "values",
+        "transform"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "template"
+        },
+        "templateId": {
+          "$ref": "#/$defs/id"
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "word"
+          ],
+          "properties": {
+            "word": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 24,
+              "description": "Texto que la plantilla compone dentro de la página. El límite fino lo declara la definición de la plantilla."
+            }
+          }
+        },
+        "transform": {
+          "$ref": "#/$defs/transform"
+        }
+      }
+    },
     "textElement": {
       "type": "object",
       "additionalProperties": false,
@@ -391,6 +432,9 @@
               },
               {
                 "$ref": "#/$defs/propElement"
+              },
+              {
+                "$ref": "#/$defs/templateElement"
               },
               {
                 "$ref": "#/$defs/imageElement"

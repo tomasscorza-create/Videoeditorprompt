@@ -61,6 +61,7 @@ for (const name of [
   'animation-presets.js',
   'animation-evaluator.js',
   'video-template-page.js',
+  'video-template-definition.js',
 ]) {
   copyFileSync(path.join(projectRoot, 'shared', name), path.join(outDir, 'shared', name));
 }
@@ -147,6 +148,7 @@ const commandRegistry = await import(pathToFileURL(path.join(outDir, 'src', 'ui'
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 const fingerprint = await import(pathToFileURL(path.join(projectRoot, 'shared', 'project-fingerprint.js')).href);
 const videoTemplateEvaluator = await import(pathToFileURL(path.join(projectRoot, 'shared', 'video-template-evaluator.js')).href);
+const videoTemplateDefinition = await import(pathToFileURL(path.join(projectRoot, 'shared', 'video-template-definition.js')).href);
 
 let passed = 0;
 const check = (label, condition) => {
@@ -274,7 +276,7 @@ check(
   );
 }
 {
-  const definition = videoTemplateCatalog.parseVideoTemplateDefinition(
+  const definition = videoTemplateDefinition.parseVideoTemplateDefinition(
     readJson(path.join(projectRoot, 'public', 'assets', 'templates', 'procedural-word-match-cut-v1.json')),
     'procedural-word-match-cut-v1',
   );

@@ -127,12 +127,13 @@ export function compileVideoProject(context, options = {}) {
 }
 
 function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
-  const unsupported = scene.elements.filter((element) => !['character', 'prop'].includes(element.type));
+  const unsupported = scene.elements.filter((element) => !['character', 'prop', 'template'].includes(element.type));
   if (unsupported.length > 0) {
     unsupportedScene(sceneIndex, `contiene elementos todavía no soportados por el runtime: ${unsupported.map((item) => `${item.id}:${item.type}`).join(', ')}`);
   }
   const characterElements = scene.elements.filter((element) => element.type === 'character');
   const propElements = scene.elements.filter((element) => element.type === 'prop');
+  const templateElements = scene.elements.filter((element) => element.type === 'template');
   if (characterElements.length !== 2) unsupportedScene(sceneIndex, 'debe contener exactamente dos personajes para el runtime v2 actual');
   if (scene.dialogue.length < 2) unsupportedScene(sceneIndex, 'debe contener al menos dos turnos para el runtime v2 actual');
 
@@ -145,6 +146,8 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
   }));
   const characterManifestPaths = characterSources.map(({ resource }) => resolveCharacterManifest(resource, assetsRoot, sceneIndex));
   const usesPixiCompositor = propElements.length > 0
+    // Una plantilla se dibuja por código en cada frame: FFmpeg overlay no puede.
+    || templateElements.length > 0
     || characterElements.some((element) => (
       element.transform.rotationDegrees !== 0
       || element.tracks?.some((track) => track.parameterId === 'rotationDegrees')
@@ -205,6 +208,23 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
         ...(element.tracks?.length ? { tracks: compileTracks(element, sceneIndex, true) } : {}),
       };
     });
+  const templates = templateElements
+    .map((element, sourceIndex) => ({ element, sourceIndex, resource: resources.get(element.templateId) }))
+    .sort((left, right) => left.element.transform.zIndex - right.element.transform.zIndex
+      || left.sourceIndex - right.sourceIndex)
+    .map(({ element, resource }) => ({
+      id: element.id,
+      definition: resource.templateRef.definition,
+      word: element.values.word,
+      transform: {
+        x: element.transform.x - project.video.width / 2,
+        y: element.transform.y - project.video.height / 2,
+        scale: element.transform.scale,
+        rotationDegrees: element.transform.rotationDegrees,
+        opacity: element.transform.opacity,
+        zIndex: element.transform.zIndex,
+      },
+    }));
   const backgroundResource = resources.get(scene.background.resourceId);
   const manifestPath = resolveAuthoringAsset(assetsRoot, backgroundResource.backgroundManifest, `manifest de fondo ${backgroundResource.id}`);
   const backgroundManifest = readJson(manifestPath);
@@ -249,6 +269,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     backgroundAnimation: { layers: backgroundLayers, camera },
     characters,
     ...(props.length ? { props } : {}),
+    ...(templates.length ? { templates } : {}),
     dialogue,
     mouth: { ...MOUTH_DEFAULTS },
     subtitleStyle: { ...SUBTITLE_DEFAULTS },

@@ -36,7 +36,35 @@ trace('pagina cargada');
 // dibujados, mientras que una captura de pantalla depende del compositor del
 // navegador.
 
-import { Application, Assets, Container, Sprite } from './pixi.min.mjs';
+import { Application, Assets, Container, Sprite, Texture } from './pixi.min.mjs';
+import { drawMatchCutFrame, paintWord, renderPageBase } from './shared/video-template-page.js';
+import { evaluateWordMatchCut } from './shared/video-template-evaluator.js';
+
+/**
+ * Las páginas de una plantilla dependen de su definición y de la palabra, no del
+ * frame: se componen una sola vez y después cada frame es solo elegir cuál va y
+ * volver a dibujar la cámara.
+ */
+async function prepareTemplates(frames, video) {
+  const prepared = new Map();
+  for (const frame of frames) {
+    for (const template of frame.templates ?? []) {
+      const key = `${template.definition}::${template.word}`;
+      if (prepared.has(key)) continue;
+      const definition = await (await fetch(`./${template.definition}`)).json();
+      const canvas = document.createElement('canvas');
+      canvas.width = video.width;
+      canvas.height = video.height;
+      prepared.set(key, {
+        definition,
+        canvas,
+        texture: Texture.from(canvas),
+        pages: definition.pageStyles.map((style, index) => paintWord(renderPageBase(style, index), template.word)),
+      });
+    }
+  }
+  return prepared;
+}
 
 async function report(route, body) {
   await fetch(route, { method: 'POST', body });
@@ -88,9 +116,42 @@ async function run() {
     textures.set(src, await Assets.load(src));
   }
 
+  const templates = await prepareTemplates(job.frames, job.video);
+  window.__trace(`plantillas preparadas: ${templates.size}`);
+
   for (const [index, frame] of job.frames.entries()) {
     root.removeChildren();
-    for (const sprite of frame.sprites) {
+    // Sprites y plantillas comparten una sola escala de capas para que una
+    // plantilla pueda quedar debajo o encima de los personajes según lo que
+    // decidió la autoría. Un sprite vale `capa * 1000 + pieza`
+    // (`shared/compositor-contract.js`), así que la plantilla usa el mismo
+    // múltiplo: con el número crudo caería entre las piezas de dos personajes.
+    const layers = [
+      ...frame.sprites.map((sprite) => ({ zIndex: sprite.zIndex, sprite })),
+      ...(frame.templates ?? []).map((template) => ({ zIndex: template.transform.zIndex * 1000, template })),
+    ].sort((left, right) => left.zIndex - right.zIndex);
+
+    for (const layer of layers) {
+      if (layer.template) {
+        const key = `${layer.template.definition}::${layer.template.word}`;
+        const entry = templates.get(key);
+        if (!entry) throw new Error(`plantilla sin preparar: ${key}; preparadas: ${[...templates.keys()].join(' | ') || 'ninguna'}`);
+        const evaluated = evaluateWordMatchCut(entry.definition, layer.template.seconds);
+        drawMatchCutFrame(entry.canvas, entry.pages[evaluated.sourceIndex], evaluated);
+        entry.texture.source.update();
+        const node = new Sprite(entry.texture);
+        node.anchor.set(0.5);
+        node.position.set(
+          job.video.width / 2 + layer.template.transform.x,
+          job.video.height / 2 + layer.template.transform.y,
+        );
+        node.scale.set(layer.template.transform.scale);
+        node.rotation = layer.template.transform.rotationDegrees * Math.PI / 180;
+        node.alpha = layer.template.transform.opacity;
+        root.addChild(node);
+        continue;
+      }
+      const sprite = layer.sprite;
       // La cadena de transformaciones se materializa como contenedores anidados:
       // el de afuera es el primero de la lista, así una pieza hija hereda la
       // rotación de su padre sin recalcular nada.

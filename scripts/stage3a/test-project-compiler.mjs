@@ -3,6 +3,7 @@ import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { compileVideoProject } from './compile-video-project.mjs';
+import { selectCompositorBackend } from '../stage1/export-dialogue.mjs';
 import { createProjectCompilationContext } from './project-compilation-context.mjs';
 
 const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
@@ -117,6 +118,29 @@ results.push({ name: 'mixed-character-catalogs-compile-through-direct-manifests'
 const expressiveProject = path.join(projectRoot, 'pilots', 'proyecto-editable-01', 'project.json');
 assert.throws(() => compileVideoProject(contextFor('unsupported-text', expressiveProject), { report: silentReport }), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
 results.push({ name: 'unsupported-elements-are-not-dropped', passed: true });
+
+const templated = structuredClone(source);
+templated.scenes[0].elements.push({
+  id: 'efecto-paginas',
+  type: 'template',
+  templateId: 'procedural-word-match-cut-v1',
+  values: { word: 'IDEA' },
+  transform: { x: 540, y: 960, anchorX: 0.5, anchorY: 0.5, scale: 1, rotationDegrees: 0, opacity: 1, zIndex: 30 },
+});
+const templatedRun = compileCase('template-element', templated);
+const templatedContext = contextFor('template-element', path.join(projectsRoot, 'template-element.json'));
+const templatedConfig = readJson(path.join(templatedContext.jobRoot, templatedRun.manifest.scenes[0].config));
+assert.equal(templatedConfig.templates.length, 1);
+assert.deepEqual(templatedConfig.templates[0], {
+  id: 'efecto-paginas',
+  definition: 'assets/templates/procedural-word-match-cut-v1.json',
+  word: 'IDEA',
+  // El compilador centra el transform de autoría, igual que con un prop.
+  transform: { x: 0, y: 0, scale: 1, rotationDegrees: 0, opacity: 1, zIndex: 30 },
+});
+// Una plantilla se dibuja por código en cada frame: FFmpeg overlay no puede.
+assert.equal(selectCompositorBackend({ characters: [], templates: templatedConfig.templates }), 'pixi');
+results.push({ name: 'template-elements-compile-and-force-the-pixi-compositor', passed: true });
 
 const rotated = structuredClone(source);
 rotated.scenes[0].elements[0].transform.rotationDegrees = 12;

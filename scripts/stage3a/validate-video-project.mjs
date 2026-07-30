@@ -3,6 +3,7 @@ import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { isMain, parseArguments, projectRoot, readJson } from '../stage1/common.mjs';
 import { PipelineError, serializeError } from '../stage1/errors.mjs';
+import { parseVideoTemplateDefinition } from '../../shared/video-template-definition.js';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateProjectSchema = ajv.compile(readSchema('video-project.schema.json'));
@@ -141,6 +142,34 @@ export function validateResourceCatalogSemantics(catalog, assetsRoot) {
       for (const [name, layerPath] of Object.entries(manifest.layers)) {
         assertPortableRelativePath(layerPath, `/backgroundManifest/layers/${name}`);
         resolveAuthoringAsset(assetsRoot, path.posix.join(manifestDirectory, layerPath), `capa ${name} del fondo ${entry.id}`);
+      }
+    } else if (entry.type === 'template') {
+      for (const name of ['thumbnail']) {
+        assertPortableRelativePath(entry[name], `/resourceCatalog/entries/${index}/${name}`);
+        resolveAuthoringAsset(assetsRoot, entry[name], `miniatura de la plantilla ${entry.id}`);
+      }
+      assertPortableRelativePath(entry.templateRef.definition, `/resourceCatalog/entries/${index}/templateRef/definition`);
+      const definitionFile = resolveAuthoringAsset(assetsRoot, entry.templateRef.definition, `definición de la plantilla ${entry.id}`);
+      const definition = readJsonDocument(definitionFile, {
+        code: 'TEMPLATE_DEFINITION_JSON_INVALID',
+        message: 'Una definición de plantilla referenciada no contiene JSON válido.',
+      });
+      let parsedDefinition;
+      try {
+        parsedDefinition = parseVideoTemplateDefinition(definition, entry.id);
+      } catch (error) {
+        semanticError(
+          `/resourceCatalog/entries/${index}/templateRef/definition`,
+          `no cumple el contrato de plantilla: ${error instanceof Error ? error.message : 'formato inválido'}`,
+        );
+      }
+      const declared = [...entry.capabilities.fields].sort();
+      const available = parsedDefinition.fields.map((field) => field.id).sort();
+      if (JSON.stringify(declared) !== JSON.stringify(available)) {
+        semanticError(
+          `/resourceCatalog/entries/${index}/capabilities/fields`,
+          `debe coincidir con los campos de la definición: ${available.join(', ')}`,
+        );
       }
     } else if (entry.type === 'image') {
       for (const name of ['asset', 'thumbnail']) {

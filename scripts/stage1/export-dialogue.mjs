@@ -135,6 +135,7 @@ export function selectCompositorBackend(runtime, requested = 'auto') {
   }
   if (requested !== 'auto') return requested;
   return (runtime.props?.length ?? 0) > 0
+    || (runtime.templates?.length ?? 0) > 0
     || runtime.characters.some((character) => character.characterRig?.version === 3)
     ? 'pixi'
     : 'ffmpeg';

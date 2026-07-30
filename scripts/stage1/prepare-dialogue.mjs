@@ -117,6 +117,12 @@ export function prepareDialogueJob(context, config, report) {
     resourceRig: prop.resourceRig,
     transform: prop.transform,
   }));
+  const templates = (context.resolvedTemplates ?? []).map((template) => ({
+    id: template.id,
+    definition: template.definition,
+    word: template.word,
+    transform: template.transform,
+  }));
   const runtime = {
     version: 2,
     jobId: context.jobId,
@@ -126,6 +132,7 @@ export function prepareDialogueJob(context, config, report) {
     backgroundAnimation: context.resolvedBackgroundAnimation,
     characters,
     ...(props.length ? { props } : {}),
+    ...(templates.length ? { templates } : {}),
     dialoguePath: dialogueRelative,
     audio: {
       path: masterRelative,
