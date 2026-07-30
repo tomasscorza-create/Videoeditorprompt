@@ -438,8 +438,8 @@ function applyMutation(project, catalog, command) {
     }
     case 'set-element-transform': {
       const element = requireElement(requireScene(project, command.sceneId), command.elementId);
-      if (!['character', 'prop'].includes(element.type)) {
-        fail('EDITOR_ELEMENT_UNSUPPORTED', 'El transform solo puede editar personajes o props.', '/command/elementId');
+      if (!['character', 'prop', 'template'].includes(element.type)) {
+        fail('EDITOR_ELEMENT_UNSUPPORTED', 'El transform solo puede editar personajes, props o plantillas.', '/command/elementId');
       }
       const keys = ['x', 'y', 'scale', 'rotationDegrees', 'opacity', 'zIndex']
         .filter((key) => Object.hasOwn(command, key));

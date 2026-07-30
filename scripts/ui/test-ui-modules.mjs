@@ -873,6 +873,66 @@ const project = readJson(path.join(projectRoot, 'pilots', 'proyecto-compilable-0
 const catalog = readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'authoring-resources.json'));
 const store = storeModule.createStore(engine.createProjectEditor(project, catalog), 'rev-abc');
 
+{
+  // Dos catálogos describen la misma plantilla: el de autoría manda para el
+  // motor y el de presentación para la biblioteca. Si divergen, la tarjeta
+  // arrastraría un ID que el proyecto no puede resolver.
+  const presentation = readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'video-templates.json'));
+  const authored = new Map(catalog.entries
+    .filter((entry) => entry.type === 'template')
+    .map((entry) => [entry.id, entry]));
+  check(
+    'los catálogos de plantillas coinciden en IDs y definiciones',
+    presentation.templates.length === authored.size
+      && presentation.templates.every((template) => (
+        authored.get(template.id)?.templateRef.definition === template.definitionPath
+      )),
+  );
+}
+{
+  const scene = 'escena-presentacion';
+  const added = engine.applyProjectEditorCommand(engine.createProjectEditor(project, catalog), {
+    type: 'add-template',
+    sceneId: scene,
+    elementId: 'efecto-paginas',
+    templateId: 'procedural-word-match-cut-v1',
+    word: 'IDEA',
+    zIndex: 30,
+  });
+  const element = added.project.scenes[0].elements.at(-1);
+  check(
+    'agregar una plantilla la centra en el cuadro y guarda su palabra',
+    element.type === 'template'
+      && element.values.word === 'IDEA'
+      && element.transform.x === 540
+      && element.transform.y === 960
+      && element.transform.scale === 1,
+  );
+  const renamed = engine.applyProjectEditorCommand(added, {
+    type: 'set-template-word',
+    sceneId: scene,
+    elementId: 'efecto-paginas',
+    word: 'IMPACTO',
+  });
+  check(
+    'cambiar la palabra de la plantilla entra en el historial',
+    renamed.project.scenes[0].elements.at(-1).values.word === 'IMPACTO'
+      && engine.undoProjectEditor(renamed).project.scenes[0].elements.at(-1).values.word === 'IDEA',
+  );
+  let rejected = null;
+  try {
+    engine.applyProjectEditorCommand(added, {
+      type: 'set-template-word',
+      sceneId: scene,
+      elementId: 'efecto-paginas',
+      word: '   ',
+    });
+  } catch (error) {
+    rejected = error;
+  }
+  check('una palabra vacía no llega al proyecto', rejected?.code === 'EDITOR_VALUE_INVALID');
+}
+
 check('expone la escena seleccionada inicial', store.selectedSceneId() === 'escena-presentacion');
 check('expone la revisión del catálogo', store.catalogRevision() === 'rev-abc');
 check('sin historial al inicio', store.canUndo() === false && store.canRedo() === false);

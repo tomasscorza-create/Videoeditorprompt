@@ -2,16 +2,29 @@ import { optional } from '../dom.js';
 import {
   CHARACTER_DRAG_TYPE,
   PROP_DRAG_TYPE,
+  TEMPLATE_DRAG_TYPE,
   CHARACTER_PLACEMENT_EVENT,
   currentCharacterPlacement,
   finishCharacterPlacement,
   readCharacterDrag,
   readPropDrag,
+  readTemplateDrag,
   type CharacterPlacement,
 } from './character-placement.js';
 import type { ProjectStore } from './store.js';
 import type { ElementView, SceneView } from './types.js';
 import { nextVisualZIndex } from './layers.js';
+import {
+  drawMatchCutFrame,
+  paintWord,
+  renderPageBase,
+  type PreparedPage,
+} from '../../../shared/video-template-page.js';
+import { evaluateWordMatchCut } from '../../../shared/video-template-evaluator.js';
+import {
+  parseVideoTemplateDefinition,
+  type VideoTemplateDefinition,
+} from '../../../shared/video-template-definition.js';
 import { PROJECT_SELECTION_EVENT, projectSelection, selectProjectItem } from './selection.js';
 import {
   ANIMATION_MODE_EVENT,
@@ -117,6 +130,14 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
     const scope = animationScope(store, scene);
     let animatingElement: ElementView | null = null;
     for (const element of [...scene.elements].sort((a, b) => a.transform.zIndex - b.transform.zIndex)) {
+      if (element.type === 'template') {
+        // El efecto repite su ciclo dentro de la escena: el tiempo que le importa
+        // es el transcurrido desde que la escena empezó, no el del proyecto.
+        const elapsed = previewTiming ? Math.max(0, editorPlayhead() - previewTiming.startSeconds) : 0;
+        const node = templateNode(element, store, elapsed, render);
+        if (node) nodes.push(node);
+        continue;
+      }
       if (!['character', 'prop'].includes(element.type) || !element.resourceId) continue;
       const resource = store.resources(element.type as 'character' | 'prop').find((entry) => entry.id === element.resourceId);
       const entry = resource?.characterRef
@@ -182,6 +203,66 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   window.addEventListener(EDITOR_PLAYBACK_EVENT, render);
   window.addEventListener(EDITOR_WORKSPACE_EVENT, render);
   render();
+}
+
+// Las páginas de una plantilla son caras de componer y no dependen del tiempo:
+// se guardan por plantilla y palabra, y cada dibujo es solo elegir cuál va.
+const templateDefinitions = new Map<string, VideoTemplateDefinition>();
+const templatePages = new Map<string, PreparedPage[]>();
+const loadingTemplates = new Set<string>();
+const TEMPLATE_PAGE_CACHE_LIMIT = 6;
+
+function templateNode(
+  element: ElementView,
+  store: ProjectStore,
+  seconds: number,
+  rerender: () => void,
+): HTMLElement | null {
+  const resource = store.resources('template').find((entry) => entry.id === element.templateId);
+  const definitionPath = resource?.templateRef?.definition;
+  if (!definitionPath || !element.values?.word) return null;
+
+  const node = document.createElement('canvas');
+  node.className = 'composition-template';
+  node.dataset.elementId = element.id;
+  node.width = 540;
+  node.height = 960;
+  node.style.zIndex = String(element.transform.zIndex);
+  node.style.opacity = String(element.transform.opacity);
+  const selection = projectSelection();
+  node.classList.toggle('is-selected', selection?.kind === 'element' && selection.elementId === element.id);
+  node.addEventListener('pointerdown', () => {
+    selectProjectItem({ kind: 'element', sceneId: store.selectedSceneId(), elementId: element.id });
+  });
+
+  const definition = templateDefinitions.get(definitionPath);
+  if (!definition) {
+    if (!loadingTemplates.has(definitionPath)) {
+      loadingTemplates.add(definitionPath);
+      void fetch(`/${definitionPath}`, { cache: 'no-store' })
+        .then((response) => response.json())
+        .then((value) => {
+          templateDefinitions.set(definitionPath, parseVideoTemplateDefinition(value));
+          rerender();
+        })
+        .catch(() => {
+          // Sin definición el lienzo deja el hueco: el render lo rechazaría igual.
+        })
+        .finally(() => loadingTemplates.delete(definitionPath));
+    }
+    return node;
+  }
+
+  const key = `${definitionPath}::${element.values.word}`;
+  let pages = templatePages.get(key);
+  if (!pages) {
+    pages = definition.pageStyles.map((style, index) => paintWord(renderPageBase(style, index), element.values!.word));
+    templatePages.set(key, pages);
+    for (const stale of [...templatePages.keys()].slice(0, -TEMPLATE_PAGE_CACHE_LIMIT)) templatePages.delete(stale);
+  }
+  const frame = evaluateWordMatchCut(definition, seconds);
+  drawMatchCutFrame(node, pages[frame.sourceIndex], frame);
+  return node;
 }
 
 function measuredSceneAt(timeline: MeasuredProjectTimeline | null, seconds: number): MeasuredScene | null {
@@ -694,7 +775,7 @@ function bindPlacementEvents(canvas: HTMLElement): void {
   canvas.addEventListener('dragover', (event) => {
     const transfer = event.dataTransfer;
     if (!transfer || !Array.from(transfer.types)
-      .some((type) => [CHARACTER_DRAG_TYPE, PROP_DRAG_TYPE].includes(type))) return;
+      .some((type) => [CHARACTER_DRAG_TYPE, PROP_DRAG_TYPE, TEMPLATE_DRAG_TYPE].includes(type))) return;
     event.preventDefault();
     transfer.dropEffect = 'copy';
     canvas.classList.add('is-character-drag-over');
@@ -702,7 +783,8 @@ function bindPlacementEvents(canvas: HTMLElement): void {
   canvas.addEventListener('dragleave', () => canvas.classList.remove('is-character-drag-over'));
   canvas.addEventListener('drop', (event) => {
     canvas.classList.remove('is-character-drag-over');
-    const placement = readPropDrag(event.dataTransfer)
+    const placement = readTemplateDrag(event.dataTransfer)
+      || readPropDrag(event.dataTransfer)
       || readCharacterDrag(event.dataTransfer)
       || currentCharacterPlacement();
     if (!placement) return;
@@ -724,6 +806,22 @@ function placeResource(
   const bounds = canvas.getBoundingClientRect();
   const x = Math.round(Math.max(0, Math.min(1080, (event.clientX - bounds.left) / bounds.width * 1080)));
   const y = Math.round(Math.max(0, Math.min(1920, (event.clientY - bounds.top) / bounds.height * 1920)));
+  if (placement.type === 'template') {
+    // La plantilla cubre el cuadro completo: el punto donde se soltó no importa,
+    // solo la capa, que va arriba de todo lo que ya hay en la escena.
+    const elementId = nextElementId(scene.id, scene.elements.map((element) => element.id), 'plantilla');
+    const error = store.dispatch({
+      type: 'add-template',
+      sceneId: scene.id,
+      elementId,
+      templateId: placement.resourceId,
+      word: placement.word ?? 'IDEA',
+      zIndex: nextVisualZIndex(scene),
+    });
+    reportPlacement(error || `«${placement.label}» se agregó a la escena.`, Boolean(error));
+    if (!error) finishCharacterPlacement();
+    return;
+  }
   if (placement.type === 'prop') {
     const elementId = nextElementId(scene.id, scene.elements.map((element) => element.id), 'prop');
     const error = store.dispatch({
@@ -777,7 +875,7 @@ function placeResource(
   if (!error) finishCharacterPlacement();
 }
 
-function nextElementId(sceneId: string, existing: string[], kind: 'personaje' | 'prop'): string {
+function nextElementId(sceneId: string, existing: string[], kind: 'personaje' | 'prop' | 'plantilla'): string {
   const used = new Set(existing);
   for (let index = 1; index <= 99; index += 1) {
     const id = `${sceneId}-${kind}-${String(index).padStart(2, '0')}`;

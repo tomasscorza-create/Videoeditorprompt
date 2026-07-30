@@ -2,7 +2,7 @@
 // No son una segunda fuente de verdad: el estado real vive en
 // shared/project-editor.js y solo cambia por comandos semánticos.
 
-export type ResourceType = 'character' | 'prop' | 'voice' | 'background' | 'image';
+export type ResourceType = 'character' | 'prop' | 'template' | 'voice' | 'background' | 'image';
 
 export interface ResourceEntry {
   id: string;
@@ -12,6 +12,7 @@ export interface ResourceEntry {
   capabilities?: Record<string, unknown>;
   characterRef?: { catalog: string; entryId: string };
   resourceRef?: { catalog: string; entryId: string };
+  templateRef?: { definition: string };
   thumbnail?: string;
   backgroundManifest?: string;
   provenance?: { source?: string; license?: string };
@@ -60,6 +61,9 @@ export interface ElementView {
   id: string;
   type: string;
   resourceId?: string;
+  /** Solo en elementos de tipo `template`. */
+  templateId?: string;
+  values?: { word: string };
   text?: string;
   poseId?: string;
   animationPreset?: string;

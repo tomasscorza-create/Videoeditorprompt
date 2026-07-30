@@ -6,10 +6,12 @@ import {
   CHARACTER_PLACEMENT_EVENT,
   beginCharacterPlacement,
   beginPropPlacement,
+  beginTemplatePlacement,
   currentCharacterPlacement,
   writeBackgroundDrag,
   writeCharacterDrag,
   writePropDrag,
+  writeTemplateDrag,
 } from './character-placement.js';
 import type { ProjectStore } from './store.js';
 import type { ResourceEntry, ResourceType } from './types.js';
@@ -17,6 +19,7 @@ import { PROJECT_SELECTION_EVENT, projectSelection } from './selection.js';
 import { showRightPanelPage } from '../right-panel.js';
 import {
   loadVideoTemplateCatalog,
+  loadVideoTemplateDefinition,
   openVideoTemplate,
   type VideoTemplateCatalog,
   type VideoTemplateSummary,
@@ -26,6 +29,7 @@ type LibraryType = Extract<ResourceType, 'character' | 'prop' | 'background' | '
 type LibraryTab = LibraryType | 'template';
 const ACTIVE_LIBRARY_TAB_KEY = 'local-video.library-active-tab';
 const ACTIVE_TEMPLATE_CATEGORY_KEY = 'local-video.template-active-category';
+const templateDefaultWords = new Map<string, string>();
 
 /** C4: permite que otra superficie (el Director) pida mostrar un recurso. */
 export const REVEAL_RESOURCE_EVENT = 'local-video:reveal-resource';
@@ -93,6 +97,15 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     if (!templateCatalog.categories.some((category) => category.id === activeTemplateCategory)) {
       activeTemplateCategory = templateCatalog.categories[0]?.id ?? '';
     }
+    // La palabra inicial la declara la definición, no la interfaz.
+    await Promise.all(templateCatalog.templates.map(async (template) => {
+      try {
+        const definition = await loadVideoTemplateDefinition(template);
+        templateDefaultWords.set(template.id, definition.defaultValues.word);
+      } catch {
+        // Sin definición la plantilla igual se lista: al abrirla se explica el fallo.
+      }
+    }));
   } catch (error) {
     templateCatalogError = error instanceof Error ? error.message : 'No se pudo cargar el catálogo de plantillas.';
   }
@@ -330,7 +343,31 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     description.textContent = template.description;
     primary.append(name, description);
     primary.addEventListener('click', () => openVideoTemplate(template));
-    card.append(primary);
+
+    // Arrastrar la tarjeta al visor agrega la plantilla al video; el clic sigue
+    // abriendo el editor para probarla sin tocar el proyecto.
+    card.draggable = true;
+    card.addEventListener('dragstart', (event) => {
+      if (!event.dataTransfer) return;
+      writeTemplateDrag(event.dataTransfer, {
+        resourceId: template.id,
+        label: template.label,
+        type: 'template',
+        word: templateDefaultWords.get(template.id),
+      });
+      card.classList.add('is-placement-source');
+    });
+    card.addEventListener('dragend', () => card.classList.remove('is-placement-source'));
+
+    const place = document.createElement('button');
+    place.type = 'button';
+    place.className = 'resource-card-action';
+    place.textContent = 'Agregar al video';
+    place.title = `Agregar ${template.label} a la escena actual`;
+    place.addEventListener('click', () => {
+      beginTemplatePlacement(template.id, template.label, templateDefaultWords.get(template.id));
+    });
+    card.append(primary, place);
     return card;
   }
 

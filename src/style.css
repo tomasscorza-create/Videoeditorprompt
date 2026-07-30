@@ -1427,6 +1427,18 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .composition-character.is-selected { filter: drop-shadow(0 0 12px var(--accent)); }
 .composition-layer { inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .composition-character { width: 100%; height: 100%; object-fit: contain; transform-origin: center; }
+/* Una plantilla ocupa el cuadro completo: no se arrastra ni se escala a mano. */
+.composition-template {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+}
+.composition-template.is-selected { outline: 2px solid var(--accent); outline-offset: -2px; }
 .composition-transform-controls {
   position: absolute;
   z-index: 1900;

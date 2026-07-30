@@ -386,6 +386,12 @@ export function initEditingPanel(store: ProjectStore): void {
     const container = document.createElement('div');
     container.className = 'editing-tool-stack';
     container.dataset.inspectorElement = element.id;
+    // Una plantilla resuelve su propio ciclo: no tiene pistas ni transformaciones
+    // editables, así que su única página es la palabra que compone.
+    if (element.type === 'template') {
+      container.append(templateElementEditor(scene, element));
+      return container;
+    }
     if (page === 'adjustments') {
       container.append(baseElementEditor(scene, element));
     } else if (page === 'create-animation') {
@@ -398,6 +404,31 @@ export function initEditingPanel(store: ProjectStore): void {
       container.append(tracksEditor(scene, element));
     }
     return container;
+  }
+
+  function templateElementEditor(scene: SceneView, element: ElementView): HTMLElement {
+    const resource = store.resources('template').find((item) => item.id === element.templateId);
+    const card = editingCard('Plantilla', resource?.label ?? element.templateId ?? element.id);
+    const word = document.createElement('input');
+    word.type = 'text';
+    word.value = element.values?.word ?? '';
+    word.maxLength = 24;
+    word.autocomplete = 'off';
+    word.addEventListener('change', () => {
+      const value = word.value.trim();
+      if (!value) {
+        word.value = element.values?.word ?? '';
+        return;
+      }
+      send({ type: 'set-template-word', sceneId: scene.id, elementId: element.id, word: value });
+    });
+    card.append(field('Palabra destacada', word));
+    card.append(layerOrderField(scene, element));
+    card.append(contextNote(
+      'El efecto ocupa el cuadro completo y repite su ciclo mientras dura la escena. '
+      + 'Para quitarlo, borralo desde la timeline.',
+    ));
+    return card;
   }
 
   function baseElementEditor(scene: SceneView, element: ElementView): HTMLElement {

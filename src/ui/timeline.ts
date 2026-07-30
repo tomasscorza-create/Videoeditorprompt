@@ -313,6 +313,33 @@ function renderLayerStack(
     });
     rows.push(authoringTrack(`P${slot + 1}`, `Prop ${slot + 1}`, totalWidth, clips));
   }
+  // Una plantilla dura lo que dura su escena: repite su ciclo hasta el corte.
+  const maximumTemplates = Math.max(0, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'template').length));
+  for (let slot = 0; slot < maximumTemplates; slot += 1) {
+    const clips = project.scenes.flatMap((scene, sceneIndex) => {
+      const element = scene.elements.filter((candidate) => candidate.type === 'template')[slot];
+      if (!element) return [];
+      const clip = authoringClip(
+        element.values?.word ? `«${element.values.word}»` : element.id,
+        elementClipDetail(element),
+        positions[sceneIndex],
+        sceneWidths[sceneIndex],
+        'character',
+        isElementSelected(element.id),
+      );
+      clip.dataset.scene = scene.id;
+      clip.dataset.element = element.id;
+      const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
+      clip.addEventListener('click', () => clipSingleClick(
+        start,
+        () => selectElement(scene.id, element.id),
+        () => selectElementCore(scene.id, element.id),
+      ));
+      clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
+      return [clip];
+    });
+    rows.push(authoringTrack(`E${slot + 1}`, `Efecto ${slot + 1}`, totalWidth, clips));
+  }
   rows.push(trackDivider('AUDIO', 'Voces debajo de las capas visuales'));
   for (let slot = 0; slot < maximumCharacters; slot += 1) {
     const clips: HTMLElement[] = [];
@@ -563,6 +590,8 @@ function projectFps(): number {
 }
 
 function elementClipDetail(element: ElementView): string {
+  // Una plantilla no expone escala: cubre el cuadro y solo se edita su palabra.
+  if (element.type === 'template') return `Efecto en la capa ${element.transform.zIndex}`;
   const parts = [`Escala ${element.transform.scale.toFixed(2)}`];
   if (element.type === 'character') parts.push(`movimiento base ${element.animationPreset ?? 'sin definir'}`);
   return parts.join(' · ');

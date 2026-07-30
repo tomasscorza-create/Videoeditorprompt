@@ -4,7 +4,7 @@ import type { ElementView, SceneView } from './types.js';
 export function visualElementsByLayer(scene: SceneView): ElementView[] {
   const sourceOrder = new Map(scene.elements.map((element, index) => [element.id, index]));
   return scene.elements
-    .filter((element) => element.type === 'character' || element.type === 'prop')
+    .filter((element) => ['character', 'prop', 'template'].includes(element.type))
     .sort((left, right) => (
       left.transform.zIndex - right.transform.zIndex
       || (sourceOrder.get(left.id) ?? 0) - (sourceOrder.get(right.id) ?? 0)

@@ -1,11 +1,14 @@
 export const CHARACTER_DRAG_TYPE = 'application/x-local-video-character';
 export const PROP_DRAG_TYPE = 'application/x-local-video-prop';
+export const TEMPLATE_DRAG_TYPE = 'application/x-local-video-template';
 export const CHARACTER_PLACEMENT_EVENT = 'local-video-character-placement';
 
 export interface CharacterPlacement {
   resourceId: string;
   label: string;
-  type?: 'character' | 'prop';
+  type?: 'character' | 'prop' | 'template';
+  /** Palabra inicial de una plantilla, tomada de su definición. */
+  word?: string;
 }
 
 let current: CharacterPlacement | null = null;
@@ -17,6 +20,11 @@ export function beginCharacterPlacement(resourceId: string, label: string): void
 
 export function beginPropPlacement(resourceId: string, label: string): void {
   current = { resourceId, label, type: 'prop' };
+  notify();
+}
+
+export function beginTemplatePlacement(resourceId: string, label: string, word?: string): void {
+  current = { resourceId, label, type: 'template', word };
   notify();
 }
 
@@ -57,6 +65,26 @@ export function readPropDrag(dataTransfer: DataTransfer | null): CharacterPlacem
     const parsed = JSON.parse(dataTransfer.getData(PROP_DRAG_TYPE)) as CharacterPlacement;
     return parsed && typeof parsed.resourceId === 'string' && typeof parsed.label === 'string'
       ? { ...parsed, type: 'prop' }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// Una plantilla cubre el cuadro completo: el arrastre solo transporta su ID,
+// porque el punto donde se suelta no decide nada.
+export function writeTemplateDrag(dataTransfer: DataTransfer, placement: CharacterPlacement): void {
+  dataTransfer.effectAllowed = 'copy';
+  dataTransfer.setData(TEMPLATE_DRAG_TYPE, JSON.stringify({ ...placement, type: 'template' }));
+  dataTransfer.setData('text/plain', placement.label);
+}
+
+export function readTemplateDrag(dataTransfer: DataTransfer | null): CharacterPlacement | null {
+  if (!dataTransfer) return null;
+  try {
+    const parsed = JSON.parse(dataTransfer.getData(TEMPLATE_DRAG_TYPE)) as CharacterPlacement;
+    return parsed && typeof parsed.resourceId === 'string' && typeof parsed.label === 'string'
+      ? { ...parsed, type: 'template' }
       : null;
   } catch {
     return null;
