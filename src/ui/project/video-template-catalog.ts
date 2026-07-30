@@ -1,3 +1,11 @@
+import {
+  PROCEDURAL_PAGE_LAYOUTS,
+  type ProceduralPageLayout,
+  type ProceduralPageStyle,
+} from '../../../shared/video-template-page.js';
+
+export type { ProceduralPageLayout, ProceduralPageStyle };
+
 export const VIDEO_TEMPLATE_CATALOG_URL = '/assets/catalog/video-templates.json';
 export const OPEN_VIDEO_TEMPLATE_EVENT = 'local-video:open-video-template';
 
@@ -47,41 +55,6 @@ export interface ProceduralWordMatchCutDefinition {
 }
 
 export type VideoTemplateDefinition = ProceduralWordMatchCutDefinition;
-
-/** Cada layout describe una familia editorial real: márgenes, columnas y jerarquía. */
-export const PROCEDURAL_PAGE_LAYOUTS = [
-  'classic',
-  'novel',
-  'columns',
-  'editorial',
-  'typewriter',
-  'poetry',
-  'encyclopedia',
-  'essay',
-  'manuscript',
-  'ledger',
-  'newspaper',
-  'dictionary',
-] as const;
-
-export type ProceduralPageLayout = typeof PROCEDURAL_PAGE_LAYOUTS[number];
-
-export interface ProceduralPageStyle {
-  layout: ProceduralPageLayout;
-  seed: number;
-  fontFamily: string;
-  fontStyle: 'normal' | 'italic';
-  fontWeight: number;
-  fontSize: number;
-  lineHeight: number;
-  paperColor: string;
-  inkColor: string;
-  highlightColor: string;
-  age: number;
-  bleed: number;
-  leftPhrase: string;
-  rightPhrase: string;
-}
 
 export async function loadVideoTemplateCatalog(): Promise<VideoTemplateCatalog> {
   const response = await fetch(VIDEO_TEMPLATE_CATALOG_URL, { cache: 'no-store' });

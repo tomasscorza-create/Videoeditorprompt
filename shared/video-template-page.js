@@ -1,76 +1,41 @@
 // Composición de una página impresa generativa: papel, tinta, tipografía y desgaste.
 //
-// Separado de `video-template-editor.ts` cuando el dibujo dejó de ser un detalle
-// del panel: el editor gobierna reloj, campos y cámara; este módulo solo pinta
-// una página y no conoce el DOM del panel.
+// Vive en `shared/` porque lo consumen los DOS extremos: el editor del navegador
+// y el compositor headless, que corre PixiJS dentro de un Chrome real. Es la
+// misma implementación de dibujo en la vista previa y en el MP4, igual que
+// `shared/scene-evaluator.js` hace con el tiempo.
+//
+// Por eso es JavaScript de navegador puro: usa `document.createElement('canvas')`
+// y no puede importar nada de Node.
 //
 // Todo es determinista: cada página deriva de `style.seed`, así que la misma
 // definición produce siempre el mismo papel, el mismo texto y el mismo desgaste.
 
-import type { ProceduralPageLayout, ProceduralPageStyle } from './project/video-template-catalog.js';
-import type { WordMatchCutEvaluation } from '../../shared/video-template-evaluator.js';
-
 export const GENERATED_PAGE_WIDTH = 900;
 export const GENERATED_PAGE_HEIGHT = 1180;
 
+/** Cada layout describe una familia editorial real: márgenes, columnas y jerarquía. */
+export const PROCEDURAL_PAGE_LAYOUTS = [
+  'classic',
+  'novel',
+  'columns',
+  'editorial',
+  'typewriter',
+  'poetry',
+  'encyclopedia',
+  'essay',
+  'manuscript',
+  'ledger',
+  'newspaper',
+  'dictionary',
+];
+
 /** Desplazamiento entre la línea base tipográfica y el centro óptico de la palabra. */
 export const WORD_BASELINE_OFFSET = -5;
-
 const CONTENT_TOP = 214;
 const CONTENT_BOTTOM = 1074;
 const TARGET_BASELINE = Math.round(GENERATED_PAGE_HEIGHT * 0.5);
-
-export interface PageInkProfile {
-  fontFamily: string;
-  fontStyle: 'normal' | 'italic';
-  fontWeight: number;
-  fontSize: number;
-  wordX: number;
-  baselineY: number;
-  maxWordWidth: number;
-  inkColor: string;
-  underlineColor: string;
-  inkOpacity: number;
-  blur: number;
-  rotationDegrees: number;
-  exposure: number;
-  seed: number;
-}
-
-export interface PreparedPage {
-  canvas: HTMLCanvasElement;
-  source: PageInkProfile;
-  wordWidth: number;
-  fontSize: number;
-}
-
-/**
- * Página sin la palabra: papel, cuerpo de texto y desgaste ya resueltos.
- * Es independiente del texto que escribe el usuario, así que se calcula una vez
- * por estilo y se reutiliza en cada tecla.
- */
-export interface PageBase {
-  canvas: HTMLCanvasElement;
-  profile: PageInkProfile;
-  columnWidth: number;
-  leftPhrase: string;
-  rightPhrase: string;
-  lemma: boolean;
-}
-
-interface LayoutSpec {
-  columns: 1 | 2 | 3;
-  marginX: number;
-  justify: boolean;
-  indentParagraphs: boolean;
-  centerLines: boolean;
-  ruled: boolean;
-  dropCap: boolean;
-  header: 'none' | 'centered' | 'small-caps' | 'rule' | 'headline' | 'lemma';
-  lemmas: boolean;
-}
-
-const LAYOUT_SPECS: Record<ProceduralPageLayout, LayoutSpec> = {
+const LAYOUT_SPECS = {
   classic: base({ marginX: 98, header: 'centered' }),
   novel: base({ marginX: 106, header: 'centered' }),
   columns: base({ columns: 2, marginX: 62, header: 'small-caps' }),
@@ -85,7 +50,7 @@ const LAYOUT_SPECS: Record<ProceduralPageLayout, LayoutSpec> = {
   dictionary: base({ columns: 2, marginX: 56, header: 'lemma', lemmas: true }),
 };
 
-function base(overrides: Partial<LayoutSpec>): LayoutSpec {
+function base(overrides) {
   return {
     columns: 1,
     marginX: 96,
@@ -99,7 +64,6 @@ function base(overrides: Partial<LayoutSpec>): LayoutSpec {
     ...overrides,
   };
 }
-
 const RUNNING_HEADS = [
   'El peso de las palabras',
   'Notas sobre el tiempo',
@@ -114,7 +78,6 @@ const RUNNING_HEADS = [
   'Crónica de la semana',
   'Repertorio de voces',
 ];
-
 const VOCABULARY = [
   'la', 'el', 'una', 'un', 'los', 'las', 'de', 'del', 'que', 'en', 'por', 'para', 'con', 'sin',
   'sobre', 'entre', 'cuando', 'aunque', 'porque', 'mientras', 'donde', 'siempre', 'nunca',
@@ -129,23 +92,15 @@ const VOCABULARY = [
   'después', 'antes', 'apenas', 'todavía', 'quizá', 'acaso', 'también', 'incluso', 'además',
 ];
 
-interface Token {
-  text: string;
-  endsParagraph: boolean;
-}
-
 /** Cursor sobre un flujo de palabras: reparte líneas del ancho que le pidan. */
 class TokenCursor {
-  private index = 0;
-
-  constructor(private readonly tokens: readonly Token[]) {}
-
-  takeLine(
-    measure: (text: string) => number,
-    width: number,
-    indent: number,
-  ): { words: string[]; endsParagraph: boolean } {
-    const words: string[] = [];
+  tokens;
+  index = 0;
+  constructor(tokens) {
+    this.tokens = tokens;
+  }
+  takeLine(measure, width, indent) {
+    const words = [];
     const spaceWidth = measure(' ');
     let usedWidth = indent;
     let endsParagraph = false;
@@ -167,13 +122,12 @@ class TokenCursor {
   }
 }
 
-export function renderPageBase(style: ProceduralPageStyle, pageIndex: number): PageBase {
+export function renderPageBase(style, pageIndex) {
   const canvas = document.createElement('canvas');
   canvas.width = GENERATED_PAGE_WIDTH;
   canvas.height = GENERATED_PAGE_HEIGHT;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('No se pudo construir una de las páginas.');
-
   const spec = LAYOUT_SPECS[style.layout];
   const gutterOnLeft = (style.seed & 1) === 0;
   const columnGap = spec.columns === 3 ? 34 : 42;
@@ -184,7 +138,6 @@ export function renderPageBase(style: ProceduralPageStyle, pageIndex: number): P
   const columnCenterX = columnLeft + columnWidth / 2;
   const lineStep = style.fontSize * style.lineHeight;
   const wordBaseline = snapToGrid(TARGET_BASELINE, lineStep);
-
   drawPaper(context, style, gutterOnLeft);
   drawBleedThrough(context, style, spec);
   drawHeader(context, style, spec, pageIndex);
@@ -197,7 +150,6 @@ export function renderPageBase(style: ProceduralPageStyle, pageIndex: number): P
   });
   drawFolio(context, style, pageIndex);
   drawWear(context, style, gutterOnLeft);
-
   return {
     canvas,
     columnWidth,
@@ -224,18 +176,16 @@ export function renderPageBase(style: ProceduralPageStyle, pageIndex: number): P
 }
 
 /** Copia la página base y compone la línea que contiene la palabra editable. */
-export function paintWord(page: PageBase, word: string): PreparedPage {
+export function paintWord(page, word) {
   const canvas = document.createElement('canvas');
   canvas.width = GENERATED_PAGE_WIDTH;
   canvas.height = GENERATED_PAGE_HEIGHT;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('No se pudo componer la palabra en la página.');
   context.drawImage(page.canvas, 0, 0);
-
   const profile = page.profile;
   const baseline = profile.baselineY + WORD_BASELINE_OFFSET;
   const measure = createMeasurer(context);
-
   let fontSize = profile.fontSize;
   context.font = fontDeclaration(profile, fontSize);
   let wordWidth = measure(word);
@@ -244,12 +194,10 @@ export function paintWord(page: PageBase, word: string): PreparedPage {
     context.font = fontDeclaration(profile, fontSize);
     wordWidth = measure(word);
   }
-
   context.save();
   context.globalCompositeOperation = 'multiply';
   context.fillStyle = profile.inkColor;
   context.textBaseline = 'alphabetic';
-
   const half = page.columnWidth / 2;
   const gap = fontSize * 0.3;
   const room = Math.max(0, half - wordWidth / 2 - gap);
@@ -257,21 +205,20 @@ export function paintWord(page: PageBase, word: string): PreparedPage {
   const right = fitPhrase(measure, page.rightPhrase, room, 'end');
   const wordLeft = profile.wordX - wordWidth / 2;
   const wordRight = profile.wordX + wordWidth / 2;
-
   context.globalAlpha = profile.inkOpacity * 0.94;
   if (page.lemma) {
     // En un diccionario la palabra encabeza su propia entrada, no una oración.
     context.font = fontDeclaration({ ...profile, fontWeight: 400 }, fontSize * 0.82);
     context.textAlign = 'left';
     context.fillText(right, wordRight + gap, baseline, room);
-  } else {
+  }
+  else {
     context.font = fontDeclaration(profile, fontSize);
     context.textAlign = 'right';
     context.fillText(left, wordLeft - gap, baseline);
     context.textAlign = 'left';
     context.fillText(right, wordRight + gap, baseline);
   }
-
   context.font = fontDeclaration({ ...profile, fontWeight: page.lemma ? 700 : profile.fontWeight }, fontSize);
   context.textAlign = 'center';
   context.globalAlpha = profile.inkOpacity;
@@ -279,26 +226,19 @@ export function paintWord(page: PageBase, word: string): PreparedPage {
   context.shadowColor = profile.inkColor;
   context.shadowBlur = Math.max(0.15, profile.blur * 0.8);
   context.fillText(word, profile.wordX, baseline);
-
   // Una segunda pasada mínima rompe el borde digital perfecto y lo acerca a tinta impresa.
   context.filter = 'none';
   context.shadowBlur = 0;
   context.globalAlpha = profile.inkOpacity * 0.13;
   context.fillText(word, profile.wordX + 0.26, baseline + 0.18);
   context.restore();
-
   applyPrintedGrain(context, profile, wordWidth, fontSize);
   return { canvas, source: profile, wordWidth, fontSize };
 }
 
-function drawPaper(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  gutterOnLeft: boolean,
-): void {
+function drawPaper(context, style, gutterOnLeft) {
   context.fillStyle = style.paperColor;
   context.fillRect(0, 0, GENERATED_PAGE_WIDTH, GENERATED_PAGE_HEIGHT);
-
   // Luz suave: el papel nunca es plano, recibe la iluminación desde arriba.
   const light = context.createLinearGradient(0, 0, GENERATED_PAGE_WIDTH * 0.35, GENERATED_PAGE_HEIGHT);
   light.addColorStop(0, 'rgba(255,255,255,0.09)');
@@ -306,9 +246,7 @@ function drawPaper(
   light.addColorStop(1, `rgba(74,50,25,${0.05 + style.age * 0.05})`);
   context.fillStyle = light;
   context.fillRect(0, 0, GENERATED_PAGE_WIDTH, GENERATED_PAGE_HEIGHT);
-
   const random = seededRandom(style.seed);
-
   // Fibras del papel.
   context.save();
   context.globalCompositeOperation = 'multiply';
@@ -337,17 +275,12 @@ function drawPaper(
     context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
   }
   context.restore();
-
   drawGutterShadow(context, style, gutterOnLeft);
   drawEdgeDarkening(context, style);
 }
 
 /** La sombra del lomo es lo que delata que la página pertenece a un libro abierto. */
-function drawGutterShadow(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  gutterOnLeft: boolean,
-): void {
+function drawGutterShadow(context, style, gutterOnLeft) {
   const width = GENERATED_PAGE_WIDTH * 0.22;
   const gradient = gutterOnLeft
     ? context.createLinearGradient(0, 0, width, 0)
@@ -358,27 +291,12 @@ function drawGutterShadow(
   context.save();
   context.globalCompositeOperation = 'multiply';
   context.fillStyle = gradient;
-  context.fillRect(
-    gutterOnLeft ? 0 : GENERATED_PAGE_WIDTH - width,
-    0,
-    width,
-    GENERATED_PAGE_HEIGHT,
-  );
+  context.fillRect(gutterOnLeft ? 0 : GENERATED_PAGE_WIDTH - width, 0, width, GENERATED_PAGE_HEIGHT);
   context.restore();
 }
 
-function drawEdgeDarkening(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-): void {
-  const edge = context.createRadialGradient(
-    GENERATED_PAGE_WIDTH * 0.5,
-    GENERATED_PAGE_HEIGHT * 0.46,
-    GENERATED_PAGE_WIDTH * 0.2,
-    GENERATED_PAGE_WIDTH * 0.5,
-    GENERATED_PAGE_HEIGHT * 0.5,
-    GENERATED_PAGE_HEIGHT * 0.74,
-  );
+function drawEdgeDarkening(context, style) {
+  const edge = context.createRadialGradient(GENERATED_PAGE_WIDTH * 0.5, GENERATED_PAGE_HEIGHT * 0.46, GENERATED_PAGE_WIDTH * 0.2, GENERATED_PAGE_WIDTH * 0.5, GENERATED_PAGE_HEIGHT * 0.5, GENERATED_PAGE_HEIGHT * 0.74);
   edge.addColorStop(0, 'rgba(255,255,255,0)');
   edge.addColorStop(0.7, `rgba(97,70,35,${0.02 + style.age * 0.02})`);
   edge.addColorStop(1, `rgba(71,48,24,${0.1 + style.age * 0.12})`);
@@ -390,11 +308,7 @@ function drawEdgeDarkening(
 }
 
 /** Texto del reverso visto por transparencia: espejado y muy tenue. */
-function drawBleedThrough(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  spec: LayoutSpec,
-): void {
+function drawBleedThrough(context, style, spec) {
   if (style.bleed <= 0) return;
   const cursor = new TokenCursor(makeTokens(style.seed ^ 0x5f3759df, 420));
   const measure = createMeasurer(context);
@@ -417,12 +331,7 @@ function drawBleedThrough(
   context.restore();
 }
 
-function drawHeader(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  spec: LayoutSpec,
-  pageIndex: number,
-): void {
+function drawHeader(context, style, spec, pageIndex) {
   if (spec.header === 'none') return;
   const title = RUNNING_HEADS[pageIndex % RUNNING_HEADS.length];
   const right = GENERATED_PAGE_WIDTH - spec.marginX;
@@ -431,7 +340,6 @@ function drawHeader(
   context.fillStyle = style.inkColor;
   context.globalAlpha = 0.72;
   context.textBaseline = 'alphabetic';
-
   if (spec.header === 'headline') {
     context.font = `700 ${Math.round(style.fontSize * 2.05)}px ${fontStack(style.fontFamily)}`;
     context.textAlign = 'left';
@@ -441,13 +349,15 @@ function drawHeader(
     context.fillText('Edición de la mañana · Año XIV', spec.marginX, 172);
     context.globalAlpha = 0.34;
     context.fillRect(spec.marginX, 188, right - spec.marginX, 1.6);
-  } else if (spec.header === 'rule') {
+  }
+  else if (spec.header === 'rule') {
     context.font = `600 ${Math.round(style.fontSize * 1.5)}px ${fontStack(style.fontFamily)}`;
     context.textAlign = 'left';
     context.fillText(title, spec.marginX, 142, right - spec.marginX);
     context.globalAlpha = 0.32;
     context.fillRect(spec.marginX, 166, right - spec.marginX, 1.4);
-  } else if (spec.header === 'lemma') {
+  }
+  else if (spec.header === 'lemma') {
     context.font = `700 ${Math.round(style.fontSize * 0.94)}px ${fontStack(style.fontFamily)}`;
     context.textAlign = 'left';
     context.fillText('memoria', spec.marginX, 142);
@@ -455,13 +365,15 @@ function drawHeader(
     context.fillText('umbral', right, 142);
     context.globalAlpha = 0.3;
     context.fillRect(spec.marginX, 164, right - spec.marginX, 1);
-  } else if (spec.header === 'small-caps') {
+  }
+  else if (spec.header === 'small-caps') {
     context.font = `600 ${Math.round(style.fontSize * 0.74)}px ${fontStack(style.fontFamily)}`;
     context.textAlign = 'center';
     context.fillText(title.toUpperCase(), GENERATED_PAGE_WIDTH / 2, 142);
     context.globalAlpha = 0.34;
     context.fillRect(spec.marginX, 166, right - spec.marginX, 1);
-  } else {
+  }
+  else {
     context.font = `${style.fontStyle} 500 ${Math.round(style.fontSize * 0.9)}px ${fontStack(style.fontFamily)}`;
     context.textAlign = 'center';
     context.fillText(title, GENERATED_PAGE_WIDTH / 2, 150);
@@ -469,20 +381,7 @@ function drawHeader(
   context.restore();
 }
 
-interface BodyGeometry {
-  columnGap: number;
-  columnWidth: number;
-  lineStep: number;
-  wordColumn: number;
-  wordBaseline: number;
-}
-
-function drawBody(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  spec: LayoutSpec,
-  geometry: BodyGeometry,
-): void {
+function drawBody(context, style, spec, geometry) {
   const measure = createMeasurer(context);
   const jitter = seededRandom(style.seed ^ 0x13579bdf);
   context.save();
@@ -490,7 +389,6 @@ function drawBody(
   context.fillStyle = style.inkColor;
   context.textBaseline = 'alphabetic';
   context.font = fontDeclaration(style, style.fontSize);
-
   for (let column = 0; column < spec.columns; column += 1) {
     const columnLeft = spec.marginX + column * (geometry.columnWidth + geometry.columnGap);
     const cursor = new TokenCursor(makeTokens(style.seed + column * 977, 900));
@@ -498,9 +396,7 @@ function drawBody(
     const dropCapWidth = dropCap ? drawDropCap(context, style, columnLeft) : 0;
     const dropCapBottom = CONTENT_TOP + geometry.lineStep * 2.1;
     let startsParagraph = true;
-
     if (spec.ruled) drawRules(context, style, spec, geometry, columnLeft);
-
     for (let y = CONTENT_TOP; y <= CONTENT_BOTTOM; y += geometry.lineStep) {
       const isWordLine = column === geometry.wordColumn && Math.abs(y - geometry.wordBaseline) < 0.5;
       if (isWordLine) {
@@ -514,21 +410,22 @@ function drawBody(
       const available = geometry.columnWidth - (inDropCap ? dropCapWidth + style.fontSize * 0.24 : 0);
       const line = cursor.takeLine(measure, available, indent);
       if (line.words.length === 0) break;
-
       // Cada línea recibe su propia carga de tinta: una prensa nunca es uniforme.
       context.globalAlpha = (0.74 + jitter() * 0.16) * (0.86 + style.age * 0.14);
       const drift = (jitter() - 0.5) * 1.4;
       const lineLeft = columnLeft + (inDropCap ? dropCapWidth + style.fontSize * 0.24 : 0);
-
       if (spec.lemmas && startsParagraph) {
         drawLemmaLine(context, style, line.words, lineLeft + drift, y, available);
-      } else if (spec.centerLines) {
+      }
+      else if (spec.centerLines) {
         context.textAlign = 'center';
         context.fillText(line.words.join(' '), columnLeft + geometry.columnWidth / 2 + drift, y, available);
         context.textAlign = 'left';
-      } else if (style.layout === 'typewriter') {
+      }
+      else if (style.layout === 'typewriter') {
         drawTypewriterLine(context, style, line.words.join(' '), lineLeft + indent + drift, y, jitter);
-      } else {
+      }
+      else {
         drawLine(context, measure, line.words, lineLeft + drift, y, available, indent, {
           justify: spec.justify && !line.endsParagraph && line.words.length > 2,
         });
@@ -539,16 +436,7 @@ function drawBody(
   context.restore();
 }
 
-function drawLine(
-  context: CanvasRenderingContext2D,
-  measure: (text: string) => number,
-  words: readonly string[],
-  x: number,
-  y: number,
-  width: number,
-  indent: number,
-  options: { justify: boolean },
-): void {
+function drawLine(context, measure, words, x, y, width, indent, options) {
   context.textAlign = 'left';
   if (!options.justify) {
     context.fillText(words.join(' '), x + indent, y, width);
@@ -569,14 +457,7 @@ function drawLine(
 }
 
 /** La máquina de escribir golpea cada tipo por separado: altura y tinta varían. */
-function drawTypewriterLine(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  text: string,
-  x: number,
-  y: number,
-  jitter: () => number,
-): void {
+function drawTypewriterLine(context, style, text, x, y, jitter) {
   context.textAlign = 'left';
   const baseAlpha = context.globalAlpha;
   let cursor = x;
@@ -591,14 +472,7 @@ function drawTypewriterLine(
   context.globalAlpha = baseAlpha;
 }
 
-function drawLemmaLine(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  words: readonly string[],
-  x: number,
-  y: number,
-  width: number,
-): void {
+function drawLemmaLine(context, style, words, x, y, width) {
   const [lemma, ...rest] = words;
   context.textAlign = 'left';
   context.font = fontDeclaration({ ...style, fontWeight: 700 }, style.fontSize);
@@ -608,11 +482,7 @@ function drawLemmaLine(
   if (rest.length > 0) context.fillText(rest.join(' '), x + lemmaWidth, y, width - lemmaWidth);
 }
 
-function drawDropCap(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  columnLeft: number,
-): number {
+function drawDropCap(context, style, columnLeft) {
   const size = style.fontSize * 2.9;
   context.save();
   context.font = `600 ${size}px ${fontStack(style.fontFamily)}`;
@@ -628,13 +498,7 @@ function drawDropCap(
   return width;
 }
 
-function drawRules(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  spec: LayoutSpec,
-  geometry: BodyGeometry,
-  columnLeft: number,
-): void {
+function drawRules(context, style, spec, geometry, columnLeft) {
   context.save();
   context.globalAlpha = 0.16;
   context.fillStyle = style.inkColor;
@@ -647,11 +511,7 @@ function drawRules(
   context.restore();
 }
 
-function drawFolio(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  pageIndex: number,
-): void {
+function drawFolio(context, style, pageIndex) {
   context.save();
   context.globalCompositeOperation = 'multiply';
   context.fillStyle = style.inkColor;
@@ -659,19 +519,11 @@ function drawFolio(
   context.font = `${Math.max(15, style.fontSize * 0.42)}px ${fontStack(style.fontFamily)}`;
   context.textAlign = 'center';
   context.textBaseline = 'alphabetic';
-  context.fillText(
-    String(40 + ((style.seed + pageIndex * 17) % 320)),
-    GENERATED_PAGE_WIDTH / 2,
-    GENERATED_PAGE_HEIGHT - 58,
-  );
+  context.fillText(String(40 + ((style.seed + pageIndex * 17) % 320)), GENERATED_PAGE_WIDTH / 2, GENERATED_PAGE_HEIGHT - 58);
   context.restore();
 }
 
-function drawWear(
-  context: CanvasRenderingContext2D,
-  style: ProceduralPageStyle,
-  gutterOnLeft: boolean,
-): void {
+function drawWear(context, style, gutterOnLeft) {
   const random = seededRandom(style.seed ^ 0x2468ace);
   context.save();
   context.globalCompositeOperation = 'screen';
@@ -679,12 +531,7 @@ function drawWear(
   for (let index = 0; index < 240; index += 1) {
     context.globalAlpha = 0.025 + random() * style.age * 0.075;
     const size = 0.3 + random() * 1.15;
-    context.fillRect(
-      random() * GENERATED_PAGE_WIDTH,
-      random() * GENERATED_PAGE_HEIGHT,
-      size,
-      size * (0.5 + random()),
-    );
+    context.fillRect(random() * GENERATED_PAGE_WIDTH, random() * GENERATED_PAGE_HEIGHT, size, size * (0.5 + random()));
   }
   // Motas oscuras: polvo y restos de tinta seca.
   context.globalCompositeOperation = 'multiply';
@@ -702,34 +549,19 @@ function drawWear(
   context.restore();
 }
 
-function applyPrintedGrain(
-  context: CanvasRenderingContext2D,
-  profile: PageInkProfile,
-  wordWidth: number,
-  fontSize: number,
-): void {
+function applyPrintedGrain(context, profile, wordWidth, fontSize) {
   const random = seededRandom(Math.round(profile.wordX * 31 + profile.baselineY * 17 + wordWidth * 13) | 1);
   context.save();
   context.globalCompositeOperation = 'screen';
   context.fillStyle = '#d8c7aa';
   for (let index = 0; index < 44; index += 1) {
     context.globalAlpha = 0.025 + (index % 4) * 0.008;
-    context.fillRect(
-      profile.wordX - wordWidth / 2 + random() * wordWidth,
-      profile.baselineY - fontSize * 0.76 + random() * fontSize * 0.84,
-      0.55 + (index % 3) * 0.35,
-      0.45 + (index % 2) * 0.4,
-    );
+    context.fillRect(profile.wordX - wordWidth / 2 + random() * wordWidth, profile.baselineY - fontSize * 0.76 + random() * fontSize * 0.84, 0.55 + (index % 3) * 0.35, 0.45 + (index % 2) * 0.4);
   }
   context.restore();
 }
 
-function fitPhrase(
-  measure: (text: string) => number,
-  phrase: string,
-  available: number,
-  drop: 'start' | 'end',
-): string {
+function fitPhrase(measure, phrase, available, drop) {
   const words = phrase.split(/\s+/u).filter(Boolean);
   while (words.length > 0 && measure(words.join(' ')) > available) {
     if (drop === 'start') words.shift();
@@ -738,9 +570,9 @@ function fitPhrase(
   return words.join(' ');
 }
 
-function makeTokens(seed: number, count: number): Token[] {
+function makeTokens(seed, count) {
   const random = seededRandom(seed);
-  const tokens: Token[] = [];
+  const tokens = [];
   let previous = '';
   while (tokens.length < count) {
     const length = 7 + Math.floor(random() * 12);
@@ -758,13 +590,13 @@ function makeTokens(seed: number, count: number): Token[] {
   return tokens;
 }
 
-function snapToGrid(target: number, step: number): number {
+function snapToGrid(target, step) {
   return CONTENT_TOP + Math.round((target - CONTENT_TOP) / step) * step;
 }
 
 /** Cachea anchos por texto: una página mide el mismo vocabulario cientos de veces. */
-function createMeasurer(context: CanvasRenderingContext2D): (text: string) => number {
-  const cache = new Map<string, number>();
+function createMeasurer(context) {
+  const cache = new Map();
   return (text) => {
     const key = `${context.font} ${text}`;
     const cached = cache.get(key);
@@ -775,7 +607,7 @@ function createMeasurer(context: CanvasRenderingContext2D): (text: string) => nu
   };
 }
 
-export function seededRandom(seed: number): () => number {
+export function seededRandom(seed) {
   let state = (seed >>> 0) || 1;
   return () => {
     state ^= state << 13;
@@ -785,33 +617,25 @@ export function seededRandom(seed: number): () => number {
   };
 }
 
-export function fontDeclaration(
-  source: { fontFamily: string; fontStyle: string; fontWeight: number },
-  size: number,
-): string {
+export function fontDeclaration(source, size) {
   return `${source.fontStyle} ${source.fontWeight} ${size}px ${fontStack(source.fontFamily)}`;
 }
 
 /**
- * Las familias declaradas existen en Windows; el resto de la pila cubre Linux
- * para que la misma definición no cambie de aspecto según la máquina.
- */
-function fontStack(family: string): string {
+* Las familias declaradas existen en Windows; el resto de la pila cubre Linux
+* para que la misma definición no cambie de aspecto según la máquina.
+*/
+function fontStack(family) {
   return `${family}, "Liberation Serif", "DejaVu Serif", "Nimbus Roman", Georgia, "Times New Roman", serif`;
 }
 
-export function drawMatchCutFrame(
-  canvas: HTMLCanvasElement,
-  page: PreparedPage,
-  frame: WordMatchCutEvaluation,
-): void {
+export function drawMatchCutFrame(canvas, page, frame) {
   const context = canvas.getContext('2d');
   if (!context) return;
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.fillStyle = '#d8c7a8';
   context.fillRect(0, 0, canvas.width, canvas.height);
-
   const baseScale = Math.max(canvas.width / page.canvas.width, canvas.height / page.canvas.height);
   const scale = baseScale * frame.scale;
   context.translate(canvas.width / 2 + frame.offsetX, canvas.height * 0.51 + frame.offsetY);
@@ -823,15 +647,7 @@ export function drawMatchCutFrame(
   context.filter = 'none';
   drawHighlighter(context, page, frame.underlineProgress);
   context.restore();
-
-  const vignette = context.createRadialGradient(
-    canvas.width / 2,
-    canvas.height / 2,
-    canvas.width * 0.12,
-    canvas.width / 2,
-    canvas.height / 2,
-    canvas.height * 0.72,
-  );
+  const vignette = context.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.width * 0.12, canvas.width / 2, canvas.height / 2, canvas.height * 0.72);
   vignette.addColorStop(0, 'rgba(28, 18, 9, 0)');
   vignette.addColorStop(0.72, 'rgba(28, 18, 9, 0.035)');
   vignette.addColorStop(1, 'rgba(28, 18, 9, 0.16)');
@@ -843,11 +659,7 @@ export function drawMatchCutFrame(
   }
 }
 
-function drawHighlighter(
-  context: CanvasRenderingContext2D,
-  page: PreparedPage,
-  progress: number,
-): void {
+function drawHighlighter(context, page, progress) {
   // El trazo nace del papel: cada página inclina y desborda el fibrón distinto.
   const random = seededRandom(page.source.seed ^ 0x7ae13d);
   const tilt = (random() - 0.5) * page.fontSize * 0.12;
@@ -866,26 +678,15 @@ function drawHighlighter(
   context.lineJoin = 'round';
   context.beginPath();
   context.moveTo(startX, y + page.fontSize * 0.025 + tilt);
-  context.quadraticCurveTo(
-    startX + (currentX - startX) * 0.43,
-    y - page.fontSize * 0.035,
-    currentX,
-    y + page.fontSize * 0.018 - tilt,
-  );
+  context.quadraticCurveTo(startX + (currentX - startX) * 0.43, y - page.fontSize * 0.035, currentX, y + page.fontSize * 0.018 - tilt);
   context.stroke();
-
   // Una segunda pasada desplazada deja bordes y acumulaciones propias de un fibrón real.
   context.strokeStyle = '#ffe66a';
   context.globalAlpha = 0.24;
   context.lineWidth = Math.max(8, page.fontSize * 0.34);
   context.beginPath();
   context.moveTo(startX - page.fontSize * 0.025, y - page.fontSize * 0.055 + tilt);
-  context.quadraticCurveTo(
-    startX + (currentX - startX) * 0.62,
-    y + page.fontSize * 0.035,
-    currentX + page.fontSize * 0.018,
-    y - page.fontSize * 0.025 - tilt,
-  );
+  context.quadraticCurveTo(startX + (currentX - startX) * 0.62, y + page.fontSize * 0.035, currentX + page.fontSize * 0.018, y - page.fontSize * 0.025 - tilt);
   context.stroke();
   context.restore();
 }

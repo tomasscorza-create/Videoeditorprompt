@@ -11,7 +11,7 @@ import {
   renderPageBase,
   type PageBase,
   type PreparedPage,
-} from './video-template-page.js';
+} from '../../shared/video-template-page.js';
 import {
   evaluateWordMatchCut,
   normalizeTemplateWord,

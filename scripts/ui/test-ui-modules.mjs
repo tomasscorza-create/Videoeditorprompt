@@ -55,7 +55,13 @@ writeFileSync(path.join(outDir, 'package.json'), '{"type":"module"}\n');
 mkdirSync(path.join(outDir, 'shared'), { recursive: true });
 // El motor y todo lo que importa: `project-editor.js` lee el vocabulario
 // congelado de animación desde `animation-contract.js`.
-for (const name of ['project-editor.js', 'animation-contract.js', 'animation-presets.js', 'animation-evaluator.js']) {
+for (const name of [
+  'project-editor.js',
+  'animation-contract.js',
+  'animation-presets.js',
+  'animation-evaluator.js',
+  'video-template-page.js',
+]) {
   copyFileSync(path.join(projectRoot, 'shared', name), path.join(outDir, 'shared', name));
 }
 
