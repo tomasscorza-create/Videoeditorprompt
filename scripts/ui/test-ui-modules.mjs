@@ -16,6 +16,7 @@ const sources = [
   'src/vite-env.d.ts',
   'src/ui/editor-workspace.ts',
   'src/ui/right-panel.ts',
+  'src/ui/project/video-template-catalog.ts',
   'src/ui/project/editing-panel.ts',
   'src/ui/project/store.ts',
   'src/ui/timeline-geometry.ts',
@@ -60,11 +61,13 @@ for (const name of ['project-editor.js', 'animation-contract.js', 'animation-pre
 
 const workspacePath = path.join(outDir, 'src', 'ui', 'editor-workspace.js');
 const rightPanelPath = path.join(outDir, 'src', 'ui', 'right-panel.js');
+const videoTemplateCatalogPath = path.join(outDir, 'src', 'ui', 'project', 'video-template-catalog.js');
 const editingPanelPath = path.join(outDir, 'src', 'ui', 'project', 'editing-panel.js');
 const layersPath = path.join(outDir, 'src', 'ui', 'project', 'layers.js');
 const storePath = path.join(outDir, 'src', 'ui', 'project', 'store.js');
 assert.equal(existsSync(workspacePath), true, 'editor-workspace.js no se compiló');
 assert.equal(existsSync(rightPanelPath), true, 'right-panel.js no se compiló');
+assert.equal(existsSync(videoTemplateCatalogPath), true, 'video-template-catalog.js no se compiló');
 assert.equal(existsSync(editingPanelPath), true, 'editing-panel.js no se compiló');
 assert.equal(existsSync(layersPath), true, 'layers.js no se compiló');
 assert.equal(existsSync(storePath), true, 'store.js no se compiló');
@@ -118,6 +121,7 @@ assert.equal(existsSync(directorNavigationPath), true, 'director/navigation.js n
 
 const workspace = await import(pathToFileURL(workspacePath).href);
 const rightPanel = await import(pathToFileURL(rightPanelPath).href);
+const videoTemplateCatalog = await import(pathToFileURL(videoTemplateCatalogPath).href);
 const editingPanel = await import(pathToFileURL(editingPanelPath).href);
 const layers = await import(pathToFileURL(layersPath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
@@ -136,6 +140,7 @@ const commandLabels = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 
 const commandRegistry = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'command-registry.js')).href);
 const engine = await import(pathToFileURL(path.join(outDir, 'shared', 'project-editor.js')).href);
 const fingerprint = await import(pathToFileURL(path.join(projectRoot, 'shared', 'project-fingerprint.js')).href);
+const videoTemplateEvaluator = await import(pathToFileURL(path.join(projectRoot, 'shared', 'video-template-evaluator.js')).href);
 
 let passed = 0;
 const check = (label, condition) => {
@@ -207,6 +212,106 @@ check(
     && appHtml.includes('data-right-panel-page="resources"')
     && appHtml.includes('data-right-panel-page="editing"'),
 );
+check(
+  'Recursos incorpora Plantillas sin reemplazar las categorías existentes',
+  appHtml.includes('data-resource-type="template"')
+    && appHtml.includes('id="template-category-tabs"')
+    && appHtml.includes('data-resource-type="character"')
+    && appHtml.includes('data-resource-type="background"'),
+);
+{
+  const catalog = videoTemplateCatalog.parseVideoTemplateCatalog({
+    version: 1,
+    categories: [{ id: 'animation', label: 'Animación', description: 'Efectos editables.' }],
+    templates: [{
+      id: 'word-pages',
+      label: 'Palabra entre páginas',
+      description: 'Páginas que avanzan alrededor de una palabra.',
+      categoryId: 'animation',
+      tags: ['texto'],
+      definitionPath: 'assets/templates/word-pages.json',
+    }],
+  });
+  check(
+    'el catálogo de plantillas enlaza resúmenes portables con una categoría',
+    catalog.templates[0]?.categoryId === 'animation'
+      && catalog.templates[0]?.definitionPath === 'assets/templates/word-pages.json',
+  );
+  assert.throws(
+    () => videoTemplateCatalog.parseVideoTemplateCatalog({
+      version: 1,
+      categories: [{ id: 'animation', label: 'Animación', description: 'Efectos editables.' }],
+      templates: [{
+        id: 'unsafe',
+        label: 'Inválida',
+        description: 'Ruta no portable.',
+        categoryId: 'animation',
+        tags: [],
+        definitionPath: '../../fuera.json',
+      }],
+    }),
+    /plantilla/u,
+  );
+  passed += 1;
+}
+{
+  const definition = videoTemplateCatalog.parseVideoTemplateDefinition(
+    readJson(path.join(projectRoot, 'public', 'assets', 'templates', 'rapid-pages-word-v1.json')),
+    'rapid-pages-word-v1',
+  );
+  const first = videoTemplateEvaluator.evaluateRapidPagesWord(definition, 0);
+  const repeated = videoTemplateEvaluator.evaluateRapidPagesWord(definition, definition.durationSeconds);
+  const advanced = videoTemplateEvaluator.evaluateRapidPagesWord(definition, 1);
+  check(
+    'la primera plantilla carga una palabra editable y límites acotados',
+    definition.defaultValues.word === 'IDEA'
+      && definition.fields[0].id === 'word'
+      && definition.fields[0].maxLength === 12
+      && definition.kind === 'word-match-cut'
+      && definition.cutFrames === 5
+      && definition.sequence.length === 16
+      && definition.pageSources.length === 8
+      && definition.pageSources.every((source) => existsSync(path.join(projectRoot, 'public', source.src))
+        && source.wordX > 0
+        && source.baselineY > 0
+        && source.maxWordWidth >= 60),
+  );
+  check(
+    'el efecto de páginas es determinista y cierra su bucle en el mismo frame',
+    first.sourceIndex === repeated.sourceIndex
+      && first.rotationDegrees === repeated.rotationDegrees
+      && first.offsetX === repeated.offsetX,
+  );
+  check(
+    'el tiempo hace avanzar las páginas sin mover la palabra fuera del evaluador visual',
+    advanced.sourceIndex !== first.sourceIndex
+      && videoTemplateEvaluator.normalizeTemplateWord('  IMPACTO  ', 'IDEA', 24) === 'IMPACTO',
+  );
+}
+{
+  const definition = videoTemplateCatalog.parseVideoTemplateDefinition(
+    readJson(path.join(projectRoot, 'public', 'assets', 'templates', 'procedural-word-match-cut-v1.json')),
+    'procedural-word-match-cut-v1',
+  );
+  const first = videoTemplateEvaluator.evaluateWordMatchCut(definition, 0);
+  const next = videoTemplateEvaluator.evaluateWordMatchCut(definition, definition.cutFrames / definition.fps);
+  check(
+    'la plantilla generativa conserva un contrato editable independiente',
+    definition.kind === 'procedural-word-match-cut'
+      && definition.pageStyles.length === 8
+      && new Set(definition.pageStyles.map((style) => style.layout)).size === 8
+      && definition.pageStyles.every((style) => style.seed > 0
+        && style.age >= 0
+        && style.bleed >= 0
+        && style.leftPhrase.length > 0
+        && style.rightPhrase.length > 0),
+  );
+  check(
+    'la plantilla generativa usa la misma evaluación determinista por fotograma',
+    first.sourceIndex === definition.sequence[0]
+      && next.sourceIndex === definition.sequence[1],
+  );
+}
 check(
   'Edición expone un host único para herramientas contextuales',
   appHtml.includes('id="editing-tool-host"')

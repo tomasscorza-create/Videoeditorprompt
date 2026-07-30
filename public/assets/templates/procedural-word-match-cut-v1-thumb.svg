@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 720">
+  <defs>
+    <filter id="paper" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency=".55" numOctaves="3" seed="17" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="gray"/>
+      <feBlend in="SourceGraphic" in2="gray" mode="multiply"/>
+    </filter>
+    <radialGradient id="shade">
+      <stop offset="0" stop-color="#fff9df" stop-opacity=".22"/>
+      <stop offset=".72" stop-color="#8c6134" stop-opacity=".03"/>
+      <stop offset="1" stop-color="#563619" stop-opacity=".18"/>
+    </radialGradient>
+  </defs>
+  <rect width="540" height="720" fill="#e7d6ad" filter="url(#paper)"/>
+  <rect width="540" height="720" fill="url(#shade)"/>
+  <g fill="#2b2118" font-family="Georgia,serif" font-size="19" opacity=".82">
+    <text x="54" y="74" font-size="26" font-weight="600">Historias de una idea</text>
+    <path d="M54 92H486" stroke="#2b2118" stroke-width="1" opacity=".28"/>
+    <text x="54" y="132">La memoria conserva aquello que el tiempo</text>
+    <text x="54" y="164">intenta borrar. Cada página propone una</text>
+    <text x="54" y="196">forma distinta de mirar el mundo y sus</text>
+    <text x="54" y="228">historias permanecen entre las señales.</text>
+    <text x="54" y="276">Todo comenzó cuando aquella</text>
+    <path d="M317 263 Q365 258 419 264" stroke="#f2d33f" stroke-width="23" stroke-linecap="round" opacity=".54"/>
+    <text x="326" y="276" font-weight="600">IDEA</text>
+    <text x="420" y="276">cambió</text>
+    <text x="54" y="308">la dirección del relato para siempre.</text>
+    <text x="54" y="356">La tinta guarda preguntas que todavía no</text>
+    <text x="54" y="388">tienen respuesta. Toda transformación</text>
+    <text x="54" y="420">comienza en un gesto imperceptible.</text>
+    <text x="54" y="468">El lector reconoce en esas líneas una</text>
+    <text x="54" y="500">experiencia compartida y el sentido aparece</text>
+    <text x="54" y="532">lentamente detrás de las cosas pequeñas.</text>
+  </g>
+  <text x="270" y="680" text-anchor="middle" font-family="Georgia,serif" font-size="15" fill="#2b2118" opacity=".46">73</text>
+</svg>

@@ -1590,6 +1590,95 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 /* === 9. Biblioteca de recursos === */
 
 .resource-tabs { margin-bottom: .65rem; overflow-x: auto; }
+.template-category-tabs {
+  margin: -.15rem 0 .65rem;
+  overflow-x: auto;
+}
+.template-empty-state {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: .35rem;
+  padding: 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.template-empty-state strong { font-size: var(--fs-sm); }
+.template-empty-state span,
+.template-empty-state small { color: var(--muted); line-height: 1.45; }
+.template-empty-state span { font-size: var(--fs-sm); }
+.template-empty-state small { font-size: var(--fs-xs); }
+.video-template-editor {
+  display: grid;
+  gap: .7rem;
+}
+.video-template-editor[hidden] { display: none; }
+.video-template-editor-header { align-items: flex-start; }
+.video-template-editor-header h2 { font-size: var(--fs-lg); }
+.video-template-stage {
+  position: relative;
+  width: min(100%, 20rem);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: #9f9077;
+  box-shadow: var(--shadow-raised);
+}
+.video-template-stage canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  transform: translateY(-3.5%) scale(1.18);
+  transform-origin: 50% 46%;
+}
+.video-template-time {
+  position: absolute;
+  right: .45rem;
+  bottom: .45rem;
+  padding: .2rem .38rem;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(20, 17, 14, .64);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.video-template-controls {
+  display: flex;
+  gap: .45rem;
+  align-items: center;
+  justify-content: center;
+}
+.video-template-fields {
+  display: grid;
+  gap: .55rem;
+}
+.video-template-fields .field { gap: .35rem; }
+.video-template-fields small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+.template-attribution {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+.template-attribution a {
+  color: var(--accent-strong);
+  text-underline-offset: .15em;
+}
+.template-export-note {
+  margin: 0;
+  padding: .6rem;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
 /* U2 — filtro en vivo de la biblioteca. */
 .resource-filter { margin-bottom: .5rem; }
 .resource-filter input { padding: .4rem .55rem; font-size: var(--fs-sm); }

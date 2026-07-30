@@ -28,7 +28,9 @@ export function initRightPanel(): void {
       tab.setAttribute('aria-selected', String(selected));
     }
     for (const [id, panel] of pages) panel.hidden = id !== page;
-    if (resourceAction) resourceAction.hidden = page !== 'resources';
+    if (resourceAction) {
+      resourceAction.hidden = page !== 'resources' || resourceAction.dataset.contextHidden === 'true';
+    }
     try {
       sessionStorage.setItem(ACTIVE_PAGE_KEY, page);
     } catch {

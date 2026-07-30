@@ -15,9 +15,17 @@ import type { ProjectStore } from './store.js';
 import type { ResourceEntry, ResourceType } from './types.js';
 import { PROJECT_SELECTION_EVENT, projectSelection } from './selection.js';
 import { showRightPanelPage } from '../right-panel.js';
+import {
+  loadVideoTemplateCatalog,
+  openVideoTemplate,
+  type VideoTemplateCatalog,
+  type VideoTemplateSummary,
+} from './video-template-catalog.js';
 
 type LibraryType = Extract<ResourceType, 'character' | 'prop' | 'background' | 'voice'>;
+type LibraryTab = LibraryType | 'template';
 const ACTIVE_LIBRARY_TAB_KEY = 'local-video.library-active-tab';
+const ACTIVE_TEMPLATE_CATEGORY_KEY = 'local-video.template-active-category';
 
 /** C4: permite que otra superficie (el Director) pida mostrar un recurso. */
 export const REVEAL_RESOURCE_EVENT = 'local-video:reveal-resource';
@@ -34,6 +42,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   const registerFile = optional<HTMLInputElement>('#resource-register-file');
   const libraryStatus = optional<HTMLElement>('#resource-library-status');
   const search = optional<HTMLInputElement>('#resource-search');
+  const templateCategoryTabs = optional<HTMLElement>('#template-category-tabs');
   let filter = '';
   search?.addEventListener('input', () => {
     filter = search.value.trim().toLowerCase();
@@ -44,9 +53,12 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     for (const item of root.querySelectorAll('.resource-card')) item.classList.remove('is-placement-source');
   });
   const savedType = sessionStorage.getItem(ACTIVE_LIBRARY_TAB_KEY);
-  let activeType: LibraryType = ['character', 'prop', 'background', 'voice'].includes(savedType ?? '')
-    ? savedType as LibraryType
+  let activeType: LibraryTab = ['character', 'prop', 'background', 'voice', 'template'].includes(savedType ?? '')
+    ? savedType as LibraryTab
     : 'character';
+  let templateCatalog: VideoTemplateCatalog | null = null;
+  let templateCatalogError = '';
+  let activeTemplateCategory = sessionStorage.getItem(ACTIVE_TEMPLATE_CATEGORY_KEY) ?? '';
   let thumbnails = new Map<string, string>();
   const characterCatalogs = new Set(
     store.resources('character')
@@ -76,12 +88,27 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       // El recurso sigue disponible aunque su miniatura no pueda cargarse.
     }
   }));
+  try {
+    templateCatalog = await loadVideoTemplateCatalog();
+    if (!templateCatalog.categories.some((category) => category.id === activeTemplateCategory)) {
+      activeTemplateCategory = templateCatalog.categories[0]?.id ?? '';
+    }
+  } catch (error) {
+    templateCatalogError = error instanceof Error ? error.message : 'No se pudo cargar el catálogo de plantillas.';
+  }
   function updateRegisterButton() {
     if (!registerButton) return;
+    const templatesActive = activeType === 'template';
+    registerButton.dataset.contextHidden = String(templatesActive);
+    registerButton.hidden = templatesActive;
     if (activeType === 'background') registerButton.textContent = 'Agregar fondo';
     else if (activeType === 'character') registerButton.textContent = 'Crear personaje';
     else if (activeType === 'prop') registerButton.textContent = 'Props incluidos';
     else if (activeType === 'voice') registerButton.textContent = 'Agregar voz';
+    if (search) search.placeholder = templatesActive
+      ? 'Buscar plantillas'
+      : 'Buscar por nombre o etiqueta';
+    renderTemplateCategories();
   }
   updateRegisterButton();
 
@@ -90,7 +117,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     tab.classList.toggle('is-active', isActive);
     tab.setAttribute('aria-selected', String(isActive));
     tab.addEventListener('click', () => {
-      const type = tab.dataset.resourceType as LibraryType;
+      const type = tab.dataset.resourceType as LibraryTab;
       activeType = type;
       sessionStorage.setItem(ACTIVE_LIBRARY_TAB_KEY, type);
       for (const item of document.querySelectorAll('.resource-tabs .tab')) {
@@ -190,6 +217,10 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   }
 
   function render(): void {
+    if (activeType === 'template') {
+      renderTemplates();
+      return;
+    }
     const all = store.resources(activeType);
     const visible = all.filter(matchesFilter);
     if (visible.length > 0) {
@@ -215,6 +246,92 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       search?.focus();
     });
     root!.replaceChildren(empty, clear);
+  }
+
+  function renderTemplateCategories(): void {
+    if (!templateCategoryTabs) return;
+    templateCategoryTabs.hidden = activeType !== 'template';
+    if (activeType !== 'template') return;
+    if (!templateCatalog || templateCatalog.categories.length === 0) {
+      templateCategoryTabs.replaceChildren();
+      return;
+    }
+    templateCategoryTabs.replaceChildren(...templateCatalog.categories.map((category) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'tab';
+      button.textContent = category.label;
+      button.dataset.templateCategory = category.id;
+      const selected = category.id === activeTemplateCategory;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('role', 'tab');
+      button.setAttribute('aria-selected', String(selected));
+      button.addEventListener('click', () => {
+        activeTemplateCategory = category.id;
+        sessionStorage.setItem(ACTIVE_TEMPLATE_CATEGORY_KEY, category.id);
+        renderTemplateCategories();
+        render();
+      });
+      return button;
+    }));
+  }
+
+  function renderTemplates(): void {
+    if (templateCatalogError) {
+      const error = document.createElement('p');
+      error.className = 'empty-state error';
+      error.textContent = templateCatalogError;
+      root!.replaceChildren(error);
+      return;
+    }
+    const category = templateCatalog?.categories.find((item) => item.id === activeTemplateCategory);
+    const all = (templateCatalog?.templates ?? [])
+      .filter((template) => template.categoryId === activeTemplateCategory);
+    const visible = all.filter((template) => {
+      if (!filter) return true;
+      return [template.label, template.description, ...template.tags].join(' ').toLowerCase().includes(filter);
+    });
+    if (visible.length > 0) {
+      root!.replaceChildren(...visible.map(templateCard));
+      return;
+    }
+    const empty = document.createElement('div');
+    empty.className = 'template-empty-state';
+    const title = document.createElement('strong');
+    title.textContent = filter ? `No hay resultados para «${filter}».` : `Todavía no hay plantillas en ${category?.label ?? 'esta categoría'}.`;
+    const detail = document.createElement('span');
+    detail.textContent = filter
+      ? 'Probá con otro nombre o etiqueta.'
+      : category?.description ?? 'Las plantillas disponibles aparecerán aquí.';
+    const readiness = document.createElement('small');
+    readiness.textContent = 'Esta sección ya está preparada para cargar videos prearmados y abrir sus opciones editables.';
+    empty.append(title, detail, readiness);
+    root!.replaceChildren(empty);
+  }
+
+  function templateCard(template: VideoTemplateSummary): HTMLElement {
+    const card = document.createElement('article');
+    card.className = 'resource-card template-card';
+    card.dataset.templateId = template.id;
+    const primary = document.createElement('button');
+    primary.type = 'button';
+    primary.className = 'resource-card-primary';
+    primary.title = `Editar la plantilla ${template.label}`;
+    if (template.thumbnail) {
+      const image = document.createElement('img');
+      image.src = `/${template.thumbnail}`;
+      image.alt = `Vista previa de ${template.label}`;
+      primary.append(image);
+    }
+    const name = document.createElement('strong');
+    name.textContent = template.label;
+    const description = document.createElement('span');
+    description.className = 'resource-tags';
+    description.textContent = template.description;
+    primary.append(name, description);
+    primary.addEventListener('click', () => openVideoTemplate(template));
+    card.append(primary);
+    return card;
   }
 
   function resourceCard(resource: ResourceEntry): HTMLElement {

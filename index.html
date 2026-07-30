@@ -383,12 +383,37 @@
               <button class="tab" data-resource-type="prop" type="button" role="tab" aria-selected="false" aria-controls="resource-list">Props</button>
               <button class="tab" data-resource-type="background" type="button" role="tab" aria-selected="false" aria-controls="resource-list">Fondos</button>
               <button class="tab" data-resource-type="voice" type="button" role="tab" aria-selected="false" aria-controls="resource-list">Voces</button>
+              <button class="tab" data-resource-type="template" type="button" role="tab" aria-selected="false" aria-controls="resource-list">Plantillas</button>
             </div>
+            <div id="template-category-tabs" class="template-category-tabs tabs" data-variant="segmented" role="tablist" aria-label="Categorías de plantillas" hidden></div>
             <div class="resource-filter">
               <label class="visually-hidden" for="resource-search">Buscar recursos</label>
               <input id="resource-search" type="search" placeholder="Buscar por nombre o etiqueta" autocomplete="off">
             </div>
             <div id="resource-list" class="resource-list"><p class="empty-state">Abrí un proyecto para explorar recursos.</p></div>
+          </section>
+          <section id="video-template-editor" class="video-template-editor" aria-labelledby="video-template-title" hidden>
+            <header class="section-header video-template-editor-header">
+              <div>
+                <span class="eyebrow">Plantilla · Animación</span>
+                <h2 id="video-template-title">Cargando plantilla…</h2>
+              </div>
+              <button id="video-template-close" class="icon-button" type="button" aria-label="Volver a plantillas" title="Volver a plantillas"><svg class="icon" aria-hidden="true"><use href="#ui-icon-close"/></svg></button>
+            </header>
+            <p id="video-template-description" class="muted">Personalizá el contenido y comprobá el efecto en vivo.</p>
+            <div class="video-template-stage">
+              <canvas id="video-template-canvas" width="540" height="960" aria-label="Vista previa animada de la plantilla"></canvas>
+              <span id="video-template-time" class="video-template-time" aria-hidden="true">0.0 s</span>
+            </div>
+            <div class="video-template-controls">
+              <button id="video-template-toggle" class="secondary-button" type="button">Pausar</button>
+              <button id="video-template-replay" class="text-button" type="button">Repetir efecto</button>
+              <button id="video-template-sound" class="text-button" type="button" aria-pressed="true">Sonido: activado</button>
+            </div>
+            <div id="video-template-fields" class="video-template-fields"></div>
+            <p id="video-template-status" class="muted" role="status" aria-live="polite"></p>
+            <p id="video-template-attribution" class="template-attribution" hidden></p>
+            <p class="template-export-note">Esta primera versión permite diseñar y previsualizar el efecto. La exportación se conectará cuando el compositor admita estas plantillas sin perder paridad con el MP4.</p>
           </section>
           <section id="character-creator-panel" class="character-creator-panel" aria-labelledby="character-creator-title" hidden>
             <header class="section-header">

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "animation",
+      "label": "Animación",
+      "description": "Efectos visuales prearmados que se adaptan mediante campos editables."
+    }
+  ],
+  "templates": [
+    {
+      "id": "rapid-pages-word-v1",
+      "label": "Palabra entre páginas",
+      "description": "Páginas reales cambian rápidamente mientras una palabra editable permanece impresa y resaltada dentro del texto.",
+      "categoryId": "animation",
+      "tags": [
+        "texto",
+        "páginas",
+        "libro",
+        "match cut"
+      ],
+      "definitionPath": "assets/templates/rapid-pages-word-v1.json",
+      "thumbnail": "assets/templates/rapid-pages-word-v1/ref3.png"
+    },
+    {
+      "id": "procedural-word-match-cut-v1",
+      "label": "Palabra entre páginas · Generativa",
+      "description": "Construye páginas, párrafos, tinta y papel en Canvas; cualquier palabra queda integrada y resaltada dentro del renglón.",
+      "categoryId": "animation",
+      "tags": [
+        "texto",
+        "páginas",
+        "generativa",
+        "canvas",
+        "match cut"
+      ],
+      "definitionPath": "assets/templates/procedural-word-match-cut-v1.json",
+      "thumbnail": "assets/templates/procedural-word-match-cut-v1-thumb.svg"
+    }
+  ]
+}

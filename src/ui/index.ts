@@ -23,6 +23,7 @@ import { initRightPanel } from './right-panel.js';
 import { initProjectFiles } from './project/files.js';
 import { setActiveEditorProject, syncActiveEditorProject } from './editor-workspace.js';
 import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
+import { initVideoTemplateEditor } from './video-template-editor.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -39,6 +40,7 @@ export function initShellUi(): void {
   initWorkspaceResize();
   initViewerWorkspace();
   initCharacterCreator();
+  initVideoTemplateEditor();
   initTimelineShell();
 }
 
