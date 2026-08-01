@@ -20,6 +20,26 @@ function mulberry32(seed) {
   };
 }
 
+/**
+ * Cuadros que ocupa una escena y la duración exacta que va a tener su video.
+ *
+ * El video cubre el audio medido completo, así que se redondea hacia arriba al
+ * cuadro siguiente. La duración resultante es la que el ensamblaje usa para
+ * ubicar cada escena en la línea de tiempo del proyecto.
+ *
+ * Vive acá porque es una función pura del audio medido y los fps: permite
+ * conocer la duración de una escena SIN renderizarla, que es lo que habilita
+ * medir un proyecto sin generar un solo cuadro. Las dos rutas de exportación y
+ * el medidor la comparten para no sostener el mismo invariante por triplicado.
+ */
+export function sceneFrameCount(audioDurationSeconds, fps) {
+  return Math.ceil(audioDurationSeconds * fps);
+}
+
+export function sceneRenderDurationSeconds(audioDurationSeconds, fps) {
+  return sceneFrameCount(audioDurationSeconds, fps) / fps;
+}
+
 export function buildBlinkSchedule(durationSeconds, options) {
   const random = mulberry32(options.seed);
   const schedule = [];

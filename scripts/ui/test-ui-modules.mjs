@@ -545,6 +545,28 @@ check(
     && timelineSource.includes('los tiempos vuelven a estimarse hasta el próximo render'),
 );
 check(
+  'un control deshabilitado de la barra no se viste de acción disponible',
+  readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('.timeline-play:disabled')
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('.timeline-tool.is-active:disabled')
+    && timelineSource.includes("snap.classList.toggle('is-active', snapEnabled && !snap.disabled)"),
+);
+check(
+  'anterior y siguiente navegan escenas y se apagan en los extremos',
+  appHtml.includes('aria-label="Escena anterior"')
+    && appHtml.includes('aria-label="Escena siguiente"')
+    && !appHtml.includes('aria-label="Clip anterior"')
+    && timelineSource.includes('previous.disabled = !hasNavigation || !canGoBack')
+    && timelineSource.includes('next.disabled = !hasNavigation || !canGoForward'),
+);
+check(
+  'el rótulo accesible de Duplicar sigue al texto visible',
+  timelineSource.includes("duplicate.setAttribute('aria-label', duplicate.textContent)"),
+);
+check(
+  'silenciar usa el mismo criterio de disponibilidad que reproducir',
+  timelineSource.includes("button.disabled = state.mode === 'creator' || !editorCanPlay()"),
+);
+check(
   'B corta el diálogo bajo el cabezal y dividir la escena queda en Ctrl+B',
   timelineSource.includes("event.code === 'KeyB'")
     && timelineSource.includes('cutAtPlayhead();')

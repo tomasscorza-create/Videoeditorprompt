@@ -336,7 +336,7 @@ function assertRenderedManifest(manifest) {
   });
 }
 
-function resolveWithin(root, relativePath, label) {
+export function resolveWithin(root, relativePath, label) {
   if (path.isAbsolute(relativePath) || path.win32.isAbsolute(relativePath) || relativePath.includes('\\') || relativePath.includes(':')) {
     pathError(label, relativePath);
   }
@@ -376,7 +376,7 @@ function renderedTurnError(detail) {
   });
 }
 
-function createSceneJobId(index, sceneId) {
+export function createSceneJobId(index, sceneId) {
   return `scene-${String(index + 1).padStart(3, '0')}-${sceneId}`.slice(0, 64);
 }
 

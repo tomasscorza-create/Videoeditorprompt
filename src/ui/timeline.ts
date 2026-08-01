@@ -1749,7 +1749,9 @@ function syncMuteButton(): void {
   const button = optional<HTMLButtonElement>('#timeline-mute');
   const state = editorWorkspace();
   if (!button) return;
-  button.disabled = !state.output;
+  // Mismo criterio que Play: silenciar algo que no se puede reproducir no es
+  // una acción disponible.
+  button.disabled = state.mode === 'creator' || !editorCanPlay();
   button.classList.toggle('is-active', state.muted);
   button.setAttribute('aria-pressed', String(state.muted));
 }
@@ -1795,9 +1797,10 @@ function snapTime(time: number): number {
 
 function toggleSnap(): void {
   snapEnabled = !snapEnabled;
-  const button = optional<HTMLButtonElement>('#timeline-snap');
-  button?.classList.toggle('is-active', snapEnabled);
-  button?.setAttribute('aria-pressed', String(snapEnabled));
+  optional<HTMLButtonElement>('#timeline-snap')?.setAttribute('aria-pressed', String(snapEnabled));
+  // La clase visual la decide `updateToolbar`, que también sabe si el control
+  // está disponible; acá se decidía sin esa mitad de la información.
+  updateToolbar();
 }
 
 function zoomBy(factor: number): void {
@@ -1931,9 +1934,26 @@ function updateToolbar(): void {
     redo.title = pending ? `Rehacer: ${pending.toLowerCase()} (Ctrl+Y)` : 'Rehacer (Ctrl+Y)';
   }
   if (play) play.disabled = !hasOutput;
-  if (previous) previous.disabled = !hasNavigation;
-  if (next) next.disabled = !hasNavigation;
-  if (snap) snap.disabled = creator || !measured;
+  // Estos dos navegan escenas, no clips, y antes quedaban encendidos siempre:
+  // en un proyecto de una sola escena no hacían nada y no lo decían. Ahora se
+  // apagan cuando no queda a dónde ir.
+  const boundaries = measured ? measuredBoundaries() : [];
+  const sceneIds = store?.project().scenes.map((scene) => scene.id) ?? [];
+  const selectedIndex = sceneIds.indexOf(store?.selectedSceneId() ?? '');
+  const canGoBack = measured
+    ? boundaries.some((time) => time < currentTime - 0.02)
+    : selectedIndex > 0;
+  const canGoForward = measured
+    ? boundaries.some((time) => time > currentTime + 0.02)
+    : selectedIndex >= 0 && selectedIndex < sceneIds.length - 1;
+  if (previous) previous.disabled = !hasNavigation || !canGoBack;
+  if (next) next.disabled = !hasNavigation || !canGoForward;
+  if (snap) {
+    snap.disabled = creator || !measured;
+    // El estado sigue siendo «activo» y `aria-pressed` lo dice, pero un control
+    // que no se puede tocar no debe vestirse de encendido.
+    snap.classList.toggle('is-active', snapEnabled && !snap.disabled);
+  }
   const selection = projectSelection();
   const sceneCount = store?.project().scenes.length ?? 0;
   const canDuplicateScene = selection?.kind === 'scene' && sceneCount < 8;
@@ -1942,6 +1962,9 @@ function updateToolbar(): void {
     duplicate.disabled = creator || (!canDuplicateScene && !canDuplicateKeyframe);
     duplicate.textContent = canDuplicateKeyframe ? 'Duplicar keyframe' : 'Duplicar escena';
     duplicate.title = canDuplicateKeyframe ? 'Duplicar keyframe seleccionado' : 'Duplicar escena seleccionada';
+    // El aria-label le gana al texto visible: si queda fijo, un lector de
+    // pantalla anuncia una acción distinta de la que muestra el botón.
+    duplicate.setAttribute('aria-label', duplicate.textContent);
   }
   let canSplitSelection = false;
   if (selection?.kind === 'dialogue') {

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { evaluateScene } from '../../shared/scene-evaluator.js';
+import { evaluateScene, sceneFrameCount, sceneRenderDurationSeconds } from '../../shared/scene-evaluator.js';
 import { buildSceneTiming, resolveAnimationScene } from '../../shared/animation-evaluator.js';
 import { composeFramesWithFfmpeg } from '../compositor/ffmpeg-compositor.mjs';
 import { composeFramesWithPixi } from '../compositor/pixi-compositor.mjs';
@@ -21,8 +21,8 @@ export async function exportDialogueJob(context, config, options) {
   };
   const dialogueData = readJson(generatedPath(runtime.dialoguePath));
   const fps = config.video.fps;
-  const frameCount = Math.ceil(runtime.audio.durationSeconds * fps);
-  const renderDuration = frameCount / fps;
+  const frameCount = sceneFrameCount(runtime.audio.durationSeconds, fps);
+  const renderDuration = sceneRenderDurationSeconds(runtime.audio.durationSeconds, fps);
   // Fase 4: las pistas de animación se resuelven contra el audio ya medido y
   // alimentan tanto el plan de frames como las expresiones de FFmpeg, de modo
   // que la vista previa y el MP4 salgan del mismo estado temporal.

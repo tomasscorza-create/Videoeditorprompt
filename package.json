@@ -107,7 +107,9 @@
     "ui:check-css": "node scripts/ui/check-critical-css.mjs",
     "ui:check-ids": "node scripts/ui/check-dom-ids.mjs",
     "ui:check-contrast": "node scripts/ui/check-contrast.mjs",
-    "local:clean": "node scripts/local-app/retention.mjs"
+    "local:clean": "node scripts/local-app/retention.mjs",
+    "stage3a:measure-project": "node scripts/stage3a/measure-project.mjs",
+    "stage3a:test-measure": "node scripts/stage3a/test-measure-project.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1095.0",

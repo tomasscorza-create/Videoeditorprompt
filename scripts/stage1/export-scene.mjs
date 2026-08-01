@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { createFfmpegMotionExpressions, evaluateScene } from '../../shared/scene-evaluator.js';
+import { createFfmpegMotionExpressions, evaluateScene, sceneFrameCount, sceneRenderDurationSeconds } from '../../shared/scene-evaluator.js';
 import { ensureDirectory, ffprobe, isMain, readJson, run, sha256, writeJson } from './common.mjs';
 import { createJobContext, resolveAsset } from './job-context.mjs';
 import { createProgressReporter, serializeError } from './progress.mjs';
@@ -24,8 +24,8 @@ export async function exportJob(context, options = {}) {
   };
   const mouthData = readJson(generatedPath(runtime.mouthCuesPath));
   const fps = config.video.fps;
-  const frameCount = Math.ceil(runtime.audio.durationSeconds * fps);
-  const renderDuration = frameCount / fps;
+  const frameCount = sceneFrameCount(runtime.audio.durationSeconds, fps);
+  const renderDuration = sceneRenderDurationSeconds(runtime.audio.durationSeconds, fps);
   const framePlan = Array.from({ length: frameCount }, (_, frameIndex) => ({
     frameIndex,
     timeSeconds: frameIndex / fps,

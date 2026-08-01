@@ -2262,6 +2262,12 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 .timeline-play { color: var(--accent-ink); border-color: var(--accent); background: var(--accent); }
 .timeline-tool.is-active { color: var(--accent); border-color: var(--border-strong); background: var(--surface-3); }
+/* Un control deshabilitado no puede seguir vestido de acción principal: con solo
+   bajar la opacidad, el play apagado quedaba como el único botón con color de
+   toda la barra y parecía lo que había que apretar. Lo mismo con el imán, que
+   conservaba su tinte de activo estando gris. */
+.timeline-play:disabled { color: var(--muted); border-color: var(--border); background: transparent; }
+.timeline-tool.is-active:disabled { color: var(--muted); border-color: var(--border); background: transparent; }
 .timeline-spacer { flex: 1; min-width: .25rem; }
 .timeline-timecode {
   flex: 0 0 auto;
