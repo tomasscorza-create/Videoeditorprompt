@@ -89,6 +89,7 @@ export function initTimelineShell(): void {
   optional<HTMLButtonElement>('#timeline-fit')?.addEventListener('click', fitTimeline);
   optional<HTMLButtonElement>('#timeline-snap')?.addEventListener('click', toggleSnap);
   optional<HTMLButtonElement>('#timeline-mute')?.addEventListener('click', toggleMute);
+  optional<HTMLButtonElement>('#timeline-measure')?.addEventListener('click', () => void remeasureProject());
   optional<HTMLButtonElement>('#timeline-cut')?.addEventListener('click', () => setCutMode(!cutModeActive));
   // Alt mantiene la tijera mientras se aprieta, sin quedar en un modo pegajoso.
   window.addEventListener('keydown', (event) => { if (event.key === 'Alt') setCutMode(true); });
@@ -2104,6 +2105,16 @@ function updateToolbar(): void {
     split.title = canSplitSelection
       ? 'Dividir la escena antes del diálogo seleccionado (Ctrl+B)'
       : 'Seleccioná un diálogo que deje al menos dos turnos a cada lado';
+  }
+  // Medir es la acción que destraba todo lo temporal, así que se ofrece en la
+  // barra y no escondida dentro del popover del badge. Con los tiempos ya
+  // medidos deja de ocupar lugar.
+  const measure = optional<HTMLButtonElement>('#timeline-measure');
+  if (measure) {
+    measure.hidden = creator || !hasProject || measured;
+    measure.disabled = measuring;
+    measure.textContent = measuring ? 'Midiendo…' : 'Medir tiempos';
+    measure.classList.toggle('is-busy', measuring);
   }
   // La tijera solo sirve con medición: sin ella no hay dónde caen las palabras.
   const cut = optional<HTMLButtonElement>('#timeline-cut');

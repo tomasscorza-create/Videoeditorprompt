@@ -2292,6 +2292,16 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
   pointer-events: none;
 }
+/* Medir destraba regla, cabezal, keyframes y corte, así que se ofrece como
+   acción con peso propio mientras falte, y desaparece cuando ya está hecho. */
+.timeline-measure {
+  flex: 0 0 auto;
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  background: var(--accent);
+  font-weight: 600;
+}
+.timeline-measure.is-busy { color: var(--muted); border-color: var(--border); background: transparent; }
 .timeline-spacer { flex: 1; min-width: .25rem; }
 .timeline-timecode {
   flex: 0 0 auto;
