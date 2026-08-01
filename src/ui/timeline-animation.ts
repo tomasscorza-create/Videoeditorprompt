@@ -350,6 +350,29 @@ export function nudgeOffsetSeconds(offsetSeconds: number, frames: number, fps: n
   );
 }
 
+/**
+ * Palabra por la que cortar un turno medido en `targetSeconds`.
+ *
+ * Vive acá porque es el inverso exacto del prorrateo con el que
+ * `resolveAnchorSeconds` ubica un ancla de palabra
+ * (`start + duration * wordIndex / wordCount`), y las dos tienen que coincidir
+ * o el corte caería en una palabra distinta de la que muestra el ancla.
+ *
+ * Devuelve cuántas palabras quedan en el primer turno, siempre dejando al menos
+ * una de cada lado, o null si el turno tiene una sola palabra o el instante cae
+ * fuera de él. Es un prorrateo, no una alineación fonética: la precisión es la
+ * misma que la de los gestos por palabra.
+ */
+export function wordCutAtSeconds(
+  turn: { startSeconds: number; durationSeconds: number; wordCount: number },
+  targetSeconds: number,
+): number | null {
+  if (turn.wordCount < 2 || !(turn.durationSeconds > 0)) return null;
+  if (targetSeconds < turn.startSeconds || targetSeconds > turn.startSeconds + turn.durationSeconds) return null;
+  const progress = (targetSeconds - turn.startSeconds) / turn.durationSeconds;
+  return clamp(Math.round(progress * turn.wordCount), 1, turn.wordCount - 1);
+}
+
 export interface AnchorProposal {
   anchor: AnimationAnchor;
   offsetSeconds: number;

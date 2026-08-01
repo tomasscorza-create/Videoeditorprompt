@@ -483,6 +483,42 @@ function applyMutation(project, catalog, command) {
       scene.dialogue.splice(index, 0, turn);
       return;
     }
+    case 'split-dialogue-turn': {
+      const scene = requireScene(project, command.sceneId);
+      portableId(command.newTurnId, '/command/newTurnId');
+      if (scene.dialogue.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 turnos.', '/command');
+      if (scene.dialogue.some((turn) => turn.id === command.newTurnId)) fail('EDITOR_PROJECT_INVALID', 'El ID del turno ya existe.', '/command/newTurnId');
+      const index = scene.dialogue.findIndex((turn) => turn.id === command.turnId);
+      if (index < 0) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.turnId}.`, '/command/turnId');
+      const turn = scene.dialogue[index];
+      // Mismo criterio de palabra que usa la validación de `gestureAtWord`: el
+      // texto de autoría, no el normalizado para Piper.
+      const words = turn.text.trim().split(/\s+/u).filter(Boolean);
+      integerInRange(command.atWord, 1, 99, '/command/atWord');
+      if (command.atWord > words.length - 1) {
+        fail('EDITOR_SPLIT_INVALID', 'El corte debe dejar al menos una palabra de cada lado.', '/command/atWord');
+      }
+      // La pausa era posterior al enunciado completo, así que sigue al final: el
+      // primer turno queda pegado al segundo y el segundo conserva la pausa. Lo
+      // contrario insertaría un silencio en medio de una frase continua.
+      const second = {
+        ...cloneJson(turn),
+        id: command.newTurnId,
+        text: words.slice(command.atWord).join(' '),
+        gapAfterSeconds: turn.gapAfterSeconds,
+      };
+      delete second.gestureAtWord;
+      turn.text = words.slice(0, command.atWord).join(' ');
+      turn.gapAfterSeconds = 0;
+      // El gesto acompaña a la palabra que lo dispara: si cae en la segunda
+      // mitad viaja con ella y su índice se rebasa al turno nuevo.
+      if (turn.gestureAtWord !== undefined && turn.gestureAtWord >= command.atWord) {
+        second.gestureAtWord = turn.gestureAtWord - command.atWord;
+        delete turn.gestureAtWord;
+      }
+      scene.dialogue.splice(index + 1, 0, second);
+      return;
+    }
     case 'delete-dialogue-turn': {
       const scene = requireScene(project, command.sceneId);
       const index = scene.dialogue.findIndex((turn) => turn.id === command.turnId);
@@ -776,6 +812,7 @@ function assertCommandShape(command) {
     'set-transition': { required: ['type', 'sceneId', 'preset', 'durationSeconds'], optional: [] },
     'reorder-scenes': { required: ['type', 'sceneIds'], optional: [] },
     'split-scene': { required: ['type', 'sceneId', 'atTurnId', 'newSceneId'], optional: [] },
+    'split-dialogue-turn': { required: ['type', 'sceneId', 'turnId', 'atWord', 'newTurnId'], optional: [] },
     'reorder-dialogue-turns': { required: ['type', 'sceneId', 'turnIds'], optional: [] },
     'apply-animation-preset': { required: ['type', 'sceneId', 'elementId', 'presetId'], optional: ['anchor', 'offsetSeconds', 'intensity'] },
     'create-track': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframes'], optional: ['source'] },

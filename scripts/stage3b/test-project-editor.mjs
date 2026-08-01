@@ -369,6 +369,63 @@ test('rejects-invalid-scene-splits', () => {
   rejects('EDITOR_PROJECT_INVALID', () => command(state, { type: 'split-scene', sceneId: 'escena-presentacion', atTurnId: 'turno-presentacion-02', newSceneId: 'escena-cierre' }));
 });
 
+test('splits-a-dialogue-turn-at-a-word-boundary', () => {
+  let state = command(createProjectEditor(project, catalog), {
+    type: 'set-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01',
+    text: 'Una frase de cinco palabras', gestureId: 'point', gestureAtWord: 4, gapAfterSeconds: 0.8,
+  });
+  state = command(state, {
+    type: 'split-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01', atWord: 2, newTurnId: 'turno-cortado',
+  });
+  const [primero, segundo] = state.project.scenes[0].dialogue;
+  assert.equal(primero.text, 'Una frase');
+  assert.equal(segundo.text, 'de cinco palabras');
+  assert.equal(segundo.id, 'turno-cortado');
+  // El segundo turno queda pegado al primero: la pausa seguía al enunciado entero.
+  assert.equal(primero.gapAfterSeconds, 0);
+  assert.equal(segundo.gapAfterSeconds, 0.8);
+  // El gesto viaja con su palabra y su índice se rebasa al turno nuevo.
+  assert.equal(primero.gestureAtWord, undefined);
+  assert.equal(segundo.gestureAtWord, 2);
+  // Hablante y voz se heredan sin tocarse, y el proyecto sigue siendo renderizable.
+  assert.equal(segundo.speakerElementId, primero.speakerElementId);
+  assert.equal(segundo.voiceId, primero.voiceId);
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+});
+
+test('keeps-a-gesture-that-falls-in-the-first-half-of-a-cut-turn', () => {
+  let state = command(createProjectEditor(project, catalog), {
+    type: 'set-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01',
+    text: 'Una frase de cinco palabras', gestureId: 'point', gestureAtWord: 1,
+  });
+  state = command(state, {
+    type: 'split-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01', atWord: 3, newTurnId: 'turno-cortado',
+  });
+  const [primero, segundo] = state.project.scenes[0].dialogue;
+  assert.equal(primero.gestureAtWord, 1);
+  assert.equal(segundo.gestureAtWord, undefined);
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+});
+
+test('rejects-invalid-dialogue-cuts', () => {
+  const state = command(createProjectEditor(project, catalog), {
+    type: 'set-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01', text: 'Dos palabras',
+  });
+  const build = (patch) => ({
+    type: 'split-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01', atWord: 1, newTurnId: 'turno-cortado', ...patch,
+  });
+  const cut = (patch) => command(state, build(patch));
+  // Cortar en la última palabra dejaría un turno sin texto.
+  rejects('EDITOR_SPLIT_INVALID', () => cut({ atWord: 2 }));
+  rejects('EDITOR_TURN_NOT_FOUND', () => cut({ turnId: 'turno-fantasma' }));
+  rejects('EDITOR_PROJECT_INVALID', () => cut({ newTurnId: 'turno-presentacion-02' }));
+  // El esquema es la puerta de afuera, pero la UI despacha sin pasar por él: un
+  // atWord fuera de rango tiene que morir igual en el núcleo.
+  assert.equal(validateCommand(build({ atWord: 0 })), false);
+  rejects('EDITOR_VALUE_INVALID', () => applyProjectEditorCommand(state, build({ atWord: 0 })));
+  rejects('EDITOR_VALUE_INVALID', () => applyProjectEditorCommand(state, build({ newTurnId: 'ID Invalido' })));
+});
+
 test('reorders-dialogue-turns-within-a-scene', () => {
   let state = createProjectEditor(project, catalog);
   state = command(state, { type: 'reorder-dialogue-turns', sceneId: 'escena-presentacion', turnIds: ['turno-presentacion-02', 'turno-presentacion-01'] });

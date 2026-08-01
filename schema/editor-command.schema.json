@@ -79,6 +79,9 @@
       "$ref": "#/$defs/splitScene"
     },
     {
+      "$ref": "#/$defs/splitDialogueTurn"
+    },
+    {
       "$ref": "#/$defs/reorderDialogueTurns"
     },
     {
@@ -895,6 +898,38 @@
           "$ref": "#/$defs/id"
         },
         "newSceneId": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "splitDialogueTurn": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Parte un turno en dos por una frontera de palabra. Es el único corte de audio que el contrato admite: cada turno se sintetiza entero, así que cortar significa producir dos enunciados que Piper vuelve a medir, nunca recortar un WAV.",
+      "required": [
+        "type",
+        "sceneId",
+        "turnId",
+        "atWord",
+        "newTurnId"
+      ],
+      "properties": {
+        "type": {
+          "const": "split-dialogue-turn"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "turnId": {
+          "$ref": "#/$defs/id"
+        },
+        "atWord": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99,
+          "description": "Cuántas palabras quedan en el primer turno. Debe dejar al menos una palabra de cada lado."
+        },
+        "newTurnId": {
           "$ref": "#/$defs/id"
         }
       }

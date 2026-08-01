@@ -53,6 +53,7 @@ import {
   duplicateKeyframeCommand,
   sceneAnimationReference,
   sceneAnimationTiming,
+  wordCutAtSeconds,
 } from './timeline-animation.js';
 import type { ElementView } from './project/types.js';
 import { nextVisualZIndex } from './project/layers.js';
@@ -964,7 +965,14 @@ function dialogueMenuItems(sceneId: string, turnId: string, anchor: HTMLElement)
   const speakers = scene?.elements.filter((element) => element.type === 'character') ?? [];
   const canAdd = (scene?.dialogue.length ?? 20) < 20;
   const canSplit = canSplitAtIndex(scene?.dialogue.length ?? 0, turnIndex) && (store?.project().scenes.length ?? 8) < 8;
+  const cut = dialogueCutPlan(sceneId, turnId);
   const items: MenuItem[] = [
+    {
+      label: cut.atWord === null ? `Cortar el diálogo · ${cut.blocked}` : `✂ Cortar el diálogo en el cabezal (palabra ${cut.atWord})`,
+      disabled: cut.atWord === null,
+      action: () => cutDialogueTurn(sceneId, turnId),
+    },
+    { separator: true },
     { label: 'Insertar turno antes', disabled: !canAdd || !turn || turnIndex === 0, action: () => turn && insertTurn(sceneId, turn, previous?.id) },
     { label: 'Insertar turno después', disabled: !canAdd || !turn, action: () => turn && insertTurn(sceneId, turn, turn.id) },
     { separator: true },
@@ -1068,6 +1076,61 @@ function insertTurn(sceneId: string, reference: { speakerElementId: string; voic
   const error = store.dispatch(command);
   if (error) window.alert(error);
   else selectDialogue(sceneId, turnId);
+}
+
+// ---- Corte de diálogo: partir un turno en dos por una palabra ----
+
+// Un turno es una síntesis de Piper entera, así que «cortar el audio» significa
+// producir dos enunciados que se vuelven a medir, nunca recortar un WAV. El punto
+// de corte sale del cabezal por el mismo prorrateo que ubica las anclas de
+// palabra, y por eso exige medición vigente: sin ella no hay dónde cae el cabezal
+// dentro del turno y no se inventa una posición.
+interface DialogueCutPlan {
+  atWord: number | null;
+  /** Por qué no se puede cortar, en lenguaje de usuario. */
+  blocked: string | null;
+}
+
+function dialogueCutPlan(sceneId: string, turnId: string): DialogueCutPlan {
+  const project = store?.project();
+  const sceneIndex = project?.scenes.findIndex((item) => item.id === sceneId) ?? -1;
+  const scene = sceneIndex >= 0 ? project!.scenes[sceneIndex] : undefined;
+  const turn = scene?.dialogue.find((item) => item.id === turnId);
+  if (!scene || !turn) return { atWord: null, blocked: 'El diálogo ya no existe.' };
+  if (scene.dialogue.length >= 20) return { atWord: null, blocked: 'La escena llegó al máximo de diálogos.' };
+  if (wordCount(turn.text) < 2) return { atWord: null, blocked: 'Necesita al menos dos palabras para cortarse.' };
+  const measured = compatibleTimeline(project!.scenes);
+  const measuredTurn = measured?.scenes[sceneIndex]?.turns?.find((item) => item.id === turnId);
+  if (!measuredTurn) return { atWord: null, blocked: 'Hace falta renderizar para saber dónde cae el cabezal.' };
+  const atWord = wordCutAtSeconds(
+    { startSeconds: measuredTurn.startSeconds, durationSeconds: measuredTurn.durationSeconds, wordCount: wordCount(turn.text) },
+    currentTime,
+  );
+  if (atWord === null) return { atWord: null, blocked: 'Poné el cabezal sobre este diálogo para cortarlo.' };
+  return { atWord, blocked: null };
+}
+
+function cutDialogueTurn(sceneId: string, turnId: string): void {
+  if (!store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  const plan = dialogueCutPlan(sceneId, turnId);
+  if (!scene || plan.atWord === null) {
+    if (plan.blocked) notify({ message: plan.blocked, level: 'error' });
+    return;
+  }
+  const newTurnId = nextTurnId(scene.dialogue.map((turn) => turn.id));
+  const error = store.dispatch({ type: 'split-dialogue-turn', sceneId, turnId, atWord: plan.atWord, newTurnId });
+  if (error) {
+    notify({ message: error, level: 'error' });
+    return;
+  }
+  selectDialogueCore(sceneId, newTurnId);
+  // El corte cambia el diálogo, así que la medición del último render deja de
+  // describir el proyecto. Decirlo acá evita que el usuario crea que perdió los
+  // tiempos por un error suyo.
+  notify({
+    message: `Cortaste el diálogo después de la palabra ${plan.atWord}. Las dos partes se sintetizan por separado, así que los tiempos vuelven a estimarse hasta el próximo render.`,
+  });
 }
 
 // C2: el corte es válido solo si deja al menos dos turnos a cada lado (el motor exige

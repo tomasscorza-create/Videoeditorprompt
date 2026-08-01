@@ -536,6 +536,20 @@ check(
     && timelineSource.includes('const consume = (): void => {\n      event.preventDefault();\n      event.stopPropagation();\n    };'),
 );
 check(
+  'el corte de diálogo exige medición y no inventa dónde cae el cabezal',
+  timelineSource.includes("blocked: 'Hace falta renderizar para saber dónde cae el cabezal.'")
+    && timelineSource.includes("type: 'split-dialogue-turn'")
+    && timelineSource.includes('wordCutAtSeconds(')
+    // El corte invalida la medición: la UI tiene que decirlo, no dejar que el
+    // usuario descubra solo que la timeline volvió a estimar.
+    && timelineSource.includes('los tiempos vuelven a estimarse hasta el próximo render'),
+);
+check(
+  'el vocabulario de corte de diálogo está en el esquema y en el relato de undo',
+  JSON.stringify(readJson(path.join(projectRoot, 'schema', 'editor-command.schema.json'))).includes('split-dialogue-turn')
+    && readFileSync(path.join(projectRoot, 'src', 'ui', 'command-labels.ts'), 'utf8').includes("'split-dialogue-turn'"),
+);
+check(
   'arrastrar el cabezal no reconstruye el árbol que se está agarrando',
   timelineSource.includes('if (draggingPlayhead) {')
     && timelineSource.includes('    syncPlayheadFromMedia();\n    return;\n  }'),
@@ -1072,6 +1086,28 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
       && unmeasured.segments.length === 0,
   );
   check('sin medición el tiempo resuelto lo dice, no muestra un número', unmeasured.keyframes[0].timeLabel === 'pendiente de medición');
+
+  // ---- timeline-animation.ts: punto de corte de un turno por palabra ----
+  // El turno dura 2 s y tiene 4 palabras: cada palabra ocupa 0,5 s. El corte es
+  // el inverso exacto del prorrateo con el que resolveAnchorSeconds ubica un
+  // ancla de palabra, así que las dos vistas coinciden.
+  const cortable = { startSeconds: 1, durationSeconds: 2, wordCount: 4 };
+  check('el corte cae en la palabra que marca el cabezal', animation.wordCutAtSeconds(cortable, 2) === 2);
+  check('el corte redondea a la frontera de palabra más cercana', animation.wordCutAtSeconds(cortable, 2.4) === 3);
+  check(
+    'el corte nunca deja un lado sin palabras',
+    animation.wordCutAtSeconds(cortable, 1) === 1 && animation.wordCutAtSeconds(cortable, 3) === 3,
+  );
+  check(
+    'no hay corte fuera del turno ni en un turno de una palabra',
+    animation.wordCutAtSeconds(cortable, 0.5) === null
+      && animation.wordCutAtSeconds(cortable, 3.5) === null
+      && animation.wordCutAtSeconds({ startSeconds: 0, durationSeconds: 2, wordCount: 1 }, 1) === null,
+  );
+  check(
+    'sin duración medida no se propone un corte',
+    animation.wordCutAtSeconds({ startSeconds: 0, durationSeconds: 0, wordCount: 4 }, 0) === null,
+  );
 
   const broken = [{
     parameterId: 'opacity',
