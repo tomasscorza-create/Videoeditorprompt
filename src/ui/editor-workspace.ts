@@ -61,6 +61,8 @@ let activeProjectId: string | null = null;
 let activeProjectRevision: string | null = null;
 let activeTimingRevision: string | null = null;
 let output: RenderedOutput | null = null;
+// Medición liviana vigente, independiente de que exista un MP4.
+let measurement: { projectId: string; timingRevision: string; timeline: MeasuredProjectTimeline } | null = null;
 let media: HTMLVideoElement | null = null;
 let mediaBound = false;
 let playheadSeconds = 0;
@@ -196,13 +198,51 @@ export function editorCanPlay(): boolean {
  * escenas cambian, la medición deja de describir el proyecto y se descarta.
  */
 export function measuredTimelineFor(sceneIds: readonly string[]): MeasuredProjectTimeline | null {
+  // Una medición liviana describe el proyecto de hoy y gana sobre el MP4: se
+  // obtiene en segundos corriendo solo Piper y FFprobe, y es exactamente la
+  // misma línea de tiempo que produciría un render.
+  if (
+    measurement
+    && measurement.projectId === activeProjectId
+    && measurement.timingRevision === activeTimingRevision
+    && matchesScenes(measurement.timeline, sceneIds)
+  ) {
+    return measurement.timeline;
+  }
   const timeline = output?.timeline;
   if (!output || !timeline || output.projectId !== activeProjectId) return null;
   // Sin revisión de tiempo (render de una sesión anterior) se mantiene la regla
   // estricta: solo un MP4 vigente mide.
   if (!timingStillValid() && output.stale) return null;
-  if (timeline.scenes.length !== sceneIds.length) return null;
-  return timeline.scenes.every((scene, index) => scene.id === sceneIds[index]) ? timeline : null;
+  return matchesScenes(timeline, sceneIds) ? timeline : null;
+}
+
+function matchesScenes(timeline: MeasuredProjectTimeline, sceneIds: readonly string[]): boolean {
+  if (timeline.scenes.length !== sceneIds.length) return false;
+  return timeline.scenes.every((scene, index) => scene.id === sceneIds[index]);
+}
+
+/**
+ * Medición obtenida sin renderizar.
+ *
+ * Queda atada a la revisión de tiempos con la que se midió: cualquier cambio
+ * que mueva un milisegundo la descarta sola, igual que descarta la del MP4. No
+ * habilita reproducir —para eso hace falta el audio del MP4— pero sí ubicar el
+ * cabezal, los keyframes y los cortes.
+ */
+export function setProjectMeasurement(value: {
+  projectId: string;
+  timingRevision: string;
+  timeline: MeasuredProjectTimeline;
+}): void {
+  measurement = value;
+  notify();
+}
+
+export function projectMeasurementIsCurrent(): boolean {
+  return Boolean(measurement
+    && measurement.projectId === activeProjectId
+    && measurement.timingRevision === activeTimingRevision);
 }
 
 // M4 — Mejora progresiva: donde el navegador soporte View Transitions, el

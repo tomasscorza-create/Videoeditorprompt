@@ -18,6 +18,9 @@ import {
   type MeasuredProjectTimeline,
   type MeasuredScene,
 } from './editor-workspace.js';
+import { setProjectMeasurement } from './editor-workspace.js';
+import { measureProject as measureProjectTimes } from './director/api.js';
+import { projectTimingFingerprint } from '../../shared/project-fingerprint.js';
 import type { ProjectStore } from './project/store.js';
 import type { SceneView } from './project/types.js';
 import {
@@ -86,6 +89,11 @@ export function initTimelineShell(): void {
   optional<HTMLButtonElement>('#timeline-fit')?.addEventListener('click', fitTimeline);
   optional<HTMLButtonElement>('#timeline-snap')?.addEventListener('click', toggleSnap);
   optional<HTMLButtonElement>('#timeline-mute')?.addEventListener('click', toggleMute);
+  optional<HTMLButtonElement>('#timeline-cut')?.addEventListener('click', () => setCutMode(!cutModeActive));
+  // Alt mantiene la tijera mientras se aprieta, sin quedar en un modo pegajoso.
+  window.addEventListener('keydown', (event) => { if (event.key === 'Alt') setCutMode(true); });
+  window.addEventListener('keyup', (event) => { if (event.key === 'Alt') setCutMode(false); });
+  window.addEventListener('blur', () => setCutMode(false));
   optional<HTMLButtonElement>('#timeline-duplicate')?.addEventListener('click', duplicateSelection);
   optional<HTMLButtonElement>('#timeline-split')?.addEventListener('click', splitSelectedTurn);
   optional<HTMLButtonElement>('#timeline-delete')?.addEventListener('click', deleteSelection);
@@ -392,6 +400,7 @@ function renderLayerStack(
             openContextMenu(clip, dialogueMenuItems(scene.id, turn.id, clip));
           });
           bindDialogueDrag(clip, scene.id, turn.id);
+          if (measuredTurn) bindDialogueCutter(clip, scene.id, turn, measuredTurn);
           if (waveform) attachWaveformCanvas(clip, turnStartSeconds, turnEndSeconds);
           clips.push(clip);
           clips.push(gapHandle(scene.id, turn.id, turnEndSeconds * pixelsPerSecond, turn.gapAfterSeconds));
@@ -1078,6 +1087,79 @@ function insertTurn(sceneId: string, reference: { speakerElementId: string; voic
   else selectDialogue(sceneId, turnId);
 }
 
+// ---- Corte con el mouse sobre el clip de diálogo ----
+
+// Un corte a ciegas no es una herramienta. Con la medición vigente el clip
+// dibuja sus fronteras de palabra y sigue al mouse con la línea de corte pegada
+// a la más cercana, así se ve exactamente dónde va a caer antes de confirmar.
+// Un clic corta ahí, sin depender de dónde quedó el cabezal.
+function bindDialogueCutter(
+  clip: HTMLElement,
+  sceneId: string,
+  turn: { id: string; text: string },
+  measured: { startSeconds: number; durationSeconds: number },
+): void {
+  const words = wordCount(turn.text);
+  if (words < 2) return;
+  clip.classList.add('is-cuttable');
+
+  // Fronteras internas: entre la palabra 1 y la 2, la 2 y la 3, etc.
+  for (let boundary = 1; boundary < words; boundary += 1) {
+    const mark = document.createElement('span');
+    mark.className = 'dialogue-word-boundary';
+    mark.style.left = `${(boundary / words) * 100}%`;
+    clip.append(mark);
+  }
+
+  const guide = document.createElement('span');
+  guide.className = 'dialogue-cut-guide';
+  guide.hidden = true;
+  clip.append(guide);
+
+  // Palabra bajo el puntero, con el mismo prorrateo que ubica un ancla.
+  const boundaryAt = (event: PointerEvent | MouseEvent): number | null => {
+    const bounds = clip.getBoundingClientRect();
+    if (bounds.width <= 0) return null;
+    const progress = (event.clientX - bounds.left) / bounds.width;
+    return wordCutAtSeconds(
+      { startSeconds: measured.startSeconds, durationSeconds: measured.durationSeconds, wordCount: words },
+      measured.startSeconds + progress * measured.durationSeconds,
+    );
+  };
+
+  clip.addEventListener('pointermove', (event) => {
+    if (!cutModeActive) { guide.hidden = true; return; }
+    const boundary = boundaryAt(event);
+    if (boundary === null) { guide.hidden = true; return; }
+    guide.hidden = false;
+    guide.style.left = `${(boundary / words) * 100}%`;
+    clip.title = `Cortar acá: después de la palabra ${boundary} de ${words}`;
+  });
+  clip.addEventListener('pointerleave', () => { guide.hidden = true; });
+  clip.addEventListener('pointerdown', (event) => {
+    if (!cutModeActive || event.button !== 0) return;
+    const boundary = boundaryAt(event);
+    if (boundary === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    cutDialogueTurnAtWord(sceneId, turn.id, boundary);
+  });
+}
+
+// Modo tijera: mientras está encendido, el clic sobre un diálogo corta en vez
+// de seleccionar. Se enciende con el botón de la barra o manteniendo Alt.
+let cutModeActive = false;
+
+function setCutMode(active: boolean): void {
+  if (cutModeActive === active) return;
+  cutModeActive = active;
+  document.body.classList.toggle('is-cut-mode', active);
+  const button = optional<HTMLButtonElement>('#timeline-cut');
+  button?.classList.toggle('is-active', active);
+  button?.setAttribute('aria-pressed', String(active));
+  render();
+}
+
 // ---- Corte de diálogo: partir un turno en dos por una palabra ----
 
 // Un turno es una síntesis de Piper entera, así que «cortar el audio» significa
@@ -1147,13 +1229,19 @@ function cutAtPlayhead(): void {
 }
 
 function cutDialogueTurn(sceneId: string, turnId: string): void {
-  if (!store) return;
-  const scene = store.project().scenes.find((item) => item.id === sceneId);
   const plan = dialogueCutPlan(sceneId, turnId);
-  if (!scene || plan.atWord === null) {
+  if (plan.atWord === null) {
     if (plan.blocked) notify({ message: plan.blocked, level: 'error' });
     return;
   }
+  cutDialogueTurnAtWord(sceneId, turnId, plan.atWord);
+}
+
+function cutDialogueTurnAtWord(sceneId: string, turnId: string, atWord: number): void {
+  if (!store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  if (!scene) return;
+  const plan = { atWord };
   const newTurnId = nextTurnId(scene.dialogue.map((turn) => turn.id));
   const error = store.dispatch({ type: 'split-dialogue-turn', sceneId, turnId, atWord: plan.atWord, newTurnId });
   if (error) {
@@ -1161,12 +1249,51 @@ function cutDialogueTurn(sceneId: string, turnId: string): void {
     return;
   }
   selectDialogueCore(sceneId, newTurnId);
-  // El corte cambia el diálogo, así que la medición del último render deja de
-  // describir el proyecto. Decirlo acá evita que el usuario crea que perdió los
-  // tiempos por un error suyo.
-  notify({
-    message: `Cortaste el diálogo después de la palabra ${plan.atWord}. Las dos partes se sintetizan por separado, así que los tiempos vuelven a estimarse hasta el próximo render.`,
-  });
+  notify({ message: `Cortaste el diálogo después de la palabra ${plan.atWord}. Volviendo a medir…` });
+  // El corte cambia el diálogo, así que la medición anterior deja de describir
+  // el proyecto. Recuperarla no necesita un render: solo las dos mitades nuevas
+  // pasan por Piper y el resto sale de caché.
+  void remeasureProject();
+}
+
+let measuring = false;
+
+/**
+ * Vuelve a medir los tiempos sin renderizar.
+ *
+ * Es lo que permite cortar de nuevo enseguida: sin esto, cada corte dejaba la
+ * timeline «sin medir» y obligaba a un render completo para volver a saber
+ * dónde cae el cabezal.
+ */
+async function remeasureProject(): Promise<void> {
+  if (!store || measuring) return;
+  measuring = true;
+  updateToolbar();
+  const project = store.project();
+  try {
+    const result = await measureProjectTimes(project);
+    // El proyecto pudo cambiar mientras se medía: una medición vieja no se
+    // adopta, se descarta y el usuario vuelve a pedirla.
+    const current = store.project();
+    if (current.id !== result.projectId || projectTimingFingerprint(current) !== projectTimingFingerprint(project)) {
+      notify({ message: 'El proyecto cambió mientras se medía. Volvé a medir cuando termines de editar.', level: 'info' });
+      return;
+    }
+    setProjectMeasurement({
+      projectId: result.projectId,
+      timingRevision: projectTimingFingerprint(current),
+      timeline: result.timeline as MeasuredProjectTimeline,
+    });
+    notify({ message: `Listo: ${result.timeline.durationSeconds.toFixed(2)} s medidos. Podés seguir cortando.`, level: 'success' });
+  } catch (error) {
+    notify({
+      message: error instanceof Error ? error.message : 'No se pudieron medir los tiempos.',
+      level: 'error',
+    });
+  } finally {
+    measuring = false;
+    render();
+  }
 }
 
 // C2: el corte es válido solo si deja al menos dos turnos a cada lado (el motor exige
@@ -1978,6 +2105,15 @@ function updateToolbar(): void {
       ? 'Dividir la escena antes del diálogo seleccionado (Ctrl+B)'
       : 'Seleccioná un diálogo que deje al menos dos turnos a cada lado';
   }
+  // La tijera solo sirve con medición: sin ella no hay dónde caen las palabras.
+  const cut = optional<HTMLButtonElement>('#timeline-cut');
+  if (cut) {
+    cut.disabled = creator || !measured;
+    cut.classList.toggle('is-active', cutModeActive && !cut.disabled);
+    cut.title = measured
+      ? 'Modo tijera: hacé clic sobre un diálogo para cortarlo (B, o mantené Alt)'
+      : 'Medí los tiempos para poder cortar un diálogo';
+  }
   if (remove) {
     remove.disabled = creator || !selection || (selection.kind === 'scene' && (store?.project().scenes.length ?? 0) <= 1);
     const kind = selection?.kind === 'dialogue' ? 'diálogo'
@@ -2047,18 +2183,29 @@ function renderTimelineModeExplanation(measured: boolean): void {
     ? 'Hay cambios visuales sin renderizar. Play conserva el audio y los tiempos medidos, pero dibuja las escenas y keyframes actuales sobre el lienzo.'
     : measured
       ? 'Estos tiempos salen del audio real generado en el último render: la duración de cada diálogo es la que va a tener el MP4.'
-      : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace al renderizar, cuando las voces se sintetizan.';
+      : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace de las voces sintetizadas: medir las genera sin producir un video.';
   popover.replaceChildren(title, body);
   if (!measured) {
+    // Medir corre solo Piper y FFprobe: segundos, contra los minutos de un
+    // render. No hace falta un MP4 para saber cuánto dura cada diálogo.
+    const medir = document.createElement('button');
+    medir.type = 'button';
+    medir.className = 'text-button';
+    medir.textContent = measuring ? 'Midiendo…' : 'Medir ahora (unos segundos)';
+    medir.disabled = measuring || !store;
+    medir.addEventListener('click', () => {
+      toggleTimelineModePopover(false);
+      void remeasureProject();
+    });
     const cta = document.createElement('button');
     cta.type = 'button';
     cta.className = 'text-button';
-    cta.textContent = 'Renderizar para medir';
+    cta.textContent = 'Renderizar el video completo';
     cta.addEventListener('click', () => {
       toggleTimelineModePopover(false);
       optional<HTMLButtonElement>('#director-render')?.click();
     });
-    popover.append(cta);
+    popover.append(medir, cta);
   }
 }
 

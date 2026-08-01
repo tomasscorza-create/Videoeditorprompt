@@ -286,6 +286,24 @@ export async function editProjectWithAi(
   });
 }
 
+/**
+ * Mide los tiempos reales del proyecto sin renderizarlo.
+ *
+ * Corre solo la síntesis de voz y su medición, que es lo único que produce una
+ * duración; la caché de voz está indexada por contenido, así que después de un
+ * corte solo se sintetizan los dos textos nuevos.
+ */
+export async function measureProject(project: unknown): Promise<{
+  projectId: string;
+  timeline: { durationSeconds: number; scenes: unknown[] };
+}> {
+  return apiRequest('/api/measurements', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project }),
+  });
+}
+
 export async function startRender(project: unknown): Promise<RenderJob> {
   return apiRequest<RenderJob>('/api/render-jobs', {
     method: 'POST',

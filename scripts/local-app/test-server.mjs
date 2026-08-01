@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createLocalAppServer } from './server.mjs';
 import { projectRoot } from '../stage1/common.mjs';
@@ -383,5 +383,40 @@ assert.equal((await finalDirectorStatus.json()).state, 'idle');
 const missing = await request('/api/render-jobs/render-missing');
 assert.equal(missing.status, 404);
 
+// Medición: el endpoint corre el medidor de verdad en un proceso aparte y
+// devuelve los mismos tiempos que produciría un render, sin producir un MP4.
+// Sin runtime de voz local no hay nada que medir y la prueba se omite.
+const ttsRoot = process.env.LOCAL_VIDEO_TTS_ROOT || 'C:\\LocalVideoTTS';
+let medicionProbada = 0;
+if (existsSync(ttsRoot)) {
+  const medicion = await request('/api/measurements', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ project }),
+  });
+  assert.equal(medicion.status, 200);
+  const cuerpo = await medicion.json();
+  assert.equal(cuerpo.projectId, project.id);
+  assert.equal(cuerpo.timeline.scenes.length, project.scenes.length);
+  assert.equal(cuerpo.timeline.durationSeconds > 0, true);
+  // Cada escena trae sus turnos medidos, que es lo que la timeline necesita
+  // para ubicar el cabezal, un keyframe o un corte.
+  for (const scene of cuerpo.timeline.scenes) {
+    assert.equal(Array.isArray(scene.turns) && scene.turns.length >= 2, true);
+    assert.equal(scene.endSeconds > scene.startSeconds, true);
+  }
+  // No debe existir un MP4: medir no renderiza.
+  assert.equal(Object.hasOwn(cuerpo, 'videoUrl'), false);
+  medicionProbada = 5;
+}
+
+// Un proyecto inválido no llega a gastar Piper.
+const medicionInvalida = await request('/api/measurements', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ project: { id: 'roto' } }),
+});
+assert.equal(medicionInvalida.status >= 400, true);
+
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 47, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 48 + medicionProbada, failed: 0, url: listening.url })}\n`);

@@ -2268,6 +2268,30 @@ body.is-resizing { cursor: grabbing; user-select: none; }
    conservaba su tinte de activo estando gris. */
 .timeline-play:disabled { color: var(--muted); border-color: var(--border); background: transparent; }
 .timeline-tool.is-active:disabled { color: var(--muted); border-color: var(--border); background: transparent; }
+/* Corte de diálogo: las fronteras de palabra son la unidad real de corte, así
+   que se dibujan dentro del clip y la guía se pega a la más cercana. */
+.dialogue-word-boundary {
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  width: 1px;
+  background: color-mix(in srgb, var(--accent-ink) 22%, transparent);
+  opacity: 0;
+  transition: opacity .12s ease;
+  pointer-events: none;
+}
+.is-cut-mode .authoring-clip.is-cuttable .dialogue-word-boundary { opacity: 1; }
+.is-cut-mode .authoring-clip.is-cuttable { cursor: crosshair; }
+.dialogue-cut-guide {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent-ink);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+  pointer-events: none;
+}
 .timeline-spacer { flex: 1; min-width: .25rem; }
 .timeline-timecode {
   flex: 0 0 auto;

@@ -205,6 +205,7 @@ const appHtml = readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
 const projectPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'panel.ts'), 'utf8');
 const directorPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'panel.ts'), 'utf8');
 const timelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'timeline.ts'), 'utf8');
+const editorWorkspaceSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'editor-workspace.ts'), 'utf8');
 const editingPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'editing-panel.ts'), 'utf8');
 const compositionSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'composition.ts'), 'utf8');
 check(
@@ -537,12 +538,31 @@ check(
 );
 check(
   'el corte de diálogo exige medición y no inventa dónde cae el cabezal',
-  timelineSource.includes("blocked: 'Hace falta renderizar para saber dónde cae el cabezal.'")
-    && timelineSource.includes("type: 'split-dialogue-turn'")
+  timelineSource.includes("type: 'split-dialogue-turn'")
     && timelineSource.includes('wordCutAtSeconds(')
-    // El corte invalida la medición: la UI tiene que decirlo, no dejar que el
-    // usuario descubra solo que la timeline volvió a estimar.
-    && timelineSource.includes('los tiempos vuelven a estimarse hasta el próximo render'),
+    && timelineSource.includes('Hace falta renderizar para saber dónde cae el cabezal.'),
+);
+check(
+  'cortar vuelve a medir solo, sin exigir un render completo',
+  timelineSource.includes('void remeasureProject();')
+    && timelineSource.includes('measureProjectTimes(project)')
+    && timelineSource.includes('setProjectMeasurement({')
+    // Una medición que llega tarde no puede adoptarse sobre un proyecto que ya cambió.
+    && timelineSource.includes('El proyecto cambió mientras se medía'),
+);
+check(
+  'la medición liviana gana sobre el MP4 y no habilita reproducir',
+  editorWorkspaceSource.includes('export function setProjectMeasurement(')
+    && editorWorkspaceSource.includes('measurement.timingRevision === activeTimingRevision')
+    && !editorWorkspaceSource.includes('measurement && media'),
+);
+check(
+  'la tijera dibuja las fronteras de palabra y corta con un clic',
+  timelineSource.includes('function bindDialogueCutter(')
+    && timelineSource.includes("mark.className = 'dialogue-word-boundary'")
+    && timelineSource.includes('cutDialogueTurnAtWord(sceneId, turn.id, boundary)')
+    && appHtml.includes('id="timeline-cut"')
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('.dialogue-cut-guide'),
 );
 check(
   'un control deshabilitado de la barra no se viste de acción disponible',

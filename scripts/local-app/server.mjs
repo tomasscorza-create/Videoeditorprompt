@@ -9,6 +9,7 @@ import { listProviderNames } from '../director/providers/index.mjs';
 import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
+import { createMeasurementManager } from './measurement-manager.mjs';
 import { createRenderJobManager, streamVideoResponse } from './render-job-manager.mjs';
 import {
   createResourceLibrary,
@@ -76,6 +77,15 @@ export async function createLocalAppServer(options = {}) {
     throw error;
   }
   const currentCatalog = () => library.catalog();
+  const measurements = options.measurements || createMeasurementManager({
+    root,
+    assetsRoot,
+    catalogProvider: currentCatalog,
+    workRoot: options.workRoot,
+    outputRoot: options.outputRoot,
+    measureRoot: options.measureRoot,
+    ...(options.spawnImpl ? { spawnImpl: options.spawnImpl } : {}),
+  });
   const ownsManager = !options.manager;
   // Retención automática al arrancar: solo cuando este servicio administra su propio
   // ciclo de vida de jobs (producción). Si el manager viene inyectado (tests), no se
@@ -309,6 +319,16 @@ export async function createLocalAppServer(options = {}) {
           projectId: result.project.id,
           scenes: result.project.scenes.length,
         });
+        return;
+      }
+      // Medir no es renderizar: devuelve los tiempos reales sin producir un MP4.
+      // Es lo que permite seguir editando después de cortar un diálogo sin
+      // esperar un render completo.
+      if (request.method === 'POST' && url.pathname === '/api/measurements') {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        const measurement = await measurements.measure(body.project);
+        sendJson(response, 200, { version: 1, ...measurement });
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/render-jobs') {
