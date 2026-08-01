@@ -545,6 +545,20 @@ check(
     && timelineSource.includes('los tiempos vuelven a estimarse hasta el próximo render'),
 );
 check(
+  'B corta el diálogo bajo el cabezal y dividir la escena queda en Ctrl+B',
+  timelineSource.includes("event.code === 'KeyB'")
+    && timelineSource.includes('cutAtPlayhead();')
+    && timelineSource.includes("if (key === 'b' && !creator)")
+    && appHtml.includes('<dt>B</dt>')
+    && appHtml.includes('<dt>Ctrl+B</dt>'),
+);
+check(
+  'ningún corte falla en silencio: siempre explica qué falta',
+  timelineSource.includes("message: 'Seleccioná un diálogo para dividir la escena antes de él.'")
+    && timelineSource.includes('tienen que quedar al menos dos diálogos de cada lado')
+    && timelineSource.includes('Poné el cabezal sobre un diálogo para cortarlo.'),
+);
+check(
   'el vocabulario de corte de diálogo está en el esquema y en el relato de undo',
   JSON.stringify(readJson(path.join(projectRoot, 'schema', 'editor-command.schema.json'))).includes('split-dialogue-turn')
     && readFileSync(path.join(projectRoot, 'src', 'ui', 'command-labels.ts'), 'utf8').includes("'split-dialogue-turn'"),

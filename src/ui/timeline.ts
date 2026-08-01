@@ -968,7 +968,7 @@ function dialogueMenuItems(sceneId: string, turnId: string, anchor: HTMLElement)
   const cut = dialogueCutPlan(sceneId, turnId);
   const items: MenuItem[] = [
     {
-      label: cut.atWord === null ? `Cortar el diálogo · ${cut.blocked}` : `✂ Cortar el diálogo en el cabezal (palabra ${cut.atWord})`,
+      label: cut.atWord === null ? `Cortar el diálogo · ${cut.blocked}` : `✂ Cortar el diálogo en el cabezal · palabra ${cut.atWord} (B)`,
       disabled: cut.atWord === null,
       action: () => cutDialogueTurn(sceneId, turnId),
     },
@@ -1110,6 +1110,42 @@ function dialogueCutPlan(sceneId: string, turnId: string): DialogueCutPlan {
   return { atWord, blocked: null };
 }
 
+// Turno que ocupa el cabezal, mirando todas las escenas medidas. Es lo que hace
+// que la tijera se sienta una tijera: corta lo que está debajo del cabezal, sin
+// pedir que además esté seleccionado.
+function turnAtPlayhead(): { sceneId: string; turnId: string } | null {
+  const project = store?.project();
+  const measured = compatibleTimeline(project?.scenes ?? []);
+  if (!project || !measured) return null;
+  for (const [index, scene] of measured.scenes.entries()) {
+    for (const turn of scene.turns ?? []) {
+      if (currentTime >= turn.startSeconds && currentTime <= turn.endSeconds) {
+        return { sceneId: project.scenes[index].id, turnId: turn.id };
+      }
+    }
+  }
+  return null;
+}
+
+// Tecla B. Prefiere el turno bajo el cabezal; si el cabezal cayó en una pausa
+// usa el diálogo seleccionado, para poder explicar qué falta en vez de no hacer
+// nada.
+function cutAtPlayhead(): void {
+  const selection = projectSelection();
+  const target = turnAtPlayhead()
+    ?? (selection?.kind === 'dialogue' ? { sceneId: selection.sceneId, turnId: selection.turnId } : null);
+  if (!target) {
+    notify({
+      message: isMeasured()
+        ? 'Poné el cabezal sobre un diálogo para cortarlo.'
+        : 'Hace falta renderizar una vez para medir los diálogos antes de poder cortarlos.',
+      level: 'error',
+    });
+    return;
+  }
+  cutDialogueTurn(target.sceneId, target.turnId);
+}
+
 function cutDialogueTurn(sceneId: string, turnId: string): void {
   if (!store) return;
   const scene = store.project().scenes.find((item) => item.id === sceneId);
@@ -1144,7 +1180,19 @@ function splitSceneAtTurn(sceneId: string, turnId: string): void {
   const scene = store.project().scenes.find((item) => item.id === sceneId);
   if (!scene) return;
   const turnIndex = scene.dialogue.findIndex((turn) => turn.id === turnId);
-  if (!canSplitAtIndex(scene.dialogue.length, turnIndex) || store.project().scenes.length >= 8) return;
+  // Antes esto se rendía en silencio y parecía que la tecla estaba rota. El
+  // límite es del motor: una escena renderizable necesita >= 2 turnos.
+  if (!canSplitAtIndex(scene.dialogue.length, turnIndex)) {
+    notify({
+      message: 'Para dividir la escena acá tienen que quedar al menos dos diálogos de cada lado. Cortá un diálogo con B para tener más.',
+      level: 'error',
+    });
+    return;
+  }
+  if (store.project().scenes.length >= 8) {
+    notify({ message: 'El proyecto llegó al máximo de ocho escenas.', level: 'error' });
+    return;
+  }
   const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
   const error = store.dispatch({ type: 'split-scene', sceneId, atTurnId: turnId, newSceneId });
   if (error) window.alert(error);
@@ -1153,7 +1201,11 @@ function splitSceneAtTurn(sceneId: string, turnId: string): void {
 
 function splitSelectedTurn(): void {
   const selection = projectSelection();
-  if (selection?.kind === 'dialogue') splitSceneAtTurn(selection.sceneId, selection.turnId);
+  if (selection?.kind !== 'dialogue') {
+    notify({ message: 'Seleccioná un diálogo para dividir la escena antes de él.', level: 'error' });
+    return;
+  }
+  splitSceneAtTurn(selection.sceneId, selection.turnId);
 }
 
 function nextTurnId(existing: string[]): string {
@@ -1842,8 +1894,10 @@ function handleShortcut(event: KeyboardEvent): void {
     event.preventDefault();
     zoomBy(0.8);
   } else if (event.code === 'KeyB') {
+    // B es la tijera: corta el diálogo que hay bajo el cabezal. Dividir la
+    // escena, que es estructural y mucho menos frecuente, queda en Ctrl+B.
     event.preventDefault();
-    splitSelectedTurn();
+    cutAtPlayhead();
   } else if (event.code === 'Delete') {
     event.preventDefault();
     deleteSelection();
@@ -1898,7 +1952,7 @@ function updateToolbar(): void {
   if (split) {
     split.disabled = creator || !canSplitSelection;
     split.title = canSplitSelection
-      ? 'Dividir la escena antes del diálogo seleccionado (B)'
+      ? 'Dividir la escena antes del diálogo seleccionado (Ctrl+B)'
       : 'Seleccioná un diálogo que deje al menos dos turnos a cada lado';
   }
   if (remove) {
