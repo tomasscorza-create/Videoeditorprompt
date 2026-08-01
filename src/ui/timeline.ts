@@ -132,6 +132,17 @@ export function updateTimelineTime(timeSeconds: number): void {
 
 function render(): void {
   if (!initialized) return;
+  // Mientras se arrastra el cabezal no se reconstruye el árbol. Cada seek emite
+  // EDITOR_WORKSPACE_EVENT, así que un repintado por pointermove reemplazaba el
+  // propio <span> que el usuario tenía agarrado: el nodo quedaba huérfano y el
+  // estado `is-dragging` se aplicaba sobre un elemento ya removido. Un arrastre
+  // solo mueve el tiempo, no la estructura, así que basta con reposicionar el
+  // cabezal; al soltar (`onUp`) se repinta todo y se recupera lo que se saltó.
+  if (draggingPlayhead) {
+    updateToolbar();
+    syncPlayheadFromMedia();
+    return;
+  }
   if (editorWorkspace().mode === 'creator') renderCreatorTimeline();
   else renderProject();
   updateToolbar();
@@ -433,6 +444,9 @@ function bindPlayheadDrag(playhead: HTMLElement, root: HTMLElement): void {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     followPlayhead();
+    // Repintado diferido de todo lo que el arrastre saltó (onda, filmstrip,
+    // rótulos), ya con el cabezal quieto.
+    render();
   };
   playhead.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 || !isMeasured()) return;
@@ -448,15 +462,21 @@ function bindPlayheadDrag(playhead: HTMLElement, root: HTMLElement): void {
   playhead.addEventListener('keydown', (event) => {
     if (!isMeasured()) return;
     const fps = projectFps();
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    // Igual que en los clips: el cabezal se mueve por frames, así que tiene que
+    // cortar el burbujeo o `handleShortcut` le sumaría además su salto de 0,5 s.
+    const consume = (): void => {
       event.preventDefault();
+      event.stopPropagation();
+    };
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      consume();
       const direction = event.key === 'ArrowRight' ? 1 : -1;
       seekTo(currentTime + direction * (event.shiftKey ? 5 : 1) / fps);
     } else if (event.key === 'Home') {
-      event.preventDefault();
+      consume();
       seekTo(0);
     } else if (event.key === 'End') {
-      event.preventDefault();
+      consume();
       seekTo(activeDuration());
     }
   });
@@ -647,6 +667,9 @@ function bindClipKeyboard(clip: HTMLElement): void {
     const index = clips.indexOf(clip);
     if (index < 0) return;
     event.preventDefault();
+    // `handleShortcut` escucha en window: sin cortar el burbujeo, una flecha
+    // movía el foco entre clips Y además desplazaba el cabezal medio segundo.
+    event.stopPropagation();
     const next = event.key === 'Home'
       ? 0
       : event.key === 'End'
@@ -1681,6 +1704,12 @@ function fitTimeline(): void {
 }
 
 function handleShortcut(event: KeyboardEvent): void {
+  // El Creador de recursos no comparte las acciones del Editor: la barra ya
+  // deshabilita ahí transporte, duplicar, dividir y eliminar, y el teclado tiene
+  // que decir lo mismo. Sin esta guardia, `Supr` borraba una escena del proyecto
+  // mientras el usuario diseñaba un personaje. Deshacer y rehacer siguen
+  // disponibles, igual que sus botones.
+  const creator = editorWorkspace().mode === 'creator';
   // B6: Ctrl/Cmd+Z deshace y Ctrl+Y / Ctrl+Shift+Z rehace. Se respeta isTyping para no
   // pisar el undo nativo de los inputs.
   if ((event.ctrlKey || event.metaKey) && !isTyping(event.target)) {
@@ -1695,13 +1724,13 @@ function handleShortcut(event: KeyboardEvent): void {
       narratedRedo();
       return;
     }
-    if (key === 'b') {
+    if (key === 'b' && !creator) {
       event.preventDefault();
       splitSelectedTurn();
       return;
     }
   }
-  if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (creator || isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
   const hasOutput = editorCanPlay();
   if (event.code === 'Space' && hasOutput) {
     event.preventDefault();

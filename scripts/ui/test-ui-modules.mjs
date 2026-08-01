@@ -524,6 +524,23 @@ check(
     && timelineSource.includes("playhead.setAttribute('role', 'slider')"),
 );
 check(
+  'los atajos de la timeline no operan sobre el proyecto desde el Creador',
+  timelineSource.includes("const creator = editorWorkspace().mode === 'creator';")
+    && timelineSource.includes("if (key === 'b' && !creator)")
+    && timelineSource.includes('if (creator || isTyping(event.target)'),
+);
+check(
+  'las flechas de clips y cabezal no se suman al atajo global de seek',
+  // El roving de clips corta el burbujeo y el cabezal consume sus propias teclas.
+  timelineSource.includes('// movía el foco entre clips Y además desplazaba el cabezal medio segundo.\n    event.stopPropagation();')
+    && timelineSource.includes('const consume = (): void => {\n      event.preventDefault();\n      event.stopPropagation();\n    };'),
+);
+check(
+  'arrastrar el cabezal no reconstruye el árbol que se está agarrando',
+  timelineSource.includes('if (draggingPlayhead) {')
+    && timelineSource.includes('    syncPlayheadFromMedia();\n    return;\n  }'),
+);
+check(
   'la selección enlaza la edición derecha y no el antiguo inspector del Director',
   readFileSync(path.join(projectRoot, 'src', 'ui', 'selection-mirror.ts'), 'utf8')
     .includes("showRightPanelPage('editing')")
