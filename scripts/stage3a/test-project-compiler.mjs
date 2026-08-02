@@ -288,6 +288,24 @@ assert.throws(() => createProjectCompilationContext({
 }), (error) => error.code === 'JOB_PROJECT_CONFLICT');
 results.push({ name: 'job-freezes-authoring-project', passed: true });
 
+// Una ventana de visibilidad se aplica como alfa por frame y el overlay de
+// FFmpeg no acepta alfa por personaje: la escena tiene que irse a PixiJS, igual
+// que con un prop o un rig v3. Sin este enrutamiento el recorte se calcula bien
+// y el MP4 sale igual.
+const ventana = {
+  from: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0 },
+  to: { anchor: { kind: 'scene', edge: 'end' }, offsetSeconds: -1 },
+};
+assert.equal(
+  selectCompositorBackend({ characters: [{ id: 'a', characterRig: { version: 2 } }] }),
+  'ffmpeg',
+);
+assert.equal(
+  selectCompositorBackend({ characters: [{ id: 'a', characterRig: { version: 2 }, visibility: ventana }] }),
+  'pixi',
+);
+results.push({ name: 'una-ventana-de-visibilidad-enruta-la-escena-a-pixi', accepted: true });
+
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'project-compiler-latest.json'), summary);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

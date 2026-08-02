@@ -1,8 +1,17 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
-import { ensureDirectory, ffprobe, isMain, projectRoot, readJson, run, writeJson } from '../stage1/common.mjs';
+import { ensureDirectory, ffprobe, isMain, projectRoot, readJson, run, sha256, writeJson } from '../stage1/common.mjs';
 import { PipelineError, serializeError } from '../stage1/errors.mjs';
 import { createJobContext } from '../stage1/job-context.mjs';
 import { runPipeline } from '../stage1/pipeline.mjs';
@@ -12,6 +21,12 @@ import { createProjectCompilationContext } from './project-compilation-context.m
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateRenderedProjectSchema = ajv.compile(readJson(path.join(projectRoot, 'schema', 'rendered-project.schema.json')));
+// Subir esta versión cuando cambie CÓMO se renderiza una escena, aunque sus
+// entradas no cambien. La clave de caché mira config, catálogo y assets; un
+// cambio de comportamiento del render es invisible para ella y serviría un MP4
+// viejo. La v2 corresponde a la ventana de visibilidad por elemento, que enruta
+// la escena a PixiJS y aplica alfa por frame.
+const SCENE_CACHE_VERSION = 2;
 
 export async function runProjectPipeline(context) {
   const verificationMode = context.args?.['verification-mode'] === 'interactive' ? 'interactive' : 'full';
@@ -95,7 +110,20 @@ async function renderCompiledScenes(context, compiledManifest, report, verificat
       'output-dir': sceneOutputRoot,
       'tts-root': context.ttsRoot,
     });
-    const result = await runPipeline(sceneContext, { verificationMode });
+    const cacheKey = sceneCacheKey(compiledManifest, scene, sceneJobId, verificationMode);
+    const cached = restoreCachedScene(context, sceneContext, cacheKey);
+    const result = cached || await runPipeline(sceneContext, { verificationMode });
+    if (cached) {
+      report('preparing', {
+        stage: 'reusing_scene',
+        sceneId: scene.id,
+        sceneIndex: index,
+        sceneJobId,
+        cacheHit: true,
+      });
+    } else {
+      storeCachedScene(context, sceneContext, cacheKey, verificationMode);
+    }
     const runtime = readJson(path.join(sceneContext.runtimeRoot, 'scene-runtime.json'));
     if (runtime.version !== 2 || typeof runtime.dialoguePath !== 'string') {
       renderedTurnError(`la escena ${scene.id} no publicó un runtime de diálogo v2`);
@@ -131,6 +159,111 @@ async function renderCompiledScenes(context, compiledManifest, report, verificat
     });
   }
   return renderedScenes;
+}
+
+/**
+ * Una escena se puede reutilizar solo cuando coinciden su configuración, todos
+ * los recursos compilados, el identificador interno y el modo de verificación.
+ * El número de versión invalida la caché cuando cambia el pipeline visual.
+ */
+export function sceneCacheKey(compiledManifest, scene, sceneJobId, verificationMode) {
+  return sha256(JSON.stringify({
+    version: SCENE_CACHE_VERSION,
+    sceneJobId,
+    verificationMode,
+    video: compiledManifest.video,
+    configSha256: scene.configSha256,
+    catalogSha256: compiledManifest.catalogSha256,
+    sourceHashes: compiledManifest.sourceHashes,
+  }));
+}
+
+function sceneCacheRoot(context) {
+  return ensureDirectory(path.join(path.dirname(context.workRoot), 'render-cache', 'scenes'));
+}
+
+function restoreCachedScene(context, sceneContext, key) {
+  const root = path.join(sceneCacheRoot(context), key);
+  const metadataFile = path.join(root, 'cache.json');
+  if (!existsSync(metadataFile)) return null;
+  try {
+    const metadata = readJson(metadataFile);
+    if (metadata.version !== SCENE_CACHE_VERSION || metadata.key !== key || !Array.isArray(metadata.files)) return null;
+    for (const entry of metadata.files) {
+      const file = resolveCacheFile(root, entry.path);
+      if (!existsSync(file) || statSync(file).size !== entry.bytes || fileHash(file) !== entry.sha256) return null;
+    }
+    for (const [name, destination] of [
+      ['runtime', sceneContext.runtimeRoot],
+      ['generated', sceneContext.generatedRoot],
+      ['result', sceneContext.resultRoot],
+    ]) {
+      copyDirectory(path.join(root, name), destination);
+    }
+    return {
+      manifest: readJson(path.join(sceneContext.resultRoot, 'job-manifest.json')),
+      verification: readJson(path.join(sceneContext.resultRoot, 'verification.json')),
+    };
+  } catch {
+    // Una entrada incompleta o de otra versión es un miss: nunca compromete la
+    // exportación y tampoco se borra automáticamente evidencia del usuario.
+    return null;
+  }
+}
+
+function storeCachedScene(context, sceneContext, key, verificationMode) {
+  const root = sceneCacheRoot(context);
+  const destination = path.join(root, key);
+  if (existsSync(destination)) return;
+  const staging = mkdtempSync(path.join(root, '.pending-'));
+  try {
+    copyDirectory(sceneContext.runtimeRoot, path.join(staging, 'runtime'));
+    copyDirectory(sceneContext.generatedRoot, path.join(staging, 'generated'));
+    copyDirectory(sceneContext.resultRoot, path.join(staging, 'result'));
+    const files = listFiles(staging).map((file) => ({
+      path: toPortable(path.relative(staging, file)),
+      bytes: statSync(file).size,
+      sha256: fileHash(file),
+    }));
+    writeJson(path.join(staging, 'cache.json'), {
+      version: SCENE_CACHE_VERSION,
+      key,
+      verificationMode,
+      files,
+    });
+    renameSync(staging, destination);
+  } catch (error) {
+    rmSync(staging, { recursive: true, force: true });
+    if (!existsSync(destination)) throw error;
+  }
+}
+
+function listFiles(root) {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const target = path.join(root, entry.name);
+    return entry.isDirectory() ? listFiles(target) : [target];
+  });
+}
+
+function copyDirectory(source, destination) {
+  ensureDirectory(destination);
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = path.join(source, entry.name);
+    const destinationPath = path.join(destination, entry.name);
+    if (entry.isDirectory()) copyDirectory(sourcePath, destinationPath);
+    else if (entry.isFile()) copyFileSync(sourcePath, destinationPath);
+    else throw new Error(`Tipo de archivo no admitido en caché: ${entry.name}`);
+  }
+}
+
+function resolveCacheFile(root, relativePath) {
+  if (typeof relativePath !== 'string' || path.isAbsolute(relativePath) || relativePath.includes('\\')) {
+    throw new Error('Ruta inválida en caché de escena.');
+  }
+  const resolved = path.resolve(root, ...relativePath.split('/'));
+  const relative = path.relative(root, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Ruta fuera de la caché de escena.');
+  return resolved;
 }
 
 export function buildAssemblyPlan(scenes) {
