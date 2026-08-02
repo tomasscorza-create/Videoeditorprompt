@@ -2268,6 +2268,26 @@ body.is-resizing { cursor: grabbing; user-select: none; }
    conservaba su tinte de activo estando gris. */
 .timeline-play:disabled { color: var(--muted); border-color: var(--border); background: transparent; }
 .timeline-tool.is-active:disabled { color: var(--muted); border-color: var(--border); background: transparent; }
+/* Recorte de elementos visuales: los bordes del clip se agarran como en
+   cualquier editor. Zona de 8 px, visible al pasar el mouse o durante el
+   arrastre; el resto del tiempo no ensucia el clip. */
+.clip-trim-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  opacity: 0;
+  background: var(--accent-ink);
+  transition: opacity .1s ease;
+  z-index: 3;
+}
+.clip-trim-handle.is-from { left: 0; border-radius: 3px 0 0 3px; }
+.clip-trim-handle.is-to { right: 0; border-radius: 0 3px 3px 0; }
+.authoring-clip.is-trimmable:hover .clip-trim-handle,
+.authoring-clip.is-trimming .clip-trim-handle { opacity: .75; }
+.authoring-clip.is-trimming { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 /* Corte de diálogo: las fronteras de palabra son la unidad real de corte, así
    que se dibujan dentro del clip y la guía se pega a la más cercana. */
 .dialogue-word-boundary {

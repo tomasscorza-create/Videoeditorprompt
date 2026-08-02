@@ -2,6 +2,8 @@
 // No son una segunda fuente de verdad: el estado real vive en
 // shared/project-editor.js y solo cambia por comandos semánticos.
 
+import type { AnimationAnchor } from '../../../shared/animation-contract.js';
+
 export type ResourceType = 'character' | 'prop' | 'template' | 'voice' | 'background' | 'image';
 
 export interface ResourceEntry {
@@ -69,6 +71,18 @@ export interface ElementView {
   animationPreset?: string;
   transform: TransformView;
   tracks?: TrackView[];
+  /** Ventana en la que el elemento se ve. Ausente: toda la escena. */
+  visibility?: VisibilityWindowView;
+}
+
+export interface VisibilityEdgeView {
+  anchor: AnimationAnchor;
+  offsetSeconds: number;
+}
+
+export interface VisibilityWindowView {
+  from: VisibilityEdgeView;
+  to: VisibilityEdgeView;
 }
 
 export interface TurnView {

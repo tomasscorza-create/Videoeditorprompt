@@ -373,6 +373,38 @@ export function wordCutAtSeconds(
   return clamp(Math.round(progress * turn.wordCount), 1, turn.wordCount - 1);
 }
 
+/**
+ * Ventana de un elemento en segundos absolutos, o null si no tiene.
+ *
+ * Resuelve con el MISMO evaluador que usa el render, así el rectángulo que ves
+ * en la timeline es exactamente el tramo en el que el elemento va a estar en el
+ * MP4. Los bordes se sujetan a la escena igual que allá.
+ */
+export function resolveWindowSeconds(
+  visibility: { from: { anchor: AnimationAnchor; offsetSeconds: number }; to: { anchor: AnimationAnchor; offsetSeconds: number } } | undefined,
+  timing: SceneTiming | null,
+): { fromSeconds: number; toSeconds: number } | null {
+  if (!visibility || !timing) return null;
+  try {
+    return {
+      fromSeconds: clamp(
+        resolveAnchorSeconds(visibility.from.anchor, timing) + visibility.from.offsetSeconds,
+        timing.startSeconds,
+        timing.endSeconds,
+      ),
+      toSeconds: clamp(
+        resolveAnchorSeconds(visibility.to.anchor, timing) + visibility.to.offsetSeconds,
+        timing.startSeconds,
+        timing.endSeconds,
+      ),
+    };
+  } catch {
+    // Ancla rota (el turno ya no existe): la ventana no se dibuja y el elemento
+    // se muestra completo, en vez de inventar una posición.
+    return null;
+  }
+}
+
 export interface AnchorProposal {
   anchor: AnimationAnchor;
   offsetSeconds: number;

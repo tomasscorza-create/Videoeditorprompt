@@ -4,6 +4,7 @@ import {
   EDITOR_WORKSPACE_EVENT,
   EDITOR_PLAYBACK_EVENT,
   currentEditorOutput,
+  currentPreviewAudioUrl,
   editorCanPlay,
   editorOutputState,
   editorWorkspace,
@@ -54,10 +55,13 @@ import {
   buildAnimationLanes,
   countAnchorsRequiringReview,
   duplicateKeyframeCommand,
+  nearestAnchorFor,
+  resolveWindowSeconds,
   sceneAnimationReference,
   sceneAnimationTiming,
   wordCutAtSeconds,
 } from './timeline-animation.js';
+import type { SceneTiming } from '../../shared/animation-evaluator.js';
 import type { ElementView } from './project/types.js';
 import { nextVisualZIndex } from './project/layers.js';
 
@@ -73,6 +77,9 @@ let pixelsPerSecond = DEFAULT_PIXELS_PER_SECOND;
 let snapEnabled = true;
 let currentTime = 0;
 let draggingPlayhead = false;
+let observedTimingRevision: string | null = null;
+let automaticMeasureTimer = 0;
+let measurementQueued = false;
 
 export function initTimelineShell(): void {
   if (initialized) return;
@@ -119,7 +126,18 @@ export function initTimelineShell(): void {
 
 export function attachProjectTimeline(projectStore: ProjectStore): void {
   store = projectStore;
-  store.subscribe(() => render());
+  observedTimingRevision = projectTimingFingerprint(store.project());
+  store.subscribe(() => {
+    const nextTimingRevision = projectTimingFingerprint(store!.project());
+    if (nextTimingRevision !== observedTimingRevision) {
+      observedTimingRevision = nextTimingRevision;
+      scheduleAutomaticMeasurement();
+    }
+    render();
+  });
+  // Un proyecto nuevo obtiene audio y regla real en segundo plano; la primera
+  // exportación deja de ser un requisito para empezar a editar profesionalmente.
+  if (!compatibleTimeline(store.project().scenes)) scheduleAutomaticMeasurement();
   render();
 }
 
@@ -214,7 +232,7 @@ function renderProject(): void {
   setTimelineMode(
     Boolean(measured),
     measured
-      ? (outputState === 'current' ? undefined : 'Medido · falta renderizar')
+      ? (outputState === 'current' ? undefined : 'Preview listo · sin exportar')
       : (outputState === 'stale' ? 'Cambios pendientes' : undefined),
   );
   renderLayerStack(project, positions, sceneWidths, measured);
@@ -223,7 +241,7 @@ function renderProject(): void {
       ? `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · capas editables alineadas con la exportación actual.`
       : `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · Play usa su audio con los cambios visuales actuales.`
     : outputState === 'stale'
-      ? `${project.scenes.length} escena(s) · cambios sin renderizar · el MP4 anterior quedó fuera del transporte.`
+      ? `${project.scenes.length} escena(s) · cambios sin exportar · el MP4 anterior quedó fuera del transporte.`
       : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`);
 }
 
@@ -244,8 +262,10 @@ function renderLayerStack(
   root.style.setProperty('--timeline-grid-size', `${pixelsPerSecond}px`);
   const totalWidth = Math.max(640, (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0));
   const output = currentEditorOutput();
-  // Onda real solo en modo medido (hay MP4 vigente); se decodifica una vez por url.
-  const waveform = measured && output ? requestWaveform(output.url, render) : null;
+  // La onda sale del audio liviano cuando existe; el MP4 queda como fallback
+  // para proyectos históricos. Medir ya no obliga a exportar para ver la voz.
+  const waveformUrl = currentPreviewAudioUrl() ?? output?.url ?? null;
+  const waveform = measured && waveformUrl ? requestWaveform(waveformUrl, render) : null;
   const rows: HTMLElement[] = [
     authoringRuler(project, positions, totalWidth, measured),
   ];
@@ -277,8 +297,8 @@ function renderLayerStack(
       const clip = authoringClip(
         element.resourceId ?? element.id,
         elementClipDetail(element),
-        positions[sceneIndex],
-        sceneWidths[sceneIndex],
+        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).left || positions[sceneIndex],
+        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).width || sceneWidths[sceneIndex],
         'character',
         isElementSelected(element.id),
       );
@@ -291,6 +311,8 @@ function renderLayerStack(
       // selección y el hover con el lienzo.
       clip.dataset.scene = scene.id;
       clip.dataset.element = element.id;
+      const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
+      if (medidaDeEscena) bindElementTrim(clip, scene, element, medidaDeEscena);
       const characterStart = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
       clip.addEventListener('click', () => clipSingleClick(characterStart, () => selectElement(scene.id, element.id), () => selectElementCore(scene.id, element.id)));
       clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
@@ -315,13 +337,15 @@ function renderLayerStack(
       const clip = authoringClip(
         element.resourceId ?? element.id,
         elementClipDetail(element),
-        positions[sceneIndex],
-        sceneWidths[sceneIndex],
+        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).left || positions[sceneIndex],
+        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).width || sceneWidths[sceneIndex],
         'character',
         isElementSelected(element.id),
       );
       clip.dataset.scene = scene.id;
       clip.dataset.element = element.id;
+      const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
+      if (medidaDeEscena) bindElementTrim(clip, scene, element, medidaDeEscena);
       appendElementKeyframes(clip, scene, element, measured?.scenes[sceneIndex] ?? null);
       const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
       clip.addEventListener('click', () => clipSingleClick(
@@ -343,13 +367,15 @@ function renderLayerStack(
       const clip = authoringClip(
         element.values?.word ? `«${element.values.word}»` : element.id,
         elementClipDetail(element),
-        positions[sceneIndex],
-        sceneWidths[sceneIndex],
+        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).left || positions[sceneIndex],
+        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).width || sceneWidths[sceneIndex],
         'character',
         isElementSelected(element.id),
       );
       clip.dataset.scene = scene.id;
       clip.dataset.element = element.id;
+      const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
+      if (medidaDeEscena) bindElementTrim(clip, scene, element, medidaDeEscena);
       const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
       clip.addEventListener('click', () => clipSingleClick(
         start,
@@ -1088,6 +1114,140 @@ function insertTurn(sceneId: string, reference: { speakerElementId: string; voic
   else selectDialogue(sceneId, turnId);
 }
 
+// ---- Recorte de elementos visuales: arrastrar los bordes del clip ----
+
+// Un personaje, prop o plantilla dura toda su escena salvo que declare una
+// ventana. Acá esa ventana se edita como en cualquier editor: agarrando el
+// borde del clip. El rectángulo que se ve es el tramo real en el que el
+// elemento va a estar en el MP4, porque se resuelve con el mismo evaluador.
+interface ElementClipRect {
+  left: number;
+  width: number;
+  windowSeconds: { fromSeconds: number; toSeconds: number } | null;
+}
+
+function elementClipRect(scene: SceneView, element: ElementView, measured: MeasuredScene | null): ElementClipRect {
+  const sceneIndex = store?.project().scenes.findIndex((item) => item.id === scene.id) ?? -1;
+  const fullLeft = measured ? measured.startSeconds * pixelsPerSecond : 0;
+  const fullWidth = measured ? (measured.endSeconds - measured.startSeconds) * pixelsPerSecond : 0;
+  if (!measured || !element.visibility) return { left: fullLeft, width: fullWidth, windowSeconds: null };
+  const timing = sceneAnimationTiming(measured, sceneAnimationReference(scene.dialogue));
+  const window = resolveWindowSeconds(element.visibility, timing);
+  if (!window || sceneIndex < 0) return { left: fullLeft, width: fullWidth, windowSeconds: null };
+  return {
+    left: window.fromSeconds * pixelsPerSecond,
+    width: Math.max(MIN_CLIP_WIDTH, (window.toSeconds - window.fromSeconds) * pixelsPerSecond),
+    windowSeconds: window,
+  };
+}
+
+function bindElementTrim(
+  clip: HTMLElement,
+  scene: SceneView,
+  element: ElementView,
+  measured: MeasuredScene,
+): void {
+  const timing = sceneAnimationTiming(measured, sceneAnimationReference(scene.dialogue));
+  if (!timing) return;
+  clip.classList.add('is-trimmable');
+  const current = resolveWindowSeconds(element.visibility, timing)
+    ?? { fromSeconds: measured.startSeconds, toSeconds: measured.endSeconds };
+
+  for (const edge of ['from', 'to'] as const) {
+    const handle = document.createElement('span');
+    handle.className = `clip-trim-handle is-${edge}`;
+    handle.title = edge === 'from' ? 'Arrastrá para que aparezca más tarde' : 'Arrastrá para que desaparezca antes';
+    let dragging = false;
+    let preview = current[edge === 'from' ? 'fromSeconds' : 'toSeconds'];
+
+    const secondsAt = (event: PointerEvent): number => {
+      const lane = clip.parentElement;
+      if (!lane) return preview;
+      const bounds = lane.getBoundingClientRect();
+      return clamp((event.clientX - bounds.left) / pixelsPerSecond, measured.startSeconds, measured.endSeconds);
+    };
+    const paint = (): void => {
+      const from = edge === 'from' ? preview : current.fromSeconds;
+      const to = edge === 'from' ? current.toSeconds : preview;
+      clip.style.left = `${from * pixelsPerSecond}px`;
+      clip.style.width = `${Math.max(MIN_CLIP_WIDTH, (to - from) * pixelsPerSecond)}px`;
+      announceTimeline(`${element.resourceId ?? element.id}: ${from.toFixed(2)} s a ${to.toFixed(2)} s`);
+    };
+    const onMove = (event: PointerEvent): void => {
+      if (!dragging) return;
+      event.preventDefault();
+      const raw = secondsAt(event);
+      // Nunca cruzar el otro borde: se deja al menos un cuadro de ancho.
+      const minimum = 1 / projectFps();
+      preview = edge === 'from'
+        ? Math.min(raw, current.toSeconds - minimum)
+        : Math.max(raw, current.fromSeconds + minimum);
+      paint();
+    };
+    const onUp = (): void => {
+      if (!dragging) return;
+      dragging = false;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      clip.classList.remove('is-trimming');
+      commitTrim(scene, element, timing, {
+        fromSeconds: edge === 'from' ? preview : current.fromSeconds,
+        toSeconds: edge === 'from' ? current.toSeconds : preview,
+      }, measured);
+    };
+    handle.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      dragging = true;
+      clip.classList.add('is-trimming');
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+    clip.append(handle);
+  }
+}
+
+// Traduce el tramo arrastrado a la referencia semántica más cercana, que es lo
+// que hace que el recorte sobreviva a editar el diálogo.
+function commitTrim(
+  scene: SceneView,
+  element: ElementView,
+  timing: SceneTiming,
+  window: { fromSeconds: number; toSeconds: number },
+  measured: MeasuredScene,
+): void {
+  const fps = projectFps();
+  const cubreTodo = window.fromSeconds <= measured.startSeconds + 1e-6
+    && window.toSeconds >= measured.endSeconds - 1e-6;
+  const error = cubreTodo
+    // Volver a cubrir la escena entera es quitar la ventana, no guardar una que
+    // abarque todo: así el proyecto no acumula datos que no dicen nada.
+    ? store?.dispatch({ type: 'clear-element-window', sceneId: scene.id, elementId: element.id })
+    : store?.dispatch({
+      type: 'set-element-window',
+      sceneId: scene.id,
+      elementId: element.id,
+      from: anchorFor(window.fromSeconds, timing, fps),
+      to: anchorFor(window.toSeconds, timing, fps),
+    });
+  if (error) {
+    notify({ message: error, level: 'error' });
+    render();
+    return;
+  }
+  notify({
+    message: cubreTodo
+      ? 'El elemento vuelve a verse durante toda la escena.'
+      : `Se ve de ${window.fromSeconds.toFixed(2)} s a ${window.toSeconds.toFixed(2)} s.`,
+  });
+}
+
+function anchorFor(seconds: number, timing: SceneTiming, fps: number): { anchor: unknown; offsetSeconds: number } {
+  const proposal = nearestAnchorFor(seconds, timing, fps);
+  return { anchor: proposal.anchor, offsetSeconds: proposal.offsetSeconds };
+}
+
 // ---- Corte con el mouse sobre el clip de diálogo ----
 
 // Un corte a ciegas no es una herramienta. Con la medición vigente el clip
@@ -1184,7 +1344,7 @@ function dialogueCutPlan(sceneId: string, turnId: string): DialogueCutPlan {
   if (wordCount(turn.text) < 2) return { atWord: null, blocked: 'Necesita al menos dos palabras para cortarse.' };
   const measured = compatibleTimeline(project!.scenes);
   const measuredTurn = measured?.scenes[sceneIndex]?.turns?.find((item) => item.id === turnId);
-  if (!measuredTurn) return { atWord: null, blocked: 'Hace falta renderizar para saber dónde cae el cabezal.' };
+  if (!measuredTurn) return { atWord: null, blocked: 'Hace falta medir las voces para saber dónde cae el cabezal.' };
   const atWord = wordCutAtSeconds(
     { startSeconds: measuredTurn.startSeconds, durationSeconds: measuredTurn.durationSeconds, wordCount: wordCount(turn.text) },
     currentTime,
@@ -1221,7 +1381,7 @@ function cutAtPlayhead(): void {
     notify({
       message: isMeasured()
         ? 'Poné el cabezal sobre un diálogo para cortarlo.'
-        : 'Hace falta renderizar una vez para medir los diálogos antes de poder cortarlos.',
+        : 'Hace falta medir las voces antes de poder cortar los diálogos.',
       level: 'error',
     });
     return;
@@ -1259,6 +1419,18 @@ function cutDialogueTurnAtWord(sceneId: string, turnId: string, atWord: number):
 
 let measuring = false;
 
+function scheduleAutomaticMeasurement(delayMs = 900): void {
+  if (automaticMeasureTimer) window.clearTimeout(automaticMeasureTimer);
+  automaticMeasureTimer = window.setTimeout(() => {
+    automaticMeasureTimer = 0;
+    if (measuring) {
+      measurementQueued = true;
+      return;
+    }
+    void remeasureProject({ automatic: true });
+  }, delayMs);
+}
+
 /**
  * Vuelve a medir los tiempos sin renderizar.
  *
@@ -1266,8 +1438,17 @@ let measuring = false;
  * timeline «sin medir» y obligaba a un render completo para volver a saber
  * dónde cae el cabezal.
  */
-async function remeasureProject(): Promise<void> {
-  if (!store || measuring) return;
+async function remeasureProject(options: { automatic?: boolean } = {}): Promise<void> {
+  if (!store) return;
+  if (measuring) {
+    measurementQueued = true;
+    return;
+  }
+  const validationError = store.validate();
+  if (validationError) {
+    if (!options.automatic) notify({ message: validationError, level: 'error' });
+    return;
+  }
   measuring = true;
   updateToolbar();
   const project = store.project();
@@ -1284,8 +1465,11 @@ async function remeasureProject(): Promise<void> {
       projectId: result.projectId,
       timingRevision: projectTimingFingerprint(current),
       timeline: result.timeline as MeasuredProjectTimeline,
+      audioUrl: result.audioUrl,
     });
-    notify({ message: `Listo: ${result.timeline.durationSeconds.toFixed(2)} s medidos. Podés seguir cortando.`, level: 'success' });
+    if (!options.automatic) {
+      notify({ message: `Preview listo: ${result.timeline.durationSeconds.toFixed(2)} s medidos con audio real.`, level: 'success' });
+    }
   } catch (error) {
     notify({
       message: error instanceof Error ? error.message : 'No se pudieron medir los tiempos.',
@@ -1294,6 +1478,10 @@ async function remeasureProject(): Promise<void> {
   } finally {
     measuring = false;
     render();
+    if (measurementQueued) {
+      measurementQueued = false;
+      scheduleAutomaticMeasurement(150);
+    }
   }
 }
 
@@ -2188,12 +2376,12 @@ function renderTimelineModeExplanation(measured: boolean): void {
   if (!popover) return;
   const outdated = measured && editorOutputState() !== 'current';
   const title = document.createElement('strong');
-  title.textContent = outdated ? 'Tiempos medidos · MP4 viejo' : measured ? 'Tiempos medidos' : 'Tiempos estimados';
+  title.textContent = outdated ? 'Preview listo · MP4 anterior' : measured ? 'Preview medido' : 'Preparando preview';
   const body = document.createElement('p');
   body.textContent = outdated
-    ? 'Hay cambios visuales sin renderizar. Play conserva el audio y los tiempos medidos, pero dibuja las escenas y keyframes actuales sobre el lienzo.'
+    ? 'Hay cambios sin exportar. Play usa el audio medido y dibuja las escenas y keyframes actuales sobre el lienzo.'
     : measured
-      ? 'Estos tiempos salen del audio real generado en el último render: la duración de cada diálogo es la que va a tener el MP4.'
+      ? 'Estos tiempos y la reproducción salen del audio real preparado para el preview; coincidirán con el MP4 final.'
       : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace de las voces sintetizadas: medir las genera sin producir un video.';
   popover.replaceChildren(title, body);
   if (!measured) {
@@ -2211,7 +2399,7 @@ function renderTimelineModeExplanation(measured: boolean): void {
     const cta = document.createElement('button');
     cta.type = 'button';
     cta.className = 'text-button';
-    cta.textContent = 'Renderizar el video completo';
+    cta.textContent = 'Exportar MP4 final';
     cta.addEventListener('click', () => {
       toggleTimelineModePopover(false);
       optional<HTMLButtonElement>('#director-render')?.click();

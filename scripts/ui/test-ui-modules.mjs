@@ -540,7 +540,7 @@ check(
   'el corte de diálogo exige medición y no inventa dónde cae el cabezal',
   timelineSource.includes("type: 'split-dialogue-turn'")
     && timelineSource.includes('wordCutAtSeconds(')
-    && timelineSource.includes('Hace falta renderizar para saber dónde cae el cabezal.'),
+    && timelineSource.includes('Hace falta medir las voces para saber dónde cae el cabezal.'),
 );
 check(
   'cortar vuelve a medir solo, sin exigir un render completo',
@@ -551,10 +551,29 @@ check(
     && timelineSource.includes('El proyecto cambió mientras se medía'),
 );
 check(
-  'la medición liviana gana sobre el MP4 y no habilita reproducir',
+  'la medición liviana gana sobre el MP4 y habilita el preview con su propio audio',
   editorWorkspaceSource.includes('export function setProjectMeasurement(')
     && editorWorkspaceSource.includes('measurement.timingRevision === activeTimingRevision')
-    && !editorWorkspaceSource.includes('measurement && media'),
+    && editorWorkspaceSource.includes('previewAudio.src = value.audioUrl')
+    && editorWorkspaceSource.includes('function authoringMedia()'),
+);
+check(
+  'la medición se agenda solo cuando cambia la revisión temporal',
+  timelineSource.includes('nextTimingRevision !== observedTimingRevision')
+    && timelineSource.includes('scheduleAutomaticMeasurement()')
+    && timelineSource.includes("remeasureProject({ automatic: true })"),
+);
+check(
+  'los elementos visuales se recortan arrastrando los bordes del clip',
+  timelineSource.includes('function bindElementTrim(')
+    && timelineSource.includes("clip.classList.add('is-trimmable')")
+    // El tramo dibujado sale del MISMO evaluador que el render, no de una cuenta aparte.
+    && timelineSource.includes('resolveWindowSeconds(element.visibility, timing)')
+    // Al soltar se guarda una referencia semantica, no un segundo absoluto.
+    && timelineSource.includes('nearestAnchorFor(seconds, timing, fps)')
+    // Volver a cubrir toda la escena borra la ventana en vez de guardar una inutil.
+    && timelineSource.includes("type: 'clear-element-window'")
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('.clip-trim-handle'),
 );
 check(
   'la tijera dibuja las fronteras de palabra y corta con un clic',
@@ -720,10 +739,10 @@ check(
 );
 
 check(
-  'el render expone disponibilidad y evita repetir una exportación vigente',
+  'Exportar expone disponibilidad y evita repetir una exportación vigente',
   appHtml.includes('id="render-readiness"')
     && directorPanelSource.includes("outputState === 'current'")
-    && directorPanelSource.includes("label: 'Video actualizado'"),
+    && directorPanelSource.includes("label: 'MP4 actualizado'"),
 );
 check(
   'el Director presenta el recorrido numerado y una siguiente acción',
@@ -732,7 +751,7 @@ check(
     && directorPanelSource.includes('syncFlowGuidance'),
 );
 check(
-  'Render enumera sus requisitos sin reemplazar la validación del motor',
+  'Exportar enumera sus requisitos sin reemplazar la validación del motor',
   appHtml.includes('id="render-requirements"')
     && directorPanelSource.includes('describeRenderRequirements')
     && directorPanelSource.includes('store?.validate()'),
@@ -780,12 +799,12 @@ const baseFlow = {
   busyMode: null,
 };
 check(
-  'un proyecto válido sin MP4 orienta hacia Render',
+  'un proyecto válido sin MP4 orienta hacia Exportar',
   directorFlow.describeDirectorFlow(baseFlow).action?.id === 'render',
 );
 check(
-  'los cambios posteriores al MP4 piden actualizarlo',
-  directorFlow.describeDirectorFlow({ ...baseFlow, outputState: 'stale' }).title === 'Actualizá el video',
+  'los cambios posteriores al MP4 permiten seguir editando y exportar al terminar',
+  directorFlow.describeDirectorFlow({ ...baseFlow, outputState: 'stale' }).title === 'Exportá cuando termines',
 );
 check(
   'un MP4 vigente cierra el recorrido sin CTA redundante',
