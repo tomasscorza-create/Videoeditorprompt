@@ -319,6 +319,55 @@ assert.ok(withTrack[2].includes('colorchannelmixer=aa=0.5000') && withTrack[2].i
 assert.equal(opacityLabel, 'd0op2');
 pass('la-opacidad-animada-se-aplica-por-rangos-de-frames', { accepted: true });
 
+// Ventana de visibilidad: fuera de ella el elemento se apaga con opacidad 0,
+// que es el unico canal que los dos compositores ya leen por frame.
+const conVentana = resolveAnimationScene({
+  version: 1,
+  sceneId: 'scene',
+  elements: [{
+    elementId: 'presentadora',
+    elementType: 'character',
+    visibility: {
+      from: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 1 },
+      to: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 3 },
+    },
+    tracks: [],
+  }],
+}, timing, fps);
+assert.equal(conVentana.elements[0].visibility.fromSeconds, 1);
+assert.equal(conVentana.elements[0].visibility.toSeconds, 3);
+// Antes de entrar y despues de salir: apagado. Adentro: sin forzar opacidad.
+assert.equal(evaluateAnimationParams(conVentana, 0.5).presentadora.opacity, 0);
+assert.equal(evaluateAnimationParams(conVentana, 1).presentadora.opacity, undefined);
+assert.equal(evaluateAnimationParams(conVentana, 2.9).presentadora.opacity, undefined);
+assert.equal(evaluateAnimationParams(conVentana, 3).presentadora.opacity, 0);
+pass('la-ventana-de-visibilidad-apaga-el-elemento-fuera-de-rango', { accepted: true });
+
+// Un elemento sin ventana no gana ninguna opacidad: el campo es aditivo.
+const sinVentana = resolveAnimationScene({
+  version: 1, sceneId: 'scene',
+  elements: [{ elementId: 'presentadora', elementType: 'character', tracks: [] }],
+}, timing, fps);
+assert.equal(sinVentana.elements[0].visibility, null);
+assert.equal(evaluateAnimationParams(sinVentana, 0.5).presentadora.opacity, undefined);
+pass('sin-ventana-el-elemento-no-cambia', { accepted: true });
+
+// Un borde fuera de la escena se sujeta al borde: recortar no alarga una escena.
+const desbordada = resolveAnimationScene({
+  version: 1, sceneId: 'scene',
+  elements: [{
+    elementId: 'presentadora', elementType: 'character',
+    visibility: {
+      from: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: -5 },
+      to: { anchor: { kind: 'scene', edge: 'end' }, offsetSeconds: 5 },
+    },
+    tracks: [],
+  }],
+}, timing, fps);
+assert.equal(desbordada.elements[0].visibility.fromSeconds, timing.startSeconds);
+assert.equal(desbordada.elements[0].visibility.toSeconds, timing.endSeconds);
+pass('la-ventana-se-sujeta-a-los-bordes-de-la-escena', { accepted: true });
+
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'animation-evaluator-latest.json'), summary);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

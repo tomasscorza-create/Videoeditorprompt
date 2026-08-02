@@ -110,18 +110,22 @@ export function prepareDialogueJob(context, config, report) {
     characterRig: character.characterRig,
     ...(character.catalogEntry ? { catalogEntry: character.catalogEntry } : {}),
     transform: character.transform,
+    // La ventana viaja al runtime porque decide el compositor y el alfa por frame.
+    ...(character.visibility ? { visibility: character.visibility } : {}),
     blinks: buildBlinkSchedule(durationSeconds, character.blink),
   }));
   const props = (context.resolvedProps ?? []).map((prop) => ({
     id: prop.id,
     resourceRig: prop.resourceRig,
     transform: prop.transform,
+    ...(prop.visibility ? { visibility: prop.visibility } : {}),
   }));
   const templates = (context.resolvedTemplates ?? []).map((template) => ({
     id: template.id,
     definition: template.definition,
     word: template.word,
     transform: template.transform,
+    ...(template.visibility ? { visibility: template.visibility } : {}),
   }));
   const runtime = {
     version: 2,

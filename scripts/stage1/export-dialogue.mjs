@@ -134,9 +134,14 @@ export function selectCompositorBackend(runtime, requested = 'auto') {
     throw new Error(`Backend de compositor desconocido: ${requested}`);
   }
   if (requested !== 'auto') return requested;
+  // Una ventana de visibilidad se aplica como alfa por frame y el overlay de
+  // FFmpeg no acepta una expresión de alfa por personaje, así que recortar un
+  // elemento enruta la escena a PixiJS igual que lo hace un rig v3 o un prop.
+  const recortado = (element) => Boolean(element.visibility);
   return (runtime.props?.length ?? 0) > 0
     || (runtime.templates?.length ?? 0) > 0
     || runtime.characters.some((character) => character.characterRig?.version === 3)
+    || runtime.characters.some(recortado)
     ? 'pixi'
     : 'ffmpeg';
 }
@@ -155,7 +160,9 @@ function resolveSceneAnimation(config, dialogueData, durationSeconds) {
   const animated = [
     ...(config.characters ?? []).map((element) => ({ ...element, elementType: 'character' })),
     ...(config.props ?? []).map((element) => ({ ...element, elementType: 'prop' })),
-  ].filter((element) => element.tracks?.length);
+    // Un elemento recortado entra aunque no tenga keyframes: su ventana también
+    // se resuelve contra la medición y produce estado por frame.
+  ].filter((element) => element.tracks?.length || element.visibility);
   if (animated.length === 0) return null;
   const centerOffsets = {
     'position.x': config.video.width / 2,
@@ -167,7 +174,8 @@ function resolveSceneAnimation(config, dialogueData, durationSeconds) {
     elements: animated.map((character) => ({
       elementId: character.id,
       elementType: character.elementType,
-      tracks: character.tracks.map((track) => ({
+      ...(character.visibility ? { visibility: character.visibility } : {}),
+      tracks: (character.tracks ?? []).map((track) => ({
         parameterId: track.parameterId,
         source: track.source,
         keyframes: track.keyframes.map((keyframe) => ({

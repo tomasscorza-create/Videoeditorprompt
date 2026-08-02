@@ -75,6 +75,8 @@ const LABELS: Record<string, (command: CommandLike, context?: LabelContext) => s
   'set-dialogue-speaker': (command, context) => `Cambió quién habla en ${sceneName(command.sceneId, context)}`,
   'reorder-dialogue-turns': (command, context) => `Reordenó los diálogos de ${sceneName(command.sceneId, context)}`,
   'split-dialogue-turn': (command, context) => `Cortó un diálogo de ${sceneName(command.sceneId, context)}`,
+  'set-element-window': (command, context) => `Recortó un elemento de ${sceneName(command.sceneId, context)}`,
+  'clear-element-window': (command, context) => `Devolvió un elemento a durar toda ${sceneName(command.sceneId, context)}`,
   // Animación. Se nombra el preset cuando el comando lo trae: «Aplicó enter-left»
   // le dice al usuario qué deshace, y «Aplicó un movimiento» no.
   'apply-animation-preset': (command, context) => {

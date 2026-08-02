@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "id": "piloto-ventana-01",
+  "title": "Piloto ventana temporal",
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "seed": 31101,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "scenes": [
+    {
+      "id": "escena-presentacion",
+      "title": "Presentación",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-pan"
+      },
+      "elements": [
+        {
+          "id": "presentadora",
+          "type": "character",
+          "resourceId": "mono-azul-v1",
+          "transform": {
+            "x": 290,
+            "y": 1105,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.7,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 20
+          },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm",
+          "visibility": {
+            "from": {
+              "anchor": {
+                "kind": "turn",
+                "turnId": "turno-presentacion-01",
+                "edge": "start"
+              },
+              "offsetSeconds": 0
+            },
+            "to": {
+              "anchor": {
+                "kind": "turn",
+                "turnId": "turno-presentacion-01",
+                "edge": "end"
+              },
+              "offsetSeconds": 0
+            }
+          }
+        },
+        {
+          "id": "analista",
+          "type": "character",
+          "resourceId": "mono-ciruela-v1",
+          "transform": {
+            "x": 790,
+            "y": 1105,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.7,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 21
+          },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-presentacion-01",
+          "speakerElementId": "presentadora",
+          "text": "Esta es la primera escena de un proyecto editable.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "turno-presentacion-02",
+          "speakerElementId": "analista",
+          "text": "Los recursos y las voces se seleccionan mediante identificadores estables.",
+          "voiceId": "voz-davefx-es-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ],
+      "transitionToNext": {
+        "preset": "fade",
+        "durationSeconds": 0.35
+      }
+    },
+    {
+      "id": "escena-cierre",
+      "title": "Cierre",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-zoom"
+      },
+      "elements": [
+        {
+          "id": "presentadora",
+          "type": "character",
+          "resourceId": "mono-azul-v1",
+          "transform": {
+            "x": 330,
+            "y": 1090,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.74,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 20
+          },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        },
+        {
+          "id": "analista",
+          "type": "character",
+          "resourceId": "mono-ciruela-v1",
+          "transform": {
+            "x": 750,
+            "y": 1090,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.74,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 21
+          },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "turno-cierre-01",
+          "speakerElementId": "analista",
+          "text": "La segunda escena conserva sus propias posiciones y movimientos.",
+          "voiceId": "voz-davefx-es-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0.3
+        },
+        {
+          "id": "turno-cierre-02",
+          "speakerElementId": "presentadora",
+          "text": "El siguiente paso será medirlas y unirlas en un solo video.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}

@@ -426,6 +426,45 @@ test('rejects-invalid-dialogue-cuts', () => {
   rejects('EDITOR_VALUE_INVALID', () => applyProjectEditorCommand(state, build({ newTurnId: 'ID Invalido' })));
 });
 
+test('gives-a-visual-element-a-time-window', () => {
+  const ventana = {
+    from: { anchor: { kind: 'turn', turnId: 'turno-presentacion-01', edge: 'start' }, offsetSeconds: 0 },
+    to: { anchor: { kind: 'turn', turnId: 'turno-presentacion-02', edge: 'end' }, offsetSeconds: -0.5 },
+  };
+  const elementId = project.scenes[0].elements[0].id;
+  let state = command(createProjectEditor(project, catalog), {
+    type: 'set-element-window', sceneId: 'escena-presentacion', elementId, ...ventana,
+  });
+  assert.deepEqual(state.project.scenes[0].elements[0].visibility, ventana);
+  // Un proyecto con ventana sigue siendo renderizable: el campo es aditivo.
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+  // Y se puede volver atrás a durar toda la escena.
+  state = command(state, { type: 'clear-element-window', sceneId: 'escena-presentacion', elementId });
+  assert.equal(Object.hasOwn(state.project.scenes[0].elements[0], 'visibility'), false);
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+});
+
+test('rejects-an-inverted-window-on-the-same-anchor', () => {
+  const elementId = project.scenes[0].elements[0].id;
+  const build = (from, to) => ({
+    type: 'set-element-window', sceneId: 'escena-presentacion', elementId,
+    from: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: from },
+    to: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: to },
+  });
+  const state = createProjectEditor(project, catalog);
+  // Mismo ancla y el final antes del principio: comparable sin medir, se rechaza.
+  rejects('EDITOR_VISIBILITY_INVALID', () => command(state, build(2, 1)));
+  rejects('EDITOR_VISIBILITY_INVALID', () => command(state, build(1, 1)));
+  // Desplazamiento fuera del rango del contrato.
+  rejects('EDITOR_VALUE_INVALID', () => applyProjectEditorCommand(state, build(0, 9)));
+  // Un diálogo no tiene ventana: no es un elemento visual.
+  rejects('EDITOR_ELEMENT_NOT_FOUND', () => applyProjectEditorCommand(state, {
+    type: 'set-element-window', sceneId: 'escena-presentacion', elementId: 'turno-presentacion-01',
+    from: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0 },
+    to: { anchor: { kind: 'scene', edge: 'end' }, offsetSeconds: 0 },
+  }));
+});
+
 test('reorders-dialogue-turns-within-a-scene', () => {
   let state = createProjectEditor(project, catalog);
   state = command(state, { type: 'reorder-dialogue-turns', sceneId: 'escena-presentacion', turnIds: ['turno-presentacion-02', 'turno-presentacion-01'] });

@@ -187,6 +187,8 @@ export function validateEditableProject(project, catalog) {
       const elementPath = `${scenePath}/elements/${elementIndex}`;
       if (!element || elements.has(element.id)) fail('EDITOR_PROJECT_INVALID', 'Los IDs de elemento deben existir y ser únicos en la escena.', `${elementPath}/id`);
       elements.set(element.id, element);
+      // Vale para los tres tipos visuales: la ventana no depende del recurso.
+      validateElementVisibility(element, `${elementPath}/visibility`);
       if (element.type === 'character') {
         const resource = requireResource(resources, element.resourceId, 'character', `${elementPath}/resourceId`);
         if (!resource.capabilities.poses.includes(element.poseId)) fail('EDITOR_POSE_INVALID', 'El personaje no soporta la pose seleccionada.', `${elementPath}/poseId`);
@@ -481,6 +483,28 @@ function applyMutation(project, catalog, command) {
         : scene.dialogue.length;
       if (command.afterTurnId && index === 0) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.afterTurnId}.`, '/command/afterTurnId');
       scene.dialogue.splice(index, 0, turn);
+      return;
+    }
+    case 'set-element-window': {
+      const scene = requireScene(project, command.sceneId);
+      const element = requireElement(scene, command.elementId);
+      if (!['character', 'prop', 'template'].includes(element.type)) {
+        fail('EDITOR_ELEMENT_UNSUPPORTED', 'Solo personajes, props y plantillas tienen ventana temporal.', '/command/elementId');
+      }
+      const next = {
+        from: { anchor: cloneJson(command.from.anchor), offsetSeconds: command.from.offsetSeconds },
+        to: { anchor: cloneJson(command.to.anchor), offsetSeconds: command.to.offsetSeconds },
+      };
+      validateElementVisibility({ ...element, visibility: next }, '/command');
+      element.visibility = next;
+      return;
+    }
+    case 'clear-element-window': {
+      const scene = requireScene(project, command.sceneId);
+      const element = requireElement(scene, command.elementId);
+      // Sin ventana el elemento vuelve a durar toda la escena, que es el valor
+      // por defecto del contrato.
+      delete element.visibility;
       return;
     }
     case 'split-dialogue-turn': {
@@ -813,6 +837,8 @@ function assertCommandShape(command) {
     'reorder-scenes': { required: ['type', 'sceneIds'], optional: [] },
     'split-scene': { required: ['type', 'sceneId', 'atTurnId', 'newSceneId'], optional: [] },
     'split-dialogue-turn': { required: ['type', 'sceneId', 'turnId', 'atWord', 'newTurnId'], optional: [] },
+    'set-element-window': { required: ['type', 'sceneId', 'elementId', 'from', 'to'], optional: [] },
+    'clear-element-window': { required: ['type', 'sceneId', 'elementId'], optional: [] },
     'reorder-dialogue-turns': { required: ['type', 'sceneId', 'turnIds'], optional: [] },
     'apply-animation-preset': { required: ['type', 'sceneId', 'elementId', 'presetId'], optional: ['anchor', 'offsetSeconds', 'intensity'] },
     'create-track': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframes'], optional: ['source'] },
@@ -883,6 +909,38 @@ function validateEditableTracks(element, resource, path) {
       }
       offsets.set(key, keyframe.offsetSeconds);
     }
+  }
+}
+
+/**
+ * Ventana de visibilidad de un elemento.
+ *
+ * Ausente significa la escena completa, así que un proyecto viejo sigue siendo
+ * válido. Los bordes usan el mismo anclaje semántico que los keyframes: un
+ * corte de diálogo mueve la ventana con su turno en vez de dejarla colgada de
+ * un segundo absoluto.
+ *
+ * Solo se puede comparar `from` con `to` cuando cuelgan del mismo ancla; con
+ * anclas distintas el orden depende de la medición, que no existe todavía. Ese
+ * caso lo resuelve el evaluador dejando el elemento invisible.
+ */
+function validateElementVisibility(element, path) {
+  if (element.visibility === undefined) return;
+  const window = element.visibility;
+  if (!window || typeof window !== 'object') fail('EDITOR_PROJECT_INVALID', 'La ventana debe ser un objeto.', path);
+  for (const edge of ['from', 'to']) {
+    const value = window[edge];
+    if (!value || typeof value !== 'object') {
+      fail('EDITOR_VISIBILITY_INVALID', 'La ventana necesita un borde inicial y uno final.', `${path}/${edge}`);
+    }
+    numberInRange(value.offsetSeconds, ANIMATION_LIMITS.offsetSecondsMinimum, ANIMATION_LIMITS.offsetSecondsMaximum, `${path}/${edge}/offsetSeconds`);
+    if (!value.anchor || typeof value.anchor !== 'object') {
+      fail('EDITOR_VISIBILITY_INVALID', 'El borde de la ventana necesita un ancla.', `${path}/${edge}/anchor`);
+    }
+  }
+  if (anchorKey(window.from.anchor) === anchorKey(window.to.anchor)
+    && window.from.offsetSeconds >= window.to.offsetSeconds) {
+    fail('EDITOR_VISIBILITY_INVALID', 'La ventana termina antes de empezar.', path);
   }
 }
 

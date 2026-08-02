@@ -152,6 +152,10 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
       element.transform.rotationDegrees !== 0
       || element.tracks?.some((track) => track.parameterId === 'rotationDegrees')
     ))
+    // Una ventana de visibilidad se aplica como alfa por frame, y el overlay de
+    // FFmpeg no acepta una expresión de alfa por personaje. Igual que la
+    // rotación, recortar un elemento enruta la escena entera a PixiJS.
+    || scene.elements.some((element) => element.visibility)
     || characterManifestPaths.some((manifestPath) => (
       readJson(resolveAuthoringAsset(assetsRoot, manifestPath, `manifest técnico ${manifestPath}`)).version === 3
     ));
@@ -187,6 +191,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
         durationSeconds: 0.12,
       },
       ...(tracks.length ? { tracks: compileTracks({ ...element, tracks }, sceneIndex, usesPixiCompositor) } : {}),
+      ...(element.visibility ? { visibility: cloneVisibility(element.visibility) } : {}),
     };
   });
   const props = propElements
@@ -206,6 +211,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
           zIndex: element.transform.zIndex,
         },
         ...(element.tracks?.length ? { tracks: compileTracks(element, sceneIndex, true) } : {}),
+        ...(element.visibility ? { visibility: cloneVisibility(element.visibility) } : {}),
       };
     });
   const templates = templateElements
@@ -224,6 +230,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
         opacity: element.transform.opacity,
         zIndex: element.transform.zIndex,
       },
+      ...(element.visibility ? { visibility: cloneVisibility(element.visibility) } : {}),
     }));
   const backgroundResource = resources.get(scene.background.resourceId);
   const manifestPath = resolveAuthoringAsset(assetsRoot, backgroundResource.backgroundManifest, `manifest de fondo ${backgroundResource.id}`);
@@ -473,4 +480,17 @@ if (isMain(import.meta.url)) {
     else process.stderr.write(`${JSON.stringify({ version: 1, state: 'failed', ...serializeError(error, 'compiling_project') })}\n`);
     process.exitCode = 1;
   }
+}
+
+/**
+ * La ventana de visibilidad viaja tal cual al contrato de escena: sus anclas se
+ * resuelven después de medir el audio, igual que las de un keyframe. El
+ * compilador no puede convertirlas a segundos porque todavía no existe la
+ * medición.
+ */
+function cloneVisibility(visibility) {
+  return {
+    from: { anchor: { ...visibility.from.anchor }, offsetSeconds: visibility.from.offsetSeconds },
+    to: { anchor: { ...visibility.to.anchor }, offsetSeconds: visibility.to.offsetSeconds },
+  };
 }

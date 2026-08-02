@@ -215,6 +215,7 @@ function resolveDialogueAssets(config, context) {
       assets: resolved.assets,
       characterRig: resolved.characterRig,
       transform: character.transform,
+      ...(character.visibility ? { visibility: character.visibility } : {}),
       blink: character.blink,
       ...(catalogEntry ? { catalogEntry: { id: catalogEntry.id, thumbnail: catalogEntry.thumbnail } } : {}),
     };
@@ -225,6 +226,7 @@ function resolveDialogueAssets(config, context) {
       id: prop.id,
       resourceRig: resolved.resourceRig,
       transform: prop.transform,
+      ...(prop.visibility ? { visibility: prop.visibility } : {}),
     };
   });
   context.resolvedTemplates = (config.templates ?? []).map((template, index) => {
@@ -248,6 +250,7 @@ function resolveDialogueAssets(config, context) {
       definition: template.definition,
       word: template.word,
       transform: template.transform,
+      ...(template.visibility ? { visibility: template.visibility } : {}),
     };
   });
 }

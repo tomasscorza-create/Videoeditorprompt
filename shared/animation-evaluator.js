@@ -83,7 +83,26 @@ export function resolveAnimationScene(document, timing, fps) {
   const elements = document.elements.map((element, elementIndex) => ({
     elementId: element.elementId,
     elementType: element.elementType,
-    tracks: element.tracks.map((track, trackIndex) => {
+    // La ventana usa el mismo anclaje que los keyframes, así que se resuelve
+    // con la misma medición y en el mismo lugar. Un borde que cae fuera de la
+    // escena se sujeta al borde: recortar no puede alargar una escena.
+    visibility: element.visibility
+      ? {
+        fromSeconds: clamp(
+          resolveAnchorSeconds(element.visibility.from.anchor, timing, `/elements/${elementIndex}/visibility/from`)
+            + element.visibility.from.offsetSeconds,
+          timing.startSeconds,
+          timing.endSeconds,
+        ),
+        toSeconds: clamp(
+          resolveAnchorSeconds(element.visibility.to.anchor, timing, `/elements/${elementIndex}/visibility/to`)
+            + element.visibility.to.offsetSeconds,
+          timing.startSeconds,
+          timing.endSeconds,
+        ),
+      }
+      : null,
+    tracks: (element.tracks ?? []).map((track, trackIndex) => {
       const trackPath = `/elements/${elementIndex}/tracks/${trackIndex}`;
       const keyframes = track.keyframes.map((keyframe, keyframeIndex) => {
         const keyframePath = `${trackPath}/keyframes/${keyframeIndex}`;
@@ -161,6 +180,16 @@ export function evaluateAnimationParams(resolved, timeSeconds) {
   for (const element of resolved.elements) {
     const params = {};
     for (const track of element.tracks) params[track.parameterId] = evaluateTrack(track, timeSeconds);
+    // Fuera de su ventana el elemento no se ve. Se expresa como opacidad 0
+    // porque es el único canal que los dos compositores ya leen por frame: el
+    // recorte llega igual a FFmpeg y a PixiJS sin que ninguno lo reinterprete.
+    // El intervalo incluye su inicio y excluye su final, así dos elementos
+    // contiguos no se pisan en el cuadro del corte.
+    if (element.visibility) {
+      const visible = timeSeconds >= element.visibility.fromSeconds - 1e-9
+        && timeSeconds < element.visibility.toSeconds - 1e-9;
+      if (!visible) params.opacity = 0;
+    }
     byElement[element.elementId] = params;
   }
   return byElement;
