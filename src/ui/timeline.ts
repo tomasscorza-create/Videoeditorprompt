@@ -142,6 +142,7 @@ export function attachProjectTimeline(projectStore: ProjectStore): void {
 }
 
 export function updateTimelineTime(timeSeconds: number): void {
+  if (document.body.classList.contains('timeline-v2-active')) return;
   currentTime = clamp(timeSeconds, 0, activeDuration());
   // El lienzo previsualiza la animación en este instante, así que el cabezal se
   // publica en el estado del espacio de trabajo en vez de quedarse acá.
@@ -160,6 +161,7 @@ export function updateTimelineTime(timeSeconds: number): void {
 
 function render(): void {
   if (!initialized) return;
+  if (document.body.classList.contains('timeline-v2-active')) return;
   // Mientras se arrastra el cabezal no se reconstruye el árbol. Cada seek emite
   // EDITOR_WORKSPACE_EVENT, así que un repintado por pointermove reemplazaba el
   // propio <span> que el usuario tenía agarrado: el nodo quedaba huérfano y el
@@ -2216,6 +2218,7 @@ function fitTimeline(): void {
 }
 
 function handleShortcut(event: KeyboardEvent): void {
+  if (document.body.classList.contains('timeline-v2-active')) return;
   // El Creador de recursos no comparte las acciones del Editor: la barra ya
   // deshabilita ahí transporte, duplicar, dividir y eliminar, y el teclado tiene
   // que decir lo mismo. Sin esta guardia, `Supr` borraba una escena del proyecto
@@ -2302,6 +2305,7 @@ function handleShortcut(event: KeyboardEvent): void {
 }
 
 function updateToolbar(): void {
+  if (document.body.classList.contains('timeline-v2-active')) return;
   const hasProject = Boolean(store);
   const measured = isMeasured();
   const creator = editorWorkspace().mode === 'creator';

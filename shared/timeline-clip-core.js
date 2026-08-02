@@ -44,11 +44,19 @@ const TRACK_KINDS = new Set(['visual', 'audio']);
 const CLIP_KINDS = new Set(['visual', 'audio']);
 const INTERPOLATIONS = new Set(['linear', 'ease', 'hold']);
 const COMMAND_SHAPES = Object.freeze({
-  'split-clip': ['type', 'clipId', 'atTimelineTick', 'newClipId'],
-  'trim-clip': ['type', 'clipId', 'edge', 'toTimelineTick'],
-  'move-clip': ['type', 'clipId', 'trackId', 'timelineStartTick'],
-  'duplicate-clip': ['type', 'clipId', 'newClipId', 'trackId', 'timelineStartTick'],
-  'delete-clip': ['type', 'clipId'],
+  'add-source': { required: ['type', 'source'], allowed: ['type', 'source'] },
+  'add-track': { required: ['type', 'track'], allowed: ['type', 'track'] },
+  'add-clip': { required: ['type', 'clip'], allowed: ['type', 'clip'] },
+  'split-clip': { required: ['type', 'clipId', 'atTimelineTick', 'newClipId'], allowed: ['type', 'clipId', 'atTimelineTick', 'newClipId'] },
+  'trim-clip': { required: ['type', 'clipId', 'edge', 'toTimelineTick'], allowed: ['type', 'clipId', 'edge', 'toTimelineTick'] },
+  'move-clip': { required: ['type', 'clipId', 'trackId', 'timelineStartTick'], allowed: ['type', 'clipId', 'trackId', 'timelineStartTick'] },
+  'duplicate-clip': { required: ['type', 'clipId', 'newClipId', 'trackId', 'timelineStartTick'], allowed: ['type', 'clipId', 'newClipId', 'trackId', 'timelineStartTick'] },
+  'delete-clip': { required: ['type', 'clipId'], allowed: ['type', 'clipId', 'ripple'] },
+  'set-clip-enabled': { required: ['type', 'clipId', 'enabled'], allowed: ['type', 'clipId', 'enabled'] },
+  'split-linked': { required: ['type', 'linkGroupId', 'atTimelineTick', 'newClips'], allowed: ['type', 'linkGroupId', 'atTimelineTick', 'newClips'] },
+  'move-linked': { required: ['type', 'linkGroupId', 'deltaTicks'], allowed: ['type', 'linkGroupId', 'deltaTicks'] },
+  'trim-linked': { required: ['type', 'linkGroupId', 'edge', 'toTimelineTick'], allowed: ['type', 'linkGroupId', 'edge', 'toTimelineTick'] },
+  'delete-linked': { required: ['type', 'linkGroupId'], allowed: ['type', 'linkGroupId', 'ripple'] },
 });
 
 export class TimelineClipError extends Error {
@@ -187,8 +195,69 @@ export function timelineFrameTicks(document) {
   return document.timebase.ticksPerSecond / document.timebase.fps;
 }
 
+export function timelineDurationTicks(document) {
+  validateTimelineDocument(document);
+  return document.clips.reduce((maximum, clip) => Math.max(maximum, clip.timelineStartTick + clip.durationTicks), 0);
+}
+
+export function timelineClipSourceTickAt(clip, timelineTick) {
+  if (!isRecord(clip)) failDocument('El clip debe ser un objeto.', '/clip');
+  tick(timelineTick, '/timelineTick');
+  if (timelineTick < clip.timelineStartTick || timelineTick > clip.timelineStartTick + clip.durationTicks) return null;
+  return clip.sourceInTick + timelineTick - clip.timelineStartTick;
+}
+
+/** Evalúa automatización en tiempo de fuente; cortar o mover no reescribe puntos. */
+export function evaluateTimelineAutomation(clip, parameterId, timelineTick, fallback = null) {
+  const sourceTick = timelineClipSourceTickAt(clip, timelineTick);
+  if (sourceTick === null) return fallback;
+  const track = clip.automation?.find((item) => item.parameterId === parameterId);
+  if (!track?.keyframes?.length) return fallback;
+  const points = track.keyframes;
+  if (sourceTick <= points[0].sourceTick) return points[0].value;
+  if (sourceTick >= points.at(-1).sourceTick) return points.at(-1).value;
+  const rightIndex = points.findIndex((point) => point.sourceTick > sourceTick);
+  const left = points[rightIndex - 1];
+  const right = points[rightIndex];
+  if (left.interpolation === 'hold') return left.value;
+  const raw = (sourceTick - left.sourceTick) / (right.sourceTick - left.sourceTick);
+  const amount = left.interpolation === 'ease' ? (1 - Math.cos(Math.PI * raw)) / 2 : raw;
+  return left.value + (right.value - left.value) * amount;
+}
+
 function applyMutation(document, command) {
   assertCommandShape(command);
+  if (command.type === 'add-source') {
+    if (document.sources.length >= TIMELINE_CLIP_LIMITS.sources) failDocument('Se alcanzó el máximo de fuentes.', '/sources');
+    const source = cloneJson(command.source);
+    validateSource(source, '/command/source');
+    if (document.sources.some((item) => item.id === source.id)) fail('TIMELINE_ID_CONFLICT', 'El ID de fuente ya existe.', '/command/source/id');
+    document.sources.push(source);
+    return;
+  }
+  if (command.type === 'add-track') {
+    if (document.tracks.length >= TIMELINE_CLIP_LIMITS.tracks) failDocument('Se alcanzó el máximo de pistas.', '/tracks');
+    const track = cloneJson(command.track);
+    validateTrack(track, '/command/track');
+    if (document.tracks.some((item) => item.id === track.id)) fail('TIMELINE_ID_CONFLICT', 'El ID de pista ya existe.', '/command/track/id');
+    if (document.tracks.some((item) => item.order === track.order)) fail('TIMELINE_ID_CONFLICT', 'El orden de pista ya está ocupado.', '/command/track/order');
+    document.tracks.push(track);
+    return;
+  }
+  if (command.type === 'add-clip') {
+    if (document.clips.length >= TIMELINE_CLIP_LIMITS.clips) failDocument('Se alcanzó el máximo de clips.', '/clips');
+    const clip = cloneJson(command.clip);
+    if (document.clips.some((item) => item.id === clip.id)) fail('TIMELINE_ID_CONFLICT', 'El ID del clip ya existe.', '/command/clip/id');
+    const sources = new Map(document.sources.map((item) => [item.id, item]));
+    const tracks = new Map(document.tracks.map((item) => [item.id, item]));
+    validateClip(clip, '/command/clip', sources, tracks, document.timebase);
+    document.clips.push(clip);
+    return;
+  }
+  if (['split-linked', 'move-linked', 'trim-linked', 'delete-linked'].includes(command.type)) {
+    applyLinkedMutation(document, command);
+    return;
+  }
   const index = document.clips.findIndex((clip) => clip.id === command.clipId);
   if (index < 0) fail('TIMELINE_CLIP_NOT_FOUND', `No existe el clip ${command.clipId}.`, '/command/clipId');
   const clip = document.clips[index];
@@ -262,12 +331,123 @@ function applyMutation(document, command) {
       document.clips.splice(index + 1, 0, duplicate);
       return;
     }
-    case 'delete-clip':
+    case 'delete-clip': {
+      if (command.ripple !== undefined && typeof command.ripple !== 'boolean') {
+        fail('TIMELINE_COMMAND_INVALID', 'ripple debe ser booleano.', '/command/ripple');
+      }
       document.clips.splice(index, 1);
+      if (command.ripple) rippleTrackAfter(document, clip.trackId, clip.timelineStartTick + clip.durationTicks, -clip.durationTicks);
+      return;
+    }
+    case 'set-clip-enabled':
+      if (typeof command.enabled !== 'boolean') fail('TIMELINE_COMMAND_INVALID', 'enabled debe ser booleano.', '/command/enabled');
+      clip.enabled = command.enabled;
       return;
     default:
       fail('TIMELINE_COMMAND_UNSUPPORTED', `Comando no soportado: ${String(command.type)}.`, '/command/type');
   }
+}
+
+function applyLinkedMutation(document, command) {
+  portableId(command.linkGroupId, '/command/linkGroupId', 'TIMELINE_COMMAND_INVALID');
+  const linked = document.clips.filter((clip) => clip.linkGroupId === command.linkGroupId);
+  if (linked.length < 2) fail('TIMELINE_CLIP_NOT_FOUND', 'El grupo enlazado no existe o está incompleto.', '/command/linkGroupId');
+  const start = linked[0].timelineStartTick;
+  const duration = linked[0].durationTicks;
+  if (!linked.every((clip) => clip.timelineStartTick === start && clip.durationTicks === duration)) {
+    fail('TIMELINE_RANGE_INVALID', 'Los clips enlazados deben compartir inicio y duración.', '/command/linkGroupId');
+  }
+  if (command.type === 'move-linked') {
+    if (!Number.isSafeInteger(command.deltaTicks)) fail('TIMELINE_COMMAND_INVALID', 'deltaTicks debe ser un entero.', '/command/deltaTicks');
+    for (const clip of linked) {
+      const next = clip.timelineStartTick + command.deltaTicks;
+      tick(next, '/command/deltaTicks');
+      assertAlignedForClip(document, clip, next, '/command/deltaTicks');
+      clip.timelineStartTick = next;
+    }
+    return;
+  }
+  if (command.type === 'delete-linked') {
+    if (command.ripple !== undefined && typeof command.ripple !== 'boolean') fail('TIMELINE_COMMAND_INVALID', 'ripple debe ser booleano.', '/command/ripple');
+    document.clips = document.clips.filter((clip) => clip.linkGroupId !== command.linkGroupId);
+    if (command.ripple) {
+      for (const trackId of new Set(linked.map((clip) => clip.trackId))) rippleTrackAfter(document, trackId, start + duration, -duration);
+    }
+    return;
+  }
+  if (command.type === 'trim-linked') {
+    if (!['start', 'end'].includes(command.edge)) fail('TIMELINE_COMMAND_INVALID', 'edge debe ser start o end.', '/command/edge');
+    tick(command.toTimelineTick, '/command/toTimelineTick');
+    for (const clip of linked) {
+      assertAlignedForClip(document, clip, command.toTimelineTick, '/command/toTimelineTick');
+      const minimum = minimumDuration(document, clip);
+      if (command.edge === 'start') {
+        const delta = command.toTimelineTick - clip.timelineStartTick;
+        const nextDuration = clip.durationTicks - delta;
+        if (nextDuration < minimum || clip.sourceInTick + delta < 0) fail('TIMELINE_RANGE_INVALID', 'El trim enlazado deja un rango inválido.', '/command/toTimelineTick');
+        clip.timelineStartTick = command.toTimelineTick;
+        clip.sourceInTick += delta;
+        clip.durationTicks = nextDuration;
+      } else {
+        const nextDuration = command.toTimelineTick - clip.timelineStartTick;
+        if (nextDuration < minimum) fail('TIMELINE_RANGE_INVALID', 'El trim enlazado deja un rango inválido.', '/command/toTimelineTick');
+        clip.durationTicks = nextDuration;
+      }
+    }
+    return;
+  }
+  if (!Array.isArray(command.newClips) || command.newClips.length !== linked.length) {
+    fail('TIMELINE_COMMAND_INVALID', 'newClips debe asignar un ID nuevo a cada clip enlazado.', '/command/newClips');
+  }
+  tick(command.atTimelineTick, '/command/atTimelineTick');
+  const assignments = new Map();
+  for (const [entryIndex, entry] of command.newClips.entries()) {
+    if (!isRecord(entry)) fail('TIMELINE_COMMAND_INVALID', 'La asignación de corte debe ser un objeto.', `/command/newClips/${entryIndex}`);
+    assertObjectKeys(entry, ['clipId', 'newClipId'], `/command/newClips/${entryIndex}`, 'TIMELINE_COMMAND_INVALID');
+    portableId(entry.clipId, `/command/newClips/${entryIndex}/clipId`, 'TIMELINE_COMMAND_INVALID');
+    portableId(entry.newClipId, `/command/newClips/${entryIndex}/newClipId`, 'TIMELINE_COMMAND_INVALID');
+    if (assignments.has(entry.clipId)) fail('TIMELINE_COMMAND_INVALID', 'Un clip aparece dos veces en newClips.', `/command/newClips/${entryIndex}/clipId`);
+    requireUnusedClipId(document, entry.newClipId, `/command/newClips/${entryIndex}/newClipId`);
+    assignments.set(entry.clipId, entry.newClipId);
+  }
+  if (!linked.every((clip) => assignments.has(clip.id))) fail('TIMELINE_COMMAND_INVALID', 'newClips no coincide con el grupo enlazado.', '/command/newClips');
+  const nextGroupId = uniqueDerivedId(document.clips.map((clip) => clip.linkGroupId).filter(Boolean), `${command.linkGroupId}-b`);
+  const additions = [];
+  for (const clip of linked) {
+    assertAlignedForClip(document, clip, command.atTimelineTick, '/command/atTimelineTick');
+    const offset = command.atTimelineTick - clip.timelineStartTick;
+    if (offset < minimumDuration(document, clip) || clip.durationTicks - offset < minimumDuration(document, clip)) {
+      fail('TIMELINE_RANGE_INVALID', 'El corte enlazado debe dejar contenido válido a ambos lados.', '/command/atTimelineTick');
+    }
+    const right = cloneJson(clip);
+    right.id = assignments.get(clip.id);
+    right.linkGroupId = nextGroupId;
+    right.timelineStartTick = command.atTimelineTick;
+    right.sourceInTick += offset;
+    right.durationTicks -= offset;
+    clip.durationTicks = offset;
+    additions.push(right);
+  }
+  document.clips.push(...additions);
+}
+
+function rippleTrackAfter(document, trackId, boundaryTick, deltaTicks) {
+  for (const clip of document.clips) {
+    if (clip.trackId !== trackId || clip.timelineStartTick < boundaryTick) continue;
+    clip.timelineStartTick += deltaTicks;
+    if (clip.timelineStartTick < 0) fail('TIMELINE_RANGE_INVALID', 'Ripple produjo una posición negativa.', '/clips');
+  }
+}
+
+function uniqueDerivedId(existingValues, preferred) {
+  const existing = new Set(existingValues);
+  const base = preferred.slice(0, 60).replace(/-+$/u, '') || 'linked';
+  if (!existing.has(base)) return base;
+  for (let suffix = 2; suffix < 10_000; suffix += 1) {
+    const candidate = `${base.slice(0, 63 - String(suffix).length)}-${suffix}`;
+    if (!existing.has(candidate)) return candidate;
+  }
+  fail('TIMELINE_ID_CONFLICT', 'No se pudo crear un ID portable para el grupo enlazado.', '/command/linkGroupId');
 }
 
 function validateTimebase(value) {
@@ -404,12 +584,12 @@ function assertCommandShape(command) {
   if (!isRecord(command) || typeof command.type !== 'string') {
     fail('TIMELINE_COMMAND_INVALID', 'El comando debe ser un objeto con type.', '/command');
   }
-  const keys = COMMAND_SHAPES[command.type];
-  if (!keys) fail('TIMELINE_COMMAND_UNSUPPORTED', `Comando no soportado: ${String(command.type)}.`, '/command/type');
-  assertObjectKeys(command, keys, '/command', 'TIMELINE_COMMAND_INVALID');
-  const missing = keys.find((key) => !Object.hasOwn(command, key));
+  const shape = COMMAND_SHAPES[command.type];
+  if (!shape) fail('TIMELINE_COMMAND_UNSUPPORTED', `Comando no soportado: ${String(command.type)}.`, '/command/type');
+  assertObjectKeys(command, shape.allowed, '/command', 'TIMELINE_COMMAND_INVALID');
+  const missing = shape.required.find((key) => !Object.hasOwn(command, key));
   if (missing) fail('TIMELINE_COMMAND_INVALID', `Falta el campo ${missing}.`, `/command/${missing}`);
-  portableId(command.clipId, '/command/clipId', 'TIMELINE_COMMAND_INVALID');
+  if (Object.hasOwn(command, 'clipId')) portableId(command.clipId, '/command/clipId', 'TIMELINE_COMMAND_INVALID');
 }
 
 function requireUnlinked(clip) {

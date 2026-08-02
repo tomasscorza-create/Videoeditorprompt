@@ -543,6 +543,14 @@
             <span class="eyebrow">Timeline</span>
             <h2 id="timeline-title">Video y audio</h2>
           </div>
+          <div class="timeline-tool-group timeline-v2-actions" aria-label="Montaje profesional">
+            <button id="timeline-v2-toggle" class="timeline-tool" type="button" aria-pressed="true">Volver a autoría</button>
+            <button id="timeline-v2-import" class="timeline-tool" type="button">Importar medios</button>
+            <input id="timeline-v2-file" type="file" accept=".mp4,.mov,.webm,.wav,.mp3,.ogg,.m4a,video/mp4,video/webm,video/quicktime,audio/wav,audio/mpeg,audio/ogg,audio/mp4" multiple hidden>
+            <button id="timeline-v2-add-render" class="timeline-tool" type="button" disabled>Agregar salida / voces</button>
+            <button id="timeline-v2-ripple" class="timeline-tool" type="button" aria-pressed="false" title="Al borrar, cerrar el hueco en la misma pista">Ripple</button>
+            <button id="timeline-v2-export" class="timeline-tool primary-compact" type="button" disabled>Exportar montaje</button>
+          </div>
           <div class="timeline-tool-group" aria-label="Historial">
             <button id="timeline-undo" class="timeline-tool" type="button" disabled title="Deshacer (Ctrl+Z)" aria-label="Deshacer"><svg class="icon" aria-hidden="true"><use href="#ui-icon-undo"/></svg></button>
             <button id="timeline-redo" class="timeline-tool" type="button" disabled title="Rehacer (Ctrl+Y)" aria-label="Rehacer"><svg class="icon" aria-hidden="true"><use href="#ui-icon-redo"/></svg></button>
@@ -578,6 +586,7 @@
 
         <div id="timeline-layer-stack" class="timeline-layer-stack" aria-label="Capas de la escena seleccionada"></div>
         <p id="timeline-live" class="visually-hidden" role="status" aria-live="polite"></p>
+        <p id="timeline-v2-status" class="timeline-v2-status" role="status" aria-live="polite"></p>
         <p id="timeline-summary" class="timeline-summary">Abrí un proyecto para ver sus escenas y diálogos.</p>
       </section>
     </div>
@@ -644,6 +653,6 @@
       </div>
     </dialog>
 
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/main.ts?v=timeline-v2-final2"></script>
   </body>
 </html>

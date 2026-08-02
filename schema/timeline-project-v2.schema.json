@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local-video.invalid/schema/timeline-project-v2.json",
   "title": "Timeline profesional de clips V2",
-  "description": "Contrato aislado y no destructivo de las Fases 0 y 1. Todavía no reemplaza video-project.schema.json.",
+  "description": "Contrato no destructivo del espacio Montaje. video-project.schema.json conserva la autoría semántica y sus renders medidos entran aquí como fuentes inmutables.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "id", "timebase", "sources", "tracks", "clips"],

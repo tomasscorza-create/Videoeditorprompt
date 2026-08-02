@@ -134,6 +134,73 @@ const projects = {
   },
   remove: (id) => id === savedProject.id,
 };
+const timelineMediaEntry = {
+  id: 'media-0123456789abcdef',
+  contentHash: 'c'.repeat(64),
+  kind: 'video',
+  name: 'clip-prueba.mp4',
+  mimeType: 'video/mp4',
+  bytes: 4,
+  durationTicks: 48_000,
+  durationSeconds: 1,
+  hasVideo: true,
+  hasAudio: true,
+  width: 180,
+  height: 320,
+  frameRate: '30/1',
+  sampleRate: 48_000,
+  channels: 2,
+  relativePath: `objects/${'c'.repeat(64)}/source.mp4`,
+};
+const timelineProject = {
+  version: 2,
+  id: 'montaje-servidor-01',
+  timebase: { ticksPerSecond: 48_000, fps: 30, audioSampleRate: 48_000 },
+  sources: [{ id: timelineMediaEntry.id, kind: 'video', durationTicks: 48_000, contentHash: timelineMediaEntry.contentHash }],
+  tracks: [
+    { id: 'timeline-video-01', kind: 'visual', order: 0 },
+    { id: 'timeline-audio-01', kind: 'audio', order: 1 },
+  ],
+  clips: [
+    { id: 'timeline-video-clip', kind: 'visual', sourceId: timelineMediaEntry.id, trackId: 'timeline-video-01', timelineStartTick: 0, sourceInTick: 0, durationTicks: 48_000, enabled: true, linkGroupId: 'timeline-link-01' },
+    { id: 'timeline-audio-clip', kind: 'audio', sourceId: timelineMediaEntry.id, trackId: 'timeline-audio-01', timelineStartTick: 0, sourceInTick: 0, durationTicks: 48_000, enabled: true, linkGroupId: 'timeline-link-01' },
+  ],
+};
+let receivedTimelineUpload = null;
+const timelineMediaLibrary = {
+  list: () => [timelineMediaEntry],
+  importStream: async (stream, input) => {
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    receivedTimelineUpload = { bytes: Buffer.concat(chunks), input };
+    return { created: true, entry: timelineMediaEntry };
+  },
+  importFile: async () => ({ created: false, entry: timelineMediaEntry }),
+  open: () => null,
+};
+const timelineProjects = {
+  list: () => [{ id: timelineProject.id, revision: 'd'.repeat(64), updatedAt: new Date(0).toISOString(), clips: 2 }],
+  get: (id) => {
+    if (id !== timelineProject.id) throw Object.assign(new Error('No existe.'), { code: 'TIMELINE_PROJECT_NOT_FOUND' });
+    return { version: 1, project: timelineProject, revision: 'd'.repeat(64), updatedAt: new Date(0).toISOString() };
+  },
+  save: (value) => ({ created: false, version: 1, project: value, revision: 'e'.repeat(64), updatedAt: new Date(0).toISOString() }),
+};
+const timelineExportId = 'f'.repeat(64);
+const timelineExporter = {
+  exportProject: (value) => ({
+    version: 1,
+    exportId: timelineExportId,
+    projectId: value.id,
+    durationSeconds: 1,
+    bytes: 1_024,
+    cacheHit: true,
+    reusedSegments: value.clips.length,
+    videoUrl: `/api/timeline/exports/${timelineExportId}/video`,
+    downloadName: `montaje-${value.id}.mp4`,
+  }),
+  open: () => null,
+};
 const app = await createLocalAppServer({
   port: 0,
   manager,
@@ -147,6 +214,9 @@ const app = await createLocalAppServer({
     project: { ...value, title: instruction },
   }),
   projects,
+  timelineMediaLibrary,
+  timelineProjects,
+  timelineExporter,
   ollamaInspector: async () => ({
     available: true,
     modelInstalled: true,
@@ -279,6 +349,49 @@ const staleProjectResponse = await request(`/api/projects/${project.id}`, {
   body: JSON.stringify({ project, expectedRevision: 'a'.repeat(64) }),
 });
 assert.equal(staleProjectResponse.status, 409);
+
+const timelineMediaResponse = await request('/api/timeline/media');
+assert.equal(timelineMediaResponse.status, 200);
+assert.equal((await timelineMediaResponse.json()).entries[0].id, timelineMediaEntry.id);
+
+const timelineUploadResponse = await request('/api/timeline/media', {
+  method: 'POST',
+  headers: {
+    'content-type': 'video/mp4',
+    'x-resource-file-name': encodeURIComponent('clip prueba.mp4'),
+  },
+  body: Buffer.from([0, 1, 2, 3]),
+});
+assert.equal(timelineUploadResponse.status, 201);
+assert.deepEqual(receivedTimelineUpload.bytes, Buffer.from([0, 1, 2, 3]));
+assert.equal(receivedTimelineUpload.input.fileName, 'clip prueba.mp4');
+
+const timelineProjectsResponse = await request('/api/timeline/projects');
+assert.equal(timelineProjectsResponse.status, 200);
+assert.equal((await timelineProjectsResponse.json()).projects[0].clips, 2);
+
+const timelineProjectResponse = await request(`/api/timeline/projects/${timelineProject.id}`);
+assert.equal(timelineProjectResponse.status, 200);
+assert.equal((await timelineProjectResponse.json()).project.id, timelineProject.id);
+
+const missingTimelineProjectResponse = await request('/api/timeline/projects/montaje-inexistente');
+assert.equal(missingTimelineProjectResponse.status, 404);
+
+const timelineSaveResponse = await request(`/api/timeline/projects/${timelineProject.id}`, {
+  method: 'PUT',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ project: timelineProject, expectedRevision: 'd'.repeat(64) }),
+});
+assert.equal(timelineSaveResponse.status, 200);
+assert.equal((await timelineSaveResponse.json()).revision, 'e'.repeat(64));
+
+const timelineExportResponse = await request('/api/timeline/exports', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ project: timelineProject }),
+});
+assert.equal(timelineExportResponse.status, 200);
+assert.equal((await timelineExportResponse.json()).cacheHit, true);
 
 const validationResponse = await request('/api/projects/validate', {
   method: 'POST',
@@ -424,4 +537,4 @@ const medicionInvalida = await request('/api/measurements', {
 assert.equal(medicionInvalida.status >= 400, true);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 48 + medicionProbada, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 63 + medicionProbada, failed: 0, url: listening.url })}\n`);

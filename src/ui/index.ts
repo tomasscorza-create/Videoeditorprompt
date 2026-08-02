@@ -24,6 +24,7 @@ import { initProjectFiles } from './project/files.js';
 import { setActiveEditorProject, syncActiveEditorProject } from './editor-workspace.js';
 import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
 import { initVideoTemplateEditor } from './video-template-editor.js';
+import { initTimelineV2 } from './timeline-v2.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -42,6 +43,7 @@ export function initShellUi(): void {
   initCharacterCreator();
   initVideoTemplateEditor();
   initTimelineShell();
+  initTimelineV2();
 }
 
 // Editor del proyecto de autoría. Es independiente del preview: si el proyecto no

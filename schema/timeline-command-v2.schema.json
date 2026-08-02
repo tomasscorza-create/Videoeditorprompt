@@ -4,11 +4,19 @@
   "title": "Comandos profesionales de clips V2",
   "description": "Vocabulario cerrado del núcleo aislado de la Fase 1.",
   "oneOf": [
+    { "$ref": "#/$defs/addSource" },
+    { "$ref": "#/$defs/addTrack" },
+    { "$ref": "#/$defs/addClip" },
     { "$ref": "#/$defs/splitClip" },
     { "$ref": "#/$defs/trimClip" },
     { "$ref": "#/$defs/moveClip" },
     { "$ref": "#/$defs/duplicateClip" },
-    { "$ref": "#/$defs/deleteClip" }
+    { "$ref": "#/$defs/deleteClip" },
+    { "$ref": "#/$defs/setClipEnabled" },
+    { "$ref": "#/$defs/splitLinked" },
+    { "$ref": "#/$defs/moveLinked" },
+    { "$ref": "#/$defs/trimLinked" },
+    { "$ref": "#/$defs/deleteLinked" }
   ],
   "$defs": {
     "id": {
@@ -19,6 +27,59 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 1728000000
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "durationTicks", "contentHash"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["visual", "dialogue-audio", "audio", "video"] },
+        "durationTicks": { "type": "integer", "minimum": 1, "maximum": 1728000000 },
+        "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "order"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["visual", "audio"] },
+        "order": { "type": "integer", "minimum": 0, "maximum": 63 }
+      }
+    },
+    "clip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "sourceId", "trackId", "timelineStartTick", "sourceInTick", "durationTicks", "enabled"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["visual", "audio"] },
+        "sourceId": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "timelineStartTick": { "$ref": "#/$defs/tick" },
+        "sourceInTick": { "$ref": "#/$defs/tick" },
+        "durationTicks": { "type": "integer", "minimum": 1, "maximum": 1728000000 },
+        "enabled": { "type": "boolean" },
+        "linkGroupId": { "$ref": "#/$defs/id" },
+        "automation": { "type": "array" }
+      }
+    },
+    "addSource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "source"],
+      "properties": { "type": { "const": "add-source" }, "source": { "$ref": "#/$defs/source" } }
+    },
+    "addTrack": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "track"],
+      "properties": { "type": { "const": "add-track" }, "track": { "$ref": "#/$defs/track" } }
+    },
+    "addClip": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "clip"],
+      "properties": { "type": { "const": "add-clip" }, "clip": { "$ref": "#/$defs/clip" } }
     },
     "splitClip": {
       "type": "object",
@@ -71,8 +132,44 @@
       "required": ["type", "clipId"],
       "properties": {
         "type": { "const": "delete-clip" },
-        "clipId": { "$ref": "#/$defs/id" }
+        "clipId": { "$ref": "#/$defs/id" },
+        "ripple": { "type": "boolean" }
       }
+    },
+    "setClipEnabled": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "clipId", "enabled"],
+      "properties": { "type": { "const": "set-clip-enabled" }, "clipId": { "$ref": "#/$defs/id" }, "enabled": { "type": "boolean" } }
+    },
+    "linkedBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clipId", "newClipId"],
+      "properties": { "clipId": { "$ref": "#/$defs/id" }, "newClipId": { "$ref": "#/$defs/id" } }
+    },
+    "splitLinked": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "linkGroupId", "atTimelineTick", "newClips"],
+      "properties": {
+        "type": { "const": "split-linked" }, "linkGroupId": { "$ref": "#/$defs/id" },
+        "atTimelineTick": { "$ref": "#/$defs/tick" },
+        "newClips": { "type": "array", "minItems": 2, "maxItems": 16, "items": { "$ref": "#/$defs/linkedBase" } }
+      }
+    },
+    "moveLinked": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "linkGroupId", "deltaTicks"],
+      "properties": { "type": { "const": "move-linked" }, "linkGroupId": { "$ref": "#/$defs/id" }, "deltaTicks": { "type": "integer", "minimum": -1728000000, "maximum": 1728000000 } }
+    },
+    "trimLinked": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "linkGroupId", "edge", "toTimelineTick"],
+      "properties": { "type": { "const": "trim-linked" }, "linkGroupId": { "$ref": "#/$defs/id" }, "edge": { "enum": ["start", "end"] }, "toTimelineTick": { "$ref": "#/$defs/tick" } }
+    },
+    "deleteLinked": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "linkGroupId"],
+      "properties": { "type": { "const": "delete-linked" }, "linkGroupId": { "$ref": "#/$defs/id" }, "ripple": { "type": "boolean" } }
     }
   }
 }

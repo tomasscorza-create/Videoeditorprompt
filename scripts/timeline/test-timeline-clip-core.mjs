@@ -7,9 +7,11 @@ import {
   applyTimelineClipCommand,
   applyTimelineClipCommandBatch,
   createTimelineClipEditor,
+  evaluateTimelineAutomation,
   exportTimelineDocument,
   redoTimelineClip,
   timelineFrameTicks,
+  timelineDurationTicks,
   undoTimelineClip,
   validateTimelineDocument,
 } from '../../shared/timeline-clip-core.js';
@@ -383,6 +385,56 @@ test('historial-respeta-limite-configurado', () => {
   state = applyTimelineClipCommand(state, { type: 'move-clip', clipId: 'visual-clip-01', trackId: 'visual-track-02', timelineStartTick: 160_000 });
   state = applyTimelineClipCommand(state, { type: 'move-clip', clipId: 'visual-clip-01', trackId: 'visual-track-02', timelineStartTick: 320_000 });
   assert.equal(state.past.length, 2);
+});
+
+test('alta-de-fuente-pista-y-clip-es-atomica-y-validada', () => {
+  const document = fixture();
+  document.clips = [];
+  let state = createTimelineClipEditor(document);
+  state = applyTimelineClipCommand(state, { type: 'add-source', source: { id: 'audio-source-02', kind: 'audio', durationTicks: 48_000, contentHash: hash('d') } });
+  state = applyTimelineClipCommand(state, { type: 'add-track', track: { id: 'audio-track-03', kind: 'audio', order: 4 } });
+  state = applyTimelineClipCommand(state, { type: 'add-clip', clip: {
+    id: 'audio-clip-02', kind: 'audio', sourceId: 'audio-source-02', trackId: 'audio-track-03',
+    timelineStartTick: 0, sourceInTick: 0, durationTicks: 48_000, enabled: true,
+  } });
+  assert.equal(state.document.sources.length, 4);
+  assert.equal(state.document.tracks.length, 5);
+  assert.equal(state.document.clips.length, 1);
+  assert.equal(timelineDurationTicks(state.document), 48_000);
+});
+
+test('corte-y-movimiento-enlazados-conservan-sincronia-av', () => {
+  const document = fixture();
+  document.clips = [
+    { id: 'linked-video-01', kind: 'visual', sourceId: 'video-source-01', trackId: 'visual-track-01', timelineStartTick: 0, sourceInTick: 0, durationTicks: 160_000, enabled: true, linkGroupId: 'linked-av-01' },
+    { id: 'linked-audio-01', kind: 'audio', sourceId: 'video-source-01', trackId: 'audio-track-01', timelineStartTick: 0, sourceInTick: 0, durationTicks: 160_000, enabled: true, linkGroupId: 'linked-av-01' },
+  ];
+  let state = createTimelineClipEditor(document);
+  state = applyTimelineClipCommand(state, {
+    type: 'split-linked', linkGroupId: 'linked-av-01', atTimelineTick: 80_000,
+    newClips: [{ clipId: 'linked-video-01', newClipId: 'linked-video-02' }, { clipId: 'linked-audio-01', newClipId: 'linked-audio-02' }],
+  });
+  const right = state.document.clips.filter((clip) => ['linked-video-02', 'linked-audio-02'].includes(clip.id));
+  assert.equal(new Set(right.map((clip) => clip.linkGroupId)).size, 1);
+  assert.deepEqual(right.map((clip) => [clip.timelineStartTick, clip.sourceInTick, clip.durationTicks]), [[80_000, 80_000, 80_000], [80_000, 80_000, 80_000]]);
+  state = applyTimelineClipCommand(state, { type: 'move-linked', linkGroupId: right[0].linkGroupId, deltaTicks: 80_000 });
+  assert.deepEqual(state.document.clips.filter((clip) => right.some((item) => item.id === clip.id)).map((clip) => clip.timelineStartTick), [160_000, 160_000]);
+});
+
+test('borrado-ripple-cierra-el-hueco-sin-tocar-la-fuente', () => {
+  const document = fixture();
+  document.clips[1].timelineStartTick = 160_000;
+  const state = applyTimelineClipCommand(createTimelineClipEditor(document), { type: 'delete-clip', clipId: 'visual-clip-01', ripple: true });
+  assert.equal(state.document.clips.find((clip) => clip.id === 'visual-clip-02').timelineStartTick, 0);
+  assert.equal(state.document.sources.length, document.sources.length);
+});
+
+test('automatizacion-se-evalua-en-tiempo-de-fuente-despues-de-mover-y-cortar', () => {
+  const clip = fixture().clips[0];
+  assert.equal(evaluateTimelineAutomation(clip, 'position.x', 80_000), 540);
+  const moved = { ...clip, timelineStartTick: 160_000 };
+  assert.equal(evaluateTimelineAutomation(moved, 'position.x', 240_000), 540);
+  assert.equal(evaluateTimelineAutomation(moved, 'opacity', 240_000, 1), 1);
 });
 
 const failed = results.filter((result) => !result.passed);

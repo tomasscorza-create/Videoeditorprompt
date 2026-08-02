@@ -2842,3 +2842,148 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   .timeline-timecode { min-width: 7.8rem; }
   .timeline-mode { display: none; }
 }
+/* Montaje profesional V2: postproducción no destructiva, aislada del proyecto
+   de autoría. La regla y las posiciones usan el timebase común de 48 kHz. */
+.timeline-v2-actions { flex-wrap: nowrap; }
+.timeline-v2-actions .primary-compact {
+  background: var(--accent, #2f8f62);
+  color: #fff;
+  border-color: transparent;
+}
+.timeline-v2-status {
+  min-height: 1.15rem;
+  margin: .15rem .75rem 0;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+}
+.timeline-v2-status.is-error { color: var(--danger, #c94b4b); }
+.timeline-v2-ruler,
+.timeline-v2-track {
+  position: relative;
+  min-width: 100%;
+  display: grid;
+  grid-template-columns: 180px 1fr;
+}
+.timeline-v2-ruler {
+  height: 28px;
+  border-bottom: 1px solid var(--line-subtle);
+  cursor: text;
+}
+.timeline-v2-ruler > span {
+  position: absolute;
+  top: .4rem;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  transform: translateX(-1px);
+}
+.timeline-v2-ruler > span::before {
+  content: '';
+  position: absolute;
+  top: 1rem;
+  height: 5px;
+  border-left: 1px solid var(--line-subtle);
+}
+.timeline-v2-track {
+  height: 44px;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.timeline-v2-track-label {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  padding: 0 .7rem;
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+  border-right: 1px solid var(--line-subtle);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+}
+.timeline-v2-lane {
+  position: relative;
+  min-width: 540px;
+  background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--timeline-grid-size) - 1px), color-mix(in srgb, var(--line-subtle) 55%, transparent) var(--timeline-grid-size));
+}
+.timeline-v2-clip {
+  position: absolute;
+  inset-block: 4px;
+  min-width: 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent, #2f8f62) 65%, var(--line-strong));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent, #2f8f62) 22%, var(--surface-raised));
+  color: var(--text-primary);
+  text-align: left;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.timeline-v2-clip.is-audio {
+  background-color: color-mix(in srgb, #4c86d8 25%, var(--surface-raised));
+  background-image: repeating-linear-gradient(90deg, transparent 0 5px, color-mix(in srgb, #7ba6e4 42%, transparent) 5px 6px);
+  border-color: color-mix(in srgb, #4c86d8 70%, var(--line-strong));
+}
+.timeline-v2-clip.is-selected { outline: 2px solid var(--focus-ring, #8bc7a7); outline-offset: 1px; z-index: 5; }
+.timeline-v2-clip.is-disabled { opacity: .45; }
+.timeline-v2-clip.is-dragging { cursor: grabbing; opacity: .72; z-index: 9; }
+.timeline-v2-clip strong,
+.timeline-v2-clip > span:not(.timeline-v2-trim) {
+  display: block;
+  overflow: hidden;
+  padding-inline: 9px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fs-2xs);
+  line-height: 1.15rem;
+}
+.timeline-v2-clip > span:not(.timeline-v2-trim) { color: var(--text-muted); line-height: .8rem; }
+.timeline-v2-trim {
+  position: absolute;
+  inset-block: 0;
+  width: 7px;
+  z-index: 2;
+  cursor: ew-resize;
+  background: color-mix(in srgb, var(--text-primary) 18%, transparent);
+}
+.timeline-v2-trim.is-start { left: 0; }
+.timeline-v2-trim.is-end { right: 0; }
+.timeline-v2-playhead {
+  position: absolute;
+  top: 0;
+  z-index: 12;
+  width: 2px;
+  pointer-events: none;
+  background: #e64d4d;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #e64d4d 24%, transparent);
+}
+.timeline-v2-preview {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+.timeline-v2-preview > video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+}
+.timeline-v2-preview > audio { display: none; }
+body.timeline-v2-active #composition-view,
+body.timeline-v2-active #final-view { display: none !important; }
+body.timeline-v2-active #timeline-v2-preview[hidden] { display: none; }
+body.timeline-v2-active #timeline-v2-preview:not([hidden]) { display: block; }
+.timeline-v2-inspector h3 { overflow-wrap: anywhere; }
+body.timeline-v2-active .timeline-toolbar {
+  position: relative;
+  z-index: 20;
+  height: auto;
+  min-height: 2.65rem;
+  flex-wrap: wrap;
+}
+body.timeline-v2-active .timeline-layer-stack {
+  z-index: 1;
+  max-height: calc(100% - 7rem);
+}

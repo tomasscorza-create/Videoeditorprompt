@@ -57,11 +57,19 @@ export interface TimelineDocumentV2 {
 }
 
 export type TimelineClipCommandV2 =
+  | { type: 'add-source'; source: TimelineSourceV2 }
+  | { type: 'add-track'; track: TimelineTrackV2 }
+  | { type: 'add-clip'; clip: TimelineClipV2 }
   | { type: 'split-clip'; clipId: string; atTimelineTick: number; newClipId: string }
   | { type: 'trim-clip'; clipId: string; edge: 'start' | 'end'; toTimelineTick: number }
   | { type: 'move-clip'; clipId: string; trackId: string; timelineStartTick: number }
   | { type: 'duplicate-clip'; clipId: string; newClipId: string; trackId: string; timelineStartTick: number }
-  | { type: 'delete-clip'; clipId: string };
+  | { type: 'delete-clip'; clipId: string; ripple?: boolean }
+  | { type: 'set-clip-enabled'; clipId: string; enabled: boolean }
+  | { type: 'split-linked'; linkGroupId: string; atTimelineTick: number; newClips: Array<{ clipId: string; newClipId: string }> }
+  | { type: 'move-linked'; linkGroupId: string; deltaTicks: number }
+  | { type: 'trim-linked'; linkGroupId: string; edge: 'start' | 'end'; toTimelineTick: number }
+  | { type: 'delete-linked'; linkGroupId: string; ripple?: boolean };
 
 export interface TimelineClipEditorState {
   version: 1;
@@ -89,3 +97,6 @@ export function redoTimelineClip(state: TimelineClipEditorState): TimelineClipEd
 export function exportTimelineDocument(stateOrDocument: TimelineClipEditorState | TimelineDocumentV2): string;
 export function validateTimelineDocument(document: TimelineDocumentV2): true;
 export function timelineFrameTicks(document: TimelineDocumentV2): number;
+export function timelineDurationTicks(document: TimelineDocumentV2): number;
+export function timelineClipSourceTickAt(clip: TimelineClipV2, timelineTick: number): number | null;
+export function evaluateTimelineAutomation(clip: TimelineClipV2, parameterId: string, timelineTick: number, fallback?: number | null): number | null;

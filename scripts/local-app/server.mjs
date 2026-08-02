@@ -19,6 +19,9 @@ import { createProjectRepository } from './project-repository.mjs';
 import { runStartupRetention } from './retention.mjs';
 import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
 import { createPersistenceRuntime } from '../storage/persistence-runtime.mjs';
+import { createTimelineMediaLibrary } from '../timeline/media-library.mjs';
+import { createTimelineProjectRepository } from '../timeline/timeline-project-repository.mjs';
+import { createTimelineExporter } from '../timeline/timeline-exporter.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
@@ -100,6 +103,25 @@ export async function createLocalAppServer(options = {}) {
   let directorStatus = createDirectorStatus('idle', 'idle');
   const updateDirectorStatus = (state, stage, detail = {}) => {
     directorStatus = createDirectorStatus(state, stage, detail);
+  };
+  let timelineRuntimePromise = null;
+  const timelineRuntime = () => {
+    timelineRuntimePromise ??= (async () => {
+      const timelineRoot = path.resolve(options.timelineStorageRoot || path.join(root, '.local-video', 'timeline-v2'));
+      const media = options.timelineMediaLibrary || await createTimelineMediaLibrary({
+        storageRoot: path.join(timelineRoot, 'media'),
+        ...(options.timelineProbe ? { probe: options.timelineProbe } : {}),
+      });
+      const timelineProjects = options.timelineProjects || await createTimelineProjectRepository({
+        storageRoot: path.join(timelineRoot, 'projects'),
+      });
+      const exporter = options.timelineExporter || await createTimelineExporter({
+        mediaLibrary: media,
+        storageRoot: path.join(timelineRoot, 'exports'),
+      });
+      return { media, projects: timelineProjects, exporter };
+    })();
+    return timelineRuntimePromise;
   };
 
   const server = http.createServer(async (request, response) => {
@@ -331,6 +353,87 @@ export async function createLocalAppServer(options = {}) {
         sendJson(response, 200, { version: 1, ...measurement });
         return;
       }
+      if (request.method === 'GET' && url.pathname === '/api/timeline/media') {
+        const timeline = await timelineRuntime();
+        sendJson(response, 200, { version: 1, entries: timeline.media.list() });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/timeline/media') {
+        const timeline = await timelineRuntime();
+        const fileName = decodeHeaderValue(request.headers['x-resource-file-name'], 'medio');
+        const result = await timeline.media.importStream(request, {
+          fileName,
+          mimeType: request.headers['content-type'],
+        });
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/timeline/media/from-render') {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        const video = await manager.video(String(body.jobId || ''));
+        if (!video) return sendNotFound(response);
+        const timeline = await timelineRuntime();
+        const result = video.blobStorage
+          ? await timeline.media.importStream((await video.blobStorage.openRead(video.key)).stream, { fileName: video.name, mimeType: video.mimeType })
+          : await timeline.media.importFile(video.file, { fileName: video.name, mimeType: video.mimeType });
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/timeline/media/from-measurement') {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        const audio = measurements.audio?.(String(body.measurementId || ''));
+        if (!audio) return sendNotFound(response);
+        const timeline = await timelineRuntime();
+        const result = await timeline.media.importFile(audio.file, { fileName: audio.name, mimeType: audio.mimeType });
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
+      const timelineMediaMatch = /^\/api\/timeline\/media\/(media-[a-f0-9]{16})\/content$/u.exec(url.pathname);
+      if (request.method === 'GET' && timelineMediaMatch) {
+        const timeline = await timelineRuntime();
+        const media = timeline.media.open(timelineMediaMatch[1]);
+        if (!media) return sendNotFound(response);
+        await streamVideoResponse(request, response, media);
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/timeline/projects') {
+        const timeline = await timelineRuntime();
+        sendJson(response, 200, { version: 1, projects: timeline.projects.list() });
+        return;
+      }
+      const timelineProjectMatch = /^\/api\/timeline\/projects\/([a-zA-Z0-9_-]{2,64})$/u.exec(url.pathname);
+      if (request.method === 'GET' && timelineProjectMatch) {
+        const timeline = await timelineRuntime();
+        sendJson(response, 200, { version: 1, ...timeline.projects.get(timelineProjectMatch[1]) });
+        return;
+      }
+      if (request.method === 'PUT' && timelineProjectMatch) {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        if (body.project?.id !== timelineProjectMatch[1]) throw Object.assign(new Error('El ID de ruta no coincide con el montaje.'), { code: 'TIMELINE_PROJECT_ID_INVALID' });
+        const timeline = await timelineRuntime();
+        const result = timeline.projects.save(body.project, body.expectedRevision);
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/timeline/exports') {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        const timeline = await timelineRuntime();
+        const result = timeline.exporter.exportProject(body.project);
+        sendJson(response, 200, result);
+        return;
+      }
+      const timelineExportMatch = /^\/api\/timeline\/exports\/([a-f0-9]{64})\/video$/u.exec(url.pathname);
+      if (request.method === 'GET' && timelineExportMatch) {
+        const timeline = await timelineRuntime();
+        const video = timeline.exporter.open(timelineExportMatch[1]);
+        if (!video) return sendNotFound(response);
+        await streamVideoResponse(request, response, video);
+        return;
+      }
       const measurementAudioMatch = /^\/api\/measurement-audio\/(measure-[a-zA-Z0-9_-]{1,56})$/u.exec(url.pathname);
       if (request.method === 'GET' && measurementAudioMatch) {
         const audio = measurements.audio?.(measurementAudioMatch[1]);
@@ -382,10 +485,18 @@ export async function createLocalAppServer(options = {}) {
         'PROJECT_REVISION_CONFLICT',
         'RENDER_JOB_CONFLICT',
         'RENDER_JOB_STATE_CONFLICT',
+        'TIMELINE_PROJECT_REVISION_CONFLICT',
       ].includes(error?.code) ? 409
-        : String(error?.code || '').includes('INVALID') || error?.code === 'DIRECTOR_PROVIDER_UNKNOWN' ? 400
-          : error?.code === 'REQUEST_BODY_TOO_LARGE' ? 413
-            : 500;
+        : ['PROJECT_NOT_FOUND', 'TIMELINE_PROJECT_NOT_FOUND'].includes(error?.code) ? 404
+          : String(error?.code || '').includes('INVALID') || [
+            'DIRECTOR_PROVIDER_UNKNOWN',
+            'TIMELINE_EXPORT_EMPTY',
+            'TIMELINE_EXPORT_SOURCE_MISSING',
+            'TIMELINE_EXPORT_VIDEO_MISSING',
+            'TIMELINE_EXPORT_AUDIO_MISSING',
+          ].includes(error?.code) ? 400
+            : ['REQUEST_BODY_TOO_LARGE', 'TIMELINE_MEDIA_TOO_LARGE'].includes(error?.code) ? 413
+              : 500;
       sendJson(response, status, { version: 1, error: serialized });
     }
   });
