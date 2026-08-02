@@ -19,6 +19,7 @@ const commands = [
   'stage3b:test-publishing',
   'stage3b:test-contracts',
   'stage3b:test-keyframes',
+  'timeline:test-clip-core',
   'anim:test-contract',
   'anim:test-evaluator',
   'anim:test-presets',

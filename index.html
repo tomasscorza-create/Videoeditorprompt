@@ -77,9 +77,9 @@
                 <button id="jobs-refresh" class="text-button" type="button">Actualizar</button>
               </header>
               <div id="render-job-gallery" class="render-job-gallery" role="list">
-                <p class="empty-state">Buscando renders locales…</p>
+                <p class="empty-state">Buscando exportaciones locales…</p>
               </div>
-              <section id="render-job-details" class="render-job-details" aria-label="Detalle del render" hidden></section>
+              <section id="render-job-details" class="render-job-details" aria-label="Detalle de la exportación" hidden></section>
             </section>
           </details>
           <details id="create-menu" class="files-menu create-menu">
@@ -102,7 +102,7 @@
         <div class="topbar-actions">
           <button id="render-indicator" class="render-indicator" type="button" hidden aria-live="polite">
             <span class="render-indicator-spinner" aria-hidden="true"></span>
-            <span id="render-indicator-label">Renderizando…</span>
+            <span id="render-indicator-label">Exportando…</span>
           </button>
           <span id="save-status" class="save-status">Guardado local automático</span>
           <button id="settings-open" class="icon-button" type="button" aria-label="Configuración" title="Configuración"><svg class="icon" aria-hidden="true"><use href="#ui-icon-settings"/></svg></button>
@@ -135,7 +135,7 @@
       </aside>
 
       <main class="workspace">
-        <aside class="workspace-panel director-column" aria-label="Creación y renders">
+        <aside class="workspace-panel director-column" aria-label="Creación y exportaciones">
           <section class="director-panel" id="director-panel" aria-label="Director IA local" hidden>
             <header class="section-header">
               <div>
@@ -152,7 +152,7 @@
             <div class="director-page-tabs tabs" data-variant="segmented" role="tablist" aria-label="Flujo del Director">
               <button id="director-page-command-tab" class="tab is-active" data-director-page="command" type="button" role="tab" aria-selected="true" aria-controls="director-page-command">Idea</button>
               <button id="director-page-project-tab" class="tab" data-director-page="project" type="button" role="tab" aria-selected="false" aria-controls="director-page-project" disabled>Propuesta</button>
-              <button id="director-page-render-tab" class="tab" data-director-page="render" type="button" role="tab" aria-selected="false" aria-controls="director-page-render">Render</button>
+              <button id="director-page-render-tab" class="tab" data-director-page="render" type="button" role="tab" aria-selected="false" aria-controls="director-page-render">Exportar</button>
             </div>
 
             <section id="director-next-step" class="director-next-step" aria-label="Siguiente paso">
@@ -257,14 +257,14 @@
             <div id="director-page-render" class="director-page" role="tabpanel" aria-labelledby="director-page-render-tab" hidden>
               <header class="section-header compact">
                 <div>
-                  <span class="eyebrow">Render</span>
-                  <h2 id="render-title">Video final</h2>
+                  <span class="eyebrow">Exportar</span>
+                  <h2 id="render-title">MP4 final</h2>
                 </div>
               </header>
-              <ul id="render-requirements" class="render-requirements" aria-label="Requisitos para renderizar"></ul>
-              <p id="render-readiness" class="render-readiness" role="status" aria-live="polite">Comprobando si el proyecto está listo para renderizar.</p>
+              <ul id="render-requirements" class="render-requirements" aria-label="Requisitos para exportar"></ul>
+              <p id="render-readiness" class="render-readiness" role="status" aria-live="polite">Comprobando si el proyecto está listo para exportar.</p>
               <div class="action-row director-primary-action">
-                <button id="director-render" class="primary-button" type="button" disabled>Renderizar video</button>
+                <button id="director-render" class="primary-button" type="button" disabled>Exportar MP4</button>
               </div>
               <div class="render-progress" id="render-progress" hidden>
                 <div class="progress-track"><span id="render-progress-bar"></span></div>
@@ -333,7 +333,7 @@
           </div>
 
           <div class="viewer-footer">
-            <p id="viewer-context">Seleccioná y arrastrá personajes. La duración real aparece cuando el proyecto se renderiza.</p>
+            <p id="viewer-context">Seleccioná y arrastrá personajes. Las voces y la duración se preparan automáticamente para el preview.</p>
             <span id="viewer-output-status" class="viewer-output-status" hidden></span>
             <button id="viewer-return-edit" class="text-button" type="button" hidden>Volver a editar</button>
             <a id="director-result-download" class="download-link" href="#" download hidden>Descargar MP4</a>
@@ -551,7 +551,7 @@
             <button id="timeline-previous" class="timeline-tool" type="button" disabled title="Escena anterior (↑)" aria-label="Escena anterior"><svg class="icon" aria-hidden="true"><use href="#ui-icon-clip-previous"/></svg></button>
             <button id="timeline-play" class="timeline-play" type="button" disabled title="Reproducir o pausar (Espacio)" aria-label="Reproducir o pausar"><svg class="icon" aria-hidden="true"><use href="#ui-icon-play"/></svg></button>
             <button id="timeline-next" class="timeline-tool" type="button" disabled title="Escena siguiente (↓)" aria-label="Escena siguiente"><svg class="icon" aria-hidden="true"><use href="#ui-icon-clip-next"/></svg></button>
-            <button id="timeline-mute" class="timeline-tool" type="button" disabled aria-pressed="false" title="Silenciar exportación (M)" aria-label="Silenciar exportación">M</button>
+            <button id="timeline-mute" class="timeline-tool" type="button" disabled aria-pressed="false" title="Silenciar preview (M)" aria-label="Silenciar preview">M</button>
           </div>
           <div class="timeline-tool-group" aria-label="Ajuste temporal">
             <button id="timeline-snap" class="timeline-tool is-active" type="button" aria-pressed="true" title="Ajuste magnético (S)" aria-label="Ajuste magnético"><svg class="icon" aria-hidden="true"><use href="#ui-icon-snap"/></svg></button>
@@ -596,7 +596,7 @@
           <div><span class="eyebrow">Archivos</span><h2>Mis proyectos editables</h2></div>
           <button id="projects-close" class="icon-button" type="button" aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#ui-icon-close"/></svg></button>
         </header>
-        <p class="muted">Estos proyectos se guardan de forma durable en el equipo y pueden seguir editándose después del render.</p>
+        <p class="muted">Estos proyectos se guardan de forma durable en el equipo y pueden seguir editándose después de exportar.</p>
         <div id="saved-project-list" class="saved-project-list"></div>
       </div>
     </dialog>

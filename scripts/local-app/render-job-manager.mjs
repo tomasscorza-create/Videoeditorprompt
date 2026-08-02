@@ -466,7 +466,7 @@ function assertJobId(jobId) {
 export async function streamVideoResponse(request, response, video) {
   const range = request.headers.range;
   response.setHeader('accept-ranges', 'bytes');
-  response.setHeader('content-type', 'video/mp4');
+  response.setHeader('content-type', video.mimeType || 'video/mp4');
   response.setHeader('content-disposition', `inline; filename="${video.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}"`);
   if (!range) {
     const stream = video.blobStorage

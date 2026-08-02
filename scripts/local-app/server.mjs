@@ -331,6 +331,16 @@ export async function createLocalAppServer(options = {}) {
         sendJson(response, 200, { version: 1, ...measurement });
         return;
       }
+      const measurementAudioMatch = /^\/api\/measurement-audio\/(measure-[a-zA-Z0-9_-]{1,56})$/u.exec(url.pathname);
+      if (request.method === 'GET' && measurementAudioMatch) {
+        const audio = measurements.audio?.(measurementAudioMatch[1]);
+        if (!audio) {
+          sendJson(response, 404, { version: 1, message: 'El audio de preview no está disponible.' });
+          return;
+        }
+        await streamVideoResponse(request, response, audio);
+        return;
+      }
       if (request.method === 'POST' && url.pathname === '/api/render-jobs') {
         assertJsonContentType(request);
         const body = await readJsonBody(request);

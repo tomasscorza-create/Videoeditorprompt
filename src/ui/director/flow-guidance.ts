@@ -43,8 +43,8 @@ export function describeDirectorFlow(input: DirectorFlowInput): DirectorFlowGuid
   if (input.busyMode === 'render') {
     return {
       eyebrow: 'En curso',
-      title: 'Estamos generando el video',
-      detail: 'Podés seguir el avance en Render o cancelar el trabajo actual.',
+      title: 'Estamos exportando el MP4',
+      detail: 'Podés seguir el avance en Exportar o cancelar el trabajo actual.',
       action: input.page === 'render' ? null : { id: 'render', label: 'Ver progreso' },
     };
   }
@@ -76,7 +76,7 @@ export function describeDirectorFlow(input: DirectorFlowInput): DirectorFlowGuid
     return {
       eyebrow: 'Acción necesaria',
       title: 'Volvé al Editor de video',
-      detail: 'El Creador sirve para preparar recursos; el proyecto se revisa y renderiza desde el Editor.',
+      detail: 'El Creador sirve para preparar recursos; el proyecto se revisa y exporta desde el Editor.',
       action: { id: 'editor', label: 'Volver al Editor' },
     };
   }
@@ -84,7 +84,7 @@ export function describeDirectorFlow(input: DirectorFlowInput): DirectorFlowGuid
     return {
       eyebrow: 'Comprobando',
       title: 'Estamos revisando el motor local',
-      detail: 'La disponibilidad de voces y render aparecerá en unos instantes.',
+      detail: 'La disponibilidad de voces y exportación aparecerá en unos instantes.',
       action: null,
     };
   }
@@ -107,34 +107,34 @@ export function describeDirectorFlow(input: DirectorFlowInput): DirectorFlowGuid
   if (input.outputState === 'stale') {
     return {
       eyebrow: 'Paso 3 de 3',
-      title: 'Actualizá el video',
-      detail: 'Hay cambios posteriores al último MP4. El render anterior se conserva.',
-      action: input.page === 'render' ? null : { id: 'render', label: 'Ir a Render' },
+      title: 'Exportá cuando termines',
+      detail: 'Hay cambios sin exportar. El MP4 anterior se conserva y podés seguir editando con el preview.',
+      action: input.page === 'render' ? null : { id: 'render', label: 'Ir a Exportar' },
     };
   }
   if (input.page === 'project') {
     return {
       eyebrow: 'Paso 2 de 3',
       title: 'Revisá la propuesta',
-      detail: 'Comprobá escenas y diálogos. Cuando esté lista, generá el primer MP4.',
-      action: { id: 'render', label: 'Preparar render' },
+      detail: 'Comprobá escenas y diálogos con el preview. Exportá el MP4 solamente cuando termines.',
+      action: { id: 'render', label: 'Preparar exportación' },
     };
   }
   if (input.page === 'render') {
     return {
       eyebrow: 'Paso 3 de 3',
-      title: 'Todo listo para renderizar',
-      detail: 'El render generará las voces, medirá los tiempos reales y producirá el MP4.',
+      title: 'Todo listo para exportar',
+      detail: 'La exportación reutilizará voces y escenas vigentes para producir el MP4 final.',
       action: null,
     };
   }
   return {
     eyebrow: input.mode === 'editing' ? 'Siguiente paso' : 'Paso 2 de 3',
-    title: input.mode === 'editing' ? 'Ajustá o continuá al render' : 'Revisá la propuesta',
+    title: input.mode === 'editing' ? 'Seguí editando o exportá' : 'Revisá la propuesta',
     detail: input.mode === 'editing'
-      ? 'Podés pedir un cambio al Director o generar el video con el estado actual.'
+      ? 'Podés pedir cambios al Director y exportar el MP4 cuando termines.'
       : 'La propuesta ya puede revisarse antes de producir el video.',
-    action: { id: input.mode === 'editing' ? 'render' : 'project', label: input.mode === 'editing' ? 'Ir a Render' : 'Revisar propuesta' },
+    action: { id: input.mode === 'editing' ? 'render' : 'project', label: input.mode === 'editing' ? 'Ir a Exportar' : 'Revisar propuesta' },
   };
 }
 
@@ -149,13 +149,13 @@ export function describeRenderRequirements(input: DirectorFlowInput): RenderRequ
     {
       id: 'contract',
       label: 'Proyecto',
-      detail: input.validationError ? input.validationError : 'La estructura es compatible con el render.',
+      detail: input.validationError ? input.validationError : 'La estructura es compatible con la exportación.',
       state: !input.projectAvailable || input.validationError ? 'blocked' : 'complete',
     },
     {
       id: 'workspace',
       label: 'Espacio de trabajo',
-      detail: input.workspaceMode === 'editor' ? 'Estás trabajando en el Editor de video.' : 'Volvé al Editor antes de renderizar.',
+      detail: input.workspaceMode === 'editor' ? 'Estás trabajando en el Editor de video.' : 'Volvé al Editor antes de exportar.',
       state: input.workspaceMode === 'editor' ? 'complete' : 'blocked',
     },
     {

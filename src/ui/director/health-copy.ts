@@ -67,7 +67,7 @@ export function summarizeHealth(health: LocalHealth): HealthSummary {
     });
 
   dependencies.push(health.renderBusy
-    ? { id: 'render', name: 'Render', state: 'warn', detail: 'Hay un render en curso.', action: 'Esperá a que termine para lanzar otro.' }
+    ? { id: 'render', name: 'Exportación', state: 'warn', detail: 'Hay una exportación en curso.', action: 'Esperá a que termine para iniciar otra.' }
     : { id: 'render', name: 'Render', state: 'ok', detail: 'Libre para aceptar un trabajo.', action: null });
 
   const failing = dependencies.filter((item) => item.state === 'error');

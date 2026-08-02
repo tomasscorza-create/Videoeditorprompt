@@ -296,6 +296,7 @@ export async function editProjectWithAi(
 export async function measureProject(project: unknown): Promise<{
   projectId: string;
   timeline: { durationSeconds: number; scenes: unknown[] };
+  audioUrl: string;
 }> {
   return apiRequest('/api/measurements', {
     method: 'POST',

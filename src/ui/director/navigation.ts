@@ -57,8 +57,8 @@ export function updateDirectorNavigation(
 
 export function describeDirectorPages(state: DirectorNavigationState): DirectorPageDescriptor[] {
   const labels: Record<DirectorPage, string> = state.mode === 'creation'
-    ? { command: 'Idea', project: 'Propuesta', render: 'Render' }
-    : { command: 'Ajustar con IA', project: 'Estado actual', render: 'Render' };
+    ? { command: 'Idea', project: 'Propuesta', render: 'Exportar' }
+    : { command: 'Ajustar con IA', project: 'Estado actual', render: 'Exportar' };
   return DIRECTOR_PAGES.map((page) => ({
     page,
     label: labels[page],

@@ -399,6 +399,11 @@ if (existsSync(ttsRoot)) {
   assert.equal(cuerpo.projectId, project.id);
   assert.equal(cuerpo.timeline.scenes.length, project.scenes.length);
   assert.equal(cuerpo.timeline.durationSeconds > 0, true);
+  assert.match(cuerpo.audioUrl, /^\/api\/measurement-audio\/measure-/u);
+  const previewAudio = await request(cuerpo.audioUrl);
+  assert.equal(previewAudio.status, 200);
+  assert.match(previewAudio.headers.get('content-type'), /^audio\/wav/u);
+  assert.equal((await previewAudio.arrayBuffer()).byteLength > 44, true);
   // Cada escena trae sus turnos medidos, que es lo que la timeline necesita
   // para ubicar el cabezal, un keyframe o un corte.
   for (const scene of cuerpo.timeline.scenes) {
@@ -407,7 +412,7 @@ if (existsSync(ttsRoot)) {
   }
   // No debe existir un MP4: medir no renderiza.
   assert.equal(Object.hasOwn(cuerpo, 'videoUrl'), false);
-  medicionProbada = 5;
+  medicionProbada = 9;
 }
 
 // Un proyecto inválido no llega a gastar Piper.

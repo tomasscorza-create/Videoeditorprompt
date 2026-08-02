@@ -16,8 +16,9 @@
 // indexada por contenido y es compartida entre trabajos: al cortar un turno,
 // solo los dos textos nuevos se sintetizan y el resto sale de caché.
 
+import { statSync } from 'node:fs';
 import path from 'node:path';
-import { isMain, readJson, writeJson } from '../stage1/common.mjs';
+import { ffprobe, isMain, readJson, run, writeJson } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
 import { createJobContext } from '../stage1/job-context.mjs';
 import { prepareJob } from '../stage1/prepare-scene.mjs';
@@ -67,6 +68,11 @@ export async function measureProject(context, options = {}) {
     scenes.push({
       id: scene.id,
       turns: dialogue.turns,
+      audioFile: resolveWithin(
+        sceneContext.generatedRoot,
+        runtime.audio.path,
+        `audio medido de ${scene.id}`,
+      ),
       audioDurationSeconds: runtime.audio.durationSeconds,
       // Derivada, no observada: el render redondea el audio al cuadro siguiente
       // con esta misma función, así que medir y renderizar coinciden exacto.
@@ -76,6 +82,7 @@ export async function measureProject(context, options = {}) {
   }
 
   const plan = buildAssemblyPlan(scenes);
+  const audio = assemblePreviewAudio(context, scenes, plan);
   const timeline = {
     durationSeconds: plan.durationSeconds,
     scenes: plan.scenes.map((timelineScene, index) => ({
@@ -97,6 +104,7 @@ export async function measureProject(context, options = {}) {
     projectId: compiled.manifest.projectId,
     compiledSemanticHash: compiled.manifest.semanticHash,
     video: compiled.manifest.video,
+    audio,
     timeline,
   };
   writeJson(path.join(context.resultRoot, 'measurement.json'), manifest);
@@ -107,6 +115,52 @@ export async function measureProject(context, options = {}) {
     durationSeconds: timeline.durationSeconds,
   });
   return manifest;
+}
+
+/**
+ * Produce solamente la pista que usa el preview de autoría. No hay cuadros,
+ * compositor ni H.264: las mismas reglas de cut/fade del ensamblado final se
+ * aplican sobre los WAV medidos para que el audio sea su reloj profesional.
+ */
+export function assemblePreviewAudio(context, scenes, plan) {
+  const outputFile = path.join(context.resultRoot, 'preview.wav');
+  const inputs = scenes.flatMap((scene) => ['-i', scene.audioFile]);
+  const filters = scenes.map((_, index) => (
+    `[${index}:a]aresample=22050,aformat=sample_fmts=s16:channel_layouts=mono,asetpts=PTS-STARTPTS[a${index}]`
+  ));
+  let audioLabel = 'a0';
+  for (let index = 1; index < scenes.length; index += 1) {
+    const transition = scenes[index - 1].transitionToNext;
+    const nextLabel = `aj${index}`;
+    if (transition?.preset === 'fade') {
+      filters.push(`[${audioLabel}][a${index}]acrossfade=d=${formatSeconds(transition.durationSeconds)}:c1=tri:c2=tri[${nextLabel}]`);
+    } else {
+      filters.push(`[${audioLabel}][a${index}]concat=n=2:v=0:a=1[${nextLabel}]`);
+    }
+    audioLabel = nextLabel;
+  }
+  run('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y', ...inputs,
+    '-filter_complex_threads', '1', '-filter_complex', filters.join(';'),
+    '-map', `[${audioLabel}]`, '-c:a', 'pcm_s16le', '-ar', '22050', '-ac', '1',
+    '-t', formatSeconds(plan.durationSeconds), outputFile,
+  ], { stage: 'measure_project', errorCode: 'FFMPEG_PREVIEW_AUDIO_EXIT_NONZERO' });
+  const probe = ffprobe(outputFile);
+  const durationSeconds = Number(probe.format.duration);
+  if (!Number.isFinite(durationSeconds) || Math.abs(durationSeconds - plan.durationSeconds) > 0.08) {
+    throw new Error(`El audio de preview dura ${durationSeconds}; se esperaban ${plan.durationSeconds} segundos.`);
+  }
+  return {
+    file: 'preview.wav',
+    durationSeconds,
+    bytes: statSync(outputFile).size,
+    sampleRate: 22050,
+    channels: 1,
+  };
+}
+
+function formatSeconds(value) {
+  return String(Number(Number(value).toFixed(9)));
 }
 
 if (isMain(import.meta.url)) {

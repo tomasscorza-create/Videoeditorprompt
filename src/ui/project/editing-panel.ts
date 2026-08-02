@@ -1012,7 +1012,7 @@ export function initEditingPanel(store: ProjectStore): void {
     if (!scope.timing) return {
       available: false,
       label: 'Cabezal sin medición',
-      detail: 'Renderizá una vez para medir las voces y ubicar keyframes sin inventar tiempos.',
+      detail: 'Medí las voces para ubicar keyframes con tiempos reales, sin exportar un video.',
     };
     if (!isPlayheadInside(scope.timing)) return {
       available: false,
@@ -1390,7 +1390,7 @@ function presetPlacement(
 } {
   if (!scope.timing) return {
     allowed: false,
-    reason: 'Renderizá una vez para medir la escena antes de ubicar esta animación.',
+    reason: 'Medí la escena antes de ubicar esta animación; no hace falta exportar.',
     proposal: null,
   };
   const playhead = editorPlayhead();

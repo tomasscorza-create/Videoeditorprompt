@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { projectRoot, writeJson } from '../stage1/common.mjs';
-import { buildAssemblyPlan, buildRenderedTurnTimeline } from './project-pipeline.mjs';
+import { buildAssemblyPlan, buildRenderedTurnTimeline, sceneCacheKey } from './project-pipeline.mjs';
 
 const results = [];
 
@@ -58,6 +58,20 @@ assert.throws(() => buildRenderedTurnTimeline([
   { id: 'turn-b', speakerId: 'speaker-b', startSeconds: 1.25, endSeconds: 2, durationSeconds: 0.75, gapAfterSeconds: 0 },
 ], 0, 2), (error) => error.code === 'RENDERED_TURN_TIMELINE_INVALID');
 results.push({ name: 'turn-timeline-rejects-inconsistent-gaps', passed: true });
+
+const cacheManifest = {
+  video: { width: 1080, height: 1920, fps: 30 },
+  catalogSha256: 'a'.repeat(64),
+  sourceHashes: [{ path: 'assets/character.png', sha256: 'b'.repeat(64) }],
+};
+const cacheScene = { configSha256: 'c'.repeat(64) };
+const cacheKey = sceneCacheKey(cacheManifest, cacheScene, 'scene-001-a', 'interactive');
+assert.equal(cacheKey, sceneCacheKey(structuredClone(cacheManifest), structuredClone(cacheScene), 'scene-001-a', 'interactive'));
+results.push({ name: 'scene-cache-key-is-deterministic', passed: true });
+assert.notEqual(cacheKey, sceneCacheKey(cacheManifest, { configSha256: 'd'.repeat(64) }, 'scene-001-a', 'interactive'));
+results.push({ name: 'scene-cache-invalidates-visual-change', passed: true });
+assert.notEqual(cacheKey, sceneCacheKey({ ...cacheManifest, sourceHashes: [{ path: 'assets/character.png', sha256: 'e'.repeat(64) }] }, cacheScene, 'scene-001-a', 'interactive'));
+results.push({ name: 'scene-cache-invalidates-resource-change', passed: true });
 
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'project-assembly-latest.json'), summary);

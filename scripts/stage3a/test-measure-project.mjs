@@ -59,6 +59,8 @@ if (ttsDisponible) {
     assert.equal(medicion.timeline.scenes.length, 2);
     assert.equal(medicion.timeline.durationSeconds > 0, true);
     assert.equal(existsSync(path.join(outputRoot, 'measurement.json')), true);
+    assert.equal(existsSync(path.join(outputRoot, 'preview.wav')), true);
+    assert.equal(Math.abs(medicion.audio.durationSeconds - medicion.timeline.durationSeconds) <= 0.08, true);
   });
 
   test('cada escena termina donde su audio redondeado al cuadro dice', () => {

@@ -69,7 +69,7 @@ function actions(): CommandAction[] {
     },
     {
       id: 'director-render',
-      label: 'Renderizar video',
+      label: 'Exportar MP4',
       group: 'Director',
       keywords: ['exportar', 'mp4', 'render'],
       unavailableReason: disabledReason('#director-render', 'El proyecto todavía no se puede renderizar.'),
@@ -83,7 +83,7 @@ function actions(): CommandAction[] {
       unavailableReason: disabledReason('#director-page-project-tab', 'Todavía no hay una propuesta.'),
       run: () => clickTarget('#director-page-project-tab'),
     },
-    { id: 'page-render', label: 'Ir a Render', group: 'Director', run: () => clickTarget('#director-page-render-tab') },
+    { id: 'page-render', label: 'Ir a Exportar', group: 'Director', run: () => clickTarget('#director-page-render-tab') },
     { id: 'workspace-editor', label: 'Ver el Editor de video', group: 'Espacio', run: () => clickTarget('#workspace-editor') },
     { id: 'workspace-creator', label: 'Ver el Creador de recursos', group: 'Espacio', run: () => clickTarget('#workspace-creator') },
     {

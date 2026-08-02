@@ -5,6 +5,7 @@ import {
   editorOutputState,
   editorWorkspace,
   registerRenderedOutput,
+  projectMeasurementIsCurrent,
   showEditorCanvas,
   showWorkspaceMode,
   type MeasuredProjectTimeline,
@@ -72,16 +73,18 @@ function renderViewerWorkspace(): void {
         : outputState === 'stale'
           ? 'Preview actualizado: conserva el audio y los tiempos medidos mientras muestra los cambios visuales actuales.'
           : outputState === 'current'
-            ? 'Vista editable sincronizada con el render vigente.'
-            : 'Vista editable sin render. La duración real aparecerá al generar el primer MP4.';
+            ? 'Vista editable sincronizada con la exportación vigente.'
+            : projectMeasurementIsCurrent()
+              ? 'Preview con voces y tiempos reales; exportá el MP4 solamente cuando termines.'
+              : 'Preparando las voces y los tiempos reales del preview…';
   }
 
   const status = optional<HTMLElement>('#viewer-output-status');
   if (status) {
     status.hidden = state.mode !== 'editor' || !state.activeProjectId;
     status.textContent = outputState === 'current'
-      ? 'Render vigente'
-      : outputState === 'stale' ? 'Cambios sin renderizar' : 'Sin render';
+      ? 'MP4 actualizado'
+      : projectMeasurementIsCurrent() ? 'Preview listo · sin exportar' : 'Cambios sin exportar';
     status.classList.toggle('is-stale', outputState === 'stale');
     status.classList.toggle('is-missing', outputState === 'missing');
     // A2: el paso a «render vigente» es el momento en que el trabajo terminó;

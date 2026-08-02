@@ -220,14 +220,14 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       if (editing && 'commands' in result) {
         const changes = summarizeCommands(result.commands, { sceneIds: store?.project().scenes.map((scene) => scene.id) });
         report(appliedCommands > 0
-          ? `${changes}.${contextDetail} El render quedó pendiente; podés deshacer desde la timeline.`
+          ? `${changes}.${contextDetail} La exportación quedó pendiente; podés seguir editando o deshacer desde la timeline.`
           : `El Director no encontró cambios representables para aplicar.${contextDetail}`, true);
         notify({
           message: appliedCommands > 0 ? `El Director cambió: ${changes}.` : 'El Director no encontró cambios para aplicar.',
           level: appliedCommands > 0 ? 'success' : 'info',
         });
       } else {
-        report(`Propuesta creada.${templateDetail}${contextDetail} Está lista para revisar y renderizar.`, true);
+        report(`Propuesta creada.${templateDetail}${contextDetail} Está lista para revisar; exportá el MP4 cuando termines.`, true);
       }
     } catch (error) {
       reportError(error);
@@ -245,10 +245,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     }
     const validationError = store.validate();
     if (validationError) {
-      report(`El proyecto no se puede renderizar: ${validationError}`);
+      report(`El proyecto no se puede exportar: ${validationError}`);
       return;
     }
-    setBusy('render', 'Enviando el proyecto al pipeline local…');
+    setBusy('render', 'Preparando la exportación MP4…');
     try {
       const job = await startRender(store.project());
       currentJobId = job.jobId;
@@ -436,7 +436,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       renderHealthPopover(summary.dependencies, summary.modelIdentity);
       if (status.textContent === 'Comprobando el servicio local…') {
         report(readyForProposal
-          ? readyForRender ? 'Servicios locales listos.' : 'Director listo; falta Piper para renderizar.'
+          ? readyForRender ? 'Servicios locales listos.' : 'Director listo; falta Piper para preparar voces y exportar.'
           : 'Ollama no está listo para crear propuestas.', readyForProposal);
       }
       syncButtons();
@@ -689,7 +689,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     card.classList.toggle('is-active', job.jobId === currentJobId);
     card.disabled = !((job.state === 'completed' && job.result) || job.state === 'failed');
     card.setAttribute('role', 'listitem');
-    if (job.state === 'failed') card.title = 'Ver por qué falló este render';
+    if (job.state === 'failed') card.title = 'Ver por qué falló esta exportación';
     const icon = document.createElement('span');
     icon.className = 'render-job-icon';
     icon.textContent = job.state === 'completed' ? '▶' : job.state === 'failed' ? '!' : '…';
@@ -710,7 +710,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       card.addEventListener('click', () => {
         hideJobDetails();
         const current = showCompleted(job, true, true);
-        if (!current) report('Mostrando un render anterior. La edición actual permanece sin renderizar.', true);
+        if (!current) report('Mostrando una exportación anterior. La edición actual conserva cambios sin exportar.', true);
         filesMenu.open = false;
       });
     } else if (job.state === 'failed') {
@@ -721,12 +721,12 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
 
   function showJobDetails(job: RenderJob): void {
     const error = job.error ?? {
-      message: 'El render falló sin conservar un detalle adicional.',
-      suggestedAction: 'Volvé al proyecto, revisá su estado e intentá renderizarlo otra vez.',
+      message: 'La exportación falló sin conservar un detalle adicional.',
+      suggestedAction: 'Volvé al proyecto, revisá su estado e intentá exportarlo otra vez.',
     };
     const header = document.createElement('header');
     const title = document.createElement('strong');
-    title.textContent = 'No se pudo completar el render';
+    title.textContent = 'No se pudo completar la exportación';
     const close = document.createElement('button');
     close.type = 'button';
     close.className = 'text-button';
@@ -791,7 +791,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       hideRenderIndicator();
       const message = current
         ? `Video listo · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(2)} s.`
-        : 'El render terminó, pero corresponde a una versión anterior. Tus cambios actuales siguen pendientes.';
+        : 'La exportación terminó, pero corresponde a una versión anterior. Tus cambios actuales siguen pendientes.';
       report(message, true);
       notify({
         message,
@@ -804,7 +804,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     if (job.state === 'failed') {
       progressRoot.hidden = true;
       hideRenderIndicator();
-      const message = formatApiError(job.error || { message: 'El render falló.' });
+      const message = formatApiError(job.error || { message: 'La exportación falló.' });
       report(message);
       notify({ message, level: 'error' });
       return;
@@ -812,8 +812,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     if (job.state === 'cancelled') {
       progressRoot.hidden = true;
       hideRenderIndicator();
-      report('Render cancelado.');
-      notify({ message: 'Render cancelado.', level: 'info' });
+      report('Exportación cancelada.');
+      notify({ message: 'Exportación cancelada.', level: 'info' });
       return;
     }
     const progressState = typeof job.progress?.state === 'string' ? job.progress.state : job.stage;
@@ -822,13 +822,13 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     progressBar.style.width = `${progress}%`;
     progressLabel.textContent = `${progress}% · ${humanStage(progressState)}`;
     showRenderIndicator(`${progress}% · ${humanStage(progressState)}`);
-    report(`Render ${job.jobId}: ${humanStage(progressState)}.`, true);
+    report(`Exportación ${job.jobId}: ${humanStage(progressState)}.`, true);
   }
 
   function showRenderIndicator(label: string): void {
     renderIndicator.hidden = false;
     renderIndicatorLabel.textContent = label;
-    renderIndicator.title = `Render en curso: ${label}. Abrir la página Render.`;
+    renderIndicator.title = `Exportación en curso: ${label}. Abrir la página Exportar.`;
   }
 
   function hideRenderIndicator(): void {
@@ -908,8 +908,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     root.classList.toggle('is-render-busy', mode === 'render');
     root.setAttribute('aria-busy', String(mode !== null));
     cancel.hidden = mode === null;
-    cancel.textContent = mode === 'ai' ? 'Cancelar IA' : 'Cancelar render';
-    cancel.title = mode === 'ai' ? 'Detener la propuesta en curso' : 'Detener el render en curso';
+    cancel.textContent = mode === 'ai' ? 'Cancelar IA' : 'Cancelar exportación';
+    cancel.title = mode === 'ai' ? 'Detener la propuesta en curso' : 'Detener la exportación en curso';
     if (message) report(message, true);
     syncButtons();
   }
@@ -940,35 +940,35 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     kind: 'ready' | 'current' | 'blocked';
   } {
     if (busyMode === 'render') {
-      return { enabled: false, label: 'Renderizando…', message: 'El video se está generando con la revisión enviada.', kind: 'blocked' };
+      return { enabled: false, label: 'Exportando…', message: 'El MP4 final se está generando con la revisión enviada.', kind: 'blocked' };
     }
     if (busyMode === 'ai') {
-      return { enabled: false, label: 'Renderizar video', message: 'Esperá a que el Director termine de aplicar la propuesta.', kind: 'blocked' };
+      return { enabled: false, label: 'Exportar MP4', message: 'Esperá a que el Director termine de aplicar la propuesta.', kind: 'blocked' };
     }
     if (!store) {
-      return { enabled: false, label: 'Renderizar video', message: 'Creá o abrí un proyecto antes de renderizar.', kind: 'blocked' };
+      return { enabled: false, label: 'Exportar MP4', message: 'Creá o abrí un proyecto antes de exportar.', kind: 'blocked' };
     }
     if (editorWorkspace().mode === 'creator') {
-      return { enabled: false, label: 'Renderizar video', message: 'Volvé al Editor de video para revisar y renderizar el proyecto.', kind: 'blocked' };
+      return { enabled: false, label: 'Exportar MP4', message: 'Volvé al Editor de video para revisar y exportar el proyecto.', kind: 'blocked' };
     }
     const validationError = store.validate();
     if (validationError) {
-      return { enabled: false, label: 'Proyecto incompleto', message: `Completá el proyecto antes de renderizar: ${validationError}`, kind: 'blocked' };
+      return { enabled: false, label: 'Proyecto incompleto', message: `Completá el proyecto antes de exportar: ${validationError}`, kind: 'blocked' };
     }
     if (!healthChecked) {
       return { enabled: false, label: 'Comprobando motor…', message: 'Verificando que Piper y el servicio local estén disponibles.', kind: 'blocked' };
     }
     if (!readyForRender) {
-      return { enabled: false, label: 'Render no disponible', message: 'Piper no está disponible para generar voces y tiempos reales.', kind: 'blocked' };
+      return { enabled: false, label: 'Exportación no disponible', message: 'Piper no está disponible para preparar las voces del MP4.', kind: 'blocked' };
     }
     const outputState = editorOutputState();
     if (outputState === 'current') {
-      return { enabled: false, label: 'Video actualizado', message: 'El MP4 ya coincide con la edición actual. Hacé un cambio para habilitar otro render.', kind: 'current' };
+      return { enabled: false, label: 'MP4 actualizado', message: 'El MP4 ya coincide con la edición actual. Podés seguir editando o descargarlo.', kind: 'current' };
     }
     if (outputState === 'stale') {
-      return { enabled: true, label: 'Actualizar render', message: 'Hay cambios posteriores al último MP4. Generá una versión actualizada.', kind: 'ready' };
+      return { enabled: true, label: 'Exportar MP4 actualizado', message: 'Hay cambios sin exportar. El preview sigue disponible y el MP4 anterior se conserva.', kind: 'ready' };
     }
-    return { enabled: true, label: 'Renderizar video', message: 'El proyecto todavía no tiene un MP4 generado.', kind: 'ready' };
+    return { enabled: true, label: 'Exportar MP4', message: 'Exportá el archivo final cuando hayas terminado de editar.', kind: 'ready' };
   }
 
   function syncDirectorMode(): void {
@@ -1067,7 +1067,7 @@ function skeleton(lines: number, asCards = false): HTMLElement {
 }
 
 function humanState(state: RenderJob['state']): string {
-  return { queued: 'En cola', rendering: 'Renderizando', completed: 'Listo', failed: 'Falló', cancelled: 'Cancelado' }[state];
+  return { queued: 'En cola', rendering: 'Exportando', completed: 'Listo', failed: 'Falló', cancelled: 'Cancelado' }[state];
 }
 
 function humanStage(stage: string): string {
@@ -1076,6 +1076,7 @@ function humanStage(stage: string): string {
     starting_pipeline: 'iniciando pipeline',
     compiling_project: 'compilando proyecto',
     rendering_scene: 'preparando escena',
+    reusing_scene: 'reutilizando escena',
     generating_voice: 'generando voces',
     analyzing_audio: 'analizando audio',
     rendering_frames: 'renderizando cuadros',
@@ -1092,6 +1093,7 @@ function stageProgress(stage: string): number {
     starting_pipeline: 7,
     compiling_project: 12,
     rendering_scene: 18,
+    reusing_scene: 24,
     generating_voice: 28,
     analyzing_audio: 38,
     rendering_frames: 58,

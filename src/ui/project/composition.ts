@@ -734,7 +734,7 @@ function applyAnimated(
   // mientras tanto, no se escribe nada en vez de anclar a un tiempo inventado.
   if (!scope.timing) {
     setAnimationMode(null);
-    reportPlacement('Sin voz medida no se puede ubicar un keyframe: renderizá para volver a animar en el lienzo.', true);
+    reportPlacement('Sin voz medida no se puede ubicar un keyframe: medí los tiempos para volver a animar en el lienzo.', true);
     return;
   }
   const lanes = elementLanes(element, scope);

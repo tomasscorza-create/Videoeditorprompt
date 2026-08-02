@@ -62,8 +62,14 @@ let activeProjectRevision: string | null = null;
 let activeTimingRevision: string | null = null;
 let output: RenderedOutput | null = null;
 // Medición liviana vigente, independiente de que exista un MP4.
-let measurement: { projectId: string; timingRevision: string; timeline: MeasuredProjectTimeline } | null = null;
+let measurement: {
+  projectId: string;
+  timingRevision: string;
+  timeline: MeasuredProjectTimeline;
+  audioUrl: string;
+} | null = null;
 let media: HTMLVideoElement | null = null;
+let previewAudio: HTMLAudioElement | null = null;
 let mediaBound = false;
 let playheadSeconds = 0;
 let authoringPlaying = false;
@@ -86,13 +92,15 @@ export function setEditorPlayhead(seconds: number): void {
   if (next === playheadSeconds) return;
   playheadSeconds = next;
   if (authoringPlaying) {
-    if (media) media.currentTime = Math.min(editorWorkspace().duration, next);
+    const clock = authoringMedia();
+    if (clock) clock.currentTime = Math.min(editorWorkspace().duration, next);
   }
   notifyPlayback();
 }
 
 export function editorWorkspace(): EditorWorkspaceSnapshot {
-  const measuredDuration = output?.timeline?.durationSeconds ?? 0;
+  const measuredDuration = currentMeasuredDuration();
+  const clock = surface === 'canvas' ? authoringMedia() ?? media : media;
   return {
     mode,
     surface,
@@ -102,7 +110,7 @@ export function editorWorkspace(): EditorWorkspaceSnapshot {
     currentTime: surface === 'canvas' ? playheadSeconds : media?.currentTime ?? 0,
     duration: measuredDuration || media?.duration || 0,
     playing: authoringPlaying || Boolean(media && !media.paused),
-    muted: Boolean(media?.muted),
+    muted: Boolean(clock?.muted),
   };
 }
 
@@ -179,10 +187,10 @@ export function playableEditorOutput(): RenderedOutput | null {
 
 /** Hay transporte de MP4 o preview de autoría medido disponible. */
 export function editorCanPlay(): boolean {
-  return Boolean(media && (
+  return Boolean(
     playableEditorOutput()
-    || (surface === 'canvas' && timingStillValid() && output?.timeline)
-  ));
+    || (surface === 'canvas' && authoringMedia() && currentMeasuredDuration() > 0),
+  );
 }
 
 /**
@@ -234,8 +242,15 @@ export function setProjectMeasurement(value: {
   projectId: string;
   timingRevision: string;
   timeline: MeasuredProjectTimeline;
+  audioUrl: string;
 }): void {
+  stopAuthoringPreview(false);
   measurement = value;
+  if (typeof Audio !== 'undefined') {
+    previewAudio ??= createPreviewAudio();
+    previewAudio.src = value.audioUrl;
+    previewAudio.load();
+  }
   notify();
 }
 
@@ -327,12 +342,12 @@ export async function showRenderedPlayback(): Promise<void> {
     surface = 'playback';
     notify();
   });
-  await playMediaReliably(media.currentTime);
+  await playMediaReliably(media, media.currentTime);
 }
 
 export async function toggleEditorPlayback(): Promise<void> {
   if (!media) return;
-  if (surface === 'canvas' && editorOutputState() === 'stale' && timingStillValid() && output?.timeline) {
+  if (surface === 'canvas' && authoringMedia() && currentMeasuredDuration() > 0) {
     await toggleAuthoringPreview();
     return;
   }
@@ -341,14 +356,26 @@ export async function toggleEditorPlayback(): Promise<void> {
     await showRenderedPlayback();
     return;
   }
-  if (media.paused) await playMediaReliably(media.currentTime);
+  if (media.paused) await playMediaReliably(media, media.currentTime);
   else media.pause();
 }
 
 export function seekEditorPlayback(timeSeconds: number): void {
-  if (!media || (!currentEditorOutput() && !authoringPlaying)) return;
-  media.currentTime = Math.max(0, Math.min(editorWorkspace().duration, timeSeconds));
+  const target = Math.max(0, Math.min(editorWorkspace().duration, timeSeconds));
+  if (surface === 'canvas') {
+    const clock = authoringMedia();
+    if (!clock) return;
+    clock.currentTime = target;
+    playheadSeconds = target;
+  } else {
+    if (!media || !currentEditorOutput()) return;
+    media.currentTime = target;
+  }
   notify();
+}
+
+export function currentPreviewAudioUrl(): string | null {
+  return projectMeasurementIsCurrent() ? measurement!.audioUrl : null;
 }
 
 export function pauseEditorPlayback(): void {
@@ -357,8 +384,9 @@ export function pauseEditorPlayback(): void {
 }
 
 export function toggleEditorMute(): void {
-  if (!media || !editorCanPlay()) return;
-  media.muted = !media.muted;
+  const clock = surface === 'canvas' ? authoringMedia() : media;
+  if (!clock || !editorCanPlay()) return;
+  clock.muted = !clock.muted;
   notify();
 }
 
@@ -388,21 +416,21 @@ async function toggleAuthoringPreview(): Promise<void> {
     stopAuthoringPreview();
     return;
   }
-  const duration = output?.timeline?.durationSeconds ?? 0;
-  if (!timingStillValid() || duration <= 0) return;
+  const duration = currentMeasuredDuration();
+  const clock = authoringMedia();
+  if (!clock || duration <= 0) return;
   if (playheadSeconds >= duration - 1e-6) playheadSeconds = 0;
-  if (!media) return;
   authoringPlaying = true;
   notifyPlayback();
   try {
-    await playMediaReliably(playheadSeconds);
+    await playMediaReliably(clock, playheadSeconds);
   } catch (error) {
     stopAuthoringPreview();
     console.warn('No se pudo iniciar la reproducción de referencia.', error);
     return;
   }
   if (!authoringPlaying) {
-    media.pause();
+    clock.pause();
     return;
   }
   authoringFrame = window.requestAnimationFrame(advanceAuthoringPreview);
@@ -410,12 +438,13 @@ async function toggleAuthoringPreview(): Promise<void> {
 
 function advanceAuthoringPreview(): void {
   if (!authoringPlaying) return;
-  if (!media || media.paused || media.ended) {
+  const clock = authoringMedia();
+  if (!clock || clock.paused || clock.ended) {
     stopAuthoringPreview();
     return;
   }
-  const duration = output?.timeline?.durationSeconds ?? 0;
-  playheadSeconds = Math.min(duration, media.currentTime);
+  const duration = currentMeasuredDuration();
+  playheadSeconds = Math.min(duration, clock.currentTime);
   notifyPlayback();
   if (playheadSeconds >= duration) {
     stopAuthoringPreview();
@@ -427,33 +456,32 @@ function advanceAuthoringPreview(): void {
 function stopAuthoringPreview(emit = true): void {
   if (!authoringPlaying && authoringFrame === 0) return;
   authoringPlaying = false;
-  media?.pause();
+  authoringMedia()?.pause();
   if (authoringFrame !== 0) window.cancelAnimationFrame(authoringFrame);
   authoringFrame = 0;
   if (emit) notifyPlayback();
 }
 
-async function playMediaReliably(timeSeconds: number): Promise<void> {
-  if (!media) return;
+async function playMediaReliably(targetMedia: HTMLMediaElement, timeSeconds: number): Promise<void> {
   const target = Math.max(0, Math.min(editorWorkspace().duration, timeSeconds));
-  if (Number.isFinite(target)) media.currentTime = target;
+  if (Number.isFinite(target)) targetMedia.currentTime = target;
   try {
-    await media.play();
+    await targetMedia.play();
   } catch (firstError) {
     // Después de reemplazar el src, Chromium puede rechazar el primer play con
     // AbortError mientras termina load(). Reesperar el medio evita obligar a
     // recargar toda la aplicación.
-    await waitForMediaReady(media);
-    media.currentTime = target;
+    await waitForMediaReady(targetMedia);
+    targetMedia.currentTime = target;
     try {
-      await media.play();
+      await targetMedia.play();
     } catch {
       throw firstError;
     }
   }
 }
 
-function waitForMediaReady(video: HTMLVideoElement): Promise<void> {
+function waitForMediaReady(video: HTMLMediaElement): Promise<void> {
   if (video.readyState >= 2) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => finish(new Error('El video no quedó listo para reproducirse.')), 5_000);
@@ -472,4 +500,34 @@ function waitForMediaReady(video: HTMLVideoElement): Promise<void> {
     video.addEventListener('error', failed, { once: true });
     video.load();
   });
+}
+
+function currentMeasuredDuration(): number {
+  if (
+    measurement
+    && measurement.projectId === activeProjectId
+    && measurement.timingRevision === activeTimingRevision
+  ) return measurement.timeline.durationSeconds;
+  return output?.timeline?.durationSeconds ?? 0;
+}
+
+function authoringMedia(): HTMLMediaElement | null {
+  if (
+    previewAudio
+    && measurement
+    && measurement.projectId === activeProjectId
+    && measurement.timingRevision === activeTimingRevision
+  ) return previewAudio;
+  if (timingStillValid() && output?.timeline) return media;
+  return null;
+}
+
+function createPreviewAudio(): HTMLAudioElement {
+  const audio = new Audio();
+  audio.preload = 'auto';
+  audio.addEventListener('loadedmetadata', notify);
+  for (const eventName of ['timeupdate', 'play', 'pause', 'ended', 'volumechange']) {
+    audio.addEventListener(eventName, notifyPlayback);
+  }
+  return audio;
 }

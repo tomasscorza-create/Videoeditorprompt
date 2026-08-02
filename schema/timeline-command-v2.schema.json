@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/timeline-command-v2.json",
+  "title": "Comandos profesionales de clips V2",
+  "description": "Vocabulario cerrado del núcleo aislado de la Fase 1.",
+  "oneOf": [
+    { "$ref": "#/$defs/splitClip" },
+    { "$ref": "#/$defs/trimClip" },
+    { "$ref": "#/$defs/moveClip" },
+    { "$ref": "#/$defs/duplicateClip" },
+    { "$ref": "#/$defs/deleteClip" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$"
+    },
+    "tick": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1728000000
+    },
+    "splitClip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "clipId", "atTimelineTick", "newClipId"],
+      "properties": {
+        "type": { "const": "split-clip" },
+        "clipId": { "$ref": "#/$defs/id" },
+        "atTimelineTick": { "$ref": "#/$defs/tick" },
+        "newClipId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "trimClip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "clipId", "edge", "toTimelineTick"],
+      "properties": {
+        "type": { "const": "trim-clip" },
+        "clipId": { "$ref": "#/$defs/id" },
+        "edge": { "enum": ["start", "end"] },
+        "toTimelineTick": { "$ref": "#/$defs/tick" }
+      }
+    },
+    "moveClip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "clipId", "trackId", "timelineStartTick"],
+      "properties": {
+        "type": { "const": "move-clip" },
+        "clipId": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "timelineStartTick": { "$ref": "#/$defs/tick" }
+      }
+    },
+    "duplicateClip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "clipId", "newClipId", "trackId", "timelineStartTick"],
+      "properties": {
+        "type": { "const": "duplicate-clip" },
+        "clipId": { "$ref": "#/$defs/id" },
+        "newClipId": { "$ref": "#/$defs/id" },
+        "trackId": { "$ref": "#/$defs/id" },
+        "timelineStartTick": { "$ref": "#/$defs/tick" }
+      }
+    },
+    "deleteClip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "clipId"],
+      "properties": {
+        "type": { "const": "delete-clip" },
+        "clipId": { "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}

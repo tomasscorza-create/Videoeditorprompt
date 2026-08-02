@@ -10,12 +10,13 @@
 // no debe arrastrar al servidor.
 
 import { spawn } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
+import { projectTimingFingerprint } from '../../shared/project-fingerprint.js';
 
 const MEASUREMENT_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -33,12 +34,17 @@ export function createMeasurementManager(options = {}) {
   const spawnImpl = options.spawnImpl || spawn;
   // Una medición a la vez: comparte la caché de voz y el árbol de trabajo con el
   // render, y dos procesos escribiendo el mismo WAV no está protegido.
-  let running = null;
+  let operation = Promise.resolve();
+  const pending = new Map();
 
   async function measure(project) {
-    if (running) return running;
-    running = run(project).finally(() => { running = null; });
-    return running;
+    const key = `${project?.id || 'proyecto'}:${projectTimingFingerprint(project)}`;
+    if (pending.has(key)) return pending.get(key);
+    const task = operation.catch(() => {}).then(() => run(project));
+    operation = task;
+    pending.set(key, task);
+    task.finally(() => pending.delete(key)).catch(() => {});
+    return task;
   }
 
   async function run(project) {
@@ -63,10 +69,25 @@ export function createMeasurementManager(options = {}) {
     ]);
 
     const manifest = readJson(path.join(outputRoot, jobId, 'measurement.json'));
+    const audioFile = path.join(outputRoot, jobId, manifest.audio.file);
+    const audioVersion = statSync(audioFile).mtimeMs.toFixed(0);
     return {
       projectId: manifest.projectId,
       video: manifest.video,
       timeline: manifest.timeline,
+      audioUrl: `/api/measurement-audio/${jobId}?v=${audioVersion}`,
+    };
+  }
+
+  function audio(jobId) {
+    if (!/^measure-[a-zA-Z0-9_-]{1,56}$/u.test(jobId)) return null;
+    const file = path.join(outputRoot, jobId, 'preview.wav');
+    if (!existsSync(file)) return null;
+    return {
+      file,
+      size: statSync(file).size,
+      name: `${jobId}-preview.wav`,
+      mimeType: 'audio/wav',
     };
   }
 
@@ -99,7 +120,7 @@ export function createMeasurementManager(options = {}) {
     });
   }
 
-  return { measure };
+  return { measure, audio };
 }
 
 // El proceso hijo emite su fallo estructurado por stderr. Se reusa su código y
