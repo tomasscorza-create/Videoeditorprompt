@@ -312,7 +312,11 @@ function renderLayerStack(
       clip.dataset.scene = scene.id;
       clip.dataset.element = element.id;
       const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
-      if (medidaDeEscena) bindElementTrim(clip, scene, element, medidaDeEscena);
+      if (medidaDeEscena) {
+        bindElementTrim(clip, scene, element, medidaDeEscena);
+        // Personajes no: la escena admite exactamente dos y partir uno la rompe.
+        if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
+      }
       const characterStart = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
       clip.addEventListener('click', () => clipSingleClick(characterStart, () => selectElement(scene.id, element.id), () => selectElementCore(scene.id, element.id)));
       clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
@@ -345,7 +349,11 @@ function renderLayerStack(
       clip.dataset.scene = scene.id;
       clip.dataset.element = element.id;
       const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
-      if (medidaDeEscena) bindElementTrim(clip, scene, element, medidaDeEscena);
+      if (medidaDeEscena) {
+        bindElementTrim(clip, scene, element, medidaDeEscena);
+        // Personajes no: la escena admite exactamente dos y partir uno la rompe.
+        if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
+      }
       appendElementKeyframes(clip, scene, element, measured?.scenes[sceneIndex] ?? null);
       const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
       clip.addEventListener('click', () => clipSingleClick(
@@ -375,7 +383,11 @@ function renderLayerStack(
       clip.dataset.scene = scene.id;
       clip.dataset.element = element.id;
       const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
-      if (medidaDeEscena) bindElementTrim(clip, scene, element, medidaDeEscena);
+      if (medidaDeEscena) {
+        bindElementTrim(clip, scene, element, medidaDeEscena);
+        // Personajes no: la escena admite exactamente dos y partir uno la rompe.
+        if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
+      }
       const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
       clip.addEventListener('click', () => clipSingleClick(
         start,
@@ -1206,6 +1218,72 @@ function bindElementTrim(
     });
     clip.append(handle);
   }
+}
+
+// Tijera sobre un elemento visual: parte el clip en dos donde se hace clic.
+// Cada mitad queda con su propia ventana y se puede recortar por separado.
+function bindElementRazor(
+  clip: HTMLElement,
+  scene: SceneView,
+  element: ElementView,
+  measured: MeasuredScene,
+): void {
+  const timing = sceneAnimationTiming(measured, sceneAnimationReference(scene.dialogue));
+  if (!timing) return;
+  const guide = document.createElement('span');
+  guide.className = 'dialogue-cut-guide';
+  guide.hidden = true;
+  clip.append(guide);
+
+  const secondsAt = (event: PointerEvent | MouseEvent): number | null => {
+    const bounds = clip.getBoundingClientRect();
+    if (bounds.width <= 0) return null;
+    const window = resolveWindowSeconds(element.visibility, timing)
+      ?? { fromSeconds: measured.startSeconds, toSeconds: measured.endSeconds };
+    const progress = (event.clientX - bounds.left) / bounds.width;
+    const seconds = window.fromSeconds + progress * (window.toSeconds - window.fromSeconds);
+    // El corte tiene que dejar al menos un cuadro de cada lado.
+    const minimum = 1 / projectFps();
+    if (seconds <= window.fromSeconds + minimum || seconds >= window.toSeconds - minimum) return null;
+    return seconds;
+  };
+
+  clip.addEventListener('pointermove', (event) => {
+    if (!cutModeActive) { guide.hidden = true; return; }
+    const seconds = secondsAt(event);
+    if (seconds === null) { guide.hidden = true; return; }
+    const bounds = clip.getBoundingClientRect();
+    guide.hidden = false;
+    guide.style.left = `${event.clientX - bounds.left}px`;
+    clip.title = `Partir acá: ${seconds.toFixed(2)} s`;
+  });
+  clip.addEventListener('pointerleave', () => { guide.hidden = true; });
+  clip.addEventListener('pointerdown', (event) => {
+    if (!cutModeActive || event.button !== 0) return;
+    const seconds = secondsAt(event);
+    if (seconds === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    splitElementAt(scene, element, timing, seconds);
+  });
+}
+
+function splitElementAt(scene: SceneView, element: ElementView, timing: SceneTiming, seconds: number): void {
+  if (!store) return;
+  const newElementId = nextElementId(`${element.id}-b`, scene.elements.map((item) => item.id));
+  const error = store.dispatch({
+    type: 'split-element',
+    sceneId: scene.id,
+    elementId: element.id,
+    at: anchorFor(seconds, timing, projectFps()),
+    newElementId,
+  });
+  if (error) {
+    notify({ message: error, level: 'error' });
+    return;
+  }
+  selectElementCore(scene.id, newElementId);
+  notify({ message: `Partido en ${seconds.toFixed(2)} s. Cada mitad se recorta por separado.` });
 }
 
 // Traduce el tramo arrastrado a la referencia semántica más cercana, que es lo

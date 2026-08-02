@@ -499,6 +499,41 @@ function applyMutation(project, catalog, command) {
       element.visibility = next;
       return;
     }
+    case 'split-element': {
+      const scene = requireScene(project, command.sceneId);
+      const index = scene.elements.findIndex((item) => item.id === command.elementId);
+      if (index < 0) fail('EDITOR_ELEMENT_NOT_FOUND', `No existe el elemento ${command.elementId}.`, '/command/elementId');
+      const element = scene.elements[index];
+      // El runtime v2 exige exactamente dos personajes por escena, así que
+      // partir uno produciría un proyecto que no compila. Un personaje se
+      // recorta por los bordes; partirlo en dos todavía no tiene representación.
+      if (element.type === 'character') {
+        fail('EDITOR_ELEMENT_UNSUPPORTED', 'Un personaje no se puede partir en dos: la escena admite exactamente dos personajes. Recortá sus bordes.', '/command/elementId');
+      }
+      if (!['prop', 'template'].includes(element.type)) {
+        fail('EDITOR_ELEMENT_UNSUPPORTED', 'Solo props y plantillas se pueden partir.', '/command/elementId');
+      }
+      portableId(command.newElementId, '/command/newElementId');
+      if (scene.elements.some((item) => item.id === command.newElementId)) {
+        fail('EDITOR_PROJECT_INVALID', 'El ID del elemento ya existe.', '/command/newElementId');
+      }
+      if (scene.elements.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 elementos.', '/command');
+      // Sin ventana previa, el elemento ocupaba la escena entera.
+      const from = element.visibility
+        ? cloneJson(element.visibility.from)
+        : { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0 };
+      const to = element.visibility
+        ? cloneJson(element.visibility.to)
+        : { anchor: { kind: 'scene', edge: 'end' }, offsetSeconds: 0 };
+      const at = { anchor: cloneJson(command.at.anchor), offsetSeconds: command.at.offsetSeconds };
+      const second = { ...cloneJson(element), id: command.newElementId, visibility: { from: cloneJson(at), to } };
+      element.visibility = { from, to: cloneJson(at) };
+      // Las dos mitades tienen que ser ventanas válidas por separado.
+      validateElementVisibility(element, '/command/at');
+      validateElementVisibility(second, '/command/at');
+      scene.elements.splice(index + 1, 0, second);
+      return;
+    }
     case 'clear-element-window': {
       const scene = requireScene(project, command.sceneId);
       const element = requireElement(scene, command.elementId);
@@ -839,6 +874,7 @@ function assertCommandShape(command) {
     'split-dialogue-turn': { required: ['type', 'sceneId', 'turnId', 'atWord', 'newTurnId'], optional: [] },
     'set-element-window': { required: ['type', 'sceneId', 'elementId', 'from', 'to'], optional: [] },
     'clear-element-window': { required: ['type', 'sceneId', 'elementId'], optional: [] },
+    'split-element': { required: ['type', 'sceneId', 'elementId', 'at', 'newElementId'], optional: [] },
     'reorder-dialogue-turns': { required: ['type', 'sceneId', 'turnIds'], optional: [] },
     'apply-animation-preset': { required: ['type', 'sceneId', 'elementId', 'presetId'], optional: ['anchor', 'offsetSeconds', 'intensity'] },
     'create-track': { required: ['type', 'sceneId', 'elementId', 'parameterId', 'keyframes'], optional: ['source'] },

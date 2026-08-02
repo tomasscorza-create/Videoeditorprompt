@@ -110,6 +110,9 @@
     },
     {
       "$ref": "#/$defs/clearElementWindow"
+    },
+    {
+      "$ref": "#/$defs/splitElement"
     }
   ],
   "$defs": {
@@ -1697,6 +1700,35 @@
           "$ref": "#/$defs/id"
         },
         "elementId": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "splitElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Parte un prop o una plantilla en dos, cada mitad con su propia ventana.",
+      "required": [
+        "type",
+        "sceneId",
+        "elementId",
+        "at",
+        "newElementId"
+      ],
+      "properties": {
+        "type": {
+          "const": "split-element"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "elementId": {
+          "$ref": "#/$defs/id"
+        },
+        "at": {
+          "$ref": "#/$defs/visibilityEdgeCommand"
+        },
+        "newElementId": {
           "$ref": "#/$defs/id"
         }
       }

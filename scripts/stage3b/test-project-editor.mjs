@@ -465,6 +465,39 @@ test('rejects-an-inverted-window-on-the-same-anchor', () => {
   }));
 });
 
+test('splits-a-prop-into-two-halves', () => {
+  const at = { anchor: { kind: 'turn', turnId: 'turno-presentacion-02', edge: 'start' }, offsetSeconds: 0 };
+  let state = command(createProjectEditor(project, catalog), {
+    type: 'add-prop', sceneId: 'escena-presentacion', elementId: 'cartel-01',
+    resourceId: 'cartel-dato-v1', x: 540, y: 900, scale: 1, zIndex: 5,
+  });
+  state = command(state, {
+    type: 'split-element', sceneId: 'escena-presentacion', elementId: 'cartel-01', at, newElementId: 'cartel-01-b',
+  });
+  const props = state.project.scenes[0].elements.filter((item) => item.type === 'prop');
+  assert.equal(props.length, 2);
+  // La primera mitad va del inicio de escena al corte; la segunda del corte al final.
+  assert.deepEqual(props[0].visibility.from.anchor, { kind: 'scene', edge: 'start' });
+  assert.deepEqual(props[0].visibility.to, at);
+  assert.deepEqual(props[1].visibility.from, at);
+  assert.deepEqual(props[1].visibility.to.anchor, { kind: 'scene', edge: 'end' });
+  // La mitad nueva queda inmediatamente después y hereda el recurso.
+  assert.equal(props[1].id, 'cartel-01-b');
+  assert.equal(props[1].resourceId, props[0].resourceId);
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+});
+
+test('refuses-to-split-a-character', () => {
+  const state = createProjectEditor(project, catalog);
+  const elementId = project.scenes[0].elements.find((item) => item.type === 'character').id;
+  // La escena admite exactamente dos personajes: partir uno daría tres.
+  rejects('EDITOR_ELEMENT_UNSUPPORTED', () => applyProjectEditorCommand(state, {
+    type: 'split-element', sceneId: 'escena-presentacion', elementId,
+    at: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 1 },
+    newElementId: 'copia-01',
+  }));
+});
+
 test('reorders-dialogue-turns-within-a-scene', () => {
   let state = createProjectEditor(project, catalog);
   state = command(state, { type: 'reorder-dialogue-turns', sceneId: 'escena-presentacion', turnIds: ['turno-presentacion-02', 'turno-presentacion-01'] });
