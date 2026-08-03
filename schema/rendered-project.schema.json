@@ -58,9 +58,10 @@
     "renderedTurn": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "speakerId", "startSeconds", "endSeconds", "durationSeconds", "gapAfterSeconds"],
+      "required": ["id", "startSeconds", "endSeconds", "durationSeconds", "gapAfterSeconds"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
+        "speakerType": { "enum": ["character", "voiceover"] },
         "speakerId": { "$ref": "#/$defs/id" },
         "startSeconds": { "type": "number", "minimum": 0, "maximum": 960 },
         "endSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 960 },
@@ -86,7 +87,7 @@
         "endSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 960 },
         "turns": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
           "maxItems": 20,
           "items": { "$ref": "#/$defs/renderedTurn" }
         },

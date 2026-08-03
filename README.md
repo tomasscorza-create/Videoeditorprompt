@@ -267,8 +267,9 @@ El alcance futuro y sus gates están en [docs/ROADMAP.md](docs/ROADMAP.md).
 | [Roadmap](docs/ROADMAP.md) | Dirección de producto, fases y criterios de avance. |
 | [Checklist de desarrollo](docs/DEVELOPMENT_CHECKLIST.md) | Control operativo antes y después de cada cambio. |
 | [Estructura visual canónica](docs/ESTRUCTURA_VISUAL_CANONICA.md) | Distribución aprobada: encabezado, Director, visor, edición/recursos y timeline. |
-| [Variabilidad creativa V0](docs/CONTRATO_VARIABILIDAD_CREATIVA_V0.md) | Modos de escena 0/1/2, voz fuera de campo, recetas, secuencias y matriz de capacidades; contrato todavía aislado del runtime. |
+| [Variabilidad creativa V0](docs/CONTRATO_VARIABILIDAD_CREATIVA_V0.md) | Modos de escena 0/1/2, voz fuera de campo, recetas, secuencias y matriz de capacidades que V1 ya conecta al runtime. |
 | [Plan del Director flexible](docs/PLAN_DIRECTOR_VARIABILIDAD_CREATIVA_V1.md) | Fases y gates para ampliar runtime, editor, Director, recetas y Montaje. |
+| [Runtime flexible V1](docs/RUNTIME_FLEXIBLE_V1.md) | Render determinista de escenas con 0–2 personajes, voz fuera de campo y uno o más turnos medidos. |
 | [Creador local de personajes](docs/CREADOR_PERSONAJES.md) | Plantillas, construcción geométrica semántica, persistencia y límites. |
 | [Biblioteca local](docs/BIBLIOTECA_LOCAL.md) | Registro durable, publicación del catálogo, API, seguridad y límites. |
 | [Operación local](docs/OPERACION_LOCAL.md) | Seguridad de sesión, recuperación, render interactivo y retención. |

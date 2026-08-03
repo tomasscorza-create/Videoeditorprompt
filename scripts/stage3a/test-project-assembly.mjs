@@ -53,6 +53,13 @@ assert.deepEqual(renderedTurns, [
 ]);
 results.push({ name: 'turn-timeline-uses-absolute-project-time', passed: true });
 
+assert.deepEqual(buildRenderedTurnTimeline([
+  { id: 'voiceover-a', speakerType: 'voiceover', startSeconds: 0, endSeconds: 1.5, durationSeconds: 1.5, gapAfterSeconds: 0 },
+], 2, 1.5), [
+  { id: 'voiceover-a', speakerType: 'voiceover', startSeconds: 2, endSeconds: 3.5, durationSeconds: 1.5, gapAfterSeconds: 0 },
+]);
+results.push({ name: 'single-voiceover-turn-uses-absolute-project-time', passed: true });
+
 assert.throws(() => buildRenderedTurnTimeline([
   { id: 'turn-a', speakerId: 'speaker-a', startSeconds: 0, endSeconds: 1, durationSeconds: 1, gapAfterSeconds: 0.5 },
   { id: 'turn-b', speakerId: 'speaker-b', startSeconds: 1.25, endSeconds: 2, durationSeconds: 0.75, gapAfterSeconds: 0 },

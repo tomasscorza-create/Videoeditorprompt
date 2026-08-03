@@ -167,7 +167,15 @@ function validateDialogueSemantics(config) {
   for (const [index, turn] of config.dialogue.entries()) {
     if (turnIds.has(turn.id)) semanticError(`/dialogue/${index}/id`, 'debe ser único');
     turnIds.add(turn.id);
-    if (!characterIds.has(turn.speakerId)) semanticError(`/dialogue/${index}/speakerId`, 'debe referenciar un personaje existente');
+    const speakerType = turn.speakerType ?? 'character';
+    if (speakerType === 'voiceover') {
+      if (turn.speakerId !== undefined) semanticError(`/dialogue/${index}/speakerId`, 'no se usa en una voz fuera de campo');
+      if ((turn.gesture ?? 'neutral') !== 'neutral') semanticError(`/dialogue/${index}/gesture`, 'debe ser neutral en una voz fuera de campo');
+      if (turn.gestureAtWord !== undefined) semanticError(`/dialogue/${index}/gestureAtWord`, 'no se usa en una voz fuera de campo');
+      if (turn.layout !== undefined) semanticError(`/dialogue/${index}/layout`, 'no se usa en una voz fuera de campo');
+    } else if (!characterIds.has(turn.speakerId)) {
+      semanticError(`/dialogue/${index}/speakerId`, 'debe referenciar un personaje existente');
+    }
   }
   const backgroundIds = new Set();
   for (const [index, layer] of (config.backgroundAnimation?.layers || []).entries()) {

@@ -48,6 +48,8 @@
     "stage3a:test-compiler": "node scripts/stage3a/test-project-compiler.mjs",
     "stage3a:test-assembly": "node scripts/stage3a/test-project-assembly.mjs",
     "stage3a:project-pipeline": "node scripts/stage3a/project-pipeline.mjs --job-id=piloto-multiescena-02 --project=pilots/proyecto-compilable-01/project.json --assets-dir=public",
+    "stage3a:flexible-pipeline": "node scripts/stage3a/project-pipeline.mjs --job-id=piloto-runtime-flexible-v1 --project=pilots/runtime-flexible-v1/voiceover-prop.project.json --assets-dir=public",
+    "stage3a:flexible-solo-pipeline": "node scripts/stage3a/project-pipeline.mjs --job-id=piloto-runtime-solo-v1 --project=pilots/runtime-flexible-v1/solo.project.json --assets-dir=public",
     "stage3b:test-editor": "node scripts/stage3b/test-project-editor.mjs",
     "stage3b:publish-project": "node scripts/stage3b/publish-project.mjs --project=pilots/proyecto-compilable-01/project.json --assets-dir=public --publish-dir=public/projects",
     "stage3b:test-publishing": "node scripts/stage3b/test-project-publishing.mjs",

@@ -227,15 +227,23 @@ function validateProjectSemantics(project, resources) {
       const turnPath = `/scenes/${sceneIndex}/dialogue/${turnIndex}`;
       if (turnIds.has(turn.id)) semanticError(`${turnPath}/id`, 'debe ser único dentro de la escena');
       turnIds.add(turn.id);
-      const speaker = elements.get(turn.speakerElementId);
-      if (!speaker || speaker.type !== 'character') semanticError(`${turnPath}/speakerElementId`, 'debe referenciar un personaje de la misma escena');
-      const speakerResource = resources.get(speaker.resourceId);
-      if (!speakerResource.capabilities.poses.includes(turn.gestureId)) semanticError(`${turnPath}/gestureId`, 'debe estar soportado por el personaje que habla');
-      if (turn.gestureAtWord !== undefined && turn.gestureAtWord >= wordCount(turn.text)) {
-        semanticError(`${turnPath}/gestureAtWord`, 'debe apuntar a una palabra existente');
-      }
-      if (turn.layoutPreset !== undefined && !layoutPresetIds.has(turn.layoutPreset)) {
-        semanticError(`${turnPath}/layoutPreset`, 'debe existir en el catálogo de layouts');
+      const speakerType = turn.speakerType ?? 'character';
+      if (speakerType === 'voiceover') {
+        if (turn.speakerElementId !== undefined) semanticError(`${turnPath}/speakerElementId`, 'no se usa en una voz fuera de campo');
+        if (turn.gestureId !== 'neutral') semanticError(`${turnPath}/gestureId`, 'debe ser neutral en una voz fuera de campo');
+        if (turn.gestureAtWord !== undefined) semanticError(`${turnPath}/gestureAtWord`, 'no se usa en una voz fuera de campo');
+        if (turn.layoutPreset !== undefined) semanticError(`${turnPath}/layoutPreset`, 'no se usa en una voz fuera de campo');
+      } else {
+        const speaker = elements.get(turn.speakerElementId);
+        if (!speaker || speaker.type !== 'character') semanticError(`${turnPath}/speakerElementId`, 'debe referenciar un personaje de la misma escena');
+        const speakerResource = resources.get(speaker.resourceId);
+        if (!speakerResource.capabilities.poses.includes(turn.gestureId)) semanticError(`${turnPath}/gestureId`, 'debe estar soportado por el personaje que habla');
+        if (turn.gestureAtWord !== undefined && turn.gestureAtWord >= wordCount(turn.text)) {
+          semanticError(`${turnPath}/gestureAtWord`, 'debe apuntar a una palabra existente');
+        }
+        if (turn.layoutPreset !== undefined && !layoutPresetIds.has(turn.layoutPreset)) {
+          semanticError(`${turnPath}/layoutPreset`, 'debe existir en el catálogo de layouts');
+        }
       }
       requireResource(resources, turn.voiceId, 'voice', `${turnPath}/voiceId`);
     }

@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "id": "voiceover-prop-v1",
+  "title": "Narración visual sin personajes",
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "seed": 8032026,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "scenes": [
+    {
+      "id": "escena-dato-narrado",
+      "title": "Un dato ocupa la escena",
+      "background": {
+        "resourceId": "fondo-estudio-parallax-v1",
+        "cameraPreset": "slow-zoom"
+      },
+      "elements": [
+        {
+          "id": "cartel-principal",
+          "type": "prop",
+          "resourceId": "cartel-dato-v1",
+          "transform": {
+            "x": 540,
+            "y": 830,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "scale": 0.9,
+            "rotationDegrees": 0,
+            "opacity": 1,
+            "zIndex": 20
+          },
+          "tracks": [
+            {
+              "parameterId": "opacity",
+              "source": {
+                "kind": "preset",
+                "presetId": "fade-in",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-cartel-aparece-1",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0,
+                  "value": 0,
+                  "interpolation": "linear"
+                },
+                {
+                  "id": "kf-cartel-aparece-2",
+                  "anchor": {
+                    "kind": "scene",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.45,
+                  "value": 1,
+                  "interpolation": "hold"
+                }
+              ]
+            },
+            {
+              "parameterId": "scale",
+              "source": {
+                "kind": "preset",
+                "presetId": "emphasis-pulse",
+                "version": 1,
+                "customized": false
+              },
+              "keyframes": [
+                {
+                  "id": "kf-cartel-pulso-1",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "narracion-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 0.8,
+                  "value": 0.9,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-pulso-2",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "narracion-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 1.05,
+                  "value": 1.05,
+                  "interpolation": "ease"
+                },
+                {
+                  "id": "kf-cartel-pulso-3",
+                  "anchor": {
+                    "kind": "turn",
+                    "turnId": "narracion-01",
+                    "edge": "start"
+                  },
+                  "offsetSeconds": 1.35,
+                  "value": 0.9,
+                  "interpolation": "hold"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "narracion-01",
+          "speakerType": "voiceover",
+          "text": "No hace falta mostrar personajes para contar una idea. La voz guía el ritmo mientras el dato aparece, respira y recibe el énfasis visual.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "neutral",
+          "pace": "normal",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}

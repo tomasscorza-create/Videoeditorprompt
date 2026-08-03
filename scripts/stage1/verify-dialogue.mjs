@@ -20,18 +20,28 @@ export function verifyDialogueJob(context, config) {
   };
 
   check('Contrato y runtime versión 2', config.version === 2 && runtime.version === 2, { config: config.version, runtime: runtime.version });
-  check('Dos personajes aislados', runtime.characters.length === 2 && new Set(runtime.characters.map((item) => item.id)).size === 2, runtime.characters.map((item) => item.id));
+  check(
+    'Cantidad flexible de personajes aislados',
+    runtime.characters.length === config.characters.length
+      && runtime.characters.length <= 2
+      && new Set(runtime.characters.map((item) => item.id)).size === runtime.characters.length,
+    runtime.characters.map((item) => item.id),
+  );
   check('Cantidad de turnos compilada', dialogue.turns.length === config.dialogue.length, dialogue.turns.map((turn) => turn.id));
   check('Turnos ordenados y sin solapamiento', dialogue.turns.every((turn, index) => turn.endSeconds > turn.startSeconds && (index === 0 || turn.startSeconds >= dialogue.turns[index - 1].endSeconds)), true);
-  check('Hablantes referencian personajes', dialogue.turns.every((turn) => runtime.characters.some((character) => character.id === turn.speakerId)), true);
+  check('Hablantes o voces fuera de campo válidos', dialogue.turns.every((turn) => (
+    turn.speakerType === 'voiceover'
+      ? turn.speakerId === undefined
+      : runtime.characters.some((character) => character.id === turn.speakerId)
+  )), true);
   check('Audio maestro portable', !path.isAbsolute(runtime.audio.path) && !path.isAbsolute(runtime.dialoguePath), [runtime.audio.path, runtime.dialoguePath]);
   check('Assets y manifests portables', runtime.characters.every((character) => !path.isAbsolute(character.characterRig.manifestPath) && Object.values(character.assets).every((value) => !path.isAbsolute(value))), true);
-  if (runtime.characters.every((character) => character.characterRig.version === 2)) {
+  if (runtime.characters.length > 0 && runtime.characters.every((character) => character.characterRig.version === 2)) {
     check('Rigs paramétricos versión 2', runtime.characters.every((character) => character.characterRig.sourceDefinition && !path.isAbsolute(character.characterRig.sourceDefinition)), runtime.characters.map((character) => character.characterRig.id));
     check('Joints y poses compilados', runtime.characters.every((character) => character.characterRig.joints.length >= 4 && ['neutral', 'point'].every((pose) => character.characterRig.poses.some((item) => item.id === pose))), runtime.characters.map((character) => ({ id: character.id, joints: character.characterRig.joints.length, poses: character.characterRig.poses.map((pose) => pose.id) })));
     check('IDs de catálogo conservados', runtime.characters.every((character) => character.catalogEntry?.id), runtime.characters.map((character) => character.catalogEntry?.id));
   }
-  if (new Set(config.characters.map((character) => character.characterManifest)).size === config.characters.length) {
+  if (runtime.characters.length > 0 && new Set(config.characters.map((character) => character.characterManifest)).size === config.characters.length) {
     check('Rigs de personajes distinguibles', new Set(runtime.characters.map((character) => character.characterRig.id)).size === runtime.characters.length, runtime.characters.map((character) => character.characterRig.id));
   }
   check('Duración compilada coincide', Math.abs(runtime.audio.durationSeconds - dialogue.turns.at(-1).endSeconds) < 0.03, { audio: runtime.audio.durationSeconds, timeline: dialogue.turns.at(-1).endSeconds });
@@ -43,7 +53,13 @@ export function verifyDialogueJob(context, config) {
     && turn.mouthCues.every((cue) => mouthStates.has(cue.state))
   )), dialogue.turns.map((turn) => ({ source: turn.mouthCueSource, cues: turn.mouthCues.length })));
   check('Subtítulos por turno y portables', dialogue.turns.every((turn) => turn.subtitlePath && !path.isAbsolute(turn.subtitlePath)), dialogue.turns.map((turn) => turn.subtitlePath));
-  check('Parpadeos independientes', runtime.characters.every((character) => character.blinks.length >= 2), runtime.characters.map((character) => character.blinks.length));
+  check(
+    'Parpadeos independientes y válidos',
+    runtime.characters.every((character) => character.blinks.every((blink) => (
+      blink.start >= 0 && blink.end > blink.start && blink.end <= runtime.audio.durationSeconds
+    ))),
+    runtime.characters.map((character) => character.blinks.length),
+  );
 
   for (const character of runtime.characters) {
     for (const [name, asset] of Object.entries(character.assets)) {
@@ -72,8 +88,16 @@ export function verifyDialogueJob(context, config) {
   if (dialogue.turns.some((turn) => turn.gesture === 'point')) {
     check('Gesto point compilado', plan1.frames.some((frame) => frame.characters.some((character) => character.gesture === 'point')), true);
   }
-  check('Pausas sin hablante ni subtítulo', plan1.frames.some((frame) => frame.activeSpeakerId === null && frame.subtitlePath === null), true);
-  check('Dos posiciones visibles', plan1.frames.some((frame) => frame.characters[0].character.x < 0 && frame.characters[1].character.x > 0), true);
+  if (dialogue.turns.some((turn) => turn.gapAfterSeconds > 0)) {
+    check('Pausas sin hablante ni subtítulo', plan1.frames.some((frame) => frame.activeSpeakerId === null && frame.subtitlePath === null), true);
+  }
+  if (runtime.characters.length === 2) {
+    check('Dos posiciones visibles', plan1.frames.some((frame) => frame.characters[0].character.x < 0 && frame.characters[1].character.x > 0), true);
+  } else if (runtime.characters.length === 1) {
+    check('Personaje único visible', plan1.frames.some((frame) => frame.characters.length === 1), true);
+  } else {
+    check('Escena sin personajes preservada', plan1.frames.every((frame) => frame.characters.length === 0), true);
+  }
   if (runtime.backgroundAnimation) {
     check('Cámara cambia durante la escena', plan1.frames[0].background.camera.x !== plan1.frames.at(-1).background.camera.x || plan1.frames[0].background.camera.zoom !== plan1.frames.at(-1).background.camera.zoom, { first: plan1.frames[0].background.camera, last: plan1.frames.at(-1).background.camera });
     check('Parallax diferencia planos', plan1.frames.at(-1).background.layers[0].x !== plan1.frames.at(-1).background.layers.at(-1).x, plan1.frames.at(-1).background.layers);

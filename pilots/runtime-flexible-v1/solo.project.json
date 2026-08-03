@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "id": "solo-v1",
+  "title": "Monólogo de un personaje",
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "seed": 8032027,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "scenes": [
+    {
+      "id": "escena-solo",
+      "title": "Una voz visible",
+      "background": { "resourceId": "fondo-estudio-parallax-v1", "cameraPreset": "slow-pan" },
+      "elements": [
+        {
+          "id": "presentadora",
+          "type": "character",
+          "resourceId": "mono-azul-v1",
+          "transform": { "x": 540, "y": 1090, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.76, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "monologo-01",
+          "speakerElementId": "presentadora",
+          "text": "Ahora una sola protagonista puede explicar la idea.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "point",
+          "gestureAtWord": 4,
+          "pace": "fast",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}

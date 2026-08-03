@@ -20,10 +20,12 @@ export function prepareDialogueJob(context, config, report) {
   let fontPath = null;
 
   for (const turn of config.dialogue) {
+    const speakerType = turn.speakerType ?? 'character';
     const ttsText = normalizeSpanishTtsText(turn.text);
     const generated = generatePiperVoice(context, { text: ttsText, ...turn.voice }, report, {
       turnId: turn.id,
-      speakerId: turn.speakerId,
+      ...(turn.speakerId ? { speakerId: turn.speakerId } : {}),
+      speakerType,
     });
     fontPath ||= generated.support.fontPath;
     totalTtsSeconds += generated.ttsSeconds;
@@ -31,7 +33,13 @@ export function prepareDialogueJob(context, config, report) {
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
       validateMeasuredDuration(config, durationSeconds);
     }
-    report('analyzing_audio', { stage: 'analyzing_audio', turnId: turn.id, speakerId: turn.speakerId, durationSeconds });
+    report('analyzing_audio', {
+      stage: 'analyzing_audio',
+      turnId: turn.id,
+      ...(turn.speakerId ? { speakerId: turn.speakerId } : {}),
+      speakerType,
+      durationSeconds,
+    });
     const analysisStarted = performance.now();
     const analysis = analyzeWav(generated.jobWav, config.mouth);
     const mouth = buildHybridVisemeCues(ttsText, analysis);
@@ -53,7 +61,9 @@ export function prepareDialogueJob(context, config, report) {
     };
     timelineTurns.push({
       id: turn.id,
-      speakerId: turn.speakerId,
+      ...(speakerType === 'voiceover'
+        ? { speakerType: 'voiceover' }
+        : { speakerId: turn.speakerId }),
       startSeconds,
       endSeconds,
       durationSeconds,
@@ -79,8 +89,16 @@ export function prepareDialogueJob(context, config, report) {
   const timelineKey = sha256(JSON.stringify({
     configVersion: config.version,
     music: config.assets.music ?? null,
-    turns: timelineTurns.map(({ id, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture, gestureCue, layout, mouthCueSource }) => ({
-      id, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture, gestureCue, layout, mouthCueSource,
+    turns: timelineTurns.map(({ id, speakerType, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture, gestureCue, layout, mouthCueSource }) => ({
+      id,
+      ...(speakerType === 'voiceover' ? { speakerType } : { speakerId }),
+      durationSeconds,
+      gapAfterSeconds,
+      cacheKey,
+      gesture,
+      gestureCue,
+      layout,
+      mouthCueSource,
     })),
   }));
   const masterRelative = path.posix.join('audio', `dialogue-${timelineKey}.wav`);
@@ -160,7 +178,9 @@ export function prepareDialogueJob(context, config, report) {
     audio: masterProbe,
     turns: timelineTurns.map((turn) => ({
       id: turn.id,
-      speakerId: turn.speakerId,
+      ...(turn.speakerType === 'voiceover'
+        ? { speakerType: 'voiceover' }
+        : { speakerId: turn.speakerId }),
       startSeconds: turn.startSeconds,
       endSeconds: turn.endSeconds,
       durationSeconds: turn.durationSeconds,

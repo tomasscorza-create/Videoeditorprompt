@@ -2,9 +2,11 @@
 
 Fecha: 2026-08-02
 
-Estado al 2026-08-03: V0 implementado y verificado contractualmente. V1 es la
-próxima fase y todavía no comenzó. Véase
-`docs/CONTRATO_VARIABILIDAD_CREATIVA_V0.md`.
+Estado al 2026-08-03: V0 y V1 implementados y verificados. El runtime ya
+renderiza escenas con cero, uno o dos personajes y voz fuera de campo sin
+placeholders. V2, editor flexible, es la próxima fase. Véanse
+`docs/CONTRATO_VARIABILIDAD_CREATIVA_V0.md` y
+`docs/RUNTIME_FLEXIBLE_V1.md`.
 
 ## 1. Objetivo
 
@@ -174,6 +176,10 @@ Gate:
 ### V1 — Runtime flexible 0/1/2 personajes
 
 Objetivo: hacer renderizables las estructuras nuevas sin IA.
+
+Estado: **completado**. Los pilotos versionados cubren narración sin personajes,
+monólogo, diálogo y un proyecto mixto 0/1/2. Los gates completos de narración y
+solo producen dos MP4 binariamente idénticos.
 
 Trabajo:
 

@@ -337,8 +337,8 @@ export function buildAssemblyPlan(scenes) {
 }
 
 export function buildRenderedTurnTimeline(turns, sceneStartSeconds, audioDurationSeconds) {
-  if (!Array.isArray(turns) || turns.length < 2 || turns.length > 20) {
-    renderedTurnError('la escena debe contener entre 2 y 20 turnos medidos');
+  if (!Array.isArray(turns) || turns.length < 1 || turns.length > 20) {
+    renderedTurnError('la escena debe contener entre 1 y 20 turnos medidos');
   }
   if (!Number.isFinite(sceneStartSeconds) || sceneStartSeconds < 0) {
     renderedTurnError('el inicio de escena no es válido');
@@ -353,9 +353,12 @@ export function buildRenderedTurnTimeline(turns, sceneStartSeconds, audioDuratio
     const endSeconds = Number(turn.endSeconds);
     const durationSeconds = Number(turn.durationSeconds);
     const gapAfterSeconds = Number(turn.gapAfterSeconds);
+    const validSpeaker = turn.speakerType === 'voiceover'
+      ? turn.speakerId === undefined
+      : typeof turn.speakerId === 'string';
     if (
       typeof turn.id !== 'string'
-      || typeof turn.speakerId !== 'string'
+      || !validSpeaker
       || !Number.isFinite(startSeconds)
       || !Number.isFinite(endSeconds)
       || !Number.isFinite(durationSeconds)
@@ -372,7 +375,9 @@ export function buildRenderedTurnTimeline(turns, sceneStartSeconds, audioDuratio
     expectedStart = endSeconds + gapAfterSeconds;
     return {
       id: turn.id,
-      speakerId: turn.speakerId,
+      ...(turn.speakerType === 'voiceover'
+        ? { speakerType: 'voiceover' }
+        : { speakerId: turn.speakerId }),
       startSeconds: roundSeconds(sceneStartSeconds + startSeconds),
       endSeconds: roundSeconds(sceneStartSeconds + endSeconds),
       durationSeconds: roundSeconds(durationSeconds),
@@ -427,7 +432,7 @@ function verifyProjectRender(context, compiledManifest, sceneRuns, plan, outputs
   check('Cantidad de escenas consistente', sceneRuns.length === compiledManifest.scenes.length && plan.scenes.length === sceneRuns.length, sceneRuns.length);
   check('Escenas verificadas individualmente', sceneRuns.every((scene) => scene.verificationPassed > 0), sceneRuns.map((scene) => scene.verificationPassed));
   check('Duraciones medidas presentes', sceneRuns.every((scene) => scene.audioDurationSeconds > 0 && scene.renderDurationSeconds >= scene.audioDurationSeconds), sceneRuns.map((scene) => ({ audio: scene.audioDurationSeconds, render: scene.renderDurationSeconds })));
-  check('Turnos medidos presentes', sceneRuns.every((scene) => Array.isArray(scene.turns) && scene.turns.length >= 2), sceneRuns.map((scene) => scene.turns?.length));
+  check('Turnos medidos presentes', sceneRuns.every((scene) => Array.isArray(scene.turns) && scene.turns.length >= 1), sceneRuns.map((scene) => scene.turns?.length));
   check('Timeline termina en la duración calculada', Math.abs(plan.scenes.at(-1).endSeconds - plan.durationSeconds) < 1e-8, plan);
   for (const output of outputs) {
     const video = output.probe.streams.find((stream) => stream.codec_type === 'video');

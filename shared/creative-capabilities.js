@@ -1,9 +1,8 @@
 // Registro puro de capacidades creativas V1.
 //
-// Este módulo no afirma que el runtime flexible ya exista. Congela el objetivo
-// de V0 y distingue, por consumidor, qué está disponible hoy y qué sigue
-// planificado. Entra en shared/ para que Director, editor y UI puedan derivar la
-// misma matriz sin importar Node, DOM ni Ajv.
+// La matriz distingue, por consumidor, qué está disponible hoy y qué sigue
+// planificado. V1 habilitó autoría, preview y exportación para escenas con 0–2
+// personajes; el Director y el editor flexible continúan detrás de sus gates.
 
 import { ANIMATION_PARAMETERS } from './animation-contract.js';
 import { ANIMATION_PRESETS, listApplicablePresets } from './animation-presets.js';
@@ -54,12 +53,12 @@ export const CREATIVE_SCENE_MODES = deepFreeze({
 export const CREATIVE_CAPABILITY_DEFINITIONS = deepFreeze([
   capability('scene.multiple', 'Varias escenas', allAvailable()),
   capability('scene.dialogue', 'Diálogo con dos personajes', allAvailable()),
-  capability('scene.solo', 'Monólogo con un personaje', flexibleScenePlanned()),
-  capability('scene.voiceover', 'Narración fuera de campo', flexibleScenePlanned()),
-  capability('scene.visual-with-voiceover', 'Escena visual narrada', flexibleScenePlanned()),
+  capability('scene.solo', 'Monólogo con un personaje', flexibleSceneRuntime()),
+  capability('scene.voiceover', 'Narración fuera de campo', flexibleSceneRuntime()),
+  capability('scene.visual-with-voiceover', 'Escena visual narrada', flexibleSceneRuntime()),
   capability('duration.measured-speech', 'Duración medida desde voz real', allAvailable()),
   capability('speech.character', 'Voz de personaje visible', allAvailable()),
-  capability('speech.voiceover', 'Voz fuera de campo', flexibleScenePlanned()),
+  capability('speech.voiceover', 'Voz fuera de campo', flexibleSceneRuntime()),
   capability('element.character', 'Personajes', allAvailable()),
   capability('element.prop', 'Props', {
     authoring: 'available', preview: 'available', export: 'available',
@@ -177,9 +176,9 @@ function allExcluded() {
   return consumerStates('excluded');
 }
 
-function flexibleScenePlanned() {
+function flexibleSceneRuntime() {
   return {
-    authoring: 'draft-only', preview: 'planned', export: 'planned',
+    authoring: 'available', preview: 'available', export: 'available',
     directorCreation: 'planned', directorEditing: 'planned',
   };
 }

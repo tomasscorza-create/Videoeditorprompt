@@ -5,7 +5,7 @@ import type { DialogueData, PreviewHandle, PreviewStartOptions } from './types.j
 
 export async function startDialoguePreview(options: PreviewStartOptions): Promise<PreviewHandle> {
   const { selection, config, runtime, generatedUrl, assetUrl, ui } = options;
-  if (!runtime.dialoguePath || !runtime.characters) throw new Error('El runtime v2 no contiene diálogo o personajes.');
+  if (!runtime.dialoguePath || !runtime.characters) throw new Error('El runtime v2 no contiene el audio hablado o su lista de personajes.');
   const dialogue = await fetchJson<DialogueData>(generatedUrl(runtime.dialoguePath));
   const app = new Application();
   await app.init({
@@ -98,7 +98,9 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
     const speakerState = state.characters.find((item) => item.speaking);
     ui.time.textContent = `${state.time.toFixed(2)} / ${runtime.audio.durationSeconds.toFixed(2)} s`;
     ui.mouth.textContent = speakerState ? `${speakerState.id}: ${speakerState.mouth}` : 'silencio';
-    ui.eyes.textContent = state.characters.map((item) => `${item.id}: ${item.eyes}`).join(' · ');
+    ui.eyes.textContent = state.characters.length
+      ? state.characters.map((item) => `${item.id}: ${item.eyes}`).join(' · ')
+      : 'sin personajes';
     const gestureState = state.characters.find((item) => item.gesture !== 'neutral');
     ui.gesture.textContent = gestureState ? `${gestureState.id}: ${gestureState.gesture}` : state.activeSpeakerId ? `habla ${state.activeSpeakerId}` : 'pausa';
     if (window.__STAGE1__) {
@@ -124,7 +126,7 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
     durationSeconds: runtime.audio.durationSeconds,
     mouthCueCount: dialogue.turns.reduce((total, turn) => total + turn.mouthCues.length, 0),
     currentMouth: 'closed',
-    currentEyes: 'open,open',
+    currentEyes: runtime.characters.length ? runtime.characters.map(() => 'open').join(',') : '',
     currentGesture: 'neutral',
     activeSpeakerId: dialogue.turns[0]?.speakerId ?? null,
   };

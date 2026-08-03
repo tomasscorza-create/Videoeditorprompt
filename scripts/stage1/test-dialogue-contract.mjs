@@ -33,6 +33,40 @@ assert.ok(context.resolvedCharacters.every((item) => Object.values(item.assets).
 assert.deepEqual(validateMeasuredDuration(config, 12), { durationSeconds: 12, frameCount: 360 });
 results.push({ name: 'v2-valid-portable', passed: true });
 
+const voiceover = structuredClone(source);
+voiceover.characters = [];
+voiceover.dialogue = [{
+  id: 'narracion-1',
+  speakerType: 'voiceover',
+  text: 'Una voz guía la escena sin exigir personajes visibles.',
+  voice: structuredClone(source.dialogue[0].voice),
+  gesture: 'neutral',
+  gapAfterSeconds: 0,
+}];
+const voiceoverContext = contextFor('voiceover-no-characters', voiceover);
+const voiceoverConfig = loadAndValidateJobConfig(voiceoverContext);
+assert.equal(voiceoverConfig.characters.length, 0);
+assert.equal(voiceoverContext.resolvedCharacters.length, 0);
+assert.equal(voiceoverConfig.dialogue[0].speakerId, undefined);
+results.push({ name: 'voiceover-allows-zero-characters-and-one-turn', passed: true });
+
+const solo = structuredClone(source);
+solo.characters = [solo.characters[0]];
+solo.dialogue = [solo.dialogue[0]];
+const soloContext = contextFor('solo-one-character', solo);
+const soloConfig = loadAndValidateJobConfig(soloContext);
+assert.equal(soloConfig.characters.length, 1);
+assert.equal(soloContext.resolvedCharacters.length, 1);
+results.push({ name: 'solo-allows-one-character-and-one-turn', passed: true });
+
+const invalidVoiceover = structuredClone(voiceover);
+invalidVoiceover.dialogue[0].speakerId = 'fantasma';
+assert.throws(
+  () => loadAndValidateJobConfig(contextFor('voiceover-with-character-reference', invalidVoiceover)),
+  (error) => error.code === 'CONFIG_SEMANTIC_INVALID',
+);
+results.push({ name: 'voiceover-rejects-character-reference', passed: true });
+
 const missingSpeaker = structuredClone(source);
 missingSpeaker.dialogue[1].speakerId = 'fantasma';
 assert.throws(() => loadAndValidateJobConfig(contextFor('missing-speaker', missingSpeaker)), (error) => error.code === 'CONFIG_SEMANTIC_INVALID');
@@ -79,6 +113,17 @@ assert.ok(pause.characters.every((item) => item.gesture === 'neutral'));
 assert.equal(secondTurn.activeSpeakerId, 'invitado');
 assert.equal(secondTurn.characters.find((item) => item.id === 'invitado').mouth, 'open');
 results.push({ name: 'only-active-speaker-moves-mouth', passed: true });
+
+const voiceoverState = evaluateScene(
+  voiceoverConfig,
+  { audio: { durationSeconds: 1 }, characters: [] },
+  { turns: [{ id: 'narracion-1', speakerType: 'voiceover', startSeconds: 0, endSeconds: 1, durationSeconds: 1, subtitlePath: 'n.png', mouthCues: [] }] },
+  0.5,
+);
+assert.equal(voiceoverState.activeTurnId, 'narracion-1');
+assert.equal(voiceoverState.activeSpeakerId, null);
+assert.deepEqual(voiceoverState.characters, []);
+results.push({ name: 'voiceover-evaluator-has-subtitle-without-mouth-or-character', passed: true });
 
 const phase2Runtime = {
   audio: { durationSeconds: 3 },

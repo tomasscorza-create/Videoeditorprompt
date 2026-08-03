@@ -3,7 +3,8 @@ export type EditorSurface = 'canvas' | 'playback';
 
 export interface MeasuredTurn {
   id: string;
-  speakerId: string;
+  speakerType?: 'character' | 'voiceover';
+  speakerId?: string;
   startSeconds: number;
   endSeconds: number;
   durationSeconds: number;

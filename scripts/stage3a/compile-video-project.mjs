@@ -134,8 +134,8 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
   const characterElements = scene.elements.filter((element) => element.type === 'character');
   const propElements = scene.elements.filter((element) => element.type === 'prop');
   const templateElements = scene.elements.filter((element) => element.type === 'template');
-  if (characterElements.length !== 2) unsupportedScene(sceneIndex, 'debe contener exactamente dos personajes para el runtime v2 actual');
-  if (scene.dialogue.length < 2) unsupportedScene(sceneIndex, 'debe contener al menos dos turnos para el runtime v2 actual');
+  if (characterElements.length > 2) unsupportedScene(sceneIndex, 'admite como máximo dos personajes visibles en una escena');
+  if (scene.dialogue.length < 1) unsupportedScene(sceneIndex, 'debe contener al menos un turno hablado para medir su duración');
 
   const orderedCharacters = characterElements
     .map((element, sourceIndex) => ({ element, sourceIndex }))
@@ -248,10 +248,15 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
   const dialogue = scene.dialogue.map((turn) => {
     const voiceResource = resources.get(turn.voiceId);
     const pace = turn.pace ?? 'normal';
-    const layout = turn.layoutPreset ? compileTurnLayout(turn.layoutPreset, sourceCharacters, project.video, sceneIndex) : null;
+    const speakerType = turn.speakerType ?? 'character';
+    const layout = speakerType === 'character' && turn.layoutPreset
+      ? compileTurnLayout(turn.layoutPreset, sourceCharacters, project.video, sceneIndex)
+      : null;
     return {
       id: turn.id,
-      speakerId: turn.speakerElementId,
+      ...(speakerType === 'voiceover'
+        ? { speakerType: 'voiceover' }
+        : { speakerId: turn.speakerElementId }),
       text: turn.text,
       voice: {
         model: voiceResource.voice.model,
@@ -272,7 +277,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
       background: backgroundLayers[0].asset,
       ...(project.musicResourceId ? { music: resources.get(project.musicResourceId).asset } : {}),
     },
-    ...(!useDirectManifests ? { assetCatalog: [...technicalCatalogs][0] } : {}),
+    ...(technicalCatalogs.size === 1 && !useDirectManifests ? { assetCatalog: [...technicalCatalogs][0] } : {}),
     backgroundAnimation: { layers: backgroundLayers, camera },
     characters,
     ...(props.length ? { props } : {}),
@@ -411,7 +416,7 @@ function unsupportedScene(sceneIndex, detail) {
     stage: 'compiling_project',
     message: 'Una escena usa capacidades que el runtime actual todavía no puede representar.',
     technicalDetail: `/scenes/${sceneIndex} ${detail}`,
-    suggestedAction: 'Use dos personajes, diálogo medido y transforms compatibles, o espere el incremento del runtime correspondiente.',
+    suggestedAction: 'Use de cero a dos personajes, al menos un turno medido y elementos compatibles con el runtime.',
   });
 }
 

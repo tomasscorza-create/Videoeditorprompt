@@ -109,7 +109,9 @@ assert.deepEqual(firstMatrix.animation.presetIds, Object.keys(ANIMATION_PRESETS)
 assert.deepEqual(firstMatrix.recipes.sceneRecipeIds, recipeCatalog.sceneRecipes.map((recipe) => recipe.id));
 assert.deepEqual(firstMatrix.recipes.effectSequenceIds, recipeCatalog.effectSequences.map((sequence) => sequence.id));
 assert.equal(capabilityStatus(firstMatrix, 'scene.dialogue', 'export'), 'available');
-assert.equal(capabilityStatus(firstMatrix, 'scene.voiceover', 'export'), 'planned');
+assert.equal(capabilityStatus(firstMatrix, 'scene.voiceover', 'export'), 'available');
+assert.equal(capabilityStatus(firstMatrix, 'scene.solo', 'preview'), 'available');
+assert.equal(capabilityStatus(firstMatrix, 'speech.voiceover', 'authoring'), 'available');
 assert.equal(capabilityStatus(firstMatrix, 'element.prop', 'directorCreation'), 'planned');
 assert.equal(capabilityStatus(firstMatrix, 'element.prop', 'export'), 'available');
 pass('matriz-determinista-y-honesta', {

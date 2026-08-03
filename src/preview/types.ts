@@ -33,7 +33,8 @@ export interface SceneRuntime {
 export interface DialogueData {
   turns: Array<{
     id: string;
-    speakerId: string;
+    speakerType?: 'character' | 'voiceover';
+    speakerId?: string;
     startSeconds: number;
     endSeconds: number;
     durationSeconds: number;

@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "id": "mixed-0-1-2-v1",
+  "title": "Tres estructuras en un proyecto",
+  "video": { "width": 1080, "height": 1920, "fps": 30 },
+  "seed": 8032028,
+  "resourceCatalog": "assets/catalog/authoring-resources.json",
+  "scenes": [
+    {
+      "id": "escena-voz",
+      "title": "Narración",
+      "background": { "resourceId": "fondo-estudio-parallax-v1", "cameraPreset": "static" },
+      "elements": [
+        {
+          "id": "cartel",
+          "type": "prop",
+          "resourceId": "cartel-dato-v1",
+          "transform": { "x": 540, "y": 820, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.85, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 }
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "voz-01",
+          "speakerType": "voiceover",
+          "text": "Primero habla una voz fuera de campo.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ],
+      "transitionToNext": { "preset": "cut", "durationSeconds": 0 }
+    },
+    {
+      "id": "escena-uno",
+      "title": "Monólogo",
+      "background": { "resourceId": "fondo-estudio-parallax-v1", "cameraPreset": "slow-pan" },
+      "elements": [
+        {
+          "id": "divulgadora",
+          "type": "character",
+          "resourceId": "mono-verde-v1",
+          "transform": { "x": 540, "y": 1100, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.74, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "solo-01",
+          "speakerElementId": "divulgadora",
+          "text": "Después una protagonista continúa el relato.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0
+        }
+      ],
+      "transitionToNext": { "preset": "fade", "durationSeconds": 0.25 }
+    },
+    {
+      "id": "escena-dos",
+      "title": "Diálogo",
+      "background": { "resourceId": "fondo-estudio-parallax-v1", "cameraPreset": "slow-zoom" },
+      "elements": [
+        {
+          "id": "presentadora",
+          "type": "character",
+          "resourceId": "mono-azul-v1",
+          "transform": { "x": 300, "y": 1100, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.7, "rotationDegrees": 0, "opacity": 1, "zIndex": 20 },
+          "poseId": "neutral",
+          "animationPreset": "talk-calm"
+        },
+        {
+          "id": "analista",
+          "type": "character",
+          "resourceId": "mono-ciruela-v1",
+          "transform": { "x": 780, "y": 1100, "anchorX": 0.5, "anchorY": 0.5, "scale": 0.7, "rotationDegrees": 0, "opacity": 1, "zIndex": 21 },
+          "poseId": "neutral",
+          "animationPreset": "idle-calm"
+        }
+      ],
+      "dialogue": [
+        {
+          "id": "dialogo-01",
+          "speakerElementId": "presentadora",
+          "text": "Y al final podemos conversar.",
+          "voiceId": "voz-claude-mx-v1",
+          "gestureId": "point",
+          "gapAfterSeconds": 0.2
+        },
+        {
+          "id": "dialogo-02",
+          "speakerElementId": "analista",
+          "text": "Sin imponer la misma estructura a todas las escenas.",
+          "voiceId": "voz-davefx-es-v1",
+          "gestureId": "neutral",
+          "gapAfterSeconds": 0
+        }
+      ]
+    }
+  ]
+}

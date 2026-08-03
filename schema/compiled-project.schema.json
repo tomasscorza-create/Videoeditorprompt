@@ -89,7 +89,7 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 120 },
         "config": { "$ref": "#/$defs/assetPath" },
         "configSha256": { "$ref": "#/$defs/hash" },
-        "bindings": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/binding" } },
+        "bindings": { "type": "array", "minItems": 0, "maxItems": 2, "items": { "$ref": "#/$defs/binding" } },
         "transitionToNext": { "$ref": "#/$defs/transition" }
       }
     }

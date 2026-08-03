@@ -171,8 +171,14 @@ results.push({ name: 'authoring-anchor-is-normalized-to-centered-runtime', passe
 const oneCharacter = structuredClone(source);
 oneCharacter.scenes[0].elements = oneCharacter.scenes[0].elements.slice(0, 1);
 oneCharacter.scenes[0].dialogue = oneCharacter.scenes[0].dialogue.map((turn) => ({ ...turn, speakerElementId: 'presentadora' }));
-assert.throws(() => compileCase('one-character', oneCharacter), (error) => error.code === 'PROJECT_SCENE_UNSUPPORTED');
-results.push({ name: 'current-two-character-limit-is-enforced', passed: true });
+const oneCharacterRun = compileCase('one-character', oneCharacter);
+const oneCharacterConfig = readJson(path.join(
+  contextFor('one-character', path.join(projectsRoot, 'one-character.json')).jobRoot,
+  oneCharacterRun.manifest.scenes[0].config,
+));
+assert.equal(oneCharacterConfig.characters.length, 1);
+assert.ok(oneCharacterConfig.dialogue.every((turn) => turn.speakerId === 'presentadora'));
+results.push({ name: 'one-character-scenes-compile', passed: true });
 
 const pointed = structuredClone(source);
 pointed.scenes[0].elements[0].poseId = 'point';
@@ -267,6 +273,61 @@ assert.deepEqual(propConfig.props, [{
 }]);
 assert.equal(propRun.manifest.scenes[0].bindings.length, 2, 'los bindings de diálogo siguen describiendo solo personajes');
 results.push({ name: 'prop-v3-compiles-with-transform-and-tracks-for-pixi', passed: true });
+
+const voiceoverProp = structuredClone(source);
+voiceoverProp.scenes = [voiceoverProp.scenes[0]];
+delete voiceoverProp.scenes[0].transitionToNext;
+voiceoverProp.scenes[0].elements = [{
+  id: 'cartel-narrado',
+  type: 'prop',
+  resourceId: 'cartel-dato-v1',
+  transform: {
+    x: 540,
+    y: 820,
+    anchorX: 0.5,
+    anchorY: 0.5,
+    scale: 0.85,
+    rotationDegrees: 0,
+    opacity: 1,
+    zIndex: 20,
+  },
+}];
+voiceoverProp.scenes[0].dialogue = [{
+  id: 'narracion-cartel-01',
+  speakerType: 'voiceover',
+  text: 'La narración acompaña un recurso visual sin personajes en pantalla.',
+  voiceId: source.scenes[0].dialogue[0].voiceId,
+  gestureId: 'neutral',
+  pace: 'normal',
+  gapAfterSeconds: 0,
+}];
+const voiceoverPropRun = compileCase('voiceover-prop', voiceoverProp);
+const voiceoverPropConfig = readJson(path.join(
+  contextFor('voiceover-prop', path.join(projectsRoot, 'voiceover-prop.json')).jobRoot,
+  voiceoverPropRun.manifest.scenes[0].config,
+));
+assert.deepEqual(voiceoverPropConfig.characters, []);
+assert.equal(voiceoverPropConfig.assetCatalog, undefined);
+assert.equal(voiceoverPropConfig.props.length, 1);
+assert.deepEqual(
+  voiceoverPropConfig.dialogue.map(({ speakerType, speakerId }) => ({ speakerType, speakerId })),
+  [{ speakerType: 'voiceover', speakerId: undefined }],
+);
+assert.equal(voiceoverPropRun.manifest.scenes[0].bindings.length, 0);
+assert.equal(selectCompositorBackend({ characters: [], props: voiceoverPropConfig.props }), 'pixi');
+results.push({ name: 'voiceover-with-prop-compiles-without-character-placeholders', passed: true });
+
+const mixedFlexiblePath = path.join(projectRoot, 'pilots', 'runtime-flexible-v1', 'mixed-0-1-2.project.json');
+const mixedFlexibleRun = compileVideoProject(contextFor('mixed-flexible', mixedFlexiblePath), { report: silentReport });
+const mixedFlexibleContext = contextFor('mixed-flexible', mixedFlexiblePath);
+const mixedFlexibleConfigs = mixedFlexibleRun.manifest.scenes.map((scene) => (
+  readJson(path.join(mixedFlexibleContext.jobRoot, scene.config))
+));
+assert.deepEqual(mixedFlexibleConfigs.map((config) => config.characters.length), [0, 1, 2]);
+assert.equal(mixedFlexibleConfigs[0].dialogue[0].speakerType, 'voiceover');
+assert.equal(mixedFlexibleConfigs[1].dialogue[0].speakerId, 'divulgadora');
+assert.deepEqual(mixedFlexibleConfigs[2].dialogue.map((turn) => turn.speakerId), ['presentadora', 'analista']);
+results.push({ name: 'mixed-project-compiles-scenes-with-zero-one-and-two-characters', passed: true });
 
 const conflictContext = createProjectCompilationContext({
   'job-id': `compile-conflict-${stamp}`,

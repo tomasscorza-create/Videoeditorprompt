@@ -2,8 +2,9 @@
 
 Estado: implementado y verificado contractualmente el 2026-08-03.
 
-V0 congela el vocabulario que usarán las siguientes fases para ampliar el
-Director y el runtime. No habilita todavía renders con cero o un personaje.
+V0 congeló el vocabulario para ampliar el Director y el runtime. Por sí solo no
+habilitaba renders con cero o un personaje; V1 ya conectó este contrato al
+runtime según `docs/RUNTIME_FLEXIBLE_V1.md`.
 
 ## Alcance implementado
 
@@ -121,8 +122,9 @@ V0 es aislado y aditivo:
 - no cambia proyectos, cachés, previews ni MP4 históricos;
 - no incorpora los blueprints al Director actual.
 
-V1 deberá crear un contrato o adaptador versionado para runtime flexible. No se
-reinterpretará una escena v2 histórica como una escena flexible.
+V1 creó la extensión aditiva del runtime flexible. Una escena v2 histórica
+continúa interpretándose como diálogo de personajes cuando `speakerType` está
+ausente.
 
 ## Gate
 
