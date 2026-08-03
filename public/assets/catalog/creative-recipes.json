@@ -64,6 +64,46 @@
         { "id": "return", "kind": "visual", "intent": "Cerrar volviendo a la palabra protagonista.", "preferredDelivery": "none" }
       ],
       "recommendedEffectSequenceIds": []
+    },
+    {
+      "id": "voiceover-cards-v1", "label": "Tarjetas narradas", "description": "Una voz encadena datos visuales breves apoyados por un prop legible.",
+      "tags": ["narracion", "tarjetas", "datos"], "compatibleModes": ["voiceover", "visual-with-voiceover"],
+      "participantRange": { "minimum": 0, "maximum": 1 }, "requiredElementTypes": ["prop"], "optionalElementTypes": ["character"],
+      "beats": [
+        { "id": "hook-card", "kind": "visual", "intent": "Abrir con el dato principal.", "preferredDelivery": "none" },
+        { "id": "explain-card", "kind": "speech", "intent": "Explicar el dato con una frase breve.", "preferredDelivery": "voiceover" },
+        { "id": "close-card", "kind": "visual", "intent": "Cerrar con la consecuencia útil.", "preferredDelivery": "none" }
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1"]
+    },
+    {
+      "id": "prop-reveal-v1", "label": "Revelado de objeto", "description": "Un objeto aparece como respuesta visual a la narración.",
+      "tags": ["prop", "revelado", "respuesta"], "compatibleModes": ["voiceover", "visual-with-voiceover"],
+      "participantRange": { "minimum": 0, "maximum": 1 }, "requiredElementTypes": ["prop"], "optionalElementTypes": ["character"],
+      "beats": [
+        { "id": "question", "kind": "speech", "intent": "Plantear la tensión.", "preferredDelivery": "voiceover" },
+        { "id": "reveal-prop", "kind": "visual", "intent": "Revelar el objeto que resuelve la idea.", "preferredDelivery": "none" },
+        { "id": "resolve", "kind": "speech", "intent": "Explicar por qué importa.", "preferredDelivery": "voiceover" }
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1"]
+    },
+    {
+      "id": "before-after-v1", "label": "Antes y después", "description": "Contrasta dos estados mediante entradas opuestas y una conclusión narrada.",
+      "tags": ["antes", "despues", "contraste"], "compatibleModes": ["voiceover", "visual-with-voiceover"],
+      "participantRange": { "minimum": 0, "maximum": 2 }, "requiredElementTypes": ["prop"], "optionalElementTypes": ["character"],
+      "beats": [
+        { "id": "before", "kind": "visual", "intent": "Mostrar el estado inicial.", "preferredDelivery": "none" },
+        { "id": "change", "kind": "speech", "intent": "Nombrar el cambio decisivo.", "preferredDelivery": "voiceover" },
+        { "id": "after", "kind": "visual", "intent": "Mostrar el resultado final.", "preferredDelivery": "none" }
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1"]
+    },
+    {
+      "id": "countdown-visual-v1", "label": "Cuenta regresiva visual", "description": "Una palabra o número protagonista marca pasos breves con ritmo creciente.",
+      "tags": ["cuenta", "pasos", "ritmo"], "compatibleModes": ["voiceover", "visual-with-voiceover"],
+      "participantRange": { "minimum": 0, "maximum": 0 }, "requiredElementTypes": ["template"], "optionalElementTypes": ["prop"],
+      "beats": [
+        { "id": "count-start", "kind": "visual", "intent": "Presentar la cuenta.", "preferredDelivery": "none" },
+        { "id": "count-steps", "kind": "speech", "intent": "Explicar cada paso con ritmo.", "preferredDelivery": "voiceover" },
+        { "id": "count-finish", "kind": "visual", "intent": "Cerrar con la acción final.", "preferredDelivery": "none" }
+      ], "recommendedEffectSequenceIds": []
     }
   ],
   "effectSequences": [

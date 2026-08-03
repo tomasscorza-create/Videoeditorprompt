@@ -27,7 +27,7 @@ function pass(name, detail = {}) {
 
 // 1. El catálogo real es estructural y semánticamente válido.
 assert.equal(validateCreativeRecipeCatalog(recipeCatalog), recipeCatalog);
-assert.equal(recipeCatalog.sceneRecipes.length, 4);
+assert.equal(recipeCatalog.sceneRecipes.length, 8);
 assert.equal(recipeCatalog.effectSequences.length, 4);
 pass('catalogo-creativo-valido', {
   sceneRecipes: recipeCatalog.sceneRecipes.length,

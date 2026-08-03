@@ -61,6 +61,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const tone = required<HTMLSelectElement>('#director-tone');
   const duration = required<HTMLSelectElement>('#director-duration');
   const scenes = required<HTMLSelectElement>('#director-scenes');
+  const richness = required<HTMLSelectElement>('#director-richness');
+  const structure = required<HTMLSelectElement>('#director-structure');
   const think = required<HTMLInputElement>('#director-think');
   const bestOf = required<HTMLSelectElement>('#director-best-of');
   const generate = required<HTMLButtonElement>('#director-generate');
@@ -413,6 +415,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       tone: tone.value as DirectorConstraints['tone'],
       targetDurationSeconds: Number(duration.value),
       sceneCount: Number(scenes.value),
+      planVersion: 2,
+      richnessProfile: richness.value as DirectorConstraints['richnessProfile'],
+      structure: structure.value as DirectorConstraints['structure'],
     };
   }
 
@@ -516,6 +521,27 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     heading.append(score, headline);
 
     const children: HTMLElement[] = [heading];
+    if (proposal?.quality?.richness) {
+      const richnessSummary = document.createElement('p');
+      richnessSummary.className = 'quality-repair';
+      const creative = proposal.quality.richness;
+      richnessSummary.textContent = `Perfil ${creative.policy.resolved}: ${creative.metrics.modes.join(', ')} · recursos visuales ${creative.metrics.visualFamilies.join(', ') || 'ninguno'} · ${creative.metrics.animatedScenes} escenas con secuencias.`;
+      children.push(richnessSummary);
+    }
+    if (proposal?.plan.version === 2) {
+      const storyboard = document.createElement('ol');
+      storyboard.className = 'quality-issues';
+      for (const [index, scene] of proposal.plan.scenes.entries()) {
+        const item = document.createElement('li');
+        const label = document.createElement('strong');
+        label.textContent = `${index + 1}. ${scene.title || 'Escena'}`;
+        const detail = document.createElement('span');
+        detail.textContent = `${scene.mode || 'estructura libre'} · ${scene.participants?.length ?? 0} personajes · ${scene.visualElements?.length ?? 0} recursos visuales · ${scene.speech?.length ?? 0} intervenciones · ${scene.sceneRecipeId || 'sin receta'}`;
+        item.append(label, detail);
+        storyboard.append(item);
+      }
+      children.push(storyboard);
+    }
     if (summary.repairNote) {
       const repair = document.createElement('p');
       repair.className = 'quality-repair';

@@ -17,6 +17,7 @@ import { currentPreviewAudioUrl, editorWorkspace, EDITOR_WORKSPACE_EVENT } from 
 import { optional } from './dom.js';
 import {
   exportTimelineProject,
+  directTimelineProject,
   importTimelineMedia,
   importTimelineMeasurement,
   importTimelineRender,
@@ -70,6 +71,7 @@ export function initTimelineV2(): void {
   bindOwnButton('#timeline-v2-import', (event) => runOnce(event, () => optional<HTMLInputElement>('#timeline-v2-file')?.click()));
   bindOwnButton('#timeline-v2-add-render', (event) => runOnce(event, () => void addCurrentRender()));
   bindOwnButton('#timeline-v2-ripple', (event) => runOnce(event, () => { rippleEnabled = !rippleEnabled; render(); }));
+  bindOwnButton('#timeline-v2-director', (event) => runOnce(event, () => void runTimelineDirector()));
   bindOwnButton('#timeline-v2-export', (event) => runOnce(event, () => void exportProject()));
   optional<HTMLInputElement>('#timeline-v2-file')?.addEventListener('change', (event) => void importFiles((event.currentTarget as HTMLInputElement).files));
   document.addEventListener('click', captureToolbarClick, true);
@@ -139,6 +141,7 @@ function captureToolbarClick(event: Event): void {
     'timeline-v2-import': () => optional<HTMLInputElement>('#timeline-v2-file')?.click(),
     'timeline-v2-add-render': () => void addCurrentRender(),
     'timeline-v2-ripple': () => { rippleEnabled = !rippleEnabled; render(); },
+    'timeline-v2-director': () => void runTimelineDirector(),
     'timeline-v2-export': () => void exportProject(),
     'timeline-undo': undo,
     'timeline-redo': redo,
@@ -409,6 +412,22 @@ function dispatch(command: TimelineClipCommandV2): void {
 function dispatchBatch(commands: TimelineClipCommandV2[]): void {
   state = applyTimelineClipCommandBatch(state, commands);
   changed();
+}
+
+async function runTimelineDirector(): Promise<void> {
+  if (state.document.clips.length === 0) { setStatus('Importá o agregá medios antes de pedir un montaje.', true); return; }
+  const instruction = window.prompt('¿Qué cambio querés hacer en el montaje?');
+  if (!instruction?.trim()) return;
+  setStatus('El Director está preparando una propuesta de montaje…');
+  try {
+    const result = await directTimelineProject(instruction.trim(), state.document);
+    if (result.commands.length === 0) { setStatus('El Director no encontró cambios representables.'); return; }
+    if (!window.confirm(`${result.explanation}\n\n¿Aplicar ${result.commands.length} cambios como un solo paso de undo?`)) { setStatus('Propuesta de montaje cancelada.'); return; }
+    dispatchBatch(result.commands as TimelineClipCommandV2[]);
+    setStatus(`Director de montaje: ${result.explanation}`);
+  } catch (error) {
+    setStatus(messageOf(error), true);
+  }
 }
 
 function changed(renderNow = true): void {

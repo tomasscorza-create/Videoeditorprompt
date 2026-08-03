@@ -217,6 +217,12 @@ const app = await createLocalAppServer({
   timelineMediaLibrary,
   timelineProjects,
   timelineExporter,
+  timelineDirector: async ({ instruction, project: value }) => ({
+    version: 1,
+    commands: [{ type: 'set-clip-enabled', clipId: value.clips[0].id, enabled: false }],
+    project: { ...value, clips: value.clips.map((clip, index) => index === 0 ? { ...clip, enabled: false } : clip) },
+    explanation: instruction,
+  }),
   ollamaInspector: async () => ({
     available: true,
     modelInstalled: true,
@@ -353,6 +359,16 @@ assert.equal(staleProjectResponse.status, 409);
 const timelineMediaResponse = await request('/api/timeline/media');
 assert.equal(timelineMediaResponse.status, 200);
 assert.equal((await timelineMediaResponse.json()).entries[0].id, timelineMediaEntry.id);
+
+const timelineDirectorResponse = await request('/api/timeline/director', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ instruction: 'Desactivá el primer clip.', project: timelineProject }),
+});
+assert.equal(timelineDirectorResponse.status, 200);
+const timelineDirectorBody = await timelineDirectorResponse.json();
+assert.equal(timelineDirectorBody.commands[0].type, 'set-clip-enabled');
+assert.equal(timelineDirectorBody.project.clips[0].enabled, false);
 
 const timelineUploadResponse = await request('/api/timeline/media', {
   method: 'POST',
@@ -537,4 +553,4 @@ const medicionInvalida = await request('/api/measurements', {
 assert.equal(medicionInvalida.status >= 400, true);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 63 + medicionProbada, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 66 + medicionProbada, failed: 0, url: listening.url })}\n`);

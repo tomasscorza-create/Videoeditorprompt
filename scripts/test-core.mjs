@@ -35,6 +35,7 @@ const commands = [
   'director:test-ollama',
   'director:test-editor',
   'director:test-provider-contract',
+  'director:test-flexible-v2',
   'local:test-library',
   'local:test-projects',
   'local:test-server',

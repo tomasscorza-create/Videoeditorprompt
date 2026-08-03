@@ -4,6 +4,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { createDirectorProposal, inspectOllama } from '../director/ollama-director.mjs';
 import { editProjectWithDirector } from '../director/project-editor-director.mjs';
+import { editTimelineWithDirector } from '../director/timeline-director.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { listProviderNames } from '../director/providers/index.mjs';
 import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
@@ -98,6 +99,7 @@ export async function createLocalAppServer(options = {}) {
   }
   const director = options.director || createDirectorProposal;
   const projectDirector = options.projectDirector || editProjectWithDirector;
+  const timelineDirector = options.timelineDirector || editTimelineWithDirector;
   const ollamaInspector = options.ollamaInspector || inspectOllama;
   let directorController = null;
   let directorStatus = createDirectorStatus('idle', 'idle');
@@ -351,6 +353,28 @@ export async function createLocalAppServer(options = {}) {
         const body = await readJsonBody(request);
         const measurement = await measurements.measure(body.project);
         sendJson(response, 200, { version: 1, ...measurement });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/timeline/director') {
+        assertJsonContentType(request);
+        if (directorController) {
+          const error = new Error('El Director ya está procesando otra petición.');
+          error.code = 'DIRECTOR_BUSY';
+          throw error;
+        }
+        const body = await readJsonBody(request);
+        directorController = new AbortController();
+        updateDirectorStatus('running', 'directing_timeline');
+        try {
+          const result = await timelineDirector({
+            instruction: body.instruction, project: body.project, provider: body.provider,
+            model: body.model, signal: directorController.signal,
+          });
+          sendJson(response, 200, result);
+        } finally {
+          directorController = null;
+          updateDirectorStatus('idle', 'idle');
+        }
         return;
       }
       if (request.method === 'GET' && url.pathname === '/api/timeline/media') {

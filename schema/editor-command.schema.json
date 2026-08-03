@@ -10,6 +10,12 @@
       "$ref": "#/$defs/setProjectTitle"
     },
     {
+      "$ref": "#/$defs/setProjectMusic"
+    },
+    {
+      "$ref": "#/$defs/clearProjectMusic"
+    },
+    {
       "$ref": "#/$defs/setSceneTitle"
     },
     {
@@ -159,6 +165,16 @@
           "maxLength": 120
         }
       }
+    },
+    "setProjectMusic": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "resourceId"],
+      "properties": { "type": { "const": "set-project-music" }, "resourceId": { "$ref": "#/$defs/id" } }
+    },
+    "clearProjectMusic": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type"],
+      "properties": { "type": { "const": "clear-project-music" } }
     },
     "setSceneTitle": {
       "type": "object",

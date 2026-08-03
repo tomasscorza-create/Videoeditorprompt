@@ -2,9 +2,10 @@
 
 Fecha: 2026-08-02
 
-Estado al 2026-08-03: V0 y V1 implementados y verificados. El runtime ya
-renderiza escenas con cero, uno o dos personajes y voz fuera de campo sin
-placeholders. V2, editor flexible, es la próxima fase. Véanse
+Estado al 2026-08-03: V0–V8 implementados y verificados. El runtime y el editor
+admiten escenas con cero, uno o dos personajes y voz fuera de campo; el Director
+crea planes flexibles V2, expande recetas coordinadas, audita riqueza y propone
+ediciones semánticas tanto sobre el proyecto como sobre Montaje. Véanse
 `docs/CONTRATO_VARIABILIDAD_CREATIVA_V0.md` y
 `docs/RUNTIME_FLEXIBLE_V1.md`.
 
@@ -235,6 +236,10 @@ Gate:
 
 Objetivo: producir variedad estructural desde prompts breves.
 
+Estado: **completado**. `ai-video-plan-v2` expresa modo, reparto, peso editorial,
+receta, recursos visuales y secuencias por escena. El normalizador valida IDs y
+capacidades y produce directamente un `video-project` renderizable.
+
 Trabajo:
 
 - introducir `ai-video-plan-v2`;
@@ -257,6 +262,11 @@ Gate:
 ### V4 — Biblioteca de recetas y efectos coordinados
 
 Objetivo: aportar riqueza visual reutilizable sin pedirle a la IA microanimación.
+
+Estado: **completado**. Ocho recetas de escena y cuatro secuencias versionadas se
+validan contra el catálogo. El expansor local genera comandos de presets
+deterministas y bloquea pistas existentes; la aplicación conserva la confirmación
+y las guardas temporales del editor medido.
 
 Primer catálogo propuesto:
 
@@ -291,6 +301,11 @@ Gate:
 
 Objetivo: cerrar la brecha entre capacidades renderizables y capacidades accesibles por IA.
 
+Estado: **completado**. El esquema contextual del Director permite música,
+personajes, props, plantillas, narración, transformaciones completas, estructura
+y animaciones compatibles. Los lotes se validan antes de mostrarse y se aplican
+como un único paso de undo con confirmaciones para eliminaciones protegidas.
+
 Exponer mediante comandos cerrados:
 
 - agregar, cambiar y eliminar personajes;
@@ -320,6 +335,10 @@ Gate:
 ### V6 — Política de riqueza y calidad audiovisual
 
 Objetivo: conseguir propuestas interesantes sin prompts extensos.
+
+Estado: **completado**. La política determinista resuelve los perfiles y reporta
+modos, familias visuales, layouts, recursos repetidos, densidad de efectos y
+equilibrio de pesos editoriales sin convertir la variedad en una obligación ciega.
 
 Agregar perfiles simples:
 
@@ -351,6 +370,10 @@ Gate:
 
 Objetivo: hacer accesible la potencia sin convertir el prompt en un formulario largo.
 
+Estado: **completado**. La interfaz ofrece 1–8 escenas, riqueza, preferencia
+estructural y un storyboard que resume modo, reparto, recursos, intervenciones y
+receta de cada escena, además del reporte de cobertura creativa.
+
 Cambios:
 
 - selector de riqueza `Automático / Simple / Variado / Dinámico`;
@@ -370,6 +393,11 @@ Gate:
 ### V8 — Director de Montaje
 
 Objetivo: aprovechar las funciones del recorte profesional después de estabilizar la creación flexible.
+
+Estado: **completado**. Un endpoint y control separados proponen split, trim,
+move, duplicate, enable y borrado/ripple sobre clips o enlaces existentes. La
+previsualización se confirma antes de aplicar el batch y no exporta, agrega
+fuentes, modifica `video-project` ni sintetiza voces.
 
 Trabajo:
 

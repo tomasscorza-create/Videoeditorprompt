@@ -69,13 +69,14 @@ export async function editProjectWithDirector(options) {
           content: [
             'Sos el editor semántico de un video local.',
             'Convertí la petición en la menor cantidad de comandos del esquema.',
-            'Podés editar textos, voces, gestos, pausas, posición, escala y profundidad,',
-            'cambiar fondo o cámara y transición, y modificar la estructura:',
-            'agregar/duplicar/borrar escenas, agregar/borrar turnos, reordenar escenas y reasignar el hablante.',
+            'Podés editar textos, voces, gestos, pausas, transformaciones y profundidad;',
+            'cambiar fondo, cámara, transición y música; agregar o quitar personajes, props y plantillas;',
+            'agregar/duplicar/borrar escenas, agregar narración o diálogo, borrar turnos, reordenar escenas y reasignar el hablante.',
             'También podés aplicar presets de keyframes compatibles y quitar animaciones existentes.',
+            'Ante una petición breve o amplia, elegí por cuenta propia una combinación completa y compatible de estas capacidades.',
             'Si removableByDirector es false, proponé quitarla solo cuando la petición lo pida explícitamente: la UI solicitará confirmación humana especial.',
             'Las capacidades de animación están resumidas por elemento; nunca inventes parámetros, presets ni pistas.',
-            'Para una escena nueva con personajes, duplicá una existente (duplicate-scene) y ajustá sus textos.',
+            'Para una escena nueva podés crearla vacía y agregar solo los recursos necesarios, o duplicar una compatible.',
             'Usá IDs nuevos y portables (letras, números, guiones) para escenas y turnos que crees.',
             'No inventes IDs de recursos ni propiedades. No escribas explicaciones.',
             'Si la petición no se puede representar, devolvé commands vacío.',
@@ -143,6 +144,7 @@ function collectProjectResourceIds(project) {
     ids.add(scene.background.resourceId);
     for (const element of scene.elements) {
       if (element.resourceId) ids.add(element.resourceId);
+      if (element.templateId) ids.add(element.templateId);
     }
     for (const turn of scene.dialogue) ids.add(turn.voiceId);
   }
@@ -152,10 +154,14 @@ function collectProjectResourceIds(project) {
 function commandBatchSchema(project, catalog) {
   const sceneIds = project.scenes.map((scene) => scene.id);
   const turnIds = project.scenes.flatMap((scene) => scene.dialogue.map((turn) => turn.id));
+  const allElementIds = project.scenes.flatMap((scene) => scene.elements.map((element) => element.id));
   const elementIds = project.scenes.flatMap((scene) => scene.elements.filter((element) => element.type === 'character').map((element) => element.id));
   const backgrounds = catalog.entries.filter((entry) => entry.type === 'background').map((entry) => entry.id);
   const characters = catalog.entries.filter((entry) => entry.type === 'character').map((entry) => entry.id);
   const voices = catalog.entries.filter((entry) => entry.type === 'voice').map((entry) => entry.id);
+  const props = catalog.entries.filter((entry) => entry.type === 'prop').map((entry) => entry.id);
+  const templates = catalog.entries.filter((entry) => entry.type === 'template').map((entry) => entry.id);
+  const music = catalog.entries.filter((entry) => entry.type === 'music').map((entry) => entry.id);
   const cameraPresets = [...new Set(catalog.entries
     .filter((entry) => entry.type === 'background')
     .flatMap((entry) => entry.capabilities.cameraPresets))];
@@ -170,6 +176,8 @@ function commandBatchSchema(project, catalog) {
   const command = {
     oneOf: [
       object(['type', 'title'], { type: { const: 'set-project-title' }, title: text(120) }),
+      object(['type', 'resourceId'], { type: { const: 'set-project-music' }, resourceId: id(music) }),
+      object(['type'], { type: { const: 'clear-project-music' } }),
       object(['type', 'sceneId', 'title'], { type: { const: 'set-scene-title' }, sceneId: id(sceneIds), title: text(120) }),
       // set-dialogue-turn: cualquier combinación de texto, voz, gesto o pausa (B2).
       object(['type', 'sceneId', 'turnId'], {
@@ -181,10 +189,27 @@ function commandBatchSchema(project, catalog) {
         gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 },
       }),
       object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-character-resource' }, sceneId: id(sceneIds), elementId: id(elementIds), resourceId: id(characters) }),
+      object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-prop-resource' }, sceneId: id(sceneIds), elementId: id(allElementIds), resourceId: id(props) }),
+      object(['type', 'sceneId', 'elementId', 'word'], { type: { const: 'set-template-word' }, sceneId: id(sceneIds), elementId: id(allElementIds), word: text(40) }),
       object(['type', 'sceneId', 'elementId', 'animationPreset'], {
         type: { const: 'set-character-animation' }, sceneId: id(sceneIds), elementId: id(elementIds),
         animationPreset: enumOf(animationPresets),
       }),
+      object(['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], {
+        type: { const: 'add-character' }, sceneId: id(sceneIds), elementId: newId(), resourceId: id(characters),
+        x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
+        scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
+      }),
+      object(['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], {
+        type: { const: 'add-prop' }, sceneId: id(sceneIds), elementId: newId(), resourceId: id(props),
+        x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
+        scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
+      }),
+      object(['type', 'sceneId', 'elementId', 'templateId', 'word', 'zIndex'], {
+        type: { const: 'add-template' }, sceneId: id(sceneIds), elementId: newId(), templateId: id(templates), word: text(40),
+        zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
+      }),
+      object(['type', 'sceneId', 'elementId'], { type: { const: 'delete-element' }, sceneId: id(sceneIds), elementId: id(allElementIds) }),
       object(['type', 'sceneId', 'resourceId', 'cameraPreset'], {
         type: { const: 'set-scene-background' }, sceneId: id(sceneIds), resourceId: id(backgrounds),
         cameraPreset: enumOf(cameraPresets),
@@ -194,6 +219,12 @@ function commandBatchSchema(project, catalog) {
         type: { const: 'set-character-transform' }, sceneId: id(sceneIds), elementId: id(elementIds),
         x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
         scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
+      }),
+      object(['type', 'sceneId', 'elementId'], {
+        type: { const: 'set-element-transform' }, sceneId: id(sceneIds), elementId: id(allElementIds),
+        x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
+        scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, rotationDegrees: { type: 'number', minimum: -360, maximum: 360 },
+        opacity: { type: 'number', minimum: 0, maximum: 1 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
       }),
       object(['type', 'sceneId', 'preset', 'durationSeconds'], {
         type: { const: 'set-transition' }, sceneId: id(sceneIds), preset: { enum: ['cut', 'fade'] },
@@ -228,10 +259,15 @@ function commandBatchSchema(project, catalog) {
         layoutPreset: enumOf(layoutPresets),
         gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 }, afterTurnId: id(turnIds),
       }),
+      object(['type', 'sceneId', 'turnId', 'text', 'voiceId', 'gapAfterSeconds'], {
+        type: { const: 'add-voiceover-turn' }, sceneId: id(sceneIds), turnId: newId(), text: text(DIRECTOR_TEXT_MAX_LENGTH),
+        voiceId: id(voices), pace: { enum: ['slow', 'normal', 'fast'] }, gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 }, afterTurnId: id(turnIds),
+      }),
       object(['type', 'sceneId', 'turnId'], { type: { const: 'delete-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds) }),
       object(['type', 'sceneId', 'turnId', 'speakerElementId'], {
         type: { const: 'set-dialogue-speaker' }, sceneId: id(sceneIds), turnId: id(turnIds), speakerElementId: id(elementIds),
       }),
+      object(['type', 'sceneId', 'turnId'], { type: { const: 'set-dialogue-voiceover' }, sceneId: id(sceneIds), turnId: id(turnIds) }),
       object(['type', 'sceneIds'], {
         type: { const: 'reorder-scenes' },
         sceneIds: { type: 'array', items: id(sceneIds), minItems: sceneIds.length || 1, maxItems: sceneIds.length || 1 },
@@ -243,7 +279,7 @@ function commandBatchSchema(project, catalog) {
     type: 'object',
     additionalProperties: false,
     required: ['commands'],
-    properties: { commands: { type: 'array', maxItems: 12, items: command } },
+    properties: { commands: { type: 'array', maxItems: 24, items: command } },
   };
 }
 
@@ -307,8 +343,8 @@ export function summarizeEditableProject(project, catalog) {
       elements: scene.elements.map((element) => ({
         id: element.id,
         type: element.type,
-        resourceId: element.resourceId,
-        resourceLabel: resources.get(element.resourceId)?.label ?? null,
+        resourceId: element.resourceId ?? element.templateId,
+        resourceLabel: resources.get(element.resourceId ?? element.templateId)?.label ?? null,
         poseId: element.poseId,
         animationPreset: element.animationPreset,
         x: element.transform.x,
@@ -325,6 +361,7 @@ export function summarizeEditableProject(project, catalog) {
         number: turnIndex + 1,
         id: turn.id,
         speakerElementId: turn.speakerElementId,
+        speakerType: turn.speakerType ?? 'character',
         text: turn.text,
         voiceId: turn.voiceId,
         gestureId: turn.gestureId,

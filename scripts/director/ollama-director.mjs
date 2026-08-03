@@ -9,6 +9,8 @@ import {
   loadAuthoringCatalog,
   normalizeDirectorPlan,
 } from './director-plan.mjs';
+import { getDirectorPlanV2Schema, normalizeDirectorPlanV2 } from './director-plan-v2.mjs';
+import { loadCreativeRecipeCatalog } from './creative-contract.mjs';
 import { judgeDirectorPlans, PLAN_JUDGE_VERSION } from './plan-judge.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 import { resolveDirectorProvider } from './providers/index.mjs';
@@ -26,6 +28,7 @@ import {
   editorialWordBudgets,
   qualityRepairFeedback,
 } from './plan-quality.mjs';
+import { analyzeCreativeRichness } from './richness-policy.mjs';
 
 export { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL };
 const MAX_PROMPT_LENGTH = 2000;
@@ -302,7 +305,7 @@ async function generateCandidate({
       schema,
       signal,
       messages: [
-        { role: 'system', content: buildSystemPrompt(directorContext) },
+        { role: 'system', content: buildSystemPrompt(directorContext, constraints) },
         { role: 'user', content: buildUserPrompt(prompt, variant, constraints, strategy, feedback) },
       ],
       options: {
@@ -344,12 +347,12 @@ async function generateCandidate({
       } else if (!directorContext.templates.some((template) => template.id === plan.narrativeTemplateId)) {
         directorError('DIRECTOR_TEMPLATE_INVALID', 'El proveedor eligió una plantilla fuera de la shortlist.');
       }
-      normalized = normalizeDirectorPlan(plan, catalog, {
+      normalized = (plan.version === 2 ? normalizeDirectorPlanV2 : normalizeDirectorPlan)(plan, catalog, {
         assetsRoot,
         promptHash,
         resourceCatalog,
       });
-      const quality = analyzeDirectorPlanQuality(plan, { prompt, constraints });
+      const quality = analyzePlanQuality(plan, { prompt, constraints });
       if (!quality.passed) qualityError(quality);
       usage = result.usage || null;
       break;
@@ -359,7 +362,7 @@ async function generateCandidate({
       feedback = repairFeedback(error);
     }
   }
-  const quality = analyzeDirectorPlanQuality(plan, { prompt, constraints });
+  const quality = analyzePlanQuality(plan, { prompt, constraints });
   return {
     plan,
     normalized,
@@ -384,7 +387,14 @@ function defaultSelection() {
   };
 }
 
+function analyzePlanQuality(plan, context) {
+  const quality = analyzeDirectorPlanQuality(plan, context);
+  if (plan.version === 2) quality.richness = analyzeCreativeRichness(plan, { ...context.constraints, prompt: context.prompt });
+  return quality;
+}
+
 export function buildOllamaPlanSchema(catalog, constraints = {}, templates = loadNarrativeTemplates().templates) {
+  if (constraints.planVersion === 2) return buildOllamaPlanV2Schema(catalog, constraints, templates);
   const schema = getDirectorPlanSchema();
   const characters = catalog.entries.filter((entry) => entry.type === 'character').map((entry) => entry.id);
   const voices = catalog.entries.filter((entry) => entry.type === 'voice').map((entry) => entry.id);
@@ -429,7 +439,51 @@ export function buildOllamaPlanSchema(catalog, constraints = {}, templates = loa
   return schema;
 }
 
-function buildSystemPrompt(directorContext) {
+function buildOllamaPlanV2Schema(catalog, constraints, templates) {
+  const schema = getDirectorPlanV2Schema();
+  const ids = (type) => catalog.entries.filter((entry) => entry.type === type).map((entry) => entry.id);
+  const characters = ids('character');
+  const voices = ids('voice');
+  const backgrounds = ids('background');
+  const props = ids('prop');
+  const visualTemplates = ids('template');
+  const music = ids('music');
+  if (voices.length < 1 || backgrounds.length < 1) directorError('DIRECTOR_CATALOG_INSUFFICIENT', 'El catálogo necesita al menos una voz y un fondo.');
+  schema.$defs.participant.properties.characterResourceId = { type: 'string', enum: characters };
+  schema.$defs.participant.properties.voiceId = { type: 'string', enum: voices };
+  schema.$defs.voiceoverTurn.properties.voiceId = { type: 'string', enum: voices };
+  schema.$defs.visual.properties.resourceId = { type: 'string', enum: [...props, ...visualTemplates] };
+  schema.$defs.scene.properties.backgroundResourceId = { type: 'string', enum: backgrounds };
+  schema.properties.narrativeTemplateId = { type: 'string', enum: templates.map((template) => template.id) };
+  if (!schema.required.includes('narrativeTemplateId')) schema.required.push('narrativeTemplateId');
+  if (music.length) schema.properties.musicResourceId = { type: 'string', enum: music };
+  schema.$defs.participant.properties.animationPresetId = {
+    type: 'string',
+    enum: [...new Set(catalog.entries.filter((entry) => entry.type === 'character').flatMap((entry) => entry.capabilities.animationPresets))],
+  };
+  schema.$defs.scene.properties.layoutPreset = { type: 'string', enum: listLayoutPresetIds() };
+  schema.$defs.scene.properties.cameraPreset = {
+    type: 'string',
+    enum: [...new Set(catalog.entries.filter((entry) => entry.type === 'background').flatMap((entry) => entry.capabilities.cameraPresets))],
+  };
+  const recipes = loadCreativeRecipeCatalog();
+  schema.$defs.scene.properties.sceneRecipeId = { type: 'string', enum: recipes.sceneRecipes.map((entry) => entry.id) };
+  schema.$defs.scene.properties.effectSequenceIds = {
+    type: 'array', maxItems: 4, uniqueItems: true,
+    items: { type: 'string', enum: recipes.effectSequences.map((entry) => entry.id) },
+  };
+  if (constraints.tone) schema.properties.tone = { const: constraints.tone };
+  if (constraints.targetDurationSeconds) schema.properties.targetDurationSeconds = { const: constraints.targetDurationSeconds };
+  if (constraints.richnessProfile) schema.properties.richnessProfile = { const: constraints.richnessProfile };
+  if (constraints.sceneCount) schema.properties.scenes = { ...schema.properties.scenes, minItems: constraints.sceneCount, maxItems: constraints.sceneCount };
+  if (constraints.structure && constraints.structure !== 'automatic') {
+    const mode = constraints.structure === 'narration' ? 'voiceover' : constraints.structure === 'one-character' ? 'solo' : 'dialogue';
+    schema.$defs.scene.properties.mode = { const: mode };
+  }
+  return schema;
+}
+
+function buildSystemPrompt(directorContext, constraints = {}) {
   const entries = compactResourceEntries(directorContext.catalog);
   const templates = compactNarrativeTemplates(directorContext.templates);
   const recommendedTemplateId = directorContext.summary.recommendedTemplateId;
@@ -466,6 +520,10 @@ function buildSystemPrompt(directorContext) {
     '- inspirational: "Compararte borra la distancia que ya recorriste." → "Medí tu avance contra tu punto de partida y seguí creciendo."',
     '',
     'REGLAS:',
+    constraints.planVersion === 2 ? 'Usá estructura flexible por escena: voiceover, solo, dialogue o visual-with-voiceover. No agregues personajes si la idea funciona mejor narrada.' : null,
+    constraints.planVersion === 2 ? 'Cada escena admite de cero a dos participantes y desde un turno. Elegí recetas, props, plantillas y secuencias solo por IDs permitidos.' : null,
+    constraints.planVersion === 2 ? 'Usá durationWeight para repartir el objetivo: valores mayores reservan proporcionalmente más narración; no hagas todas las escenas iguales salvo que el contenido lo justifique.' : null,
+    constraints.planVersion === 2 ? `Perfil de riqueza: ${constraints.richnessProfile || 'automatic'}. Preferencia estructural: ${constraints.structure || 'automatic'}.` : null,
     'Recibís una shortlist local, no el inventario completo. Usá solamente IDs presentes en esa shortlist.',
     'Elegí la plantilla narrativa más adecuada entre las candidatas. La recomendada es un punto de partida, no una obligación.',
     'Usá sus beats como estructura semántica y combinalos con recursos compatibles; no copies literalmente sus ejemplos.',
@@ -473,14 +531,14 @@ function buildSystemPrompt(directorContext) {
     'Podés elegir música del catálogo, pace slow|normal|fast y un layout por turno cuando aporten intención.',
     'gestureAtWord es un índice desde 0: usalo para disparar gestos cerca de la palabra importante.',
     'transitionDurationSeconds solo importa cuando transitionPreset es «fade»: usá entre 0.15 y 1.0 segundos; con «cut» dejá 0.',
-    'Cada escena debe tener de 2 a 6 turnos e incluir a ambos personajes.',
+    constraints.planVersion === 2 ? 'En dialogue deben hablar ambos participantes; en solo habla el único personaje; en voiceover la voz no referencia personajes.' : 'Cada escena debe tener de 2 a 6 turnos e incluir a ambos personajes.',
     'Escribí español natural para voz, sin markdown, acotaciones, emojis ni instrucciones técnicas.',
     'La duración es un objetivo editorial: mantené el guion conciso para no pasarte del presupuesto de palabras.',
     'No generes rutas, código, comandos, frames, tiempos absolutos ni propiedades adicionales.',
     `Plantilla recomendada: ${recommendedTemplateId}.`,
     `Plantillas narrativas candidatas: ${JSON.stringify(templates)}`,
     `Shortlist de recursos permitidos: ${JSON.stringify(entries)}`,
-  ].join('\n');
+  ].filter((line) => line !== null).join('\n');
 }
 
 function buildUserPrompt(prompt, variant, constraints, strategy, feedback = null) {
@@ -588,7 +646,7 @@ function validateDirectorConstraints(value) {
   if (typeof value !== 'object' || Array.isArray(value)) {
     directorError('DIRECTOR_OPTION_INVALID', 'Los parámetros editoriales deben ser un objeto.');
   }
-  const allowed = new Set(['tone', 'targetDurationSeconds', 'sceneCount']);
+  const allowed = new Set(['tone', 'targetDurationSeconds', 'sceneCount', 'planVersion', 'richnessProfile', 'structure']);
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) directorError('DIRECTOR_OPTION_INVALID', `El parámetro editorial «${key}» no está permitido.`);
   }
@@ -603,7 +661,16 @@ function validateDirectorConstraints(value) {
     result.targetDurationSeconds = integerOption(value.targetDurationSeconds, 30, 8, 90);
   }
   if (value.sceneCount !== undefined) {
-    result.sceneCount = integerOption(value.sceneCount, 2, 1, 4);
+    result.sceneCount = integerOption(value.sceneCount, 2, 1, value.planVersion === 2 ? 8 : 4);
+  }
+  if (value.planVersion !== undefined) result.planVersion = integerOption(value.planVersion, 2, 1, 2);
+  if (value.richnessProfile !== undefined) {
+    if (!['automatic', 'simple', 'varied', 'dynamic'].includes(value.richnessProfile)) directorError('DIRECTOR_OPTION_INVALID', 'El perfil de riqueza no es compatible.');
+    result.richnessProfile = value.richnessProfile;
+  }
+  if (value.structure !== undefined) {
+    if (!['automatic', 'narration', 'one-character', 'dialogue'].includes(value.structure)) directorError('DIRECTOR_OPTION_INVALID', 'La estructura solicitada no es compatible.');
+    result.structure = value.structure;
   }
   return result;
 }

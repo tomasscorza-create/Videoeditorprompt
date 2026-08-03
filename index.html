@@ -203,6 +203,28 @@
                     <option value="2" selected>2</option>
                     <option value="3">3</option>
                     <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                  </select>
+                </label>
+                <label class="field" for="director-richness">
+                  <span>Riqueza</span>
+                  <select id="director-richness">
+                    <option value="automatic" selected>Automática</option>
+                    <option value="simple">Simple</option>
+                    <option value="varied">Variada</option>
+                    <option value="dynamic">Dinámica</option>
+                  </select>
+                </label>
+                <label class="field" for="director-structure">
+                  <span>Estructura</span>
+                  <select id="director-structure">
+                    <option value="automatic" selected>Automática</option>
+                    <option value="narration">Narración</option>
+                    <option value="one-character">Un personaje</option>
+                    <option value="dialogue">Diálogo</option>
                   </select>
                 </label>
               </div>
@@ -549,6 +571,7 @@
             <input id="timeline-v2-file" type="file" accept=".mp4,.mov,.webm,.wav,.mp3,.ogg,.m4a,video/mp4,video/webm,video/quicktime,audio/wav,audio/mpeg,audio/ogg,audio/mp4" multiple hidden>
             <button id="timeline-v2-add-render" class="timeline-tool" type="button" disabled>Agregar salida / voces</button>
             <button id="timeline-v2-ripple" class="timeline-tool" type="button" aria-pressed="false" title="Al borrar, cerrar el hueco en la misma pista">Ripple</button>
+            <button id="timeline-v2-director" class="timeline-tool" type="button">Director de montaje</button>
             <button id="timeline-v2-export" class="timeline-tool primary-compact" type="button" disabled>Exportar montaje</button>
           </div>
           <div class="timeline-tool-group" aria-label="Historial">

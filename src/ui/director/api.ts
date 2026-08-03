@@ -21,10 +21,19 @@ export interface DirectorProposal {
   model: string;
   modelIdentity?: { model: string; digest: string | null; runtimeVersion: string | null };
   plan: {
+    version?: number;
     title: string;
     tone: string;
     targetDurationSeconds: number;
-    scenes: unknown[];
+    richnessProfile?: string;
+    scenes: Array<{
+      title?: string;
+      mode?: string;
+      sceneRecipeId?: string;
+      participants?: unknown[];
+      visualElements?: unknown[];
+      speech?: unknown[];
+    }>;
   };
   project: unknown;
   budget: { totalWords: number; maximumWords: number };
@@ -69,6 +78,12 @@ export interface DirectorQualityReport {
   passed: boolean;
   issues: Array<{ code: string; penalty: number; instruction: string }>;
   metrics: Record<string, unknown>;
+  richness?: {
+    passed: boolean;
+    policy: { requested: string; resolved: string };
+    issues: string[];
+    metrics: { modes: string[]; visualFamilies: string[]; recipeCount: number; animatedScenes: number };
+  };
 }
 
 export interface DirectorContextSummary {
@@ -176,6 +191,9 @@ export interface DirectorConstraints {
   tone: 'educational' | 'ironic' | 'serious' | 'energetic' | 'inspirational';
   targetDurationSeconds: number;
   sceneCount: number;
+  planVersion: 2;
+  richnessProfile: 'automatic' | 'simple' | 'varied' | 'dynamic';
+  structure: 'automatic' | 'narration' | 'one-character' | 'dialogue';
 }
 
 export interface DirectorGenerationOptions {

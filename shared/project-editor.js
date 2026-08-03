@@ -169,6 +169,7 @@ export function validateEditableProject(project, catalog) {
     if (!entry || typeof entry.id !== 'string' || resources.has(entry.id)) fail('EDITOR_CATALOG_INVALID', 'Los IDs del catálogo deben existir y ser únicos.', `/entries/${index}/id`);
     resources.set(entry.id, entry);
   }
+  if (project.musicResourceId !== undefined) requireResource(resources, project.musicResourceId, 'music', '/musicResourceId');
   const sceneIds = new Set();
   for (const [sceneIndex, scene] of project.scenes.entries()) {
     const scenePath = `/scenes/${sceneIndex}`;
@@ -273,6 +274,13 @@ function applyMutation(project, catalog, command) {
     case 'set-project-title':
       stringInRange(command.title, 1, 120, '/command/title');
       project.title = command.title;
+      return;
+    case 'set-project-music':
+      requireResource(resources, command.resourceId, 'music', '/command/resourceId');
+      project.musicResourceId = command.resourceId;
+      return;
+    case 'clear-project-music':
+      delete project.musicResourceId;
       return;
     case 'set-scene-title': {
       stringInRange(command.title, 1, 120, '/command/title');
@@ -894,6 +902,8 @@ function assertCommandShape(command) {
   const shapes = {
     'select-scene': { required: ['type', 'sceneId'], optional: [] },
     'set-project-title': { required: ['type', 'title'], optional: [] },
+    'set-project-music': { required: ['type', 'resourceId'], optional: [] },
+    'clear-project-music': { required: ['type'], optional: [] },
     'set-scene-title': { required: ['type', 'sceneId', 'title'], optional: [] },
     'add-scene': { required: ['type', 'scene'], optional: [] },
     'duplicate-scene': { required: ['type', 'sceneId', 'newSceneId', 'title'], optional: [] },

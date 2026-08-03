@@ -44,10 +44,10 @@ export function editorialWordBudgets(targetDurationSeconds, sceneCount) {
 export function analyzeDirectorPlanQuality(plan, options = {}) {
   const issues = [];
   const promptTokens = meaningfulTokens(options.prompt || '');
-  const turns = plan.scenes.flatMap((scene) => scene.dialogue);
+  const turns = plan.scenes.flatMap((scene) => scene.dialogue ?? scene.speech ?? []);
   const texts = turns.map((turn) => turn.text.trim());
   const wordsByScene = plan.scenes.map((scene) => (
-    scene.dialogue.reduce((total, turn) => total + wordCount(turn.text), 0)
+    (scene.dialogue ?? scene.speech ?? []).reduce((total, turn) => total + wordCount(turn.text), 0)
   ));
   const totalWords = wordsByScene.reduce((total, words) => total + words, 0);
   const firstText = texts[0] || '';
@@ -64,7 +64,7 @@ export function analyzeDirectorPlanQuality(plan, options = {}) {
 
   const planTokens = meaningfulTokens([
     plan.title,
-    ...plan.scenes.flatMap((scene) => [scene.title, scene.purpose, ...scene.dialogue.map((turn) => turn.text)]),
+    ...plan.scenes.flatMap((scene) => [scene.title, scene.purpose, ...(scene.dialogue ?? scene.speech ?? []).map((turn) => turn.text)]),
   ].join(' '));
   const relevance = tokenCoverage(promptTokens, planTokens);
   addIssue(issues, promptTokens.size >= 2 && relevance === 0,
@@ -88,7 +88,9 @@ export function analyzeDirectorPlanQuality(plan, options = {}) {
   let speakerRun = 1;
   let maximumSpeakerRun = 1;
   for (let index = 1; index < turns.length; index += 1) {
-    speakerRun = turns[index].speaker === turns[index - 1].speaker ? speakerRun + 1 : 1;
+    const speaker = turns[index].speaker ?? turns[index].speakerRoleId ?? turns[index].kind;
+    const previousSpeaker = turns[index - 1].speaker ?? turns[index - 1].speakerRoleId ?? turns[index - 1].kind;
+    speakerRun = speaker === previousSpeaker ? speakerRun + 1 : 1;
     maximumSpeakerRun = Math.max(maximumSpeakerRun, speakerRun);
   }
   addIssue(issues, maximumSpeakerRun > 2,

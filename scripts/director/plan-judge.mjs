@@ -153,7 +153,8 @@ function compactCandidate(plan, index) {
     title: plan.title,
     tone: plan.tone,
     narrativeTemplateId: plan.narrativeTemplateId,
-    cast: plan.cast,
+    cast: plan.cast ?? null,
+    richnessProfile: plan.richnessProfile ?? null,
     musicResourceId: plan.musicResourceId || null,
     scenes: plan.scenes.map((scene) => ({
       title: scene.title,
@@ -162,7 +163,11 @@ function compactCandidate(plan, index) {
       cameraPreset: scene.cameraPreset,
       layoutPreset: scene.layoutPreset,
       transitionPreset: scene.transitionPreset,
-      dialogue: scene.dialogue,
+      mode: scene.mode ?? 'dialogue',
+      sceneRecipeId: scene.sceneRecipeId ?? null,
+      participants: scene.participants ?? null,
+      visualElements: scene.visualElements ?? null,
+      dialogue: scene.dialogue ?? scene.speech,
     })),
   };
 }

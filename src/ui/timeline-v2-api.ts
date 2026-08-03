@@ -28,6 +28,17 @@ export interface TimelineExportResult {
   downloadName: string;
 }
 
+export async function directTimelineProject(instruction: string, project: TimelineDocumentV2): Promise<{
+  version: number;
+  commands: unknown[];
+  project: TimelineDocumentV2;
+  explanation: string;
+}> {
+  return request('/api/timeline/director', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ instruction, project }),
+  });
+}
+
 export async function listTimelineMedia(): Promise<TimelineMediaEntry[]> {
   return (await request<{ entries: TimelineMediaEntry[] }>('/api/timeline/media')).entries;
 }
