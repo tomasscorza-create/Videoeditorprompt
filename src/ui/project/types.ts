@@ -87,7 +87,8 @@ export interface VisibilityWindowView {
 
 export interface TurnView {
   id: string;
-  speakerElementId: string;
+  speakerType?: 'character' | 'voiceover';
+  speakerElementId?: string;
   text: string;
   voiceId: string;
   gestureId: string;

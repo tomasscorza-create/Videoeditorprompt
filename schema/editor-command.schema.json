@@ -64,10 +64,16 @@
       "$ref": "#/$defs/addDialogueTurn"
     },
     {
+      "$ref": "#/$defs/addVoiceoverTurn"
+    },
+    {
       "$ref": "#/$defs/deleteDialogueTurn"
     },
     {
       "$ref": "#/$defs/setDialogueSpeaker"
+    },
+    {
+      "$ref": "#/$defs/setDialogueVoiceover"
     },
     {
       "$ref": "#/$defs/setTransition"
@@ -910,6 +916,52 @@
         }
       }
     },
+    "addVoiceoverTurn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "turnId",
+        "text",
+        "voiceId",
+        "gapAfterSeconds"
+      ],
+      "properties": {
+        "type": {
+          "const": "add-voiceover-turn"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "turnId": {
+          "$ref": "#/$defs/id"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "voiceId": {
+          "$ref": "#/$defs/id"
+        },
+        "pace": {
+          "enum": [
+            "slow",
+            "normal",
+            "fast"
+          ]
+        },
+        "gapAfterSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "afterTurnId": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
     "deleteDialogueTurn": {
       "type": "object",
       "additionalProperties": false,
@@ -950,6 +1002,26 @@
           "$ref": "#/$defs/id"
         },
         "speakerElementId": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "setDialogueVoiceover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "sceneId",
+        "turnId"
+      ],
+      "properties": {
+        "type": {
+          "const": "set-dialogue-voiceover"
+        },
+        "sceneId": {
+          "$ref": "#/$defs/id"
+        },
+        "turnId": {
           "$ref": "#/$defs/id"
         }
       }

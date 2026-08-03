@@ -210,16 +210,28 @@ export function validateEditableProject(project, catalog) {
       }
     }
     if (scene.elements.length > 20) fail('EDITOR_PROJECT_INVALID', 'Una escena admite hasta 20 elementos.', `${scenePath}/elements`);
+    if ([...elements.values()].filter((element) => element.type === 'character').length > 2) {
+      fail('EDITOR_PROJECT_INVALID', 'Una escena admite hasta dos personajes.', `${scenePath}/elements`);
+    }
     if (!Array.isArray(scene.dialogue) || scene.dialogue.length > 20) fail('EDITOR_PROJECT_INVALID', 'Una escena admite hasta 20 turnos.', `${scenePath}/dialogue`);
     const turnIds = new Set();
     for (const [turnIndex, turn] of (scene.dialogue || []).entries()) {
       const turnPath = `${scenePath}/dialogue/${turnIndex}`;
       if (turnIds.has(turn.id)) fail('EDITOR_PROJECT_INVALID', 'Los IDs de turno deben ser únicos.', `${turnPath}/id`);
       turnIds.add(turn.id);
-      const speaker = elements.get(turn.speakerElementId);
-      if (!speaker || speaker.type !== 'character') fail('EDITOR_SPEAKER_INVALID', 'El hablante debe ser un personaje de la escena.', `${turnPath}/speakerElementId`);
-      const speakerResource = resources.get(speaker.resourceId);
-      if (!speakerResource.capabilities.poses.includes(turn.gestureId)) fail('EDITOR_GESTURE_INVALID', 'El personaje no soporta el gesto seleccionado.', `${turnPath}/gestureId`);
+      const speakerType = turn.speakerType ?? 'character';
+      if (!['character', 'voiceover'].includes(speakerType)) fail('EDITOR_SPEAKER_INVALID', 'El tipo de hablante no es compatible.', `${turnPath}/speakerType`);
+      if (speakerType === 'voiceover') {
+        if (turn.speakerElementId !== undefined) fail('EDITOR_SPEAKER_INVALID', 'La voz fuera de campo no referencia un personaje.', `${turnPath}/speakerElementId`);
+        if (turn.gestureId !== 'neutral' || turn.gestureAtWord !== undefined || turn.layoutPreset !== undefined) {
+          fail('EDITOR_GESTURE_INVALID', 'La voz fuera de campo no admite gestos ni layouts de personaje.', `${turnPath}/gestureId`);
+        }
+      } else {
+        const speaker = elements.get(turn.speakerElementId);
+        if (!speaker || speaker.type !== 'character') fail('EDITOR_SPEAKER_INVALID', 'El hablante debe ser un personaje de la escena.', `${turnPath}/speakerElementId`);
+        const speakerResource = resources.get(speaker.resourceId);
+        if (!speakerResource.capabilities.poses.includes(turn.gestureId)) fail('EDITOR_GESTURE_INVALID', 'El personaje no soporta el gesto seleccionado.', `${turnPath}/gestureId`);
+      }
       requireResource(resources, turn.voiceId, 'voice', `${turnPath}/voiceId`);
       stringInRange(turn.text, 1, 500, `${turnPath}/text`);
       numberInRange(turn.gapAfterSeconds, 0, 5, `${turnPath}/gapAfterSeconds`);
@@ -239,11 +251,8 @@ export function validateRenderableProject(project, catalog) {
   validateEditableProject(project, catalog);
   for (const [sceneIndex, scene] of project.scenes.entries()) {
     const characters = scene.elements.filter((element) => element.type === 'character');
-    if (characters.length !== 2) {
-      fail('EDITOR_SCENE_NOT_RENDERABLE', 'Para renderizar, cada escena necesita exactamente dos personajes.', `/scenes/${sceneIndex}/elements`);
-    }
-    if (scene.dialogue.length < 2) {
-      fail('EDITOR_SCENE_NOT_RENDERABLE', 'Para renderizar, cada escena necesita al menos dos turnos de diálogo.', `/scenes/${sceneIndex}/dialogue`);
+    if (scene.dialogue.length < 1) {
+      fail('EDITOR_SCENE_NOT_RENDERABLE', 'Para renderizar, cada escena necesita al menos un turno hablado.', `/scenes/${sceneIndex}/dialogue`);
     }
     for (const [elementIndex, element] of characters.entries()) {
       const transform = element.transform;
@@ -300,7 +309,9 @@ function applyMutation(project, catalog, command) {
       copy.dialogue = copy.dialogue.map((turn, index) => ({
         ...turn,
         id: `${command.newSceneId}-t${index + 1}`,
-        speakerElementId: elementIds.get(turn.speakerElementId),
+        ...((turn.speakerType ?? 'character') === 'character'
+          ? { speakerElementId: elementIds.get(turn.speakerElementId) }
+          : {}),
       }));
       project.scenes.splice(sourceIndex + 1, 0, copy);
       normalizeTransitions(project);
@@ -343,6 +354,7 @@ function applyMutation(project, catalog, command) {
       const scene = requireScene(project, command.sceneId);
       portableId(command.elementId, '/command/elementId');
       if (scene.elements.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 elementos.', '/command');
+      if (scene.elements.filter((element) => element.type === 'character').length >= 2) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta dos personajes.', '/command');
       if (scene.elements.some((element) => element.id === command.elementId)) fail('EDITOR_PROJECT_INVALID', 'El ID del elemento ya existe.', '/command/elementId');
       const resource = requireResource(resources, command.resourceId, 'character', '/command/resourceId');
       scene.elements.push({
@@ -485,6 +497,28 @@ function applyMutation(project, catalog, command) {
       scene.dialogue.splice(index, 0, turn);
       return;
     }
+    case 'add-voiceover-turn': {
+      const scene = requireScene(project, command.sceneId);
+      portableId(command.turnId, '/command/turnId');
+      if (scene.dialogue.length >= 20) fail('EDITOR_PROJECT_INVALID', 'La escena admite hasta 20 turnos.', '/command');
+      if (scene.dialogue.some((turn) => turn.id === command.turnId)) fail('EDITOR_PROJECT_INVALID', 'El ID del turno ya existe.', '/command/turnId');
+      requireResource(resources, command.voiceId, 'voice', '/command/voiceId');
+      const turn = {
+        id: command.turnId,
+        speakerType: 'voiceover',
+        text: command.text,
+        voiceId: command.voiceId,
+        gestureId: 'neutral',
+        ...(command.pace !== undefined ? { pace: command.pace } : {}),
+        gapAfterSeconds: command.gapAfterSeconds,
+      };
+      const index = command.afterTurnId
+        ? scene.dialogue.findIndex((item) => item.id === command.afterTurnId) + 1
+        : scene.dialogue.length;
+      if (command.afterTurnId && index === 0) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.afterTurnId}.`, '/command/afterTurnId');
+      scene.dialogue.splice(index, 0, turn);
+      return;
+    }
     case 'set-element-window': {
       const scene = requireScene(project, command.sceneId);
       const element = requireElement(scene, command.elementId);
@@ -504,11 +538,10 @@ function applyMutation(project, catalog, command) {
       const index = scene.elements.findIndex((item) => item.id === command.elementId);
       if (index < 0) fail('EDITOR_ELEMENT_NOT_FOUND', `No existe el elemento ${command.elementId}.`, '/command/elementId');
       const element = scene.elements[index];
-      // El runtime v2 exige exactamente dos personajes por escena, así que
-      // partir uno produciría un proyecto que no compila. Un personaje se
-      // recorta por los bordes; partirlo en dos todavía no tiene representación.
+      // Un personaje no es una instancia de medio divisible: duplicarlo cambiaría
+      // el elenco y podría superar el máximo de dos. Se recorta por los bordes.
       if (element.type === 'character') {
-        fail('EDITOR_ELEMENT_UNSUPPORTED', 'Un personaje no se puede partir en dos: la escena admite exactamente dos personajes. Recortá sus bordes.', '/command/elementId');
+        fail('EDITOR_ELEMENT_UNSUPPORTED', 'Un personaje no se puede partir como si fuera un clip de medio. Recortá sus bordes.', '/command/elementId');
       }
       if (!['prop', 'template'].includes(element.type)) {
         fail('EDITOR_ELEMENT_UNSUPPORTED', 'Solo props y plantillas se pueden partir.', '/command/elementId');
@@ -590,7 +623,19 @@ function applyMutation(project, catalog, command) {
       const turn = scene.dialogue.find((item) => item.id === command.turnId);
       if (!turn) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.turnId}.`, '/command/turnId');
       requireElement(scene, command.speakerElementId, 'character');
+      delete turn.speakerType;
       turn.speakerElementId = command.speakerElementId;
+      return;
+    }
+    case 'set-dialogue-voiceover': {
+      const scene = requireScene(project, command.sceneId);
+      const turn = scene.dialogue.find((item) => item.id === command.turnId);
+      if (!turn) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.turnId}.`, '/command/turnId');
+      turn.speakerType = 'voiceover';
+      delete turn.speakerElementId;
+      turn.gestureId = 'neutral';
+      delete turn.gestureAtWord;
+      delete turn.layoutPreset;
       return;
     }
     case 'set-transition': {
@@ -625,10 +670,9 @@ function applyMutation(project, catalog, command) {
       if (index < 0) fail('EDITOR_SCENE_NOT_FOUND', `No existe la escena ${command.sceneId}.`, '/command/sceneId');
       const scene = project.scenes[index];
       const turnIndex = scene.dialogue.findIndex((turn) => turn.id === command.atTurnId);
-      // Cada escena necesita al menos dos turnos para poder renderizarse, así que el corte
-      // (el turno indicado inicia la segunda escena) debe dejar >= 2 turnos a cada lado.
-      if (turnIndex < 2 || turnIndex > scene.dialogue.length - 2) {
-        fail('EDITOR_SPLIT_INVALID', 'El corte debe dejar al menos dos turnos a cada lado.', '/command/atTurnId');
+      // El turno indicado inicia la segunda escena; ambas conservan al menos una voz.
+      if (turnIndex < 1 || turnIndex > scene.dialogue.length - 1) {
+        fail('EDITOR_SPLIT_INVALID', 'El corte debe dejar al menos un turno hablado a cada lado.', '/command/atTurnId');
       }
       const moved = scene.dialogue.slice(turnIndex);
       const copy = cloneJson(scene);
@@ -639,7 +683,9 @@ function applyMutation(project, catalog, command) {
       copy.dialogue = moved.map((turn, position) => ({
         ...cloneJson(turn),
         id: `${command.newSceneId}-t${position + 1}`,
-        speakerElementId: elementIds.get(turn.speakerElementId) ?? turn.speakerElementId,
+        ...((turn.speakerType ?? 'character') === 'character'
+          ? { speakerElementId: elementIds.get(turn.speakerElementId) ?? turn.speakerElementId }
+          : {}),
       }));
       // La escena original conserva sus primeros turnos; la nueva hereda la transición de
       // salida (copy ya la clonó) y el corte entre ambas es un cut.
@@ -866,8 +912,10 @@ function assertCommandShape(command) {
     'set-element-transform': { required: ['type', 'sceneId', 'elementId'], optional: ['x', 'y', 'scale', 'rotationDegrees', 'opacity', 'zIndex'] },
     'set-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: ['text', 'voiceId', 'gestureId', 'gestureAtWord', 'pace', 'layoutPreset', 'gapAfterSeconds'] },
     'add-dialogue-turn': { required: ['type', 'sceneId', 'turnId', 'speakerElementId', 'text', 'voiceId', 'gestureId', 'gapAfterSeconds'], optional: ['gestureAtWord', 'pace', 'layoutPreset', 'afterTurnId'] },
+    'add-voiceover-turn': { required: ['type', 'sceneId', 'turnId', 'text', 'voiceId', 'gapAfterSeconds'], optional: ['pace', 'afterTurnId'] },
     'delete-dialogue-turn': { required: ['type', 'sceneId', 'turnId'], optional: [] },
     'set-dialogue-speaker': { required: ['type', 'sceneId', 'turnId', 'speakerElementId'], optional: [] },
+    'set-dialogue-voiceover': { required: ['type', 'sceneId', 'turnId'], optional: [] },
     'set-transition': { required: ['type', 'sceneId', 'preset', 'durationSeconds'], optional: [] },
     'reorder-scenes': { required: ['type', 'sceneIds'], optional: [] },
     'split-scene': { required: ['type', 'sceneId', 'atTurnId', 'newSceneId'], optional: [] },

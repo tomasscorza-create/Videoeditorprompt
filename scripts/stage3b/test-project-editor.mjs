@@ -336,8 +336,7 @@ test('export-is-portable-and-passes-authoritative-validator', () => {
 
 test('splits-a-scene-at-a-turn-boundary', () => {
   let state = createProjectEditor(project, catalog);
-  // La escena arranca con 2 turnos; se lleva a 4 para poder partir 2+2 (cada escena
-  // renderizable necesita >= 2 turnos).
+  // Se lleva a cuatro turnos para verificar el remapeo de varios hablantes.
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-03',
     speakerElementId: 'presentadora', text: 'Tercer turno.', voiceId: 'voz-claude-mx-v1', gestureId: 'neutral', gapAfterSeconds: 0,
@@ -490,7 +489,7 @@ test('splits-a-prop-into-two-halves', () => {
 test('refuses-to-split-a-character', () => {
   const state = createProjectEditor(project, catalog);
   const elementId = project.scenes[0].elements.find((item) => item.type === 'character').id;
-  // La escena admite exactamente dos personajes: partir uno daría tres.
+  // Un personaje no es un clip de medio divisible; se recorta por los bordes.
   rejects('EDITOR_ELEMENT_UNSUPPORTED', () => applyProjectEditorCommand(state, {
     type: 'split-element', sceneId: 'escena-presentacion', elementId,
     at: { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 1 },
@@ -505,6 +504,95 @@ test('reorders-dialogue-turns-within-a-scene', () => {
   assert.equal(validateRenderableProject(state.project, catalog), true);
   rejects('EDITOR_TURN_ORDER_INVALID', () => command(state, { type: 'reorder-dialogue-turns', sceneId: 'escena-presentacion', turnIds: ['turno-presentacion-02'] }));
   rejects('EDITOR_TURN_ORDER_INVALID', () => command(state, { type: 'reorder-dialogue-turns', sceneId: 'escena-presentacion', turnIds: ['turno-presentacion-02', 'turno-fantasma'] }));
+});
+
+test('creates-a-renderable-voiceover-scene-without-characters-and-preserves-undo-redo', () => {
+  const draft = structuredClone(project);
+  draft.scenes = [{
+    id: 'escena-narrada', title: 'Escena narrada',
+    background: structuredClone(project.scenes[0].background), elements: [], dialogue: [],
+  }];
+  const initial = createProjectEditor(draft, catalog);
+  const edited = command(initial, {
+    type: 'add-voiceover-turn', sceneId: 'escena-narrada', turnId: 'narracion-01',
+    text: 'Una voz cuenta la historia sin aparecer en pantalla.', voiceId: 'voz-claude-mx-v1', gapAfterSeconds: 0,
+  });
+  const turn = edited.project.scenes[0].dialogue[0];
+  assert.equal(turn.speakerType, 'voiceover');
+  assert.equal(Object.hasOwn(turn, 'speakerElementId'), false);
+  assert.equal(validateRenderableProject(edited.project, catalog), true);
+  const undone = undoProjectEditor(edited);
+  assert.equal(undone.project.scenes[0].dialogue.length, 0);
+  const redone = redoProjectEditor(undone);
+  assert.deepEqual(redone.project, edited.project);
+});
+
+test('supports-one-character-one-turn-and-enforces-the-two-character-maximum', () => {
+  const draft = structuredClone(project);
+  draft.scenes = [{
+    id: 'escena-monologo', title: 'Monólogo',
+    background: structuredClone(project.scenes[0].background), elements: [], dialogue: [],
+  }];
+  let state = createProjectEditor(draft, catalog);
+  state = command(state, {
+    type: 'add-character', sceneId: 'escena-monologo', elementId: 'persona-01',
+    resourceId: 'mono-azul-v1', x: 540, y: 1180, scale: 0.8, zIndex: 1,
+  });
+  state = command(state, {
+    type: 'add-dialogue-turn', sceneId: 'escena-monologo', turnId: 'turno-01', speakerElementId: 'persona-01',
+    text: 'Un personaje puede sostener una escena.', voiceId: 'voz-claude-mx-v1', gestureId: 'neutral', gapAfterSeconds: 0,
+  });
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+  state = command(state, {
+    type: 'add-character', sceneId: 'escena-monologo', elementId: 'persona-02',
+    resourceId: 'mono-ciruela-v1', x: 720, y: 1180, scale: 0.8, zIndex: 2,
+  });
+  rejects('EDITOR_PROJECT_INVALID', () => command(state, {
+    type: 'add-character', sceneId: 'escena-monologo', elementId: 'persona-03',
+    resourceId: 'mono-azul-v1', x: 360, y: 1180, scale: 0.8, zIndex: 3,
+  }));
+});
+
+test('switches-between-character-and-voiceover-without-broken-references', () => {
+  let state = createProjectEditor(project, catalog);
+  rejects('EDITOR_ELEMENT_IN_USE', () => command(state, {
+    type: 'delete-element', sceneId: 'escena-presentacion', elementId: 'presentadora',
+  }));
+  state = command(state, {
+    type: 'set-dialogue-voiceover', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01',
+  });
+  let turn = state.project.scenes[0].dialogue[0];
+  assert.equal(turn.speakerType, 'voiceover');
+  assert.equal(Object.hasOwn(turn, 'speakerElementId'), false);
+  state = command(state, { type: 'delete-element', sceneId: 'escena-presentacion', elementId: 'presentadora' });
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+  state = command(state, {
+    type: 'set-dialogue-speaker', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01', speakerElementId: 'analista',
+  });
+  turn = state.project.scenes[0].dialogue[0];
+  assert.equal(Object.hasOwn(turn, 'speakerType'), false);
+  assert.equal(turn.speakerElementId, 'analista');
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+});
+
+test('splits-and-duplicates-voiceover-scenes-with-one-turn-per-side', () => {
+  let state = command(createProjectEditor(project, catalog), {
+    type: 'set-dialogue-voiceover', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-02',
+  });
+  state = command(state, {
+    type: 'split-scene', sceneId: 'escena-presentacion', atTurnId: 'turno-presentacion-02', newSceneId: 'escena-narrada-02',
+  });
+  const splitTurn = state.project.scenes[1].dialogue[0];
+  assert.equal(splitTurn.speakerType, 'voiceover');
+  assert.equal(Object.hasOwn(splitTurn, 'speakerElementId'), false);
+  assert.equal(validateRenderableProject(state.project, catalog), true);
+  state = command(state, {
+    type: 'duplicate-scene', sceneId: 'escena-narrada-02', newSceneId: 'escena-narrada-03', title: 'Narración duplicada',
+  });
+  const duplicateTurn = state.project.scenes[2].dialogue[0];
+  assert.equal(duplicateTurn.speakerType, 'voiceover');
+  assert.equal(Object.hasOwn(duplicateTurn, 'speakerElementId'), false);
+  assert.equal(validateRenderableProject(state.project, catalog), true);
 });
 
 const summary = {

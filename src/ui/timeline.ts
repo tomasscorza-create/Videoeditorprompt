@@ -316,7 +316,7 @@ function renderLayerStack(
       const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
       if (medidaDeEscena) {
         bindElementTrim(clip, scene, element, medidaDeEscena);
-        // Personajes no: la escena admite exactamente dos y partir uno la rompe.
+        // Los personajes no son medios divisibles; partirlos duplicaría el elenco.
         if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
       }
       const characterStart = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
@@ -353,7 +353,7 @@ function renderLayerStack(
       const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
       if (medidaDeEscena) {
         bindElementTrim(clip, scene, element, medidaDeEscena);
-        // Personajes no: la escena admite exactamente dos y partir uno la rompe.
+        // Los personajes no son medios divisibles; partirlos duplicaría el elenco.
         if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
       }
       appendElementKeyframes(clip, scene, element, measured?.scenes[sceneIndex] ?? null);
@@ -387,7 +387,7 @@ function renderLayerStack(
       const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
       if (medidaDeEscena) {
         bindElementTrim(clip, scene, element, medidaDeEscena);
-        // Personajes no: la escena admite exactamente dos y partir uno la rompe.
+        // Los personajes no son medios divisibles; partirlos duplicaría el elenco.
         if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
       }
       const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
@@ -456,6 +456,46 @@ function renderLayerStack(
     });
     rows.push(authoringTrack(`A${slot + 1}`, `Voz ${slot + 1}`, totalWidth, clips));
   }
+  const voiceoverClips: HTMLElement[] = [];
+  project.scenes.forEach((scene, sceneIndex) => {
+    const totalWords = Math.max(1, wordsInScene(scene));
+    const measuredTurns = measured?.scenes[sceneIndex]?.turns;
+    const turnById = measuredTurns && measuredTurns.length > 0
+      ? new Map(measuredTurns.map((measuredTurn) => [measuredTurn.id, measuredTurn]))
+      : null;
+    let cursor = positions[sceneIndex];
+    for (const turn of scene.dialogue) {
+      const measuredTurn = turnById?.get(turn.id);
+      const { left, width } = measuredTurn
+        ? turnClipRect(measuredTurn.startSeconds, measuredTurn.durationSeconds, pixelsPerSecond, MIN_CLIP_WIDTH)
+        : { left: cursor, width: Math.max(38, sceneWidths[sceneIndex] * (wordCount(turn.text) / totalWords)) };
+      const turnStartSeconds = measuredTurn ? measuredTurn.startSeconds : left / pixelsPerSecond;
+      const turnEndSeconds = measuredTurn ? measuredTurn.endSeconds : (left + width) / pixelsPerSecond;
+      if (turn.speakerType === 'voiceover') {
+        const selection = projectSelection();
+        const detail = measuredTurn
+          ? `${turn.voiceId} · ${measuredTurn.durationSeconds.toFixed(2)} s medidos`
+          : `${turn.voiceId} · voz fuera de campo`;
+        const clip = authoringClip(turn.text, detail, left, width, 'dialogue', selection?.kind === 'dialogue' && selection.turnId === turn.id);
+        clip.addEventListener('click', () => clipSingleClick(turnStartSeconds, () => selectDialogue(scene.id, turn.id), () => selectDialogueCore(scene.id, turn.id)));
+        clip.addEventListener('dblclick', () => selectDialogue(scene.id, turn.id));
+        clip.addEventListener('contextmenu', (event) => {
+          event.preventDefault();
+          openContextMenu(clip, dialogueMenuItems(scene.id, turn.id, clip));
+        });
+        bindDialogueDrag(clip, scene.id, turn.id);
+        if (measuredTurn) bindDialogueCutter(clip, scene.id, turn, measuredTurn);
+        if (waveform) attachWaveformCanvas(clip, turnStartSeconds, turnEndSeconds);
+        voiceoverClips.push(clip, gapHandle(scene.id, turn.id, turnEndSeconds * pixelsPerSecond, turn.gapAfterSeconds));
+        const turnIndex = scene.dialogue.indexOf(turn);
+        if (turnIndex > 0 && scene.dialogue.length < 20) {
+          voiceoverClips.push(insertButton(left, 'Insertar turno aquí', false, () => insertTurn(scene.id, turn, scene.dialogue[turnIndex - 1].id)));
+        }
+      }
+      cursor += width;
+    }
+  });
+  if (voiceoverClips.length > 0) rows.push(authoringTrack('VO', 'Voz fuera de campo', totalWidth, voiceoverClips));
   const playhead = document.createElement('span');
   playhead.id = 'authoring-playhead';
   playhead.className = 'authoring-playhead';
@@ -976,12 +1016,14 @@ function menuKeydown(event: KeyboardEvent): void {
 function sceneMenuItems(sceneId: string, anchor: HTMLElement): MenuItem[] {
   const scenes = store?.project().scenes ?? [];
   const index = scenes.findIndex((scene) => scene.id === sceneId);
+  const scene = scenes[index];
   const canAdd = scenes.length < 8;
   const isLast = index === scenes.length - 1;
   return [
     { label: 'Duplicar escena', disabled: !canAdd, action: () => duplicateSceneById(sceneId) },
     { label: 'Insertar escena antes', disabled: !canAdd, action: () => insertSceneAt(sceneId, index) },
     { label: 'Insertar escena después', disabled: !canAdd, action: () => insertSceneAt(sceneId, index + 1) },
+    { label: 'Agregar voz fuera de campo', disabled: !scene || scene.dialogue.length >= 20, action: () => addVoiceoverTurn(sceneId) },
     { separator: true },
     { label: '← Mover a la izquierda', disabled: index <= 0, action: () => moveScene(index, -1) },
     { label: 'Mover a la derecha →', disabled: index < 0 || index >= scenes.length - 1, action: () => moveScene(index, 1) },
@@ -1026,19 +1068,24 @@ function dialogueMenuItems(sceneId: string, turnId: string, anchor: HTMLElement)
     { label: 'Insertar turno antes', disabled: !canAdd || !turn || turnIndex === 0, action: () => turn && insertTurn(sceneId, turn, previous?.id) },
     { label: 'Insertar turno después', disabled: !canAdd || !turn, action: () => turn && insertTurn(sceneId, turn, turn.id) },
     { separator: true },
-    { label: canSplit ? 'Dividir escena aquí' : 'Dividir aquí (necesita 2 turnos por lado)', disabled: !canSplit, action: () => splitSceneAtTurn(sceneId, turnId) },
+    { label: canSplit ? 'Dividir escena aquí' : 'Dividir aquí (necesita 1 turno por lado)', disabled: !canSplit, action: () => splitSceneAtTurn(sceneId, turnId) },
     { separator: true },
   ];
-  if (speakers.length > 1) {
+  if (turn) {
     items.push({ label: 'Cambiar hablante…', action: () => openResourcePicker(
       anchor,
       'Hablante',
       null,
       (speakerElementId) => {
-        const error = store?.dispatch({ type: 'set-dialogue-speaker', sceneId, turnId, speakerElementId });
+        const error = speakerElementId === '__voiceover__'
+          ? store?.dispatch({ type: 'set-dialogue-voiceover', sceneId, turnId })
+          : store?.dispatch({ type: 'set-dialogue-speaker', sceneId, turnId, speakerElementId });
         if (error) window.alert(error);
       },
-      speakers.map((element) => ({ id: element.id, label: element.resourceId ?? element.id })),
+      [
+        { id: '__voiceover__', label: 'Voz fuera de campo' },
+        ...speakers.map((element) => ({ id: element.id, label: element.resourceId ?? element.id })),
+      ],
     ) });
     items.push({ separator: true });
   }
@@ -1070,17 +1117,24 @@ function duplicateSceneById(sceneId: string): void {
   if (!error) selectScene(newSceneId);
 }
 
-// Inserta una escena en `targetIndex` DUPLICANDO la vecina, no con add-scene: el runtime
-// exige exactamente 2 personajes y >= 2 turnos por escena, y add-scene solo crea escenas
-// vacías que después no renderizan (PROJECT_SCENE_UNSUPPORTED). duplicate-scene la deja
-// justo después de la referencia; se reubica si el destino es otro.
+// Una escena nueva es un borrador vacío deliberado. El usuario decide si será narrada,
+// tendrá uno o dos personajes o quedará solo como composición mientras la completa.
 function insertSceneAt(referenceSceneId: string, targetIndex: number): void {
   if (!store) return;
   const scenes = store.project().scenes;
   const reference = scenes.find((item) => item.id === referenceSceneId);
   if (!reference || scenes.length >= 8) return;
   const newSceneId = nextSceneId(scenes.map((item) => item.id));
-  const error = store.dispatch({ type: 'duplicate-scene', sceneId: referenceSceneId, newSceneId, title: `${reference.title} nueva` });
+  const error = store.dispatch({
+    type: 'add-scene',
+    scene: {
+      id: newSceneId,
+      title: 'Nueva escena',
+      background: { ...reference.background },
+      elements: [],
+      dialogue: [],
+    },
+  });
   if (error) { window.alert(error); return; }
   const currentIndex = store.project().scenes.findIndex((item) => item.id === newSceneId);
   if (currentIndex !== targetIndex) {
@@ -1107,20 +1161,41 @@ function deleteSceneById(sceneId: string): void {
   store.dispatch({ type: 'delete-scene', sceneId });
 }
 
-function insertTurn(sceneId: string, reference: { speakerElementId: string; voiceId: string }, afterTurnId?: string): void {
+function addVoiceoverTurn(sceneId: string, afterTurnId?: string, voiceId?: string): void {
+  if (!store) return;
+  const scene = store.project().scenes.find((item) => item.id === sceneId);
+  const voice = voiceId ?? store.resources('voice')[0]?.id;
+  if (!scene || !voice) {
+    notify({ message: 'No hay una voz disponible para crear la narración.', level: 'error' });
+    return;
+  }
+  const turnId = nextTurnId(scene.dialogue.map((turn) => turn.id));
+  const error = store.dispatch({
+    type: 'add-voiceover-turn',
+    sceneId,
+    turnId,
+    text: 'Nueva narración',
+    voiceId: voice,
+    gapAfterSeconds: 0,
+    ...(afterTurnId ? { afterTurnId } : {}),
+  });
+  if (error) window.alert(error);
+  else selectDialogue(sceneId, turnId);
+}
+
+function insertTurn(sceneId: string, reference: { speakerType?: 'character' | 'voiceover'; speakerElementId?: string; voiceId: string }, afterTurnId?: string): void {
   if (!store) return;
   const scene = store.project().scenes.find((item) => item.id === sceneId);
   if (!scene) return;
   const turnId = nextTurnId(scene.dialogue.map((turn) => turn.id));
+  if (reference.speakerType === 'voiceover' || !reference.speakerElementId) {
+    addVoiceoverTurn(sceneId, afterTurnId, reference.voiceId);
+    return;
+  }
   const command = {
-    type: 'add-dialogue-turn' as const,
-    sceneId,
-    turnId,
-    speakerElementId: reference.speakerElementId,
-    text: 'Nuevo diálogo',
-    voiceId: reference.voiceId,
-    gestureId: 'neutral' as const,
-    gapAfterSeconds: 0,
+    type: 'add-dialogue-turn' as const, sceneId, turnId,
+    speakerElementId: reference.speakerElementId, text: 'Nuevo diálogo', voiceId: reference.voiceId,
+    gestureId: 'neutral' as const, gapAfterSeconds: 0,
     ...(afterTurnId ? { afterTurnId } : {}),
   };
   const error = store.dispatch(command);
@@ -1565,10 +1640,9 @@ async function remeasureProject(options: { automatic?: boolean } = {}): Promise<
   }
 }
 
-// C2: el corte es válido solo si deja al menos dos turnos a cada lado (el motor exige
-// >= 2 turnos por escena renderizable).
+// El corte es válido si deja al menos un turno hablado en cada escena.
 function canSplitAtIndex(dialogueLength: number, turnIndex: number): boolean {
-  return turnIndex >= 2 && turnIndex <= dialogueLength - 2;
+  return turnIndex >= 1 && turnIndex <= dialogueLength - 1;
 }
 
 function splitSceneAtTurn(sceneId: string, turnId: string): void {
@@ -1577,10 +1651,10 @@ function splitSceneAtTurn(sceneId: string, turnId: string): void {
   if (!scene) return;
   const turnIndex = scene.dialogue.findIndex((turn) => turn.id === turnId);
   // Antes esto se rendía en silencio y parecía que la tecla estaba rota. El
-  // límite es del motor: una escena renderizable necesita >= 2 turnos.
+  // límite es del motor: una escena renderizable necesita al menos una voz.
   if (!canSplitAtIndex(scene.dialogue.length, turnIndex)) {
     notify({
-      message: 'Para dividir la escena acá tienen que quedar al menos dos diálogos de cada lado. Cortá un diálogo con B para tener más.',
+      message: 'Para dividir la escena acá tiene que quedar al menos un turno hablado de cada lado. Cortá un diálogo con B para tener más.',
       level: 'error',
     });
     return;
@@ -2374,7 +2448,7 @@ function updateToolbar(): void {
     split.disabled = creator || !canSplitSelection;
     split.title = canSplitSelection
       ? 'Dividir la escena antes del diálogo seleccionado (Ctrl+B)'
-      : 'Seleccioná un diálogo que deje al menos dos turnos a cada lado';
+      : 'Seleccioná un diálogo que deje al menos un turno a cada lado';
   }
   // Medir es la acción que destraba todo lo temporal, así que se ofrece en la
   // barra y no escondida dentro del popover del badge. Con los tiempos ya

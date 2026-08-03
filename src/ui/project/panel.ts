@@ -131,6 +131,7 @@ export function initProjectEditor(store: ProjectStore): void {
     const fields: HTMLElement[] = [];
 
     for (const [index, turn] of scene.dialogue.entries()) {
+      const isVoiceover = turn.speakerType === 'voiceover';
       const speaker = scene.elements.find((element) => element.id === turn.speakerElementId);
       const character = characters.find((resource) => resource.id === speaker?.resourceId);
       const speakerIndex = scene.elements.findIndex((element) => element.id === turn.speakerElementId);
@@ -140,7 +141,7 @@ export function initProjectEditor(store: ProjectStore): void {
       item.dataset.inspectorTurn = turn.id;
       const meta = document.createElement('span');
       meta.className = 'proposal-dialogue-meta';
-      meta.textContent = `Personaje · ${character?.label ?? fallbackName}`;
+      meta.textContent = isVoiceover ? 'Voz fuera de campo' : `Personaje · ${character?.label ?? fallbackName}`;
       item.append(meta, dialogueText(scene, turn));
       fields.push(item);
     }

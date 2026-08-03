@@ -199,6 +199,22 @@ export function initEditingPanel(store: ProjectStore): void {
       if (value) send({ type: 'set-scene-title', sceneId: scene.id, title: value });
     });
     card.append(compactFieldRow('Título', titleInput, 'wide'));
+    const characterCount = scene.elements.filter((element) => element.type === 'character').length;
+    card.append(contextNote(`${characterCount} personaje${characterCount === 1 ? '' : 's'} · ${scene.dialogue.length} turno${scene.dialogue.length === 1 ? '' : 's'}. La escena puede usar voz fuera de campo y no necesita personajes visibles.`));
+    const voice = store.resources('voice')[0];
+    const addVoiceover = actionButton('Agregar voz fuera de campo', () => {
+      if (!voice || scene.dialogue.length >= 20) return;
+      const ids = new Set(scene.dialogue.map((turn) => turn.id));
+      let index = scene.dialogue.length + 1;
+      let turnId = `${scene.id}-narracion-${index}`;
+      while (ids.has(turnId)) turnId = `${scene.id}-narracion-${++index}`;
+      if (send({
+        type: 'add-voiceover-turn', sceneId: scene.id, turnId,
+        text: 'Nueva narración', voiceId: voice.id, gapAfterSeconds: 0,
+      })) selectProjectItem({ kind: 'dialogue', sceneId: scene.id, turnId });
+    });
+    addVoiceover.disabled = !voice || scene.dialogue.length >= 20;
+    card.append(addVoiceover);
     card.append(contextNote('Ordenar, duplicar, dividir y eliminar escenas corresponde a la timeline. Acá se ajustan sus propiedades.'));
     return card;
   }
@@ -295,17 +311,21 @@ export function initEditingPanel(store: ProjectStore): void {
 
     if (page === 'performance') {
       const characters = scene.elements.filter((item) => item.type === 'character');
+      const isVoiceover = turn.speakerType === 'voiceover';
       const speaker = select(
-        characters.map((item, speakerIndex) => ({
-          value: item.id,
-          label: resourceLabel(store, item, `Personaje ${speakerIndex + 1}`),
-        })),
-        turn.speakerElementId,
+        [
+          { value: '__voiceover__', label: 'Voz fuera de campo' },
+          ...characters.map((item, speakerIndex) => ({
+            value: item.id,
+            label: resourceLabel(store, item, `Personaje ${speakerIndex + 1}`),
+          })),
+        ],
+        isVoiceover ? '__voiceover__' : (turn.speakerElementId ?? '__voiceover__'),
       );
       const speakerElement = characters.find((item) => item.id === turn.speakerElementId);
       const speakerResource = store.resources('character')
         .find((item) => item.id === speakerElement?.resourceId);
-      const gestures = readStringCapability(speakerResource?.capabilities, 'poses');
+      const gestures = isVoiceover ? ['neutral'] : readStringCapability(speakerResource?.capabilities, 'poses');
       const gesture = select(
         gestures.map((value) => ({ value, label: readableOption(value) })),
         turn.gestureId,
@@ -315,7 +335,12 @@ export function initEditingPanel(store: ProjectStore): void {
         turn.voiceId,
       );
       const gap = compactNumberInput(turn.gapAfterSeconds, { min: 0, max: 5, step: 0.05 });
+      gesture.disabled = isVoiceover;
       speaker.addEventListener('change', () => {
+        if (speaker.value === '__voiceover__') {
+          send({ type: 'set-dialogue-voiceover', sceneId: scene.id, turnId: turn.id });
+          return;
+        }
         const nextElement = characters.find((item) => item.id === speaker.value);
         const nextResource = store.resources('character').find((item) => item.id === nextElement?.resourceId);
         const nextGestures = readStringCapability(nextResource?.capabilities, 'poses');
@@ -355,7 +380,7 @@ export function initEditingPanel(store: ProjectStore): void {
         gapAfterSeconds: Number(gap.value),
       }));
       card.append(
-        compactFieldRow('Personaje', speaker, 'wide'),
+        compactFieldRow('Hablante', speaker, 'wide'),
         compactFieldRow('Voz', voice, 'wide'),
         compactFieldRow('Gesto', gesture, 'wide'),
         compactFieldRow('Pausa', gap, 'number', 's'),

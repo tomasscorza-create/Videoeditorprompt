@@ -616,13 +616,33 @@ check(
 check(
   'ningún corte falla en silencio: siempre explica qué falta',
   timelineSource.includes("message: 'Seleccioná un diálogo para dividir la escena antes de él.'")
-    && timelineSource.includes('tienen que quedar al menos dos diálogos de cada lado')
+    && timelineSource.includes('tiene que quedar al menos un turno hablado de cada lado')
     && timelineSource.includes('Poné el cabezal sobre un diálogo para cortarlo.'),
 );
 check(
   'el vocabulario de corte de diálogo está en el esquema y en el relato de undo',
   JSON.stringify(readJson(path.join(projectRoot, 'schema', 'editor-command.schema.json'))).includes('split-dialogue-turn')
     && readFileSync(path.join(projectRoot, 'src', 'ui', 'command-labels.ts'), 'utf8').includes("'split-dialogue-turn'"),
+);
+check(
+  'Edición crea y reasigna voz fuera de campo sin exigir personajes',
+  editingPanelSource.includes("actionButton('Agregar voz fuera de campo'")
+    && editingPanelSource.includes("value: '__voiceover__'")
+    && editingPanelSource.includes("type: 'set-dialogue-voiceover'")
+    && editingPanelSource.includes("type: 'add-voiceover-turn'"),
+);
+check(
+  'la timeline representa narración y crea escenas como borradores vacíos',
+  timelineSource.includes("authoringTrack('VO', 'Voz fuera de campo'")
+    && timelineSource.includes("type: 'add-voiceover-turn'")
+    && timelineSource.includes("type: 'add-scene'")
+    && timelineSource.includes('elements: [],')
+    && timelineSource.includes('dialogue: [],'),
+);
+check(
+  'los comandos cerrados incluyen alta y conversión de voz fuera de campo',
+  JSON.stringify(readJson(path.join(projectRoot, 'schema', 'editor-command.schema.json'))).includes('add-voiceover-turn')
+    && JSON.stringify(readJson(path.join(projectRoot, 'schema', 'editor-command.schema.json'))).includes('set-dialogue-voiceover'),
 );
 check(
   'arrastrar el cabezal no reconstruye el árbol que se está agarrando',

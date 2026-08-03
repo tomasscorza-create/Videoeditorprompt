@@ -209,6 +209,13 @@ Gate:
 
 Objetivo: que una persona pueda construir y corregir esas escenas antes de delegarlas a la IA.
 
+Estado: **completado**. El núcleo y la interfaz admiten escenas renderizables con
+cero, uno o dos personajes y desde un turno hablado. Una escena nueva nace como
+borrador vacío; desde Edición o la timeline se puede agregar voz fuera de campo,
+cambiar un turno entre narrador y personaje, usar reparto distinto por escena y
+dividir dejando un turno a cada lado. Duplicado, borrado, validación y undo/redo
+conservan las referencias del elenco; la timeline muestra una pista VO separada.
+
 Trabajo:
 
 - reemplazar el requisito visual de dos personajes por 0–2 según modo;
