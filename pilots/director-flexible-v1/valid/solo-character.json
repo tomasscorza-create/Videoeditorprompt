@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "sceneId": "escena-solo",
+  "mode": "solo",
+  "durationWeight": 4,
+  "sceneRecipeId": "solo-explainer-v1",
+  "participants": [
+    {
+      "roleId": "presentador",
+      "characterResourceId": "el-peque-v1",
+      "voiceId": "voz-claude-mx-v1",
+      "narrativeRole": "Explicar con cercanía y cerrar con una acción.",
+      "animationPresetId": "talk-calm"
+    }
+  ],
+  "visualElements": [],
+  "speech": [
+    {
+      "id": "solo-01",
+      "kind": "character",
+      "speakerRoleId": "presentador",
+      "voiceId": "voz-claude-mx-v1",
+      "text": "No hace falta una pareja de personajes para explicar una idea concreta.",
+      "pace": "normal",
+      "gestureId": "point",
+      "gestureAtWord": 7,
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": [
+    {
+      "id": "entrada-presentador",
+      "sequenceId": "entrance-emphasis-exit-v1",
+      "anchor": { "kind": "turn", "turnId": "solo-01", "edge": "start" },
+      "intensity": "soft",
+      "durationScale": 1.2,
+      "bindings": [
+        { "slotId": "subject", "elementRoleId": "presentador" }
+      ]
+    }
+  ]
+}

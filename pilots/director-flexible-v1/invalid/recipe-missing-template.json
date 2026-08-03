@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "sceneId": "plantilla-ausente",
+  "mode": "voiceover",
+  "durationWeight": 2,
+  "sceneRecipeId": "keyword-pages-v1",
+  "participants": [],
+  "visualElements": [],
+  "speech": [
+    {
+      "id": "narracion-01",
+      "kind": "voiceover",
+      "voiceId": "voz-claude-mx-v1",
+      "text": "La receta necesita una plantilla que no fue incluida.",
+      "pace": "normal",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": []
+}

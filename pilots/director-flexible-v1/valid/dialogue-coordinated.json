@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "sceneId": "escena-dialogo",
+  "mode": "dialogue",
+  "durationWeight": 5,
+  "sceneRecipeId": "dialogue-contrast-v1",
+  "participants": [
+    {
+      "roleId": "afirmacion",
+      "characterResourceId": "mono-articulado-azul-v1",
+      "voiceId": "voz-claude-mx-v1",
+      "narrativeRole": "Plantear la expectativa inicial.",
+      "animationPresetId": "talk-calm"
+    },
+    {
+      "roleId": "contraste",
+      "characterResourceId": "el-peque-v1",
+      "voiceId": "voz-davefx-es-v1",
+      "narrativeRole": "Mostrar el límite y sintetizar.",
+      "animationPresetId": "idle-calm"
+    }
+  ],
+  "visualElements": [],
+  "speech": [
+    {
+      "id": "dialogo-01",
+      "kind": "character",
+      "speakerRoleId": "afirmacion",
+      "voiceId": "voz-claude-mx-v1",
+      "text": "Si agregamos más efectos, el video siempre será mejor.",
+      "pace": "normal",
+      "gestureId": "point",
+      "gestureAtWord": 3,
+      "gapAfterSeconds": 0.2
+    },
+    {
+      "id": "dialogo-02",
+      "kind": "character",
+      "speakerRoleId": "contraste",
+      "voiceId": "voz-davefx-es-v1",
+      "text": "Solo cuando cada efecto ayuda a entender la idea.",
+      "pace": "slow",
+      "gestureId": "neutral",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": [
+    {
+      "id": "reaccion-contraste",
+      "sequenceId": "speaker-focus-reaction-v1",
+      "anchor": { "kind": "word", "turnId": "dialogo-01", "wordIndex": 3 },
+      "intensity": "medium",
+      "durationScale": 1,
+      "bindings": [
+        { "slotId": "speaker", "elementRoleId": "afirmacion" },
+        { "slotId": "reactor", "elementRoleId": "contraste" }
+      ]
+    }
+  ]
+}

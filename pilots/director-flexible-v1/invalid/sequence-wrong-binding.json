@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "sceneId": "binding-incompatible",
+  "mode": "visual-with-voiceover",
+  "durationWeight": 2,
+  "sceneRecipeId": "voiceover-feature-v1",
+  "participants": [],
+  "visualElements": [
+    { "roleId": "dato", "type": "prop", "resourceId": "cartel-dato-v1", "purpose": "Mostrar un dato." }
+  ],
+  "speech": [
+    {
+      "id": "narracion-01",
+      "kind": "voiceover",
+      "voiceId": "voz-claude-mx-v1",
+      "text": "Un prop no puede ocupar un slot exclusivo de personaje.",
+      "pace": "normal",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": [
+    {
+      "id": "reaccion-invalida",
+      "sequenceId": "speaker-focus-reaction-v1",
+      "anchor": { "kind": "turn", "turnId": "narracion-01", "edge": "start" },
+      "intensity": "medium",
+      "durationScale": 1,
+      "bindings": [
+        { "slotId": "speaker", "elementRoleId": "dato" },
+        { "slotId": "reactor", "elementRoleId": "dato" }
+      ]
+    }
+  ]
+}

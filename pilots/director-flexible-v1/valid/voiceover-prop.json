@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "sceneId": "escena-narrada",
+  "mode": "voiceover",
+  "durationWeight": 3,
+  "sceneRecipeId": "voiceover-feature-v1",
+  "participants": [],
+  "visualElements": [
+    {
+      "roleId": "dato",
+      "type": "prop",
+      "resourceId": "cartel-dato-v1",
+      "purpose": "Mostrar el concepto principal mientras avanza la narración."
+    }
+  ],
+  "speech": [
+    {
+      "id": "narracion-01",
+      "kind": "voiceover",
+      "voiceId": "voz-claude-mx-v1",
+      "text": "Una idea clara puede sostener toda la escena sin personajes visibles.",
+      "pace": "normal",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": [
+    {
+      "id": "efecto-dato",
+      "sequenceId": "visual-reveal-v1",
+      "anchor": { "kind": "scene", "edge": "start" },
+      "intensity": "medium",
+      "durationScale": 1,
+      "bindings": [
+        { "slotId": "subject", "elementRoleId": "dato" }
+      ]
+    }
+  ]
+}

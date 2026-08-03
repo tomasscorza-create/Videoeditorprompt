@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "sceneId": "parametro-incompatible",
+  "mode": "dialogue",
+  "durationWeight": 4,
+  "sceneRecipeId": "dialogue-contrast-v1",
+  "participants": [
+    {
+      "roleId": "hablante",
+      "characterResourceId": "mono-azul-v1",
+      "voiceId": "voz-claude-mx-v1",
+      "narrativeRole": "Presentar la idea.",
+      "animationPresetId": "talk-calm"
+    },
+    {
+      "roleId": "reaccion",
+      "characterResourceId": "mono-ciruela-v1",
+      "voiceId": "voz-davefx-es-v1",
+      "narrativeRole": "Responder sin articulación declarada.",
+      "animationPresetId": "idle-calm"
+    }
+  ],
+  "visualElements": [],
+  "speech": [
+    {
+      "id": "turno-01",
+      "kind": "character",
+      "speakerRoleId": "hablante",
+      "voiceId": "voz-claude-mx-v1",
+      "text": "La reacción pide un parámetro que el rig no declara.",
+      "pace": "normal",
+      "gapAfterSeconds": 0.2
+    },
+    {
+      "id": "turno-02",
+      "kind": "character",
+      "speakerRoleId": "reaccion",
+      "voiceId": "voz-davefx-es-v1",
+      "text": "El contrato debe rechazarlo antes del render.",
+      "pace": "normal",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": [
+    {
+      "id": "reaccion-no-soportada",
+      "sequenceId": "speaker-focus-reaction-v1",
+      "anchor": { "kind": "turn", "turnId": "turno-01", "edge": "start" },
+      "intensity": "medium",
+      "durationScale": 1,
+      "bindings": [
+        { "slotId": "speaker", "elementRoleId": "hablante" },
+        { "slotId": "reactor", "elementRoleId": "reaccion" }
+      ]
+    }
+  ]
+}

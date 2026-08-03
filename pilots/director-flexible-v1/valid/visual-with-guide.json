@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "sceneId": "escena-visual-guiada",
+  "mode": "visual-with-voiceover",
+  "durationWeight": 2,
+  "sceneRecipeId": "voiceover-feature-v1",
+  "participants": [
+    {
+      "roleId": "guia",
+      "characterResourceId": "mono-articulado-azul-v1",
+      "voiceId": "voz-claude-mx-v1",
+      "narrativeRole": "Acompañar visualmente sin hablar en cuadro.",
+      "animationPresetId": "idle-calm"
+    }
+  ],
+  "visualElements": [
+    {
+      "roleId": "dato",
+      "type": "prop",
+      "resourceId": "cartel-dato-v1",
+      "purpose": "Concentrar la atención en el dato narrado."
+    }
+  ],
+  "speech": [
+    {
+      "id": "narracion-guiada-01",
+      "kind": "voiceover",
+      "voiceId": "voz-davefx-es-v1",
+      "text": "El personaje acompaña el dato, pero la voz viene desde fuera de campo.",
+      "pace": "normal",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": [
+    {
+      "id": "prop-y-guia",
+      "sequenceId": "prop-pop-and-point-v1",
+      "anchor": { "kind": "turn", "turnId": "narracion-guiada-01", "edge": "start" },
+      "intensity": "medium",
+      "durationScale": 1,
+      "bindings": [
+        { "slotId": "prop", "elementRoleId": "dato" },
+        { "slotId": "guide", "elementRoleId": "guia" }
+      ]
+    }
+  ]
+}

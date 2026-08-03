@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/creative-recipe-catalog-v1.json",
+  "title": "Catálogo de recetas creativas V1",
+  "description": "Recetas semánticas y secuencias coordinadas declarativas. No admite código ni expresiones.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "sceneRecipes", "effectSequences"],
+  "properties": {
+    "version": { "const": 1 },
+    "sceneRecipes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/sceneRecipe" }
+    },
+    "effectSequences": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/effectSequence" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$"
+    },
+    "shortText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 40 }
+    },
+    "elementTypes": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": { "enum": ["character", "prop", "template"] }
+    },
+    "sceneBeat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "intent", "preferredDelivery"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["speech", "visual", "transition"] },
+        "intent": { "$ref": "#/$defs/shortText" },
+        "preferredDelivery": { "enum": ["character", "voiceover", "either", "none"] }
+      }
+    },
+    "participantRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "maximum": { "type": "integer", "minimum": 0, "maximum": 2 }
+      }
+    },
+    "sceneRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "label", "description", "tags", "compatibleModes",
+        "participantRange", "requiredElementTypes", "optionalElementTypes",
+        "beats", "recommendedEffectSequenceIds"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "description": { "$ref": "#/$defs/shortText" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "compatibleModes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "enum": ["voiceover", "solo", "dialogue", "visual-with-voiceover"] }
+        },
+        "participantRange": { "$ref": "#/$defs/participantRange" },
+        "requiredElementTypes": { "$ref": "#/$defs/elementTypes" },
+        "optionalElementTypes": { "$ref": "#/$defs/elementTypes" },
+        "beats": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/sceneBeat" }
+        },
+        "recommendedEffectSequenceIds": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+    "sequenceSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "elementTypes", "requiredParameters"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "elementTypes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["character", "prop"] }
+        },
+        "requiredParameters": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "position.x", "position.y", "scale", "rotationDegrees", "opacity",
+              "armRaise", "leftArmRaise", "rightElbowBend", "leftElbowBend",
+              "headTilt", "headNod", "bodyLean", "bodyBounce"
+            ]
+          }
+        }
+      }
+    },
+    "sequenceAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slotId", "presetId", "offsetSeconds", "intensity"],
+      "properties": {
+        "slotId": { "$ref": "#/$defs/id" },
+        "presetId": { "$ref": "#/$defs/id" },
+        "offsetSeconds": { "type": "number", "minimum": -5, "maximum": 5 },
+        "intensity": { "enum": ["inherit", "soft", "medium", "strong"] }
+      }
+    },
+    "effectSequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "label", "description", "tags", "compatibleAnchorKinds",
+        "slots", "actions"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "description": { "$ref": "#/$defs/shortText" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "compatibleAnchorKinds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": { "enum": ["scene", "turn", "word"] }
+        },
+        "slots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/sequenceSlot" }
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/sequenceAction" }
+        }
+      }
+    }
+  }
+}

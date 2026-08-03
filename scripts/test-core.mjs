@@ -30,6 +30,7 @@ const commands = [
   'compositor:compare-v2',
   'director:test-plan',
   'director:test-context',
+  'director:test-creative-contract',
   'director:test-quality',
   'director:test-ollama',
   'director:test-editor',

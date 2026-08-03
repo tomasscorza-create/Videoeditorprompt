@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "sceneRecipes": [
+    {
+      "id": "voiceover-feature-v1",
+      "label": "Narración sobre un elemento protagonista",
+      "description": "La voz conduce la escena mientras un prop o recurso visual presenta, demuestra y remata la idea.",
+      "tags": ["narracion", "explicacion", "visual", "demostracion"],
+      "compatibleModes": ["voiceover", "visual-with-voiceover"],
+      "participantRange": { "minimum": 0, "maximum": 2 },
+      "requiredElementTypes": ["prop"],
+      "optionalElementTypes": ["character", "template"],
+      "beats": [
+        { "id": "reveal", "kind": "visual", "intent": "Presentar el elemento protagonista con una entrada clara.", "preferredDelivery": "none" },
+        { "id": "explain", "kind": "speech", "intent": "Explicar una sola idea mientras el elemento permanece legible.", "preferredDelivery": "voiceover" },
+        { "id": "emphasize", "kind": "visual", "intent": "Destacar el dato o concepto principal sin saturar el cuadro.", "preferredDelivery": "none" }
+      ],
+      "recommendedEffectSequenceIds": ["visual-reveal-v1"]
+    },
+    {
+      "id": "solo-explainer-v1",
+      "label": "Explicación individual",
+      "description": "Un personaje presenta una idea, la aclara y cierra con una acción concreta.",
+      "tags": ["monologo", "personaje", "tutorial", "consejo"],
+      "compatibleModes": ["solo"],
+      "participantRange": { "minimum": 1, "maximum": 1 },
+      "requiredElementTypes": ["character"],
+      "optionalElementTypes": ["prop", "template"],
+      "beats": [
+        { "id": "hook", "kind": "speech", "intent": "Abrir con una tensión o afirmación concreta.", "preferredDelivery": "character" },
+        { "id": "explanation", "kind": "speech", "intent": "Desarrollar la idea con un ejemplo breve.", "preferredDelivery": "character" },
+        { "id": "close", "kind": "speech", "intent": "Cerrar con una conclusión aplicable.", "preferredDelivery": "character" }
+      ],
+      "recommendedEffectSequenceIds": ["entrance-emphasis-exit-v1"]
+    },
+    {
+      "id": "dialogue-contrast-v1",
+      "label": "Contraste dialogado",
+      "description": "Dos personajes confrontan una expectativa con un límite y llegan a una síntesis.",
+      "tags": ["dialogo", "contraste", "debate", "mito", "realidad"],
+      "compatibleModes": ["dialogue"],
+      "participantRange": { "minimum": 2, "maximum": 2 },
+      "requiredElementTypes": ["character"],
+      "optionalElementTypes": ["prop"],
+      "beats": [
+        { "id": "claim", "kind": "speech", "intent": "El primer personaje plantea una afirmación fuerte.", "preferredDelivery": "character" },
+        { "id": "counterpoint", "kind": "speech", "intent": "El segundo personaje muestra el límite o la contradicción.", "preferredDelivery": "character" },
+        { "id": "synthesis", "kind": "speech", "intent": "Ambos convergen en una conclusión útil.", "preferredDelivery": "character" }
+      ],
+      "recommendedEffectSequenceIds": ["speaker-focus-reaction-v1"]
+    },
+    {
+      "id": "keyword-pages-v1",
+      "label": "Palabra protagonista",
+      "description": "Una plantilla tipográfica sostiene la palabra principal mientras la narración construye su significado.",
+      "tags": ["texto", "palabra", "paginas", "tipografia", "narracion"],
+      "compatibleModes": ["voiceover", "visual-with-voiceover"],
+      "participantRange": { "minimum": 0, "maximum": 0 },
+      "requiredElementTypes": ["template"],
+      "optionalElementTypes": ["prop"],
+      "beats": [
+        { "id": "word", "kind": "visual", "intent": "Presentar la palabra sin competir con la narración.", "preferredDelivery": "none" },
+        { "id": "meaning", "kind": "speech", "intent": "Relacionar la palabra con una idea concreta.", "preferredDelivery": "voiceover" },
+        { "id": "return", "kind": "visual", "intent": "Cerrar volviendo a la palabra protagonista.", "preferredDelivery": "none" }
+      ],
+      "recommendedEffectSequenceIds": []
+    }
+  ],
+  "effectSequences": [
+    {
+      "id": "visual-reveal-v1",
+      "label": "Aparición y énfasis visual",
+      "description": "Hace aparecer un elemento y aplica un pulso breve después de que queda visible.",
+      "tags": ["entrada", "aparicion", "enfasis", "visual"],
+      "compatibleAnchorKinds": ["scene", "turn", "word"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["opacity", "scale"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "fade-in", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "subject", "presetId": "emphasis-pulse", "offsetSeconds": 0.55, "intensity": "inherit" }
+      ]
+    },
+    {
+      "id": "entrance-emphasis-exit-v1",
+      "label": "Entrada, énfasis y salida",
+      "description": "Coordina una entrada lateral, un énfasis central y una salida por opacidad.",
+      "tags": ["entrada", "enfasis", "salida", "personaje"],
+      "compatibleAnchorKinds": ["scene", "turn"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.x", "scale", "opacity"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "enter-left", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "subject", "presetId": "emphasis-pulse", "offsetSeconds": 0.8, "intensity": "inherit" },
+        { "slotId": "subject", "presetId": "fade-out", "offsetSeconds": 1.6, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "speaker-focus-reaction-v1",
+      "label": "Foco y reacción",
+      "description": "El hablante recibe énfasis y el segundo personaje responde con un asentimiento articulado.",
+      "tags": ["dialogo", "reaccion", "foco", "coordinado"],
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "speaker", "elementTypes": ["character"], "requiredParameters": ["scale"] },
+        { "id": "reactor", "elementTypes": ["character"], "requiredParameters": ["headNod"] }
+      ],
+      "actions": [
+        { "slotId": "speaker", "presetId": "emphasis-pulse", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "reactor", "presetId": "head-nod", "offsetSeconds": 0.35, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "prop-pop-and-point-v1",
+      "label": "Prop protagonista y señalamiento",
+      "description": "Hace aparecer un prop, lo enfatiza y coordina un gesto del personaje guía.",
+      "tags": ["prop", "personaje", "señalar", "coordinado"],
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "prop", "elementTypes": ["prop"], "requiredParameters": ["opacity", "scale"] },
+        { "id": "guide", "elementTypes": ["character"], "requiredParameters": ["armRaise"] }
+      ],
+      "actions": [
+        { "slotId": "prop", "presetId": "fade-in", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "prop", "presetId": "emphasis-pulse", "offsetSeconds": 0.45, "intensity": "inherit" },
+        { "slotId": "guide", "presetId": "arm-raise", "offsetSeconds": 0.25, "intensity": "inherit" }
+      ]
+    }
+  ]
+}

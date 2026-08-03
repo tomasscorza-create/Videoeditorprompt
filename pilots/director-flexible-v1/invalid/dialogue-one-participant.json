@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "sceneId": "dialogo-incompleto",
+  "mode": "dialogue",
+  "durationWeight": 3,
+  "sceneRecipeId": "dialogue-contrast-v1",
+  "participants": [
+    {
+      "roleId": "unico",
+      "characterResourceId": "mono-azul-v1",
+      "voiceId": "voz-claude-mx-v1",
+      "narrativeRole": "Intentar dialogar sin contraparte.",
+      "animationPresetId": "talk-calm"
+    }
+  ],
+  "visualElements": [],
+  "speech": [
+    {
+      "id": "turno-01",
+      "kind": "character",
+      "speakerRoleId": "unico",
+      "voiceId": "voz-claude-mx-v1",
+      "text": "Falta la segunda voz del diálogo.",
+      "pace": "normal",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": []
+}

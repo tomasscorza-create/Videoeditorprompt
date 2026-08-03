@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "sceneId": "voz-incompatible",
+  "mode": "voiceover",
+  "durationWeight": 3,
+  "sceneRecipeId": "voiceover-feature-v1",
+  "participants": [],
+  "visualElements": [
+    { "roleId": "dato", "type": "prop", "resourceId": "cartel-dato-v1", "purpose": "Mostrar un dato." }
+  ],
+  "speech": [
+    {
+      "id": "turno-01",
+      "kind": "character",
+      "speakerRoleId": "fantasma",
+      "voiceId": "voz-claude-mx-v1",
+      "text": "Este personaje no existe en una escena de narración.",
+      "pace": "normal",
+      "gapAfterSeconds": 0
+    }
+  ],
+  "effectSequences": []
+}
