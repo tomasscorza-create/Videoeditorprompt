@@ -22,8 +22,8 @@ const plan = {
     transitionPreset: 'cut',
     transitionDurationSeconds: 0,
     dialogue: [
-      { speaker: 'a', text: 'La inteligencia artificial puede ayudarnos a trabajar con más rapidez.', gestureId: 'point', gapAfterSeconds: 0.2 },
-      { speaker: 'b', text: 'Siempre que revisemos sus respuestas y mantengamos el criterio humano.', gestureId: 'neutral', gapAfterSeconds: 0 },
+      { speaker: 'a', text: 'La inteligencia artificial puede ayudarnos a trabajar con más rapidez cuando definimos con claridad el problema que queremos resolver.', gestureId: 'point', gapAfterSeconds: 0.2 },
+      { speaker: 'b', text: 'Siempre que revisemos sus respuestas, comprobemos los datos importantes y mantengamos el criterio humano antes de decidir.', gestureId: 'neutral', gapAfterSeconds: 0 },
     ],
   }],
 };
@@ -85,9 +85,9 @@ const first = await createDirectorProposal({
 });
 assert.equal(first.cacheHit, false);
 assert.equal(first.project.scenes.length, 1);
-assert.equal(first.context.shortlistedEntries, 14);
-// El catálogo incluye la plantilla, pero la shortlist no: el esquema del Director
-// todavía no puede emitir elementos de tipo `template`.
+assert.ok(first.context.shortlistedEntries > 14);
+assert.ok(first.context.resourceIds.includes('cartel-dato-v1'));
+assert.ok(first.context.resourceIds.includes('procedural-word-match-cut-v1'));
 assert.equal(first.context.totalCatalogEntries, 20);
 assert.equal(first.context.templateIds.length, 3);
 assert.ok(first.context.recommendedTemplateId);
@@ -212,8 +212,8 @@ await assert.rejects(
 // Fase 1d: dos candidatos, juez estructurado y caché del ganador.
 const alternativePlan = structuredClone(plan);
 alternativePlan.title = 'Colaborar sin perder el criterio';
-alternativePlan.scenes[0].dialogue[0].text = 'Una respuesta rápida no siempre es una respuesta correcta.';
-alternativePlan.scenes[0].dialogue[1].text = 'Usá la velocidad de la herramienta y reservá el criterio para decidir.';
+alternativePlan.scenes[0].dialogue[0].text = 'Una respuesta rápida no siempre es correcta, aunque su tono seguro pueda hacernos creer lo contrario durante una primera lectura.';
+alternativePlan.scenes[0].dialogue[1].text = 'Usá la velocidad de la herramienta para explorar alternativas y reservá el criterio humano para comprobar los datos importantes antes de decidir.';
 let bestOfCalls = 0;
 const candidateVariants = [];
 const bestOfFetch = async (url, options = {}) => {

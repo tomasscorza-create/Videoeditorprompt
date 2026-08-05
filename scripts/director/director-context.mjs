@@ -9,6 +9,8 @@ export const DEFAULT_RESOURCE_LIMITS = Object.freeze({
   voice: 4,
   background: 4,
   music: 3,
+  prop: 4,
+  template: 3,
 });
 
 const TONE_TERMS = Object.freeze({

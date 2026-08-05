@@ -173,6 +173,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       const result = editing && store
         ? await editProjectWithAi(value, editingProject, projectSelection(), proposalController.signal)
         : await createProposal(value, variant, readConstraints(), generation, proposalController.signal);
+      if (!editing && 'context' in result) syncResolvedConstraints(result.context?.resolvedConstraints);
       const appliedCommands = 'commands' in result ? result.commands.length : 0;
       if (editing && store && 'commands' in result) {
         if (JSON.stringify(store.project()) !== JSON.stringify(editingProject)) {
@@ -419,6 +420,23 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       richnessProfile: richness.value as DirectorConstraints['richnessProfile'],
       structure: structure.value as DirectorConstraints['structure'],
     };
+  }
+
+  function syncResolvedConstraints(resolved?: DirectorConstraints): void {
+    if (!resolved) return;
+    tone.value = resolved.tone;
+    const durationValue = String(resolved.targetDurationSeconds);
+    if (![...duration.options].some((option) => option.value === durationValue)) {
+      const inferred = document.createElement('option');
+      inferred.value = durationValue;
+      inferred.textContent = `${durationValue} s · inferida`;
+      inferred.dataset.inferred = 'true';
+      duration.add(inferred);
+    }
+    duration.value = durationValue;
+    scenes.value = String(resolved.sceneCount);
+    richness.value = resolved.richnessProfile;
+    structure.value = resolved.structure;
   }
 
   function readGenerationOptions(): DirectorGenerationOptions {

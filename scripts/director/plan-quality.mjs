@@ -28,17 +28,22 @@ export function candidateStrategy(index) {
 export function editorialWordBudgets(targetDurationSeconds, sceneCount) {
   const maximumWords = Math.max(40, Math.ceil(Number(targetDurationSeconds) * 3.2));
   const count = Math.max(1, Number(sceneCount) || 1);
-  const scenes = sceneWeights(count).map((weight, index) => {
+  const minimumWords = Math.max(count * 6, Math.ceil(Number(targetDurationSeconds) * 1.55));
+  const weights = sceneWeights(count);
+  const scenes = weights.map((weight, index) => {
     const words = Math.max(8, Math.round(maximumWords * weight));
     return {
       scene: index + 1,
       maximumWords: words,
+      minimumWords: Math.max(6, Math.round(minimumWords * weight)),
       suggestedTurnWords: Math.max(4, Math.floor(words / 3)),
     };
   });
   scenes.at(-1).maximumWords += maximumWords
     - scenes.reduce((total, scene) => total + scene.maximumWords, 0);
-  return { maximumWords, scenes };
+  scenes.at(-1).minimumWords += minimumWords
+    - scenes.reduce((total, scene) => total + scene.minimumWords, 0);
+  return { minimumWords, maximumWords, scenes };
 }
 
 export function analyzeDirectorPlanQuality(plan, options = {}) {
@@ -50,6 +55,7 @@ export function analyzeDirectorPlanQuality(plan, options = {}) {
     (scene.dialogue ?? scene.speech ?? []).reduce((total, turn) => total + wordCount(turn.text), 0)
   ));
   const totalWords = wordsByScene.reduce((total, words) => total + words, 0);
+  const minimumWords = Math.max(plan.scenes.length * 6, Math.ceil(Number(plan.targetDurationSeconds || 0) * 1.55));
   const firstText = texts[0] || '';
   const lastText = texts.at(-1) || '';
 
@@ -85,6 +91,9 @@ export function analyzeDirectorPlanQuality(plan, options = {}) {
   addIssue(issues, plan.scenes.length > 1 && largestSceneShare > 0.72,
     'UNBALANCED_SCENES', 12, 'Redistribuí el diálogo para que una sola escena no concentre casi todo el guion.');
 
+  addIssue(issues, totalWords < minimumWords,
+    'DURATION_UNDERSHOT', 18, `Ampliá el guion a por lo menos ${minimumWords} palabras para acercarte a la duración solicitada.`);
+
   let speakerRun = 1;
   let maximumSpeakerRun = 1;
   for (let index = 1; index < turns.length; index += 1) {
@@ -109,10 +118,14 @@ export function analyzeDirectorPlanQuality(plan, options = {}) {
     version: DIRECTOR_QUALITY_VERSION,
     score,
     floor: DIRECTOR_QUALITY_FLOOR,
+    // La cantidad de palabras solo aproxima la duración. Piper y FFprobe son la
+    // autoridad real, por lo que un déficit conserva su penalización y aviso sin
+    // convertir por sí solo una propuesta semánticamente válida en un error.
     passed: score >= DIRECTOR_QUALITY_FLOOR,
     issues,
     metrics: {
       totalWords,
+      minimumWords,
       wordsByScene,
       largestSceneShare: Number(largestSceneShare.toFixed(3)),
       promptTokenCoverage: Number(relevance.toFixed(3)),

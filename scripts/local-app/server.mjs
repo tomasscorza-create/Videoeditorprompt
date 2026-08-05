@@ -637,6 +637,8 @@ function createDirectorStatus(state, stage, detail = {}) {
     ...(Number.isInteger(detail.candidateIndex) ? { candidateIndex: detail.candidateIndex } : {}),
     ...(Number.isInteger(detail.candidateCount) ? { candidateCount: detail.candidateCount } : {}),
     ...(Number.isInteger(detail.attempt) ? { attempt: detail.attempt } : {}),
+    ...(Number.isInteger(detail.segmentIndex) ? { segmentIndex: detail.segmentIndex } : {}),
+    ...(Number.isInteger(detail.segmentCount) ? { segmentCount: detail.segmentCount } : {}),
   };
 }
 

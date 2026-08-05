@@ -5,6 +5,7 @@ import path from 'node:path';
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import {
   editProjectWithDirector,
+  editIntentGuidance,
   explainDirectorEdit,
   summarizeEditableProject,
 } from './project-editor-director.mjs';
@@ -33,6 +34,8 @@ const fetchImpl = async (_url, options) => {
 };
 
 try {
+  assert.match(editIntentGuidance('Hacelo más dinámico'), /presets compatibles/u);
+  assert.match(editIntentGuidance('Que se vea más visual'), /prop o una plantilla/u);
   const firstProgress = [];
   const first = await editProjectWithDirector({
     instruction: 'Cambiá el primer texto de la escena 2.',
@@ -53,6 +56,18 @@ try {
     instruction: 'Cambiá el primer texto de la escena 2.',
     project, catalog, cacheRoot, fetchImpl,
   });
+  let repairCalls = 0;
+  const repaired = await editProjectWithDirector({
+    instruction: 'Hacelo más claro.', project, catalog, cacheRoot, useCache: false,
+    fetchImpl: async () => {
+      repairCalls += 1;
+      return new Response(JSON.stringify({ message: { content: repairCalls === 1 ? '{' : JSON.stringify({ commands: [] }) } }), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  assert.equal(repairCalls, 2);
+  assert.equal(repaired.status, 'no-change');
   assert.equal(second.cacheHit, true);
   assert.equal(calls, 1);
   await assert.rejects(() => editProjectWithDirector({ instruction: 'x', project, catalog, cacheRoot, fetchImpl }));
@@ -88,13 +103,15 @@ try {
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
   };
-  await assert.rejects(() => editProjectWithDirector({
+  const recovered = await editProjectWithDirector({
     instruction: 'Probá la validación previa a la caché.',
     project,
     catalog,
     cacheRoot,
     fetchImpl: invalidThenValidFetch,
-  }));
+  });
+  assert.equal(recovered.project.title, 'Título validado antes de cachear');
+  assert.equal(invalidCacheCalls, 2);
   const recoveredCache = await editProjectWithDirector({
     instruction: 'Probá la validación previa a la caché.',
     project,
@@ -103,6 +120,7 @@ try {
     fetchImpl: invalidThenValidFetch,
   });
   assert.equal(invalidCacheCalls, 2);
+  assert.equal(recoveredCache.cacheHit, true);
   assert.equal(recoveredCache.project.title, 'Título validado antes de cachear');
 
   // Helper: corre un lote de comandos fijos sin caché (aisla cada caso).

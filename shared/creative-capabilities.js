@@ -1,8 +1,8 @@
 // Registro puro de capacidades creativas V1.
 //
 // La matriz distingue, por consumidor, qué está disponible hoy y qué sigue
-// planificado. V1 habilitó autoría, preview y exportación para escenas con 0–2
-// personajes; el Director y el editor flexible continúan detrás de sus gates.
+// planificado. La creación V2 y el editor semántico comparten hoy los recursos,
+// presets y contratos que realmente pueden llegar al preview y a la exportación.
 
 import { ANIMATION_PARAMETERS } from './animation-contract.js';
 import { ANIMATION_PRESETS, listApplicablePresets } from './animation-presets.js';
@@ -62,11 +62,11 @@ export const CREATIVE_CAPABILITY_DEFINITIONS = deepFreeze([
   capability('element.character', 'Personajes', allAvailable()),
   capability('element.prop', 'Props', {
     authoring: 'available', preview: 'available', export: 'available',
-    directorCreation: 'planned', directorEditing: 'limited',
+    directorCreation: 'available', directorEditing: 'available',
   }),
   capability('element.template', 'Plantillas visuales', {
     authoring: 'available', preview: 'available', export: 'available',
-    directorCreation: 'planned', directorEditing: 'planned',
+    directorCreation: 'available', directorEditing: 'available',
   }),
   capability('element.image', 'Imágenes como elementos', allExcluded()),
   capability('element.visibility', 'Ventana temporal de elementos', {
@@ -76,33 +76,36 @@ export const CREATIVE_CAPABILITY_DEFINITIONS = deepFreeze([
   capability('transform.position-scale-depth', 'Posición, escala y capa', allAvailable()),
   capability('transform.rotation', 'Rotación', {
     authoring: 'available', preview: 'available', export: 'available',
-    directorCreation: 'planned', directorEditing: 'planned',
+    directorCreation: 'planned', directorEditing: 'available',
   }),
   capability('transform.opacity', 'Opacidad', {
     authoring: 'available', preview: 'available', export: 'limited',
-    directorCreation: 'planned', directorEditing: 'planned',
+    directorCreation: 'planned', directorEditing: 'available',
   }),
   capability('animation.preset', 'Presets individuales de animación', {
     authoring: 'available', preview: 'available', export: 'available',
-    directorCreation: 'planned', directorEditing: 'available',
+    directorCreation: 'available', directorEditing: 'available',
   }),
   capability('animation.manual-keyframes', 'Pistas y keyframes manuales', {
     authoring: 'available', preview: 'available', export: 'available',
     directorCreation: 'excluded', directorEditing: 'planned',
   }),
-  capability('animation.sequence', 'Secuencias coordinadas', allPlanned()),
+  capability('animation.sequence', 'Secuencias coordinadas', {
+    authoring: 'available', preview: 'available', export: 'available',
+    directorCreation: 'available', directorEditing: 'planned',
+  }),
   capability('character.gesture', 'Gestos temporizados', allAvailable()),
   capability('layout.preset', 'Composición y foco por preset', allAvailable()),
   capability('background.camera', 'Fondo, paneo, zoom y parallax', allAvailable()),
   capability('subtitle.turn', 'Subtítulos por turno hablado', allAvailable()),
   capability('audio.music', 'Música del proyecto', {
     authoring: 'available', preview: 'available', export: 'available',
-    directorCreation: 'available', directorEditing: 'planned',
+    directorCreation: 'available', directorEditing: 'available',
   }),
   capability('transition.scene', 'Cortes y fundidos', allAvailable()),
   capability('structure.turn-editing', 'Alta, baja, orden y división de turnos', {
     authoring: 'available', preview: 'available', export: 'available',
-    directorCreation: 'available', directorEditing: 'limited',
+    directorCreation: 'available', directorEditing: 'available',
   }),
   capability('resource.local-library', 'Recursos creados o importados localmente', {
     authoring: 'available', preview: 'available', export: 'available',

@@ -12,6 +12,8 @@ import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 import { buildDirectorContext } from './director-context.mjs';
 
 const MAX_REQUEST_LENGTH = 1200;
+const MAX_EDIT_COMMANDS = 24;
+const MAX_EDIT_ATTEMPTS = 2;
 // Unificado con la propuesta (ai-video-plan): el texto de diálogo se limita a 300
 // caracteres en ambos caminos de IA (B2). El editor y el proyecto admiten hasta 500.
 const DIRECTOR_TEXT_MAX_LENGTH = 300;
@@ -59,14 +61,16 @@ export async function editProjectWithDirector(options) {
     commands = readJson(cachePath).commands;
     cacheHit = true;
   } else {
-    emitProgress(options, 'generating', { candidateIndex: 1, candidateCount: 1, attempt: 1 });
-    const result = await provider.generateCommands({
-      schema,
-      signal: options.signal,
-      messages: [
-        {
-          role: 'system',
-          content: [
+    let feedback = null;
+    for (let attempt = 1; attempt <= MAX_EDIT_ATTEMPTS; attempt += 1) {
+      emitProgress(options, 'generating', { candidateIndex: 1, candidateCount: 1, attempt });
+      const result = await provider.generateCommands({
+        schema,
+        signal: options.signal,
+        messages: [
+          {
+            role: 'system',
+            content: [
             'Sos el editor semántico de un video local.',
             'Convertí la petición en la menor cantidad de comandos del esquema.',
             'Podés editar textos, voces, gestos, pausas, transformaciones y profundidad;',
@@ -74,6 +78,7 @@ export async function editProjectWithDirector(options) {
             'agregar/duplicar/borrar escenas, agregar narración o diálogo, borrar turnos, reordenar escenas y reasignar el hablante.',
             'También podés aplicar presets de keyframes compatibles y quitar animaciones existentes.',
             'Ante una petición breve o amplia, elegí por cuenta propia una combinación completa y compatible de estas capacidades.',
+            `Guía para esta petición breve: ${editIntentGuidance(instruction)}`,
             'Si removableByDirector es false, proponé quitarla solo cuando la petición lo pida explícitamente: la UI solicitará confirmación humana especial.',
             'Las capacidades de animación están resumidas por elemento; nunca inventes parámetros, presets ni pistas.',
             'Para una escena nueva podés crearla vacía y agregar solo los recursos necesarios, o duplicar una compatible.',
@@ -82,23 +87,30 @@ export async function editProjectWithDirector(options) {
             'Si la petición no se puede representar, devolvé commands vacío.',
             selection ? `Selección y alcance actuales: ${JSON.stringify(selection)}` : 'No hay una selección puntual activa.',
             `Proyecto actual: ${JSON.stringify(summarizeEditableProject(state.project, state.catalog))}`,
-          ].join('\n'),
-        },
-        { role: 'user', content: instruction },
-      ],
-      options: { model, temperature: 0.1, seed: 17, maxOutputTokens: 1600, think: false, timeoutMs: 240_000 },
-    });
-    emitProgress(options, 'validating', { candidateIndex: 1, candidateCount: 1, attempt: 1 });
-    let parsed;
-    try {
-      parsed = JSON.parse(result.content || '');
-    } catch {
-      throw directorEditError('DIRECTOR_EDIT_JSON_INVALID', 'La IA no devolvió comandos JSON válidos.');
+            ].join('\n'),
+          },
+          { role: 'user', content: feedback ? `${instruction}\nCorrección obligatoria: ${feedback}` : instruction },
+        ],
+        options: { model, temperature: 0.1, seed: 16 + attempt, maxOutputTokens: 2200, think: false, timeoutMs: 240_000 },
+      });
+      emitProgress(options, 'validating', { candidateIndex: 1, candidateCount: 1, attempt });
+      try {
+        const parsed = JSON.parse(result.content || '');
+        if (!Array.isArray(parsed.commands) || parsed.commands.length > MAX_EDIT_COMMANDS) throw new Error('cantidad de comandos inválida');
+        previewDirectorCommands(parsed.commands, state);
+        commands = parsed.commands;
+        usage = result.usage || null;
+        break;
+      } catch (error) {
+        if (attempt === MAX_EDIT_ATTEMPTS) {
+          if (error?.code) throw error;
+          throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA no devolvió un lote de cambios válido y aplicable.', error instanceof Error ? error.message : String(error));
+        }
+        feedback = `devolvé solamente el objeto JSON del esquema, no superes ${MAX_EDIT_COMMANDS} comandos y asegurate de que cada cambio pueda aplicarse en orden al proyecto actual.`;
+      }
     }
-    commands = parsed.commands;
-    usage = result.usage || null;
   }
-  if (!Array.isArray(commands) || commands.length > 12) throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA devolvió una lista de cambios inválida.');
+  if (!Array.isArray(commands) || commands.length > MAX_EDIT_COMMANDS) throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA devolvió una lista de cambios inválida.');
   if (commands.some((command) => Object.hasOwn(command, 'confirmCustomized'))) {
     throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA no puede confirmar por sí misma la eliminación de trabajo personalizado.');
   }
@@ -132,6 +144,18 @@ export async function editProjectWithDirector(options) {
       elapsedMilliseconds: Date.now() - startedAt,
     },
   };
+}
+
+function previewDirectorCommands(commands, state) {
+  if (commands.some((command) => Object.hasOwn(command, 'confirmCustomized'))) {
+    throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA no puede confirmar por sí misma la eliminación de trabajo personalizado.');
+  }
+  const customized = findCustomizedTrackRemovalIndexes(commands, state.project);
+  let preview = state;
+  for (const [index, command] of commands.entries()) {
+    preview = applyProjectEditorCommand(preview, customized.includes(index) ? { ...command, confirmCustomized: true } : command);
+  }
+  return preview;
 }
 
 function emitProgress(options, stage, detail = {}) {
@@ -279,7 +303,7 @@ function commandBatchSchema(project, catalog) {
     type: 'object',
     additionalProperties: false,
     required: ['commands'],
-    properties: { commands: { type: 'array', maxItems: 24, items: command } },
+    properties: { commands: { type: 'array', maxItems: MAX_EDIT_COMMANDS, items: command } },
   };
 }
 
@@ -495,6 +519,23 @@ function text(maxLength) {
   return { type: 'string', minLength: 1, maxLength };
 }
 
+export function editIntentGuidance(value) {
+  const text = String(value).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  if (/\b(?:dinamico|ritmo|energia|impacto)\b/u.test(text)) {
+    return 'priorizá de uno a tres presets compatibles en elementos de escenas distintas, variá cámara o transición cuando aporte ritmo y no reescribas el guion salvo que sea necesario.';
+  }
+  if (/\b(?:visual|vistoso|atractivo|apoyo)\b/u.test(text)) {
+    return 'elegí un prop o una plantilla disponible, ubicá el recurso con una transformación legible y aplicá un preset compatible si existe.';
+  }
+  if (/\b(?:corto|breve|resumi)\b/u.test(text)) {
+    return 'recortá texto redundante conservando el gancho, la idea central y el cierre; no borres escenas útiles sin necesidad.';
+  }
+  if (/\b(?:claro|explica|entender|educativo)\b/u.test(text)) {
+    return 'mejorá primero el texto y el orden de las intervenciones; después ajustá gesto, pausa o composición para reforzar la explicación.';
+  }
+  return 'interpretá el objetivo, elegí por cuenta propia los cambios mínimos suficientes y usá solamente capacidades compatibles del esquema.';
+}
+
 function validateInstruction(value) {
   if (typeof value !== 'string') throw directorEditError('DIRECTOR_EDIT_PROMPT_INVALID', 'La petición debe ser texto.');
   const instruction = value.trim();
@@ -547,6 +588,6 @@ function hashJson(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
-function directorEditError(code, message) {
-  return new PipelineError({ code, stage: 'directing', message, suggestedAction: 'Revisá la petición y volvé a intentar.' });
+function directorEditError(code, message, technicalDetail) {
+  return new PipelineError({ code, stage: 'directing', message, technicalDetail, suggestedAction: 'Revisá la petición y volvé a intentar.' });
 }

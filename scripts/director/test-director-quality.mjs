@@ -29,6 +29,11 @@ for (const sceneCount of [1, 2, 3, 4]) {
     budgets.scenes.reduce((total, scene) => total + scene.maximumWords, 0),
     budgets.maximumWords,
   );
+  assert.equal(
+    budgets.scenes.reduce((total, scene) => total + scene.minimumWords, 0),
+    budgets.minimumWords,
+  );
+  assert.ok(budgets.minimumWords < budgets.maximumWords);
 }
 
 const goodPlan = {

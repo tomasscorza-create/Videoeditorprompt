@@ -757,6 +757,20 @@ check(
     updatedAt: new Date(0).toISOString(),
   }) === 'Cancelando el trabajo del Director…',
 );
+check(
+  'el progreso segmentado informa el bloque actual',
+  directorProgress.describeDirectorProgress({
+    version: 1,
+    state: 'running',
+    stage: 'generating',
+    updatedAt: new Date(0).toISOString(),
+    candidateIndex: 1,
+    candidateCount: 1,
+    attempt: 1,
+    segmentIndex: 2,
+    segmentCount: 4,
+  }) === 'Generando la propuesta 1 de 1 · bloque 2 de 4 con Ollama…',
+);
 
 check(
   'Exportar expone disponibilidad y evita repetir una exportación vigente',

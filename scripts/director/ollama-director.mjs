@@ -58,7 +58,7 @@ export async function createDirectorProposal(options) {
   // Modo «calidad máxima» (C3): con think:true qwen3 razona antes de responder
   // (mejor plan, más lento en CPU). Default false. Forma parte de la clave de caché.
   const think = booleanOption(options.think, false);
-  const constraints = validateDirectorConstraints(options.constraints);
+  const constraints = inferDirectorConstraints(prompt, validateDirectorConstraints(options.constraints));
   const templates = options.templates || loadNarrativeTemplates(options.templatesPath);
   const directorContext = buildDirectorContext({
     prompt,
@@ -68,6 +68,7 @@ export async function createDirectorProposal(options) {
     resourceLimits: options.resourceLimits,
     templateLimit: options.templateLimit,
   });
+  directorContext.summary.resolvedConstraints = structuredClone(constraints);
   const schema = buildOllamaPlanSchema(directorContext.catalog, constraints, directorContext.templates);
   const cacheKey = hashJson({
     version: DIRECTOR_PIPELINE_VERSION,
@@ -304,7 +305,8 @@ async function generateCandidate({
       candidateCount,
       attempt: attempt + 1,
     });
-    const result = await provider.generatePlan({
+    const result = await generatePlanReliably({
+      provider,
       schema,
       signal,
       messages: [
@@ -319,6 +321,11 @@ async function generateCandidate({
         maxOutputTokens: 4000,
         timeoutMs,
       },
+      constraints,
+      onProgress,
+      candidateIndex,
+      candidateCount,
+      attempt: attempt + 1,
     });
     onProgress?.({
       stage: 'validating',
@@ -356,7 +363,7 @@ async function generateCandidate({
         promptHash,
         resourceCatalog,
       });
-      const quality = analyzePlanQuality(plan, { prompt, constraints });
+      const quality = analyzePlanQuality(plan, { prompt, constraints, project: normalized.project });
       if (!quality.passed) qualityError(quality);
       usage = result.usage || null;
       break;
@@ -366,7 +373,7 @@ async function generateCandidate({
       feedback = repairFeedback(error);
     }
   }
-  const quality = analyzePlanQuality(plan, { prompt, constraints });
+  const quality = analyzePlanQuality(plan, { prompt, constraints, project: normalized?.project });
   return {
     plan,
     normalized,
@@ -376,6 +383,87 @@ async function generateCandidate({
     strategy: strategy.id,
     elapsedMilliseconds: Date.now() - startedAt,
   };
+}
+
+async function generatePlanReliably({ provider, schema, signal, messages, options, constraints, onProgress, candidateIndex, candidateCount, attempt }) {
+  const sceneCount = constraints.planVersion === 2 ? Number(constraints.sceneCount || 0) : 0;
+  if (sceneCount <= 3) return provider.generatePlan({ schema, signal, messages, options });
+  const chunkSizes = [];
+  for (let remaining = sceneCount; remaining > 0;) {
+    const size = 1;
+    chunkSizes.push(size);
+    remaining -= size;
+  }
+  const plans = [];
+  const usages = [];
+  let firstScene = 1;
+  for (const [chunkIndex, chunkSize] of chunkSizes.entries()) {
+    onProgress?.({
+      stage: 'generating', candidateIndex, candidateCount, attempt,
+      segmentIndex: chunkIndex + 1, segmentCount: chunkSizes.length,
+    });
+    const chunkSchema = structuredClone(schema);
+    chunkSchema.properties.scenes = { ...chunkSchema.properties.scenes, minItems: chunkSize, maxItems: chunkSize };
+    const lastScene = firstScene + chunkSize - 1;
+    const segmentRole = chunkIndex === 0
+      ? 'Este segmento debe construir el gancho y comenzar el desarrollo.'
+      : chunkIndex === chunkSizes.length - 1
+        ? 'Este segmento debe completar el desarrollo y reservar un cierre concluyente para la última escena.'
+        : 'Este segmento debe avanzar el desarrollo sin repetir el gancho ni cerrar todavía.';
+    const previousScenes = plans.flatMap((plan) => plan.scenes).map((scene) => ({
+      title: scene.title,
+      purpose: scene.purpose,
+      lastLine: scene.speech?.at(-1)?.text ?? null,
+    }));
+    const chunkMessages = messages.map((message, index) => index === messages.length - 1 ? {
+      ...message,
+      content: `${message.content}\nSegmento obligatorio: generá solamente la escena ${firstScene} de un total de ${sceneCount}. ${segmentRole} Mantené continuidad con el tema, pero no escribas escenas adicionales. Evitá repetir modo, composición, receta y recurso visual de las escenas previas salvo que el contenido lo justifique.${previousScenes.length ? ` Continuidad ya escrita: ${JSON.stringify(previousScenes)}` : ''}`,
+    } : message);
+    const result = await provider.generatePlan({
+      schema: chunkSchema,
+      signal,
+      messages: chunkMessages,
+      options: {
+        ...options,
+        think: false,
+        seed: options.seed + chunkIndex,
+        maxOutputTokens: Math.min(options.maxOutputTokens, 2600),
+      },
+    });
+    let chunkPlan;
+    try {
+      chunkPlan = JSON.parse(result.content || '');
+    } catch (error) {
+      throw new PipelineError({
+        code: 'OLLAMA_RESPONSE_JSON_INVALID', stage: 'directing',
+        message: 'El proveedor devolvió un segmento que no es JSON válido.',
+        technicalDetail: error instanceof Error ? error.message : String(error),
+        suggestedAction: 'Reintentá la propuesta segmentada.',
+      });
+    }
+    if (!Array.isArray(chunkPlan.scenes) || chunkPlan.scenes.length !== chunkSize) {
+      directorError('DIRECTOR_PLAN_SCHEMA_INVALID', 'Un segmento no contiene la cantidad de escenas solicitada.');
+    }
+    plans.push(chunkPlan);
+    usages.push(result.usage || {});
+    firstScene = lastScene + 1;
+  }
+  const combined = { ...plans[0], scenes: plans.flatMap((plan) => plan.scenes) };
+  return {
+    content: JSON.stringify(combined),
+    usage: {
+      promptEvalCount: sumNumeric(usages, 'promptEvalCount'),
+      evalCount: sumNumeric(usages, 'evalCount'),
+      totalDurationNanoseconds: sumNumeric(usages, 'totalDurationNanoseconds'),
+      segmented: true,
+      segmentCount: chunkSizes.length,
+    },
+  };
+}
+
+function sumNumeric(entries, key) {
+  const values = entries.map((entry) => entry[key]).filter(Number.isFinite);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
 }
 
 function defaultSelection() {
@@ -393,8 +481,53 @@ function defaultSelection() {
 
 function analyzePlanQuality(plan, context) {
   const quality = analyzeDirectorPlanQuality(plan, context);
-  if (plan.version === 2) quality.richness = analyzeCreativeRichness(plan, { ...context.constraints, prompt: context.prompt });
+  if (plan.version === 2) {
+    quality.richness = analyzeCreativeRichness(plan, { ...context.constraints, prompt: context.prompt });
+    if (context.project) {
+      const materializedAnimatedScenes = context.project.scenes.filter((scene) => scene.elements.some((element) => (element.tracks ?? []).some((track) => track.source?.kind === 'preset'))).length;
+      quality.richness.metrics.materializedAnimatedScenes = materializedAnimatedScenes;
+      const required = quality.richness.policy.resolved === 'dynamic' ? Math.max(1, Math.ceil(context.project.scenes.length / 2)) : 0;
+      if (materializedAnimatedScenes < required) quality.richness.issues.push('Las secuencias elegidas no pudieron materializar animaciones compatibles suficientes.');
+      quality.richness.passed = quality.richness.issues.length === 0;
+    }
+    if (!quality.richness.passed) {
+      quality.passed = false;
+      quality.issues.push(...quality.richness.issues.map((instruction, index) => ({
+        code: `CREATIVE_RICHNESS_${index + 1}`,
+        penalty: 0,
+        instruction,
+      })));
+    }
+  }
   return quality;
+}
+
+export function inferDirectorConstraints(prompt, constraints = {}) {
+  const result = { ...constraints };
+  const normalized = String(prompt).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  const numberWords = { una: 1, un: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8 };
+  const sceneMatch = /\b(\d+|una?|dos|tres|cuatro|cinco|seis|siete|ocho)\s+escenas?\b/u.exec(normalized);
+  if (sceneMatch) {
+    const count = Number(sceneMatch[1]) || numberWords[sceneMatch[1]];
+    if (count >= 1 && count <= 8) result.sceneCount = count;
+  }
+  const durationMatch = /\b(\d{1,2})\s*(?:s|segundos?)\b/u.exec(normalized);
+  if (durationMatch) {
+    const seconds = Number(durationMatch[1]);
+    if (seconds >= 8 && seconds <= 90) result.targetDurationSeconds = seconds;
+  }
+  if (/\b(?:ironico|ironia|humor seco)\b/u.test(normalized)) result.tone = 'ironic';
+  else if (/\b(?:inspirador|inspiracional|motivador)\b/u.test(normalized)) result.tone = 'inspirational';
+  else if (/\b(?:energico|energia|ritmo rapido)\b/u.test(normalized)) result.tone = 'energetic';
+  else if (/\b(?:serio|sobrio)\b/u.test(normalized)) result.tone = 'serious';
+  else if (/\b(?:educativo|educacional|explicativo|tutorial)\b/u.test(normalized)) result.tone = 'educational';
+  if (/\b(?:sin personajes|solo narracion|voz en off)\b/u.test(normalized)) result.structure = 'narration';
+  else if (/\b(?:dialogo|dos personajes|debate|conversacion)\b/u.test(normalized)) result.structure = 'dialogue';
+  else if (/\b(?:un personaje|monologo|presentador)\b/u.test(normalized)) result.structure = 'one-character';
+  if (/\b(?:dinamico|alto impacto|mucha energia)\b/u.test(normalized)) result.richnessProfile = 'dynamic';
+  else if (/\b(?:variado|variedad)\b/u.test(normalized)) result.richnessProfile = 'varied';
+  else if (/\b(?:simple|minimalista|sobrio)\b/u.test(normalized)) result.richnessProfile = 'simple';
+  return result;
 }
 
 export function buildOllamaPlanSchema(catalog, constraints = {}, templates = loadNarrativeTemplates().templates) {
@@ -490,6 +623,17 @@ function buildOllamaPlanV2Schema(catalog, constraints, templates) {
 function buildSystemPrompt(directorContext, constraints = {}) {
   const entries = compactResourceEntries(directorContext.catalog);
   const templates = compactNarrativeTemplates(directorContext.templates);
+  const creativeCatalog = loadCreativeRecipeCatalog();
+  const creativeRecipes = creativeCatalog.sceneRecipes.map((recipe) => ({
+    id: recipe.id, modes: recipe.compatibleModes, participants: recipe.participantRange,
+    requires: recipe.requiredElementTypes, optional: recipe.optionalElementTypes,
+    sequences: recipe.recommendedEffectSequenceIds,
+  }));
+  const effectSequences = creativeCatalog.effectSequences.map((sequence) => ({
+    id: sequence.id, anchors: sequence.compatibleAnchorKinds,
+    slots: sequence.slots.map((slot) => ({ id: slot.id, types: slot.elementTypes, parameters: slot.requiredParameters })),
+    presets: sequence.actions.map((action) => action.presetId),
+  }));
   const recommendedTemplateId = directorContext.summary.recommendedTemplateId;
   return [
     'Sos el Director IA de una herramienta local de videos animados verticales.',
@@ -541,6 +685,8 @@ function buildSystemPrompt(directorContext, constraints = {}) {
     'No generes rutas, código, comandos, frames, tiempos absolutos ni propiedades adicionales.',
     `Plantilla recomendada: ${recommendedTemplateId}.`,
     `Plantillas narrativas candidatas: ${JSON.stringify(templates)}`,
+    `Recetas de escena compatibles: ${JSON.stringify(creativeRecipes)}`,
+    `Secuencias coordinadas disponibles: ${JSON.stringify(effectSequences)}`,
     `Shortlist de recursos permitidos: ${JSON.stringify(entries)}`,
   ].filter((line) => line !== null).join('\n');
 }
@@ -558,7 +704,7 @@ function buildUserPrompt(prompt, variant, constraints, strategy, feedback = null
     `Idea del video: ${prompt}`,
     `Variante solicitada: ${variant}.`,
     `Estrategia creativa: ${strategy.instruction}`,
-    `Presupuesto editorial aproximado: máximo ${budgets.maximumWords} palabras; por escena ${budgets.scenes.map((scene) => `${scene.scene}:${scene.maximumWords}`).join(', ')}.`,
+    `Presupuesto editorial obligatorio: entre ${budgets.minimumWords} y ${budgets.maximumWords} palabras en total; por escena respetá estos rangos ${budgets.scenes.map((scene) => `${scene.scene}:${scene.minimumWords}-${scene.maximumWords}`).join(', ')}. Contá solamente las palabras pronunciadas.`,
     requested ? `Parámetros editoriales obligatorios: ${requested}.` : null,
     'Creá un gancho claro, desarrollo breve y cierre útil o memorable.',
     feedback ? `Corrección obligatoria: ${feedback}` : null,

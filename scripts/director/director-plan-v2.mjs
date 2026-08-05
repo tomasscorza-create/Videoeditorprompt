@@ -2,9 +2,12 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { projectRoot, readJson } from '../stage1/common.mjs';
+import { PipelineError } from '../stage1/errors.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
+import { applyProjectEditorCommand, createProjectEditor } from '../../shared/project-editor.js';
 import { validateCreativeRecipeCatalog, loadCreativeRecipeCatalog } from './creative-contract.mjs';
 import { listLayoutPresetIds, getLayoutPreset } from './director-plan.mjs';
+import { expandEffectSequenceCommands } from './recipe-expander.mjs';
 
 const schema = readJson(path.join(projectRoot, 'schema', 'ai-video-plan-v2.schema.json'));
 const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
@@ -202,7 +205,7 @@ export function normalizeDirectorPlanV2(plan, catalog, options = {}) {
   const recipes = options.recipes ?? loadCreativeRecipeCatalog();
   const budget = validateDirectorPlanV2(plan, catalog, recipes);
   const semanticHash = hashJson({ plan, promptHash: options.promptHash ?? null, normalizerVersion: 2 });
-  const project = {
+  let project = {
     version: 1,
     id: safeId(options.projectId || `${slug(plan.title)}-${semanticHash.slice(0, 8)}`),
     title: plan.title,
@@ -212,8 +215,69 @@ export function normalizeDirectorPlanV2(plan, catalog, options = {}) {
     ...(plan.musicResourceId ? { musicResourceId: plan.musicResourceId } : {}),
     scenes: plan.scenes.map((scene, index) => normalizeScene(scene, index, plan.scenes.length)),
   };
+  project = materializeEffectSequences(project, plan, catalog, recipes);
   validateVideoProjectDocument({ project, catalog, assetsRoot: options.assetsRoot || path.join(projectRoot, 'public') });
   return { project, semanticHash, budget };
+}
+
+function materializeEffectSequences(project, plan, catalog, recipes) {
+  let state = createProjectEditor(project, catalog);
+  const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
+  for (const [sceneIndex, plannedScene] of plan.scenes.entries()) {
+    const scene = state.project.scenes[sceneIndex];
+    for (const sequenceId of plannedScene.effectSequenceIds ?? []) {
+      const sequence = recipes.effectSequences.find((entry) => entry.id === sequenceId);
+      if (!sequence) continue;
+      const bindings = resolveSequenceBindings(scene, sequence, resources);
+      if (bindings.length !== sequence.slots.length) continue;
+      const anchor = sequence.compatibleAnchorKinds.includes('scene')
+        ? { kind: 'scene', edge: 'start' }
+        : scene.dialogue.length && sequence.compatibleAnchorKinds.includes('turn')
+          ? { kind: 'turn', turnId: scene.dialogue[0].id, edge: 'start' }
+          : null;
+      if (!anchor) continue;
+      try {
+        const commands = expandEffectSequenceCommands({ sequenceId, anchor, intensity: 'medium', bindings }, state.project, catalog, { recipeCatalog: recipes });
+        for (const command of commands) state = applyProjectEditorCommand(state, command);
+      } catch (error) {
+        if (!['DIRECTOR_TRACK_CUSTOMIZED', 'EDITOR_TRACK_CUSTOMIZED'].includes(error?.code)) throw error;
+      }
+    }
+  }
+  return state.project;
+}
+
+function resolveSequenceBindings(scene, sequence, resources) {
+  const candidates = sequence.slots.map((slot, index) => ({
+    slot,
+    index,
+    elements: scene.elements.filter((element) => slot.elementTypes.includes(element.type)
+      && supportsParameters(element, resources.get(element.resourceId), slot.requiredParameters)),
+  })).sort((left, right) => left.elements.length - right.elements.length || left.index - right.index);
+  const selected = new Map();
+  const used = new Set();
+  const visit = (index) => {
+    if (index === candidates.length) return true;
+    const candidate = candidates[index];
+    for (const element of candidate.elements) {
+      if (used.has(element.id)) continue;
+      selected.set(candidate.slot.id, element.id);
+      used.add(element.id);
+      if (visit(index + 1)) return true;
+      selected.delete(candidate.slot.id);
+      used.delete(element.id);
+    }
+    return false;
+  };
+  if (!visit(0)) return [];
+  return sequence.slots.map((slot) => ({ slotId: slot.id, sceneId: scene.id, elementId: selected.get(slot.id) }));
+}
+
+function supportsParameters(element, resource, parameterIds) {
+  return parameterIds.every((parameterId) => {
+    if (['position.x', 'position.y', 'scale', 'rotationDegrees', 'opacity'].includes(parameterId)) return ['character', 'prop'].includes(element.type);
+    return resource?.capabilities?.parameters?.includes(parameterId);
+  });
 }
 
 function normalizeScene(scene, sceneIndex, sceneCount) {
@@ -253,4 +317,12 @@ function hashJson(value) { return createHash('sha256').update(JSON.stringify(val
 function slug(value) { return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'video-generado'; }
 function safeId(value) { return value.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64); }
 function formatErrors(errors) { return (errors || []).slice(0, 12).map((error) => `${error.instancePath || '/'} ${error.message}`).join('; '); }
-function fail(code, detail) { const error = new Error('El Director produjo un plan flexible inválido.'); error.code = code; error.technicalDetail = detail; throw error; }
+function fail(code, detail) {
+  throw new PipelineError({
+    code,
+    stage: 'directing',
+    message: 'El Director produjo un plan flexible inválido.',
+    technicalDetail: detail,
+    suggestedAction: 'Reintentá la propuesta para que el Director repare el plan.',
+  });
+}

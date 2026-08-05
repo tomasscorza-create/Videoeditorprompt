@@ -112,8 +112,10 @@ assert.equal(capabilityStatus(firstMatrix, 'scene.dialogue', 'export'), 'availab
 assert.equal(capabilityStatus(firstMatrix, 'scene.voiceover', 'export'), 'available');
 assert.equal(capabilityStatus(firstMatrix, 'scene.solo', 'preview'), 'available');
 assert.equal(capabilityStatus(firstMatrix, 'speech.voiceover', 'authoring'), 'available');
-assert.equal(capabilityStatus(firstMatrix, 'element.prop', 'directorCreation'), 'planned');
+assert.equal(capabilityStatus(firstMatrix, 'element.prop', 'directorCreation'), 'available');
 assert.equal(capabilityStatus(firstMatrix, 'element.prop', 'export'), 'available');
+assert.equal(capabilityStatus(firstMatrix, 'element.template', 'directorEditing'), 'available');
+assert.equal(capabilityStatus(firstMatrix, 'animation.sequence', 'directorCreation'), 'available');
 pass('matriz-determinista-y-honesta', {
   capabilities: firstMatrix.capabilities.length,
   resources: firstMatrix.resources.length,

@@ -2,12 +2,13 @@ export const RICHNESS_POLICY_VERSION = 1;
 
 export function resolveRichnessPolicy(profile = 'automatic', context = {}) {
   const resolved = profile === 'automatic' ? automaticProfile(context) : profile;
+  const fixedStructure = context.structure && context.structure !== 'automatic';
   return {
     version: RICHNESS_POLICY_VERSION,
     requested: profile,
     resolved,
     rationale: profile !== 'automatic' ? 'El usuario eligió el perfil.' : automaticRationale(context, resolved),
-    minimumModes: resolved === 'simple' ? 1 : 2,
+    minimumModes: resolved === 'simple' || fixedStructure ? 1 : 2,
     minimumVisualFamilies: resolved === 'simple' ? 0 : resolved === 'varied' ? 1 : 1,
     minimumAnimatedScenes: resolved === 'dynamic' ? Math.max(1, Math.ceil((context.sceneCount ?? 1) / 2)) : 0,
     maximumVisualElementsPerScene: resolved === 'simple' ? 1 : resolved === 'varied' ? 3 : 4,

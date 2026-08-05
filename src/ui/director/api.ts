@@ -96,6 +96,7 @@ export interface DirectorContextSummary {
   selectedTemplateId?: string | null;
   totalCatalogEntries: number;
   shortlistedEntries: number;
+  resolvedConstraints?: DirectorConstraints;
 }
 
 export interface RenderJob {
@@ -185,6 +186,8 @@ export interface DirectorStatus {
   candidateIndex?: number;
   candidateCount?: number;
   attempt?: number;
+  segmentIndex?: number;
+  segmentCount?: number;
 }
 
 export interface DirectorConstraints {

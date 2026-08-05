@@ -7,12 +7,15 @@ export function describeDirectorProgress(status: DirectorStatus): string | null 
   const candidate = status.candidateIndex && status.candidateCount
     ? ` ${status.candidateIndex} de ${status.candidateCount}`
     : '';
+  const segment = status.segmentIndex && status.segmentCount
+    ? ` · bloque ${status.segmentIndex} de ${status.segmentCount}`
+    : '';
   const repairing = (status.attempt ?? 1) > 1;
   const messages: Record<string, string> = {
     checking_model: 'Comprobando Ollama y la versión del modelo…',
     preparing_context: 'Preparando recursos y contexto del proyecto…',
     cache: 'Recuperando una propuesta ya calculada…',
-    generating: repairing ? `Reparando la propuesta${candidate}…` : `Generando la propuesta${candidate} con Ollama…`,
+    generating: repairing ? `Reparando la propuesta${candidate}${segment}…` : `Generando la propuesta${candidate}${segment} con Ollama…`,
     validating: `Validando la propuesta${candidate}…`,
     comparing: 'Comparando las propuestas y eligiendo la más sólida…',
     repairing: 'Reparando la propuesta mejor puntuada…',
