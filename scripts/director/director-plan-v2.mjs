@@ -28,7 +28,7 @@ export function validateDirectorPlanV2(plan, catalog, recipes = loadCreativeReci
     const recipe = recipeMap.get(scene.sceneRecipeId);
     if (!recipe || !recipe.compatibleModes.includes(scene.mode)) fail('DIRECTOR_RECIPE_INVALID', `${base}/sceneRecipeId`);
     if (scene.participants.length < recipe.participantRange.minimum || scene.participants.length > recipe.participantRange.maximum) fail('DIRECTOR_RECIPE_INVALID', `${base}/participants`);
-    for (const [sequenceIndex, sequenceId] of scene.effectSequenceIds.entries()) {
+    for (const [sequenceIndex, sequenceId] of (scene.effectSequenceIds ?? []).entries()) {
       if (!sequenceIds.has(sequenceId)) fail('DIRECTOR_RECIPE_INVALID', `${base}/effectSequenceIds/${sequenceIndex}`);
     }
     const roles = new Map();

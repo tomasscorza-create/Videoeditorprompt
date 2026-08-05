@@ -92,7 +92,8 @@ export async function createDirectorProposal(options) {
   if (options.useCache !== false && existsSync(cachePath)) {
     emitProgress(options, 'cache');
     const cached = readJson(cachePath);
-    const normalized = normalizeDirectorPlan(cached.plan, catalog, {
+    const normalizeCachedPlan = cached.plan?.version === 2 ? normalizeDirectorPlanV2 : normalizeDirectorPlan;
+    const normalized = normalizeCachedPlan(cached.plan, catalog, {
       assetsRoot,
       promptHash: cacheKey,
       resourceCatalog: options.resourceCatalog,

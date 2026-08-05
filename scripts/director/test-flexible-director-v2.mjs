@@ -5,7 +5,7 @@ import { applyProjectEditorCommand, applyProjectEditorCommandBatch, createProjec
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import { loadCreativeRecipeCatalog } from './creative-contract.mjs';
 import { normalizeDirectorPlanV2, validateDirectorPlanV2 } from './director-plan-v2.mjs';
-import { buildOllamaPlanSchema } from './ollama-director.mjs';
+import { buildOllamaPlanSchema, createDirectorProposal } from './ollama-director.mjs';
 import { expandEffectSequenceCommands } from './recipe-expander.mjs';
 import { analyzeCreativeRichness, resolveRichnessPolicy } from './richness-policy.mjs';
 import { buildTimelineDirectorSchema, editTimelineWithDirector } from './timeline-director.mjs';
@@ -81,6 +81,25 @@ await test('schema-ollama-v2-ofrece-ocho-escenas-y-recetas-cerradas', () => {
   assert.ok(JSON.stringify(schema).includes('participants'));
 });
 
+await test('orquestador-ollama-crea-y-rehidrata-un-plan-v2', async () => {
+  const plan = basePlan();
+  plan.narrativeTemplateId = 'explain-stepwise-v1';
+  const fetchImpl = async () => new Response(JSON.stringify({
+    message: { content: JSON.stringify(plan) },
+  }), { status: 200, headers: { 'content-type': 'application/json' } });
+  const options = {
+    prompt: 'Explicá una idea de tres maneras.', catalog, fetchImpl,
+    cacheRoot: path.join(projectRoot, '.local-video', 'tests', 'director-flexible-v2-cache'),
+    constraints: { planVersion: 2, sceneCount: 3, targetDurationSeconds: 45, richnessProfile: 'dynamic', structure: 'automatic' },
+  };
+  const generated = await createDirectorProposal({ ...options, useCache: false });
+  assert.equal(generated.plan.version, 2);
+  assert.deepEqual(generated.project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'character').length), [0, 1, 2]);
+  const cached = await createDirectorProposal(options);
+  assert.equal(cached.cacheHit, true);
+  assert.equal(cached.plan.version, 2);
+});
+
 await test('plan-v2-rechaza-reparto-receta-y-hablante-incompatibles', () => {
   const wrongCast = basePlan();
   wrongCast.scenes[0].participants.push({ roleId: 'extra', characterResourceId: 'mono-azul-v1', voiceId: 'voz-ald-mx-v1', animationPresetId: 'talk-calm' });
@@ -92,6 +111,14 @@ await test('plan-v2-rechaza-reparto-receta-y-hablante-incompatibles', () => {
   const wrongSequence = basePlan();
   wrongSequence.scenes[0].effectSequenceIds = ['secuencia-inventada'];
   assert.throws(() => validateDirectorPlanV2(wrongSequence, catalog, recipes), (error) => error.code === 'DIRECTOR_RECIPE_INVALID');
+});
+
+await test('plan-v2-admite-omitir-secuencias-opcionales', () => {
+  const plan = basePlan();
+  delete plan.scenes[0].effectSequenceIds;
+  assert.doesNotThrow(() => validateDirectorPlanV2(plan, catalog, recipes));
+  const { project } = normalizeDirectorPlanV2(plan, catalog, { recipes, projectId: 'gate-sin-secuencia-v2' });
+  assert.equal(project.scenes.length, 3);
 });
 
 await test('politica-de-riqueza-es-determinista-y-auditable', () => {
