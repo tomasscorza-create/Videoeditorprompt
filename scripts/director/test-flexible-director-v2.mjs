@@ -4,7 +4,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { applyProjectEditorCommand, applyProjectEditorCommandBatch, createProjectEditor, undoProjectEditor, validateEditableProject } from '../../shared/project-editor.js';
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import { loadCreativeRecipeCatalog } from './creative-contract.mjs';
-import { normalizeDirectorPlanV2, validateDirectorPlanV2 } from './director-plan-v2.mjs';
+import { canonicalizeDirectorPlanV2, normalizeDirectorPlanV2, validateDirectorPlanV2 } from './director-plan-v2.mjs';
 import { buildOllamaPlanSchema, createDirectorProposal } from './ollama-director.mjs';
 import { expandEffectSequenceCommands } from './recipe-expander.mjs';
 import { analyzeCreativeRichness, resolveRichnessPolicy } from './richness-policy.mjs';
@@ -79,6 +79,11 @@ await test('schema-ollama-v2-ofrece-ocho-escenas-y-recetas-cerradas', () => {
   assert.equal(schema.properties.scenes.maxItems, 8);
   assert.ok(JSON.stringify(schema).includes('voiceover-feature-v1'));
   assert.ok(JSON.stringify(schema).includes('participants'));
+  const threeSceneSchema = buildOllamaPlanSchema(catalog, { planVersion: 2, sceneCount: 3, richnessProfile: 'dynamic', structure: 'automatic' });
+  const validate = new Ajv2020({ allErrors: true, strict: true }).compile(threeSceneSchema);
+  const validPlan = basePlan();
+  validPlan.narrativeTemplateId = 'explain-stepwise-v1';
+  assert.equal(validate(validPlan), true, JSON.stringify(validate.errors));
 });
 
 await test('orquestador-ollama-crea-y-rehidrata-un-plan-v2', async () => {
@@ -119,6 +124,20 @@ await test('plan-v2-admite-omitir-secuencias-opcionales', () => {
   assert.doesNotThrow(() => validateDirectorPlanV2(plan, catalog, recipes));
   const { project } = normalizeDirectorPlanV2(plan, catalog, { recipes, projectId: 'gate-sin-secuencia-v2' });
   assert.equal(project.scenes.length, 3);
+});
+
+await test('plan-v2-corrige-contradicciones-del-modelo-sin-reescribir-el-texto', () => {
+  const plan = basePlan();
+  const originalText = plan.scenes[0].speech[0].text;
+  plan.scenes[0].participants = [{ roleId: 'guia', characterResourceId: 'mono-azul-v1', voiceId: 'voz-claude-mx-v1', animationPresetId: 'talk-calm' }];
+  plan.scenes[0].speech = [{ kind: 'character', speakerRoleId: 'guia', text: originalText, gestureId: 'point', gapAfterSeconds: 0 }];
+  plan.scenes[0].sceneRecipeId = 'dialogue-contrast-v1';
+  const repaired = canonicalizeDirectorPlanV2(plan, catalog, recipes);
+  assert.equal(repaired.scenes[0].participants.length, 0);
+  assert.equal(repaired.scenes[0].speech[0].kind, 'voiceover');
+  assert.equal(repaired.scenes[0].speech[0].text, originalText);
+  assert.equal(repaired.scenes[0].sceneRecipeId, 'voiceover-feature-v1');
+  assert.doesNotThrow(() => validateDirectorPlanV2(repaired, catalog, recipes));
 });
 
 await test('politica-de-riqueza-es-determinista-y-auditable', () => {

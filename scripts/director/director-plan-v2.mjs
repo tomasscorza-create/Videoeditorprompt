@@ -13,6 +13,118 @@ const NARRATIVE_TEMPLATE_IDS = new Set(readJson(path.join(projectRoot, 'public',
 
 export function getDirectorPlanV2Schema() { return structuredClone(schema); }
 
+// La gramática JSON garantiza la forma del plan, pero los modelos pequeños pueden
+// combinar valores válidos que, juntos, contradicen el modo de una escena. Esta
+// pasada conserva el contenido editorial y vuelve coherentes esas elecciones antes
+// de la validación semántica estricta.
+export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativeRecipeCatalog()) {
+  const plan = structuredClone(input);
+  const byType = (type) => catalog.entries.filter((entry) => entry.type === type);
+  const characters = byType('character');
+  const voices = byType('voice');
+  const backgrounds = byType('background');
+  const visualResources = [...byType('prop'), ...byType('template')];
+  const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
+  const validSequences = new Set(recipes.effectSequences.map((entry) => entry.id));
+
+  for (const scene of plan.scenes ?? []) {
+    scene.effectSequenceIds = (scene.effectSequenceIds ?? []).filter((id) => validSequences.has(id));
+    scene.visualElements = (scene.visualElements ?? []).flatMap((visual) => {
+      const resource = resources.get(visual.resourceId);
+      if (!resource || !['prop', 'template'].includes(resource.type)) return [];
+      return [{ ...visual, type: resource.type }];
+    });
+
+    scene.participants = canonicalParticipants(scene, characters, voices, resources);
+    if (scene.mode === 'dialogue' && (scene.speech?.length ?? 0) < 2) {
+      scene.mode = 'solo';
+      scene.participants = scene.participants.slice(0, 1);
+    }
+    scene.speech = canonicalSpeech(scene, voices, resources);
+
+    const background = resources.get(scene.backgroundResourceId)?.type === 'background'
+      ? resources.get(scene.backgroundResourceId)
+      : backgrounds[0];
+    if (background) {
+      scene.backgroundResourceId = background.id;
+      const cameras = background.capabilities?.cameraPresets ?? ['static'];
+      if (!cameras.includes(scene.cameraPreset)) scene.cameraPreset = cameras[0];
+    }
+    if (!listLayoutPresetIds().includes(scene.layoutPreset)) scene.layoutPreset = listLayoutPresetIds()[0];
+    if (scene.transitionPreset === 'cut') scene.transitionDurationSeconds = 0;
+    else scene.transitionDurationSeconds = Math.min(1, Math.max(0.15, scene.transitionDurationSeconds ?? 0.3));
+
+    let recipe = findCompatibleRecipe(scene, recipes.sceneRecipes);
+    if (!recipe && ['voiceover', 'visual-with-voiceover'].includes(scene.mode) && visualResources.length) {
+      const resource = visualResources[0];
+      scene.visualElements.push({ roleId: 'recurso-visual', type: resource.type, resourceId: resource.id, ...(resource.type === 'template' ? { word: 'IDEA' } : {}) });
+      recipe = findCompatibleRecipe(scene, recipes.sceneRecipes);
+    }
+    if (recipe) {
+      scene.sceneRecipeId = recipe.id;
+      scene.effectSequenceIds = scene.effectSequenceIds.filter((id) => recipe.recommendedEffectSequenceIds.includes(id));
+    }
+  }
+  return plan;
+}
+
+function canonicalParticipants(scene, characters, voices, resources) {
+  const required = scene.mode === 'dialogue' ? 2 : scene.mode === 'solo' ? 1 : scene.mode === 'voiceover' ? 0 : Math.min(2, scene.participants?.length ?? 0);
+  if (required === 0) return [];
+  const selected = [];
+  for (let index = 0; index < required; index += 1) {
+    const proposed = scene.participants?.[index];
+    let character = resources.get(proposed?.characterResourceId);
+    if (character?.type !== 'character' || selected.some((entry) => entry.characterResourceId === character.id)) {
+      character = characters.find((entry) => !selected.some((selectedEntry) => selectedEntry.characterResourceId === entry.id)) ?? characters[0];
+    }
+    const voice = resources.get(proposed?.voiceId)?.type === 'voice' ? resources.get(proposed.voiceId) : voices[index % voices.length];
+    if (!character || !voice) continue;
+    const presets = character.capabilities?.animationPresets ?? ['idle-calm'];
+    selected.push({
+      roleId: proposed?.roleId && !selected.some((entry) => entry.roleId === proposed.roleId) ? proposed.roleId : `rol-${index + 1}`,
+      characterResourceId: character.id,
+      voiceId: voice.id,
+      animationPresetId: presets.includes(proposed?.animationPresetId) ? proposed.animationPresetId : presets[0],
+    });
+  }
+  return selected;
+}
+
+function canonicalSpeech(scene, voices, resources) {
+  const speech = scene.speech ?? [];
+  const voiceover = ['voiceover', 'visual-with-voiceover'].includes(scene.mode);
+  const fallbackVoice = speech.map((turn) => resources.get(turn.voiceId)).find((entry) => entry?.type === 'voice') ?? voices[0];
+  const turns = speech.map((turn, index) => {
+    const common = { text: turn.text, ...(turn.pace ? { pace: turn.pace } : {}), gapAfterSeconds: turn.gapAfterSeconds ?? 0 };
+    if (voiceover) {
+      const voice = resources.get(turn.voiceId)?.type === 'voice' ? resources.get(turn.voiceId) : fallbackVoice;
+      return { kind: 'voiceover', voiceId: voice.id, ...common };
+    }
+    const participant = scene.participants[index % scene.participants.length];
+    const character = resources.get(participant.characterResourceId);
+    const proposedRole = scene.participants.find((entry) => entry.roleId === turn.speakerRoleId);
+    const speaker = scene.mode === 'dialogue' ? participant : (proposedRole ?? scene.participants[0]);
+    const speakerCharacter = resources.get(speaker.characterResourceId) ?? character;
+    const poses = speakerCharacter.capabilities?.poses ?? ['neutral'];
+    const gestureId = poses.includes(turn.gestureId) ? turn.gestureId : (poses.includes('neutral') ? 'neutral' : poses[0]);
+    const gestureAtWord = Number.isInteger(turn.gestureAtWord) && turn.gestureAtWord < wordCount(turn.text) ? { gestureAtWord: turn.gestureAtWord } : {};
+    return { kind: 'character', speakerRoleId: speaker.roleId, ...common, gestureId, ...gestureAtWord };
+  });
+  if (turns.length) turns.at(-1).gapAfterSeconds = 0;
+  return turns;
+}
+
+function findCompatibleRecipe(scene, recipes) {
+  const present = new Set(scene.visualElements.map((entry) => entry.type));
+  if (scene.participants.length) present.add('character');
+  const compatible = (recipe) => recipe.compatibleModes.includes(scene.mode)
+    && scene.participants.length >= recipe.participantRange.minimum
+    && scene.participants.length <= recipe.participantRange.maximum
+    && recipe.requiredElementTypes.every((type) => present.has(type));
+  return recipes.find((entry) => entry.id === scene.sceneRecipeId && compatible(entry)) ?? recipes.find(compatible);
+}
+
 export function validateDirectorPlanV2(plan, catalog, recipes = loadCreativeRecipeCatalog()) {
   if (!validateSchema(plan)) fail('DIRECTOR_PLAN_SCHEMA_INVALID', formatErrors(validateSchema.errors));
   validateCreativeRecipeCatalog(recipes);
@@ -40,7 +152,7 @@ export function validateDirectorPlanV2(plan, catalog, recipes = loadCreativeReci
       roles.set(participant.roleId, participant);
       globalCharacters.add(participant.characterResourceId);
     }
-    const expected = scene.mode === 'dialogue' ? 2 : scene.mode === 'solo' ? 1 : null;
+    const expected = scene.mode === 'dialogue' ? 2 : scene.mode === 'solo' ? 1 : scene.mode === 'voiceover' ? 0 : null;
     if (expected !== null && scene.participants.length !== expected) fail('DIRECTOR_CAST_INVALID', `${base}/participants`);
     if (['voiceover', 'visual-with-voiceover'].includes(scene.mode) && scene.participants.length > 2) fail('DIRECTOR_CAST_INVALID', `${base}/participants`);
     if (scene.mode === 'dialogue' && new Set(scene.participants.map((entry) => entry.characterResourceId)).size !== 2) fail('DIRECTOR_CAST_INVALID', `${base}/participants`);

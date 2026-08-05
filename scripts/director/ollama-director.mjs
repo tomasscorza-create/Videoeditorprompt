@@ -9,7 +9,7 @@ import {
   loadAuthoringCatalog,
   normalizeDirectorPlan,
 } from './director-plan.mjs';
-import { getDirectorPlanV2Schema, normalizeDirectorPlanV2 } from './director-plan-v2.mjs';
+import { canonicalizeDirectorPlanV2, getDirectorPlanV2Schema, normalizeDirectorPlanV2 } from './director-plan-v2.mjs';
 import { loadCreativeRecipeCatalog } from './creative-contract.mjs';
 import { judgeDirectorPlans, PLAN_JUDGE_VERSION } from './plan-judge.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
@@ -92,14 +92,16 @@ export async function createDirectorProposal(options) {
   if (options.useCache !== false && existsSync(cachePath)) {
     emitProgress(options, 'cache');
     const cached = readJson(cachePath);
-    const normalizeCachedPlan = cached.plan?.version === 2 ? normalizeDirectorPlanV2 : normalizeDirectorPlan;
-    const normalized = normalizeCachedPlan(cached.plan, catalog, {
+    const cachedPlan = cached.plan?.version === 2 ? canonicalizeDirectorPlanV2(cached.plan, catalog) : cached.plan;
+    const normalizeCachedPlan = cachedPlan?.version === 2 ? normalizeDirectorPlanV2 : normalizeDirectorPlan;
+    const normalized = normalizeCachedPlan(cachedPlan, catalog, {
       assetsRoot,
       promptHash: cacheKey,
       resourceCatalog: options.resourceCatalog,
     });
     return {
       ...cached,
+      plan: cachedPlan,
       project: normalized.project,
       semanticHash: normalized.semanticHash,
       repairAttempts: cached.repairAttempts ?? 0,
@@ -343,6 +345,7 @@ async function generateCandidate({
       continue;
     }
     try {
+      if (plan.version === 2) plan = canonicalizeDirectorPlanV2(plan, catalog);
       if (plan.narrativeTemplateId === undefined) {
         plan.narrativeTemplateId = directorContext.summary.recommendedTemplateId;
       } else if (!directorContext.templates.some((template) => template.id === plan.narrativeTemplateId)) {
@@ -583,10 +586,11 @@ function repairFeedback(error) {
     DIRECTOR_TEMPLATE_INVALID: 'elegí una plantilla incluida en la shortlist.',
     DIRECTOR_RESOURCE_INVALID: 'usá únicamente IDs de recursos incluidos en la shortlist y del tipo correcto.',
     DIRECTOR_RESOURCE_UNSUPPORTED: 'elegí capacidades que el recurso seleccionado declare explícitamente.',
-    DIRECTOR_CAST_INVALID: 'usá dos personajes y dos voces diferentes.',
+    DIRECTOR_RECIPE_INVALID: 'elegí una receta compatible con el modo, la cantidad de participantes y los tipos visuales presentes.',
+    DIRECTOR_CAST_INVALID: 'ajustá el reparto al modo: voiceover sin personajes, solo con uno, dialogue con dos distintos y visual-with-voiceover con cero a dos.',
     DIRECTOR_TRANSITION_INVALID: 'usá fundidos entre 0.15 y 1 segundo, o corte con duración cero.',
     DIRECTOR_GESTURE_TIMING_INVALID: 'ubicá gestureAtWord dentro de las palabras reales del turno.',
-    DIRECTOR_SCENE_DIALOGUE_INVALID: 'incluí al menos un turno de cada personaje en cada escena.',
+    DIRECTOR_SCENE_DIALOGUE_INVALID: 'usá solo narración en modos voiceover, un único hablante en solo y al menos un turno de cada participante en dialogue.',
   };
   return messages[error?.code] || 'corregí el plan para que cumpla todas las restricciones indicadas.';
 }
@@ -597,6 +601,7 @@ function isRepairableDirectorError(error) {
     'DIRECTOR_TEMPLATE_INVALID',
     'DIRECTOR_RESOURCE_INVALID',
     'DIRECTOR_RESOURCE_UNSUPPORTED',
+    'DIRECTOR_RECIPE_INVALID',
     'DIRECTOR_CAST_INVALID',
     'DIRECTOR_TRANSITION_INVALID',
     'DIRECTOR_GESTURE_TIMING_INVALID',
