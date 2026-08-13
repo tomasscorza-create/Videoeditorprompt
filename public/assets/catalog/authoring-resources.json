@@ -347,7 +347,7 @@
       },
       "provenance": {
         "source": "Piper Voices, modelo es_MX-ald-medium; dataset Ald Mexican Spanish (rmcpantoja).",
-        "license": "Motor MIT; dataset Unlicense (dominio público)."
+        "license": "Modelo/repositorio de voces MIT; dataset Unlicense. El runtime Piper se licencia por separado."
       }
     },
     {
@@ -370,7 +370,7 @@
       },
       "provenance": {
         "source": "Piper Voices, modelo es_MX-claude-high; dataset HirCoir Piper-TTS-Spanish.",
-        "license": "Motor MIT; dataset Apache-2.0. REVISAR procedencia del audio base antes de vender."
+        "license": "Modelo/repositorio de voces MIT; dataset Apache-2.0. REVISAR audio base. Piper se licencia por separado."
       }
     },
     {
@@ -393,7 +393,7 @@
       },
       "provenance": {
         "source": "Piper Voices, modelo es_ES-sharvard-medium (hablante F, id 1); dataset Univ. Edimburgo datashare 10283/574.",
-        "license": "Motor MIT; dataset CC BY 3.0 (requiere atribución)."
+        "license": "Modelo/repositorio de voces MIT; dataset CC BY 3.0. Requiere atribución; Piper se licencia por separado."
       }
     },
     {
@@ -414,7 +414,7 @@
       },
       "provenance": {
         "source": "Piper Voices, revisión fijada del modelo es_ES-davefx-medium.",
-        "license": "Repositorio de voces MIT; dataset de origen declarado CC0."
+        "license": "Modelo/repositorio de voces MIT; dataset CC0. El runtime Piper se licencia por separado."
       }
     },
     {

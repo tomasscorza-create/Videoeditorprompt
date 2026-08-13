@@ -5,6 +5,7 @@ import { projectRoot } from './stage1/common.mjs';
 
 const commands = [
   'stage1:test-config',
+  'assets:test-licenses',
   'stage2d:test-contract',
   'stage2d:test-audio-mix',
   'stage2f:test-parametric',
