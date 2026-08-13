@@ -68,6 +68,7 @@
     "compositor:test-headless": "node scripts/compositor/test-pixi-compositor.mjs",
     "compositor:compare-v2": "node scripts/compositor/compare-v2-backends.mjs",
     "compositor:test-pipeline": "node scripts/compositor/test-pixi-pipeline.mjs",
+    "compositor:test-sequences": "node scripts/compositor/test-coordinated-sequence-pilot.mjs",
     "compositor:golden": "node scripts/compositor/generate-golden-frames.mjs",
     "compositor:benchmark": "node scripts/compositor/benchmark-compositor.mjs",
     "director:test-plan": "node scripts/director/test-director-plan.mjs",
