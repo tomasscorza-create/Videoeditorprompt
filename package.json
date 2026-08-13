@@ -44,6 +44,7 @@
     "stage2f:test-resource-manifest": "node scripts/stage2f/test-resource-manifest.mjs",
     "stage2f:resource-assets": "node scripts/stage2f/generate-parametric-resource.mjs --assets-dir=public",
     "stage2f:test-resource": "node scripts/stage2f/test-parametric-resource.mjs",
+    "stage2f:test-prop-pack": "node scripts/stage2f/test-visual-prop-pack.mjs",
     "stage2f:parametric-pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-parametrico-01 --config=pilots/parametric-character-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
     "stage3a:validate-project": "node scripts/stage3a/validate-video-project.mjs --project=pilots/proyecto-editable-01/project.json --assets-dir=public",
     "stage3a:test-project": "node scripts/stage3a/test-video-project.mjs",

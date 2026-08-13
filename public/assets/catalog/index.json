@@ -388,6 +388,138 @@
         "source": "Diseño original de rockstar tatuador 'El peque'.",
         "license": "Asset original para uso interno del proyecto."
       }
+    },
+    {
+      "id": "telefono-social-claro-v1",
+      "type": "prop",
+      "label": "Teléfono social claro",
+      "manifest": "assets/resources/telefono-social-claro-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/telefono-social-claro-v1/preview.png",
+      "tags": [
+        "parametrico",
+        "prop"
+      ],
+      "capabilities": {
+        "parts": [
+          "shadow",
+          "phone"
+        ],
+        "parameters": []
+      },
+      "provenance": {
+        "source": "Definición geométrica original creada para el paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "telefono-social-oscuro-v1",
+      "type": "prop",
+      "label": "Teléfono social oscuro",
+      "manifest": "assets/resources/telefono-social-oscuro-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/telefono-social-oscuro-v1/preview.png",
+      "tags": [
+        "parametrico",
+        "prop"
+      ],
+      "capabilities": {
+        "parts": [
+          "shadow",
+          "phone"
+        ],
+        "parameters": []
+      },
+      "provenance": {
+        "source": "Definición geométrica original creada para el paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "globo-dialogo-coral-v1",
+      "type": "prop",
+      "label": "Globo de diálogo coral",
+      "manifest": "assets/resources/globo-dialogo-coral-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/globo-dialogo-coral-v1/preview.png",
+      "tags": [
+        "parametrico",
+        "prop"
+      ],
+      "capabilities": {
+        "parts": [
+          "shadow",
+          "bubble"
+        ],
+        "parameters": []
+      },
+      "provenance": {
+        "source": "Definición geométrica original creada para el paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "globo-dialogo-azul-v1",
+      "type": "prop",
+      "label": "Globo de diálogo azul",
+      "manifest": "assets/resources/globo-dialogo-azul-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/globo-dialogo-azul-v1/preview.png",
+      "tags": [
+        "parametrico",
+        "prop"
+      ],
+      "capabilities": {
+        "parts": [
+          "shadow",
+          "bubble"
+        ],
+        "parameters": []
+      },
+      "provenance": {
+        "source": "Definición geométrica original creada para el paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "grafico-crecimiento-verde-v1",
+      "type": "prop",
+      "label": "Gráfico de crecimiento verde",
+      "manifest": "assets/resources/grafico-crecimiento-verde-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/grafico-crecimiento-verde-v1/preview.png",
+      "tags": [
+        "parametrico",
+        "prop"
+      ],
+      "capabilities": {
+        "parts": [
+          "shadow",
+          "chart"
+        ],
+        "parameters": []
+      },
+      "provenance": {
+        "source": "Definición geométrica original creada para el paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "grafico-crecimiento-violeta-v1",
+      "type": "prop",
+      "label": "Gráfico de crecimiento violeta",
+      "manifest": "assets/resources/grafico-crecimiento-violeta-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/grafico-crecimiento-violeta-v1/preview.png",
+      "tags": [
+        "parametrico",
+        "prop"
+      ],
+      "capabilities": {
+        "parts": [
+          "shadow",
+          "chart"
+        ],
+        "parameters": []
+      },
+      "provenance": {
+        "source": "Definición geométrica original creada para el paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
     }
   ]
 }

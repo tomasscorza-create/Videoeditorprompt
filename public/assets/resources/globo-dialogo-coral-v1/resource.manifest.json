@@ -1,0 +1,53 @@
+{
+  "version": 3,
+  "id": "globo-dialogo-coral-v1",
+  "kind": "prop",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 900
+  },
+  "sourceDefinition": "assets/resource-definitions/globo-dialogo-v1.json",
+  "variant": {
+    "id": "coral",
+    "label": "Globo de diálogo coral",
+    "palette": {
+      "outline": "#25170f",
+      "bubble": "#ff7169",
+      "highlight": "#fff0dd",
+      "dot": "#25170f",
+      "shadow": "#0812254d"
+    }
+  },
+  "parts": [
+    {
+      "id": "shadow",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 900
+      },
+      "zIndex": 0,
+      "layer": "part_shadow.png"
+    },
+    {
+      "id": "bubble",
+      "parentId": "shadow",
+      "pivot": {
+        "x": 540,
+        "y": 900
+      },
+      "zIndex": 1,
+      "layer": "part_bubble.png"
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": {
+    "source": "Definición geométrica original creada para el paquete visual interno V1.",
+    "license": "Asset propietario original del proyecto."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "version": 3,
+  "id": "telefono-social-claro-v1",
+  "kind": "prop",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/resource-definitions/telefono-social-v1.json",
+  "variant": {
+    "id": "claro",
+    "label": "Teléfono social claro",
+    "palette": {
+      "outline": "#211813",
+      "case": "#f1eadf",
+      "screen": "#19315f",
+      "accent": "#ff675f",
+      "accent2": "#67dfce",
+      "ink": "#f8fbff",
+      "shadow": "#07112655"
+    }
+  },
+  "parts": [
+    {
+      "id": "shadow",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "layer": "part_shadow.png"
+    },
+    {
+      "id": "phone",
+      "parentId": "shadow",
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 1,
+      "layer": "part_phone.png"
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": {
+    "source": "Definición geométrica original creada para el paquete visual interno V1.",
+    "license": "Asset propietario original del proyecto."
+  }
+}

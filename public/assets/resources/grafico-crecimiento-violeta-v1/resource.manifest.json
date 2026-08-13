@@ -1,0 +1,55 @@
+{
+  "version": 3,
+  "id": "grafico-crecimiento-violeta-v1",
+  "kind": "prop",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/resource-definitions/grafico-crecimiento-v1.json",
+  "variant": {
+    "id": "violeta",
+    "label": "Gráfico de crecimiento violeta",
+    "palette": {
+      "outline": "#241a38",
+      "card": "#f7f1ff",
+      "grid": "#241a3833",
+      "bar1": "#b49aff",
+      "bar2": "#7559d9",
+      "arrow": "#f4b942",
+      "shadow": "#0812254d"
+    }
+  },
+  "parts": [
+    {
+      "id": "shadow",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "layer": "part_shadow.png"
+    },
+    {
+      "id": "chart",
+      "parentId": "shadow",
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 1,
+      "layer": "part_chart.png"
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": {
+    "source": "Definición geométrica original creada para el paquete visual interno V1.",
+    "license": "Asset propietario original del proyecto."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "version": 3,
+  "id": "grafico-crecimiento-verde-v1",
+  "kind": "prop",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/resource-definitions/grafico-crecimiento-v1.json",
+  "variant": {
+    "id": "verde",
+    "label": "Gráfico de crecimiento verde",
+    "palette": {
+      "outline": "#17231d",
+      "card": "#f4f0e8",
+      "grid": "#17231d33",
+      "bar1": "#65d2b2",
+      "bar2": "#27aa82",
+      "arrow": "#ff6a60",
+      "shadow": "#0812254d"
+    }
+  },
+  "parts": [
+    {
+      "id": "shadow",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "layer": "part_shadow.png"
+    },
+    {
+      "id": "chart",
+      "parentId": "shadow",
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 1,
+      "layer": "part_chart.png"
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": {
+    "source": "Definición geométrica original creada para el paquete visual interno V1.",
+    "license": "Asset propietario original del proyecto."
+  }
+}

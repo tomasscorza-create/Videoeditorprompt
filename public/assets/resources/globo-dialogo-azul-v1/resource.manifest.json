@@ -1,0 +1,53 @@
+{
+  "version": 3,
+  "id": "globo-dialogo-azul-v1",
+  "kind": "prop",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 900
+  },
+  "sourceDefinition": "assets/resource-definitions/globo-dialogo-v1.json",
+  "variant": {
+    "id": "azul",
+    "label": "Globo de diálogo azul",
+    "palette": {
+      "outline": "#13203e",
+      "bubble": "#6f8cff",
+      "highlight": "#e9f8ff",
+      "dot": "#13203e",
+      "shadow": "#0812254d"
+    }
+  },
+  "parts": [
+    {
+      "id": "shadow",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 900
+      },
+      "zIndex": 0,
+      "layer": "part_shadow.png"
+    },
+    {
+      "id": "bubble",
+      "parentId": "shadow",
+      "pivot": {
+        "x": 540,
+        "y": 900
+      },
+      "zIndex": 1,
+      "layer": "part_bubble.png"
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": {
+    "source": "Definición geométrica original creada para el paquete visual interno V1.",
+    "license": "Asset propietario original del proyecto."
+  }
+}

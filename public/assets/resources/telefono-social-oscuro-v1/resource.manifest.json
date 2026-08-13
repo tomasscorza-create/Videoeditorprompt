@@ -1,0 +1,55 @@
+{
+  "version": 3,
+  "id": "telefono-social-oscuro-v1",
+  "kind": "prop",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/resource-definitions/telefono-social-v1.json",
+  "variant": {
+    "id": "oscuro",
+    "label": "Teléfono social oscuro",
+    "palette": {
+      "outline": "#121522",
+      "case": "#242a44",
+      "screen": "#0c1530",
+      "accent": "#f4c95d",
+      "accent2": "#9d7cff",
+      "ink": "#f5f1ff",
+      "shadow": "#02040a66"
+    }
+  },
+  "parts": [
+    {
+      "id": "shadow",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "layer": "part_shadow.png"
+    },
+    {
+      "id": "phone",
+      "parentId": "shadow",
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 1,
+      "layer": "part_phone.png"
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": {
+    "source": "Definición geométrica original creada para el paquete visual interno V1.",
+    "license": "Asset propietario original del proyecto."
+  }
+}

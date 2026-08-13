@@ -196,6 +196,78 @@
       "notes": "Prop geométrico original; no se autoriza su venta como asset independiente."
     },
     {
+      "resourceId": "telefono-social-claro-v1",
+      "assetType": "prop",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Prop geométrico original del paquete visual interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
+      "resourceId": "telefono-social-oscuro-v1",
+      "assetType": "prop",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Prop geométrico original del paquete visual interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
+      "resourceId": "globo-dialogo-coral-v1",
+      "assetType": "prop",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Prop geométrico original del paquete visual interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
+      "resourceId": "globo-dialogo-azul-v1",
+      "assetType": "prop",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Prop geométrico original del paquete visual interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
+      "resourceId": "grafico-crecimiento-verde-v1",
+      "assetType": "prop",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Prop geométrico original del paquete visual interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
+      "resourceId": "grafico-crecimiento-violeta-v1",
+      "assetType": "prop",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Prop geométrico original del paquete visual interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
       "resourceId": "procedural-word-match-cut-v1",
       "assetType": "template",
       "origin": "original",

@@ -1,0 +1,44 @@
+{
+  "version": 3,
+  "id": "def-telefono-social-v1",
+  "kind": "prop",
+  "canvas": { "width": 1080, "height": 1920 },
+  "pivot": { "x": 540, "y": 960 },
+  "variants": [
+    {
+      "id": "claro", "outputId": "telefono-social-claro-v1", "label": "Teléfono social claro",
+      "palette": { "outline": "#211813", "case": "#f1eadf", "screen": "#19315f", "accent": "#ff675f", "accent2": "#67dfce", "ink": "#f8fbff", "shadow": "#07112655" }
+    },
+    {
+      "id": "oscuro", "outputId": "telefono-social-oscuro-v1", "label": "Teléfono social oscuro",
+      "palette": { "outline": "#121522", "case": "#242a44", "screen": "#0c1530", "accent": "#f4c95d", "accent2": "#9d7cff", "ink": "#f5f1ff", "shadow": "#02040a66" }
+    }
+  ],
+  "parts": [
+    {
+      "id": "shadow", "parentId": null, "pivot": { "x": 540, "y": 960 }, "zIndex": 0,
+      "shapes": [
+        { "type": "ellipse", "cx": 540, "cy": 1450, "rx": 250, "ry": 52, "fill": "$shadow" }
+      ]
+    },
+    {
+      "id": "phone", "parentId": "shadow", "pivot": { "x": 540, "y": 960 }, "zIndex": 1,
+      "shapes": [
+        { "type": "rect", "x": 270, "y": 410, "width": 540, "height": 980, "rx": 82, "fill": "$case", "stroke": "$outline", "strokeWidth": 24 },
+        { "type": "rect", "x": 320, "y": 510, "width": 440, "height": 720, "rx": 42, "fill": "$screen", "stroke": "$outline", "strokeWidth": 12 },
+        { "type": "rect", "x": 440, "y": 455, "width": 200, "height": 26, "rx": 13, "fill": "$outline", "opacity": 0.55 },
+        { "type": "ellipse", "cx": 540, "cy": 1305, "rx": 50, "ry": 50, "fill": "$accent2", "stroke": "$outline", "strokeWidth": 12 },
+        { "type": "ellipse", "cx": 435, "cy": 720, "rx": 72, "ry": 72, "fill": "$accent" },
+        { "type": "path", "d": "M 400 720 C 420 680 450 680 470 720 C 450 760 420 760 400 720 Z", "fill": "$ink" },
+        { "type": "rect", "x": 545, "y": 665, "width": 150, "height": 28, "rx": 14, "fill": "$ink", "opacity": 0.92 },
+        { "type": "rect", "x": 545, "y": 720, "width": 110, "height": 24, "rx": 12, "fill": "$ink", "opacity": 0.55 },
+        { "type": "rect", "x": 385, "y": 870, "width": 310, "height": 38, "rx": 19, "fill": "$accent2" },
+        { "type": "rect", "x": 385, "y": 945, "width": 250, "height": 28, "rx": 14, "fill": "$ink", "opacity": 0.55 },
+        { "type": "rect", "x": 385, "y": 1005, "width": 190, "height": 28, "rx": 14, "fill": "$ink", "opacity": 0.4 }
+      ]
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": { "source": "Definición geométrica original creada para el paquete visual interno V1.", "license": "Asset propietario original del proyecto." }
+}

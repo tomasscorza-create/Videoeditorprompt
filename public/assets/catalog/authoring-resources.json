@@ -440,6 +440,102 @@
       }
     },
     {
+      "id": "telefono-social-claro-v1",
+      "type": "prop",
+      "label": "Teléfono social claro",
+      "tags": ["teléfono","redes","interfaz","prop"],
+      "resourceRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "telefono-social-claro-v1"
+      },
+      "thumbnail": "assets/resources/telefono-social-claro-v1/preview.png",
+      "capabilities": { "parameters": [] },
+      "provenance": {
+        "source": "Definición geométrica original del paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "telefono-social-oscuro-v1",
+      "type": "prop",
+      "label": "Teléfono social oscuro",
+      "tags": ["teléfono","redes","interfaz","oscuro","prop"],
+      "resourceRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "telefono-social-oscuro-v1"
+      },
+      "thumbnail": "assets/resources/telefono-social-oscuro-v1/preview.png",
+      "capabilities": { "parameters": [] },
+      "provenance": {
+        "source": "Definición geométrica original del paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "globo-dialogo-coral-v1",
+      "type": "prop",
+      "label": "Globo de diálogo coral",
+      "tags": ["diálogo","mensaje","conversación","prop"],
+      "resourceRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "globo-dialogo-coral-v1"
+      },
+      "thumbnail": "assets/resources/globo-dialogo-coral-v1/preview.png",
+      "capabilities": { "parameters": [] },
+      "provenance": {
+        "source": "Definición geométrica original del paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "globo-dialogo-azul-v1",
+      "type": "prop",
+      "label": "Globo de diálogo azul",
+      "tags": ["diálogo","mensaje","conversación","azul","prop"],
+      "resourceRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "globo-dialogo-azul-v1"
+      },
+      "thumbnail": "assets/resources/globo-dialogo-azul-v1/preview.png",
+      "capabilities": { "parameters": [] },
+      "provenance": {
+        "source": "Definición geométrica original del paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "grafico-crecimiento-verde-v1",
+      "type": "prop",
+      "label": "Gráfico de crecimiento verde",
+      "tags": ["gráfico","datos","crecimiento","prop"],
+      "resourceRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "grafico-crecimiento-verde-v1"
+      },
+      "thumbnail": "assets/resources/grafico-crecimiento-verde-v1/preview.png",
+      "capabilities": { "parameters": [] },
+      "provenance": {
+        "source": "Definición geométrica original del paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
+      "id": "grafico-crecimiento-violeta-v1",
+      "type": "prop",
+      "label": "Gráfico de crecimiento violeta",
+      "tags": ["gráfico","datos","crecimiento","violeta","prop"],
+      "resourceRef": {
+        "catalog": "assets/catalog/index.json",
+        "entryId": "grafico-crecimiento-violeta-v1"
+      },
+      "thumbnail": "assets/resources/grafico-crecimiento-violeta-v1/preview.png",
+      "capabilities": { "parameters": [] },
+      "provenance": {
+        "source": "Definición geométrica original del paquete visual interno V1.",
+        "license": "Asset propietario original del proyecto."
+      }
+    },
+    {
       "id": "procedural-word-match-cut-v1",
       "type": "template",
       "label": "Palabra entre páginas",

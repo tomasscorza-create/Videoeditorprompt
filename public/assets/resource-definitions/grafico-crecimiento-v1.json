@@ -1,0 +1,39 @@
+{
+  "version": 3,
+  "id": "def-grafico-crecimiento-v1",
+  "kind": "prop",
+  "canvas": { "width": 1080, "height": 1920 },
+  "pivot": { "x": 540, "y": 960 },
+  "variants": [
+    {
+      "id": "verde", "outputId": "grafico-crecimiento-verde-v1", "label": "Gráfico de crecimiento verde",
+      "palette": { "outline": "#17231d", "card": "#f4f0e8", "grid": "#17231d33", "bar1": "#65d2b2", "bar2": "#27aa82", "arrow": "#ff6a60", "shadow": "#0812254d" }
+    },
+    {
+      "id": "violeta", "outputId": "grafico-crecimiento-violeta-v1", "label": "Gráfico de crecimiento violeta",
+      "palette": { "outline": "#241a38", "card": "#f7f1ff", "grid": "#241a3833", "bar1": "#b49aff", "bar2": "#7559d9", "arrow": "#f4b942", "shadow": "#0812254d" }
+    }
+  ],
+  "parts": [
+    {
+      "id": "shadow", "parentId": null, "pivot": { "x": 540, "y": 960 }, "zIndex": 0,
+      "shapes": [{ "type": "ellipse", "cx": 540, "cy": 1390, "rx": 330, "ry": 58, "fill": "$shadow" }]
+    },
+    {
+      "id": "chart", "parentId": "shadow", "pivot": { "x": 540, "y": 960 }, "zIndex": 1,
+      "shapes": [
+        { "type": "rect", "x": 150, "y": 470, "width": 780, "height": 850, "rx": 72, "fill": "$card", "stroke": "$outline", "strokeWidth": 24 },
+        { "type": "path", "d": "M 260 1110 H 840 M 260 930 H 840 M 260 750 H 840", "fill": "#ffffff00", "stroke": "$grid", "strokeWidth": 16, "lineCap": "round" },
+        { "type": "rect", "x": 290, "y": 990, "width": 115, "height": 230, "rx": 28, "fill": "$bar1" },
+        { "type": "rect", "x": 480, "y": 830, "width": 115, "height": 390, "rx": 28, "fill": "$bar2" },
+        { "type": "rect", "x": 670, "y": 650, "width": 115, "height": 570, "rx": 28, "fill": "$bar1" },
+        { "type": "path", "d": "M 300 910 C 430 860 520 740 690 680 L 810 585", "fill": "#ffffff00", "stroke": "$arrow", "strokeWidth": 34, "lineCap": "round", "lineJoin": "round" },
+        { "type": "polygon", "points": [{ "x": 810, "y": 585 }, { "x": 748, "y": 595 }, { "x": 795, "y": 650 }], "fill": "$arrow" },
+        { "type": "rect", "x": 250, "y": 540, "width": 250, "height": 38, "rx": 19, "fill": "$outline", "opacity": 0.72 }
+      ]
+    }
+  ],
+  "parameters": [],
+  "bindings": [],
+  "provenance": { "source": "Definición geométrica original creada para el paquete visual interno V1.", "license": "Asset propietario original del proyecto." }
+}
