@@ -15,7 +15,7 @@
         { "id": "explain", "kind": "speech", "intent": "Explicar una sola idea mientras el elemento permanece legible.", "preferredDelivery": "voiceover" },
         { "id": "emphasize", "kind": "visual", "intent": "Destacar el dato o concepto principal sin saturar el cuadro.", "preferredDelivery": "none" }
       ],
-      "recommendedEffectSequenceIds": ["visual-reveal-v1"]
+      "recommendedEffectSequenceIds": ["visual-reveal-v1", "rise-and-settle-v2", "pop-and-wobble-v2"]
     },
     {
       "id": "solo-explainer-v1",
@@ -31,7 +31,7 @@
         { "id": "explanation", "kind": "speech", "intent": "Desarrollar la idea con un ejemplo breve.", "preferredDelivery": "character" },
         { "id": "close", "kind": "speech", "intent": "Cerrar con una conclusión aplicable.", "preferredDelivery": "character" }
       ],
-      "recommendedEffectSequenceIds": ["entrance-emphasis-exit-v1"]
+      "recommendedEffectSequenceIds": ["entrance-emphasis-exit-v1", "rise-and-settle-v2", "shake-and-pulse-v2"]
     },
     {
       "id": "dialogue-contrast-v1",
@@ -73,7 +73,7 @@
         { "id": "hook-card", "kind": "visual", "intent": "Abrir con el dato principal.", "preferredDelivery": "none" },
         { "id": "explain-card", "kind": "speech", "intent": "Explicar el dato con una frase breve.", "preferredDelivery": "voiceover" },
         { "id": "close-card", "kind": "visual", "intent": "Cerrar con la consecuencia útil.", "preferredDelivery": "none" }
-      ], "recommendedEffectSequenceIds": ["visual-reveal-v1"]
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "pop-and-wobble-v2"]
     },
     {
       "id": "prop-reveal-v1", "label": "Revelado de objeto", "description": "Un objeto aparece como respuesta visual a la narración.",
@@ -83,7 +83,7 @@
         { "id": "question", "kind": "speech", "intent": "Plantear la tensión.", "preferredDelivery": "voiceover" },
         { "id": "reveal-prop", "kind": "visual", "intent": "Revelar el objeto que resuelve la idea.", "preferredDelivery": "none" },
         { "id": "resolve", "kind": "speech", "intent": "Explicar por qué importa.", "preferredDelivery": "voiceover" }
-      ], "recommendedEffectSequenceIds": ["visual-reveal-v1"]
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "pop-and-wobble-v2", "jump-and-flash-v2"]
     },
     {
       "id": "before-after-v1", "label": "Antes y después", "description": "Contrasta dos estados mediante entradas opuestas y una conclusión narrada.",
@@ -93,7 +93,7 @@
         { "id": "before", "kind": "visual", "intent": "Mostrar el estado inicial.", "preferredDelivery": "none" },
         { "id": "change", "kind": "speech", "intent": "Nombrar el cambio decisivo.", "preferredDelivery": "voiceover" },
         { "id": "after", "kind": "visual", "intent": "Mostrar el resultado final.", "preferredDelivery": "none" }
-      ], "recommendedEffectSequenceIds": ["visual-reveal-v1"]
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "rise-and-settle-v2", "exit-up-and-fade-v2"]
     },
     {
       "id": "countdown-visual-v1", "label": "Cuenta regresiva visual", "description": "Una palabra o número protagonista marca pasos breves con ritmo creciente.",
@@ -165,6 +165,90 @@
         { "slotId": "prop", "presetId": "fade-in", "offsetSeconds": 0, "intensity": "inherit" },
         { "slotId": "prop", "presetId": "emphasis-pulse", "offsetSeconds": 0.45, "intensity": "inherit" },
         { "slotId": "guide", "presetId": "arm-raise", "offsetSeconds": 0.25, "intensity": "inherit" }
+      ]
+    },
+    {
+      "id": "rise-and-settle-v2",
+      "label": "Subida y asentamiento",
+      "description": "Introduce el elemento desde abajo y lo asienta con un pulso breve.",
+      "tags": ["entrada", "vertical", "pulso", "dinamico"],
+      "compatibleAnchorKinds": ["scene", "turn", "word"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.y", "scale"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "enter-bottom", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "subject", "presetId": "emphasis-pulse", "offsetSeconds": 0.72, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "pop-and-wobble-v2",
+      "label": "Rebote y balanceo",
+      "description": "Hace aparecer el elemento con rebote y agrega un balanceo corto de asentamiento.",
+      "tags": ["entrada", "rebote", "balanceo", "visual"],
+      "compatibleAnchorKinds": ["scene", "turn", "word"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["scale", "rotationDegrees"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "pop-in", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "subject", "presetId": "wobble", "offsetSeconds": 0.18, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "jump-and-flash-v2",
+      "label": "Salto y destello",
+      "description": "Coordina un salto corto con un destello de visibilidad para remarcar una reacción.",
+      "tags": ["salto", "destello", "reaccion", "enfasis"],
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.y", "opacity"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "jump", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "subject", "presetId": "blink", "offsetSeconds": 0.18, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "shake-and-pulse-v2",
+      "label": "Sacudida y pulso",
+      "description": "Combina una sacudida lateral con un pulso para enfatizar una palabra o dato.",
+      "tags": ["sacudida", "pulso", "dato", "enfasis"],
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.x", "scale"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "shake-horizontal", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "subject", "presetId": "emphasis-pulse", "offsetSeconds": 0.12, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "float-and-pulse-v2",
+      "label": "Flotación y respiración",
+      "description": "Mantiene un movimiento vertical suave y agrega un pulso contenido durante la exposición.",
+      "tags": ["flotar", "suave", "pulso", "ambiental"],
+      "compatibleAnchorKinds": ["scene", "turn"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.y", "scale"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "float", "offsetSeconds": 0, "intensity": "soft" },
+        { "slotId": "subject", "presetId": "emphasis-pulse", "offsetSeconds": 0.4, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "exit-up-and-fade-v2",
+      "label": "Salida ascendente",
+      "description": "Retira el elemento hacia arriba mientras reduce su opacidad.",
+      "tags": ["salida", "vertical", "desvanecer", "cierre"],
+      "compatibleAnchorKinds": ["scene", "turn"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.y", "opacity"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "exit-top", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "subject", "presetId": "fade-out", "offsetSeconds": 0.15, "intensity": "soft" }
       ]
     }
   ]

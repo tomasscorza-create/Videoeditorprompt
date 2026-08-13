@@ -28,7 +28,7 @@ function pass(name, detail = {}) {
 // 1. El catálogo real es estructural y semánticamente válido.
 assert.equal(validateCreativeRecipeCatalog(recipeCatalog), recipeCatalog);
 assert.equal(recipeCatalog.sceneRecipes.length, 8);
-assert.equal(recipeCatalog.effectSequences.length, 4);
+assert.equal(recipeCatalog.effectSequences.length, 10);
 pass('catalogo-creativo-valido', {
   sceneRecipes: recipeCatalog.sceneRecipes.length,
   effectSequences: recipeCatalog.effectSequences.length,
@@ -96,6 +96,20 @@ assert.throws(
   (error) => error.code === 'CREATIVE_RECIPE_CATALOG_INVALID',
 );
 pass('catalogo-no-admite-codigo', { accepted: false });
+
+const repeatedParameterCatalog = structuredClone(recipeCatalog);
+repeatedParameterCatalog.effectSequences.find((sequence) => sequence.id === 'rise-and-settle-v2').actions.push({
+  slotId: 'subject',
+  presetId: 'jump',
+  offsetSeconds: 1,
+  intensity: 'soft',
+});
+assert.throws(
+  () => validateCreativeRecipeCatalog(repeatedParameterCatalog),
+  (error) => error.code === 'CREATIVE_RECIPE_CATALOG_INVALID'
+    && error.technicalDetail.includes('position.y'),
+);
+pass('una-secuencia-no-puede-reemplazar-dos-veces-la-misma-pista', { accepted: false });
 
 // 6. La matriz única se deriva de recursos, presets y recetas reales.
 const firstMatrix = buildCreativeCapabilityMatrix({ resourceCatalog, recipeCatalog });

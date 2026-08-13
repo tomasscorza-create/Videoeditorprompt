@@ -32,6 +32,7 @@ const commands = [
   'director:test-plan',
   'director:test-context',
   'director:test-creative-contract',
+  'director:test-effect-sequences',
   'director:test-quality',
   'director:test-ollama',
   'director:test-editor',

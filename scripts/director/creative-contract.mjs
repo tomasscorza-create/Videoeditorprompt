@@ -150,6 +150,13 @@ export function validateCreativeRecipeCatalog(document) {
       if (!slot.elementTypes.some((type) => parameter.elementTypes.includes(type))) {
         fail('CREATIVE_RECIPE_CATALOG_INVALID', actionPath, `${action.presetId} no aplica a ${action.slotId}`);
       }
+      if (exercisedParameters.get(action.slotId).has(preset.parameterId)) {
+        fail(
+          'CREATIVE_RECIPE_CATALOG_INVALID',
+          actionPath,
+          `${action.slotId} repite una acción sobre ${preset.parameterId}`,
+        );
+      }
       exercisedParameters.get(action.slotId).add(preset.parameterId);
     }
     for (const [slotIndex, slot] of sequence.slots.entries()) {

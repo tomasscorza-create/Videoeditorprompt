@@ -73,6 +73,7 @@
     "director:test-plan": "node scripts/director/test-director-plan.mjs",
     "director:test-context": "node scripts/director/test-director-context.mjs",
     "director:test-creative-contract": "node scripts/director/test-creative-contract.mjs",
+    "director:test-effect-sequences": "node scripts/director/test-effect-sequences-v2.mjs",
     "director:test-quality": "node scripts/director/test-director-quality.mjs",
     "director:benchmark-quality": "node scripts/director/benchmark-director-quality.mjs",
     "director:test-ollama": "node scripts/director/test-ollama-director.mjs",
