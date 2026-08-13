@@ -1,11 +1,14 @@
 import type { AnimationAnchor, AnimationInterpolation } from './animation-contract.js';
 
 export type AnimationIntensity = 'soft' | 'medium' | 'strong';
+export type AnimationPresetGroupId = 'entrance' | 'exit' | 'visibility' | 'emphasis' | 'movement' | 'articulation';
 
 export const ANIMATION_INTENSITIES: Readonly<Record<AnimationIntensity, { amplitude: number; duration: number }>>;
+export const ANIMATION_PRESET_GROUPS: Readonly<Record<AnimationPresetGroupId, { label: string }>>;
 
 export interface AnimationPresetDefinition {
   version: number;
+  groupId: AnimationPresetGroupId;
   parameterId: string;
   label: string;
   steps: ReadonlyArray<{
@@ -51,4 +54,10 @@ export function expandAnimationPreset(
 
 export function listApplicablePresets(
   declaredParameters?: readonly string[],
-): Array<{ id: string; label: string; parameterId: string; version: number }>;
+): Array<{
+  id: string;
+  label: string;
+  groupId: AnimationPresetGroupId;
+  parameterId: string;
+  version: number;
+}>;

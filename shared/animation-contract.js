@@ -41,9 +41,12 @@ export const RESOURCE_DECLARED_PARAMETERS = Object.freeze(
 export const ANIMATION_INTERPOLATIONS = Object.freeze(['linear', 'ease', 'hold']);
 
 export const ANIMATION_PRESET_IDS = Object.freeze([
-  'enter-left', 'enter-right', 'fade-in', 'fade-out', 'emphasis-pulse', 'arm-raise',
-  'left-arm-raise', 'right-elbow-bend', 'left-elbow-bend', 'head-tilt', 'head-nod',
-  'body-lean', 'body-bounce',
+  'enter-left', 'enter-right', 'enter-bottom', 'pop-in',
+  'exit-left', 'exit-right', 'exit-top',
+  'fade-in', 'fade-out', 'blink',
+  'emphasis-pulse', 'shake-horizontal', 'wobble', 'squash-stretch', 'jump', 'float',
+  'arm-raise', 'left-arm-raise', 'right-elbow-bend', 'left-elbow-bend',
+  'head-tilt', 'head-nod', 'body-lean', 'body-bounce',
 ]);
 
 export const ANIMATION_LIMITS = Object.freeze({

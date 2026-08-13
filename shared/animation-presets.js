@@ -18,18 +18,29 @@ export const ANIMATION_INTENSITIES = Object.freeze({
   strong: { amplitude: 1.5, duration: 0.85 },
 });
 
+/** Orden y rótulos compartidos por cualquier interfaz que presente presets. */
+export const ANIMATION_PRESET_GROUPS = Object.freeze({
+  entrance: { label: 'Entradas' },
+  exit: { label: 'Salidas' },
+  visibility: { label: 'Visibilidad' },
+  emphasis: { label: 'Énfasis' },
+  movement: { label: 'Movimiento' },
+  articulation: { label: 'Cuerpo y articulaciones' },
+});
+
 /**
  * Catálogo cerrado y versionado.
  *
  * `steps` describe los keyframes en forma relativa: `atSeconds` es el
  * desplazamiento desde el ancla y `value` se resuelve contra el valor base del
  * elemento. `offset` suma sobre la base, `absolute` la ignora, `factor` la
- * multiplica. Con eso alcanza para los seis presets de V1 sin una sola línea de
- * lógica por preset.
+ * multiplica. Con eso alcanza para ampliar el catálogo sin agregar una sola
+ * línea de lógica específica por preset.
  */
 export const ANIMATION_PRESETS = Object.freeze({
   'enter-left': {
     version: 1,
+    groupId: 'entrance',
     parameterId: 'position.x',
     label: 'Entrar por la izquierda',
     steps: [
@@ -39,6 +50,7 @@ export const ANIMATION_PRESETS = Object.freeze({
   },
   'enter-right': {
     version: 1,
+    groupId: 'entrance',
     parameterId: 'position.x',
     label: 'Entrar por la derecha',
     steps: [
@@ -46,8 +58,60 @@ export const ANIMATION_PRESETS = Object.freeze({
       { atSeconds: 0.6, mode: 'offset', amount: 0, interpolation: 'hold' },
     ],
   },
+  'enter-bottom': {
+    version: 1,
+    groupId: 'entrance',
+    parameterId: 'position.y',
+    label: 'Entrar desde abajo',
+    steps: [
+      { atSeconds: 0, mode: 'offset', amount: 520, interpolation: 'ease' },
+      { atSeconds: 0.68, mode: 'offset', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'pop-in': {
+    version: 1,
+    groupId: 'entrance',
+    parameterId: 'scale',
+    label: 'Aparecer con rebote',
+    steps: [
+      { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.28, mode: 'factor', amount: 1.12, interpolation: 'ease' },
+      { atSeconds: 0.48, mode: 'factor', amount: 1, interpolation: 'hold' },
+    ],
+  },
+  'exit-left': {
+    version: 1,
+    groupId: 'exit',
+    parameterId: 'position.x',
+    label: 'Salir por la izquierda',
+    steps: [
+      { atSeconds: 0, mode: 'offset', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.6, mode: 'offset', amount: -420, interpolation: 'hold' },
+    ],
+  },
+  'exit-right': {
+    version: 1,
+    groupId: 'exit',
+    parameterId: 'position.x',
+    label: 'Salir por la derecha',
+    steps: [
+      { atSeconds: 0, mode: 'offset', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.6, mode: 'offset', amount: 420, interpolation: 'hold' },
+    ],
+  },
+  'exit-top': {
+    version: 1,
+    groupId: 'exit',
+    parameterId: 'position.y',
+    label: 'Salir hacia arriba',
+    steps: [
+      { atSeconds: 0, mode: 'offset', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.68, mode: 'offset', amount: -520, interpolation: 'hold' },
+    ],
+  },
   'fade-in': {
     version: 1,
+    groupId: 'visibility',
     parameterId: 'opacity',
     label: 'Aparecer',
     steps: [
@@ -57,6 +121,7 @@ export const ANIMATION_PRESETS = Object.freeze({
   },
   'fade-out': {
     version: 1,
+    groupId: 'visibility',
     parameterId: 'opacity',
     label: 'Desaparecer',
     steps: [
@@ -64,8 +129,20 @@ export const ANIMATION_PRESETS = Object.freeze({
       { atSeconds: 0.4, mode: 'absolute', amount: 0, interpolation: 'hold' },
     ],
   },
+  blink: {
+    version: 1,
+    groupId: 'visibility',
+    parameterId: 'opacity',
+    label: 'Parpadeo visual',
+    steps: [
+      { atSeconds: 0, mode: 'absolute', amount: 1, interpolation: 'linear' },
+      { atSeconds: 0.1, mode: 'absolute', amount: 0, interpolation: 'linear' },
+      { atSeconds: 0.2, mode: 'absolute', amount: 1, interpolation: 'hold' },
+    ],
+  },
   'emphasis-pulse': {
     version: 1,
+    groupId: 'emphasis',
     parameterId: 'scale',
     label: 'Énfasis',
     steps: [
@@ -74,8 +151,71 @@ export const ANIMATION_PRESETS = Object.freeze({
       { atSeconds: 0.46, mode: 'factor', amount: 1, interpolation: 'hold' },
     ],
   },
+  'shake-horizontal': {
+    version: 1,
+    groupId: 'emphasis',
+    parameterId: 'position.x',
+    label: 'Sacudida lateral',
+    steps: [
+      { atSeconds: 0, mode: 'offset', amount: 0, interpolation: 'linear' },
+      { atSeconds: 0.08, mode: 'offset', amount: -34, interpolation: 'linear' },
+      { atSeconds: 0.16, mode: 'offset', amount: 34, interpolation: 'linear' },
+      { atSeconds: 0.24, mode: 'offset', amount: -18, interpolation: 'linear' },
+      { atSeconds: 0.34, mode: 'offset', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  wobble: {
+    version: 1,
+    groupId: 'emphasis',
+    parameterId: 'rotationDegrees',
+    label: 'Balanceo',
+    steps: [
+      { atSeconds: 0, mode: 'offset', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.14, mode: 'offset', amount: -10, interpolation: 'ease' },
+      { atSeconds: 0.28, mode: 'offset', amount: 10, interpolation: 'ease' },
+      { atSeconds: 0.42, mode: 'offset', amount: -5, interpolation: 'ease' },
+      { atSeconds: 0.58, mode: 'offset', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  'squash-stretch': {
+    version: 1,
+    groupId: 'emphasis',
+    parameterId: 'scale',
+    label: 'Aplastar y estirar',
+    steps: [
+      { atSeconds: 0, mode: 'factor', amount: 1, interpolation: 'ease' },
+      { atSeconds: 0.12, mode: 'factor', amount: 0.86, interpolation: 'ease' },
+      { atSeconds: 0.26, mode: 'factor', amount: 1.12, interpolation: 'ease' },
+      { atSeconds: 0.44, mode: 'factor', amount: 1, interpolation: 'hold' },
+    ],
+  },
+  jump: {
+    version: 1,
+    groupId: 'movement',
+    parameterId: 'position.y',
+    label: 'Saltar',
+    steps: [
+      { atSeconds: 0, mode: 'offset', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.24, mode: 'offset', amount: -240, interpolation: 'ease' },
+      { atSeconds: 0.52, mode: 'offset', amount: 0, interpolation: 'hold' },
+    ],
+  },
+  float: {
+    version: 1,
+    groupId: 'movement',
+    parameterId: 'position.y',
+    label: 'Flotar',
+    steps: [
+      { atSeconds: 0, mode: 'offset', amount: 0, interpolation: 'ease' },
+      { atSeconds: 0.36, mode: 'offset', amount: -42, interpolation: 'ease' },
+      { atSeconds: 0.72, mode: 'offset', amount: 0, interpolation: 'ease' },
+      { atSeconds: 1.08, mode: 'offset', amount: 32, interpolation: 'ease' },
+      { atSeconds: 1.44, mode: 'offset', amount: 0, interpolation: 'hold' },
+    ],
+  },
   'arm-raise': {
     version: 1,
+    groupId: 'articulation',
     parameterId: 'armRaise',
     label: 'Levantar brazo derecho',
     steps: [
@@ -85,7 +225,7 @@ export const ANIMATION_PRESETS = Object.freeze({
     ],
   },
   'left-arm-raise': {
-    version: 1, parameterId: 'leftArmRaise', label: 'Levantar brazo izquierdo',
+    version: 1, groupId: 'articulation', parameterId: 'leftArmRaise', label: 'Levantar brazo izquierdo',
     steps: [
       { atSeconds: -0.1, mode: 'absolute', amount: 0, interpolation: 'ease' },
       { atSeconds: 0.15, mode: 'absolute', amount: 1, interpolation: 'ease' },
@@ -93,7 +233,7 @@ export const ANIMATION_PRESETS = Object.freeze({
     ],
   },
   'right-elbow-bend': {
-    version: 1, parameterId: 'rightElbowBend', label: 'Flexionar codo derecho',
+    version: 1, groupId: 'articulation', parameterId: 'rightElbowBend', label: 'Flexionar codo derecho',
     steps: [
       { atSeconds: -0.1, mode: 'absolute', amount: 0, interpolation: 'ease' },
       { atSeconds: 0.15, mode: 'absolute', amount: 1, interpolation: 'ease' },
@@ -101,7 +241,7 @@ export const ANIMATION_PRESETS = Object.freeze({
     ],
   },
   'left-elbow-bend': {
-    version: 1, parameterId: 'leftElbowBend', label: 'Flexionar codo izquierdo',
+    version: 1, groupId: 'articulation', parameterId: 'leftElbowBend', label: 'Flexionar codo izquierdo',
     steps: [
       { atSeconds: -0.1, mode: 'absolute', amount: 0, interpolation: 'ease' },
       { atSeconds: 0.15, mode: 'absolute', amount: 1, interpolation: 'ease' },
@@ -109,7 +249,7 @@ export const ANIMATION_PRESETS = Object.freeze({
     ],
   },
   'head-tilt': {
-    version: 1, parameterId: 'headTilt', label: 'Inclinar la cabeza',
+    version: 1, groupId: 'articulation', parameterId: 'headTilt', label: 'Inclinar la cabeza',
     steps: [
       { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
       { atSeconds: 0.2, mode: 'absolute', amount: 1, interpolation: 'ease' },
@@ -117,7 +257,7 @@ export const ANIMATION_PRESETS = Object.freeze({
     ],
   },
   'head-nod': {
-    version: 1, parameterId: 'headNod', label: 'Asentir',
+    version: 1, groupId: 'articulation', parameterId: 'headNod', label: 'Asentir',
     steps: [
       { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
       { atSeconds: 0.16, mode: 'absolute', amount: 1, interpolation: 'ease' },
@@ -127,7 +267,7 @@ export const ANIMATION_PRESETS = Object.freeze({
     ],
   },
   'body-lean': {
-    version: 1, parameterId: 'bodyLean', label: 'Inclinar el cuerpo',
+    version: 1, groupId: 'articulation', parameterId: 'bodyLean', label: 'Inclinar el cuerpo',
     steps: [
       { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
       { atSeconds: 0.24, mode: 'absolute', amount: 1, interpolation: 'ease' },
@@ -135,7 +275,7 @@ export const ANIMATION_PRESETS = Object.freeze({
     ],
   },
   'body-bounce': {
-    version: 1, parameterId: 'bodyBounce', label: 'Rebotar',
+    version: 1, groupId: 'articulation', parameterId: 'bodyBounce', label: 'Rebotar',
     steps: [
       { atSeconds: 0, mode: 'absolute', amount: 0, interpolation: 'ease' },
       { atSeconds: 0.14, mode: 'absolute', amount: 1, interpolation: 'ease' },
@@ -219,5 +359,11 @@ export function listApplicablePresets(declaredParameters = []) {
   return Object.entries(ANIMATION_PRESETS)
     .filter(([, preset]) => !ANIMATION_PARAMETERS[preset.parameterId].requiresResourceSupport
       || declaredParameters.includes(preset.parameterId))
-    .map(([id, preset]) => ({ id, label: preset.label, parameterId: preset.parameterId, version: preset.version }));
+    .map(([id, preset]) => ({
+      id,
+      label: preset.label,
+      groupId: preset.groupId,
+      parameterId: preset.parameterId,
+      version: preset.version,
+    }));
 }

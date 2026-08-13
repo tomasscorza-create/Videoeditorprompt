@@ -9,11 +9,13 @@ import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { projectRoot, readJson, writeJson } from '../stage1/common.mjs';
 import {
+  ANIMATION_PRESET_GROUPS,
   ANIMATION_PRESETS,
   animationPresetWindow,
   expandAnimationPreset,
   listApplicablePresets,
 } from '../../shared/animation-presets.js';
+import { ANIMATION_PRESET_IDS } from '../../shared/animation-contract.js';
 import {
   applyProjectEditorCommand,
   createProjectEditor,
@@ -23,22 +25,25 @@ import {
 
 const project = readJson(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'));
 const catalog = readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'authoring-resources.json'));
-const validateProject = new Ajv2020({ allErrors: true, strict: true })
-  .compile(readJson(path.join(projectRoot, 'schema', 'video-project.schema.json')));
-const validateCommand = new Ajv2020({ allErrors: true, strict: true })
-  .compile(readJson(path.join(projectRoot, 'schema', 'editor-command.schema.json')));
+const projectSchema = readJson(path.join(projectRoot, 'schema', 'video-project.schema.json'));
+const commandSchema = readJson(path.join(projectRoot, 'schema', 'editor-command.schema.json'));
+const animationSchema = readJson(path.join(projectRoot, 'schema', 'animation-scene.schema.json'));
+const validateProject = new Ajv2020({ allErrors: true, strict: true }).compile(projectSchema);
+const validateCommand = new Ajv2020({ allErrors: true, strict: true }).compile(commandSchema);
 const results = [];
 
 function pass(name, detail = {}) {
   results.push({ name, ...detail });
 }
 
-// 1. El catálogo tiene los seis presets del plan y todos expanden a 2-4 keyframes.
+// 1. El catálogo interno completo expande a pistas pequeñas y deterministas.
 assert.deepEqual(Object.keys(ANIMATION_PRESETS).sort(),
   [
-    'arm-raise', 'body-bounce', 'body-lean', 'emphasis-pulse', 'enter-left',
-    'enter-right', 'fade-in', 'fade-out', 'head-nod', 'head-tilt',
-    'left-arm-raise', 'left-elbow-bend', 'right-elbow-bend',
+    'arm-raise', 'blink', 'body-bounce', 'body-lean', 'emphasis-pulse',
+    'enter-bottom', 'enter-left', 'enter-right', 'exit-left', 'exit-right',
+    'exit-top', 'fade-in', 'fade-out', 'float', 'head-nod', 'head-tilt',
+    'jump', 'left-arm-raise', 'left-elbow-bend', 'pop-in', 'right-elbow-bend',
+    'shake-horizontal', 'squash-stretch', 'wobble',
   ]);
 for (const [presetId, preset] of Object.entries(ANIMATION_PRESETS)) {
   const track = expandAnimationPreset(presetId, { baseValue: preset.parameterId === 'scale' ? 1 : 100 });
@@ -47,8 +52,17 @@ for (const [presetId, preset] of Object.entries(ANIMATION_PRESETS)) {
   assert.equal(track.source.kind, 'preset');
   assert.equal(track.source.customized, false);
   assert.equal(track.source.presetId, presetId);
+  assert.ok(Object.hasOwn(ANIMATION_PRESET_GROUPS, preset.groupId), `${presetId} debe pertenecer a un grupo visible`);
 }
 pass('los-presets-expanden-a-pistas-acotadas', { accepted: true, presets: Object.keys(ANIMATION_PRESETS).length });
+
+const presetIds = Object.keys(ANIMATION_PRESETS);
+assert.deepEqual([...ANIMATION_PRESET_IDS], presetIds);
+assert.deepEqual(animationSchema.$defs.presetId.enum, presetIds);
+assert.deepEqual(commandSchema.$defs.animationSource.oneOf[0].properties.presetId.enum, presetIds);
+assert.deepEqual(commandSchema.$defs.applyAnimationPreset.properties.presetId.enum, presetIds);
+assert.deepEqual(projectSchema.$defs.animationTrack.properties.source.oneOf[0].properties.presetId.enum, presetIds);
+pass('contrato-y-schemas-comparten-el-mismo-catalogo-cerrado', { accepted: true });
 
 // 2. La expansión es determinista.
 assert.deepEqual(
@@ -97,8 +111,16 @@ assert.ok(!listApplicablePresets([]).some((preset) => preset.id === 'arm-raise')
 assert.ok(listApplicablePresets(['armRaise']).some((preset) => preset.id === 'arm-raise'));
 assert.ok(listApplicablePresets(['headNod']).some((preset) => preset.id === 'head-nod'));
 assert.ok(!listApplicablePresets(['armRaise']).some((preset) => preset.id === 'head-nod'));
-assert.equal(listApplicablePresets([]).length, 5);
+assert.equal(listApplicablePresets([]).length, 16);
 pass('presets-articulados-solo-si-el-recurso-los-declara', { accepted: true });
+
+const jump = expandAnimationPreset('jump', { baseValue: 900, intensity: 'medium' });
+assert.deepEqual(jump.keyframes.map((keyframe) => keyframe.value), [900, 660, 900]);
+const popIn = expandAnimationPreset('pop-in', { baseValue: 0.8, intensity: 'medium' });
+assert.deepEqual(popIn.keyframes.map((keyframe) => keyframe.value), [0.001, 0.896, 0.8]);
+const exitRight = expandAnimationPreset('exit-right', { baseValue: 320, intensity: 'medium' });
+assert.deepEqual(exitRight.keyframes.map((keyframe) => keyframe.value), [320, 740]);
+pass('el-paquete-v2-cubre-entrada-salida-movimiento-y-enfasis', { accepted: true });
 
 // 6. Aplicar un preset desde el editor produce un proyecto portable.
 const base = createProjectEditor(project, catalog);

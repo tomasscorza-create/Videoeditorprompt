@@ -1,5 +1,6 @@
 import { ANIMATION_PARAMETERS } from '../../../shared/animation-contract.js';
 import {
+  ANIMATION_PRESET_GROUPS,
   ANIMATION_PRESETS,
   animationPresetWindow,
   listApplicablePresets,
@@ -774,26 +775,14 @@ export function initEditingPanel(store: ProjectStore): void {
     presetSection.append(compactFieldRow('Intensidad', intensity, 'wide'));
 
     const applicable = listApplicablePresets(declared);
-    const categories = [
-      { label: 'Entradas', ids: ['enter-left', 'enter-right'] },
-      { label: 'Visibilidad', ids: ['fade-in', 'fade-out'] },
-      { label: 'Énfasis', ids: ['emphasis-pulse'] },
-      {
-        label: 'Cuerpo y articulaciones',
-        ids: [
-          'arm-raise', 'left-arm-raise', 'right-elbow-bend', 'left-elbow-bend',
-          'head-tilt', 'head-nod', 'body-lean', 'body-bounce',
-        ],
-      },
-    ];
     const protectedParameters = new Map<string, AnimationLane>();
-    for (const category of categories) {
-      const entries = applicable.filter((preset) => category.ids.includes(preset.id));
+    for (const [groupId, groupDefinition] of Object.entries(ANIMATION_PRESET_GROUPS)) {
+      const entries = applicable.filter((preset) => preset.groupId === groupId);
       if (entries.length === 0) continue;
       const group = document.createElement('section');
       group.className = 'animation-preset-group';
       const title = document.createElement('strong');
-      title.textContent = category.label;
+      title.textContent = groupDefinition.label;
       const options = document.createElement('div');
       options.className = 'animation-preset-grid';
       for (const preset of entries) {

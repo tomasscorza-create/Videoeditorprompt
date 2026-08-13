@@ -32,7 +32,10 @@
     "presetId": {
       "description": "Catálogo cerrado V1. La expansión concreta a keyframes se define en la Fase 5.",
       "enum": [
-        "enter-left", "enter-right", "fade-in", "fade-out", "emphasis-pulse",
+        "enter-left", "enter-right", "enter-bottom", "pop-in",
+        "exit-left", "exit-right", "exit-top",
+        "fade-in", "fade-out", "blink", "emphasis-pulse",
+        "shake-horizontal", "wobble", "squash-stretch", "jump", "float",
         "arm-raise", "left-arm-raise", "right-elbow-bend", "left-elbow-bend",
         "head-tilt", "head-nod", "body-lean", "body-bounce"
       ]
