@@ -5,6 +5,11 @@ import {
   animationPresetWindow,
   listApplicablePresets,
 } from '../../../shared/animation-presets.js';
+import {
+  effectSequenceWindow,
+  expandEffectSequenceCommands,
+  listApplicableEffectSequences,
+} from '../../../shared/animation-sequences.js';
 import { resolveAnchorSeconds, type SceneTiming } from '../../../shared/animation-evaluator.js';
 import {
   EDITOR_PLAYBACK_EVENT,
@@ -29,6 +34,11 @@ import {
   type AnimationLane,
 } from '../timeline-animation.js';
 import { ANIMATION_MODE_EVENT, isAnimationModeOn, setAnimationMode } from './animation-mode.js';
+import {
+  loadAnimationSequenceCatalog,
+  type CreativeRecipeCatalog,
+  type EffectSequence,
+} from './animation-sequence-catalog.js';
 import { setVisualLayerCommands, visualElementsByLayer, visualLayerNumber } from './layers.js';
 import {
   PROJECT_SELECTION_EVENT,
@@ -89,6 +99,8 @@ export function initEditingPanel(store: ProjectStore): void {
   let activeSubpage: EditingSubpage = 'adjustments';
   let selectionIdentity = '';
   let animationIntensity: AnimationIntensity = 'medium';
+  let animationSequenceCatalog: CreativeRecipeCatalog | null = null;
+  let animationSequenceLoadError = '';
 
   const report = (message: string | null, ok = false): boolean => {
     const visibleMessage = message && !ok ? friendlyEditingError(message) : message;
@@ -105,6 +117,14 @@ export function initEditingPanel(store: ProjectStore): void {
     }
     return report(store.dispatchBatch(commands));
   };
+  void loadAnimationSequenceCatalog().then((catalog) => {
+    animationSequenceCatalog = catalog;
+    animationSequenceLoadError = '';
+    render();
+  }).catch(() => {
+    animationSequenceLoadError = 'No se pudieron cargar las animaciones coordinadas.';
+    render();
+  });
 
   function animationScope(scene: SceneView): AnimationScope {
     const project = store.project();
@@ -846,6 +866,85 @@ export function initEditingPanel(store: ProjectStore): void {
     }
     card.append(presetSection);
 
+    const sequenceSection = animationSection(
+      'Secuencias coordinadas',
+      'Combinan varios efectos y se aplican como una sola operación deshacible.',
+    );
+    if (animationSequenceLoadError) {
+      const unavailable = document.createElement('small');
+      unavailable.textContent = animationSequenceLoadError;
+      sequenceSection.append(unavailable);
+    } else if (!animationSequenceCatalog) {
+      const loading = document.createElement('small');
+      loading.textContent = 'Cargando secuencias…';
+      sequenceSection.append(loading);
+    } else {
+      const sequenceCatalog = animationSequenceCatalog;
+      const sequences = listApplicableEffectSequences(
+        sequenceCatalog,
+        element,
+        { capabilities: { parameters: declared } },
+      );
+      const options = document.createElement('div');
+      options.className = 'animation-preset-grid animation-sequence-grid';
+      for (const sequence of sequences) {
+        const requiredParameters = sequence.slots[0].requiredParameters;
+        const conflictingLanes = lanes.filter((lane) => requiredParameters.includes(lane.parameterId));
+        const placement = sequencePlacement(scope, sequence, animationIntensity);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'animation-preset animation-sequence';
+        button.setAttribute('aria-label', `Aplicar secuencia ${sequence.label}`);
+        const name = document.createElement('strong');
+        name.textContent = sequence.label;
+        const detail = document.createElement('span');
+        const window = effectSequenceWindow(sequence, animationIntensity);
+        detail.textContent = `${sequence.actions.length} efectos · ${formatDuration(window.endOffsetSeconds - window.startOffsetSeconds)}`;
+        button.append(name, detail);
+        button.disabled = conflictingLanes.length > 0 || !placement.allowed;
+        button.title = conflictingLanes.length > 0
+          ? `${conflictingLanes.map((lane) => parameterLabel(lane.parameterId)).join(', ')} ya tiene animación. Abrí Pistas para decidir qué conservar.`
+          : placement.allowed ? sequence.description : placement.reason;
+        button.addEventListener('click', () => {
+          if (!placement.allowed || !placement.proposal) return;
+          const commands = expandEffectSequenceCommands({
+            sequenceId: sequence.id,
+            anchor: placement.proposal.anchor,
+            offsetSeconds: placement.proposal.offsetSeconds,
+            intensity: animationIntensity,
+            bindings: [{ slotId: sequence.slots[0].id, sceneId: scene.id, elementId: element.id }],
+          }, store.project(), store.getState().catalog, sequenceCatalog);
+          if (sendBatch(commands)) {
+            const keyframeCount = sequence.actions.reduce(
+              (total, action) => total + ANIMATION_PRESETS[action.presetId].steps.length,
+              0,
+            );
+            report(
+              `${sequence.label} aplicada en ${formatSeconds(editorPlayhead())} · ${keyframeCount} keyframes.`,
+              true,
+            );
+          }
+        });
+        options.append(button);
+      }
+      if (sequences.length === 0) {
+        const empty = document.createElement('small');
+        empty.textContent = 'Este recurso no admite secuencias coordinadas.';
+        sequenceSection.append(empty);
+      } else {
+        sequenceSection.append(options);
+      }
+      if (lanes.length > 0) {
+        const open = actionButton('Revisar pistas', () => {
+          activeSubpage = 'tracks';
+          render();
+        });
+        open.className = 'animation-sequence-tracks';
+        sequenceSection.append(open);
+      }
+    }
+    card.append(sequenceSection);
+
     const animating = isAnimationModeOn(scene.id, element.id);
     const mouseSection = animationSection(
       'Animar con el mouse',
@@ -1397,11 +1496,33 @@ function presetPlacement(
   scope: AnimationScope,
   presetId: string,
   intensity: AnimationIntensity,
-): {
+): AnimationPlacement {
+  return animationPlacement(scope, animationPresetWindow(presetId, intensity));
+}
+
+function sequencePlacement(
+  scope: AnimationScope,
+  sequence: EffectSequence,
+  intensity: AnimationIntensity,
+): AnimationPlacement {
+  return animationPlacement(
+    scope,
+    effectSequenceWindow(sequence, intensity),
+    sequence.compatibleAnchorKinds,
+  );
+}
+
+interface AnimationPlacement {
   allowed: boolean;
   reason: string;
   proposal: ReturnType<typeof nearestAnchorFor> | null;
-} {
+}
+
+function animationPlacement(
+  scope: AnimationScope,
+  window: { startOffsetSeconds: number; endOffsetSeconds: number },
+  compatibleAnchorKinds?: ReadonlyArray<'scene' | 'turn' | 'word'>,
+): AnimationPlacement {
   if (!scope.timing) return {
     allowed: false,
     reason: 'Medí la escena antes de ubicar esta animación; no hace falta exportar.',
@@ -1414,13 +1535,17 @@ function presetPlacement(
     proposal: null,
   };
   const proposal = nearestAnchorFor(playhead, scope.timing, scope.fps);
+  if (compatibleAnchorKinds && !compatibleAnchorKinds.includes(proposal.anchor.kind)) return {
+    allowed: false,
+    reason: 'Esta secuencia necesita otro tipo de referencia temporal. Mové el cabezal cerca de un borde o diálogo compatible.',
+    proposal,
+  };
   const resolved = resolveAnchorSeconds(proposal.anchor, scope.timing) + proposal.offsetSeconds;
   if (Math.abs(resolved - playhead) > 0.5 / scope.fps) return {
     allowed: false,
     reason: 'No se pudo representar este punto con precisión. Acercá el cabezal a un diálogo o borde de escena.',
     proposal: null,
   };
-  const window = animationPresetWindow(presetId, intensity);
   const tolerance = 0.5 / scope.fps;
   if (
     playhead + window.startOffsetSeconds < scope.timing.startSeconds - tolerance
