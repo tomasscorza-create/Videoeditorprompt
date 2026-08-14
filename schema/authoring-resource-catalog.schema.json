@@ -20,7 +20,8 @@
           { "$ref": "#/$defs/voiceResource" },
           { "$ref": "#/$defs/backgroundResource" },
           { "$ref": "#/$defs/imageResource" },
-          { "$ref": "#/$defs/musicResource" }
+          { "$ref": "#/$defs/musicResource" },
+          { "$ref": "#/$defs/sfxResource" }
         ]
       }
     }
@@ -220,6 +221,22 @@
         "asset": { "$ref": "#/$defs/assetPath" },
         "loop": { "type": "boolean" },
         "gainDb": { "type": "number", "minimum": -30, "maximum": 0 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "sfxResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "label", "tags", "asset", "category", "durationSeconds", "gainDb", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "const": "sfx" },
+        "label": { "$ref": "#/$defs/label" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "asset": { "$ref": "#/$defs/assetPath" },
+        "category": { "enum": ["interface", "accent", "transition", "impact"] },
+        "durationSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+        "gainDb": { "type": "number", "minimum": -30, "maximum": 6 },
         "provenance": { "$ref": "#/$defs/provenance" }
       }
     }

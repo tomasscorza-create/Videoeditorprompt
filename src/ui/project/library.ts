@@ -25,7 +25,7 @@ import {
   type VideoTemplateSummary,
 } from './video-template-catalog.js';
 
-type LibraryType = Extract<ResourceType, 'character' | 'prop' | 'background' | 'voice'>;
+type LibraryType = Extract<ResourceType, 'character' | 'prop' | 'background' | 'voice' | 'sfx'>;
 type LibraryTab = LibraryType | 'template';
 const ACTIVE_LIBRARY_TAB_KEY = 'local-video.library-active-tab';
 const ACTIVE_TEMPLATE_CATEGORY_KEY = 'local-video.template-active-category';
@@ -57,13 +57,14 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     for (const item of root.querySelectorAll('.resource-card')) item.classList.remove('is-placement-source');
   });
   const savedType = sessionStorage.getItem(ACTIVE_LIBRARY_TAB_KEY);
-  let activeType: LibraryTab = ['character', 'prop', 'background', 'voice', 'template'].includes(savedType ?? '')
+  let activeType: LibraryTab = ['character', 'prop', 'background', 'voice', 'sfx', 'template'].includes(savedType ?? '')
     ? savedType as LibraryTab
     : 'character';
   let templateCatalog: VideoTemplateCatalog | null = null;
   let templateCatalogError = '';
   let activeTemplateCategory = sessionStorage.getItem(ACTIVE_TEMPLATE_CATEGORY_KEY) ?? '';
   let thumbnails = new Map<string, string>();
+  let activeAudio: HTMLAudioElement | null = null;
   const characterCatalogs = new Set(
     store.resources('character')
       .flatMap((resource) => resource.characterRef?.catalog ? [resource.characterRef.catalog] : []),
@@ -111,16 +112,19 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   }
   function updateRegisterButton() {
     if (!registerButton) return;
-    const templatesActive = activeType === 'template';
-    registerButton.dataset.contextHidden = String(templatesActive);
-    registerButton.hidden = templatesActive;
+    const builtInOnly = activeType === 'template' || activeType === 'sfx';
+    registerButton.dataset.contextHidden = String(builtInOnly);
+    registerButton.hidden = builtInOnly;
     if (activeType === 'background') registerButton.textContent = 'Agregar fondo';
     else if (activeType === 'character') registerButton.textContent = 'Crear personaje';
     else if (activeType === 'prop') registerButton.textContent = 'Props incluidos';
     else if (activeType === 'voice') registerButton.textContent = 'Agregar voz';
-    if (search) search.placeholder = templatesActive
+    else if (activeType === 'sfx') registerButton.textContent = 'SFX incluidos';
+    if (search) search.placeholder = activeType === 'template'
       ? 'Buscar plantillas'
-      : 'Buscar por nombre o etiqueta';
+      : activeType === 'sfx'
+        ? 'Buscar efectos de sonido'
+        : 'Buscar por nombre o etiqueta';
     renderTemplateCategories();
   }
   updateRegisterButton();
@@ -146,7 +150,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
   // filtro que pudiera ocultarlo y se destaca su tarjeta.
   window.addEventListener(REVEAL_RESOURCE_EVENT, (event) => {
     const resourceId = (event as CustomEvent<string>).detail;
-    const owner = (['character', 'prop', 'background', 'voice'] as LibraryType[])
+    const owner = (['character', 'prop', 'background', 'voice', 'sfx'] as LibraryType[])
       .find((type) => store.resources(type).some((resource) => resource.id === resourceId));
     if (!owner) return;
     if (owner !== activeType) {
@@ -378,7 +382,9 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     const primary = document.createElement('button');
     primary.type = 'button';
     primary.className = 'resource-card-primary';
-    primary.title = resource.type === 'character' || resource.type === 'prop'
+    primary.title = resource.type === 'sfx'
+      ? `Escuchar ${resource.label}`
+      : resource.type === 'character' || resource.type === 'prop'
       ? `Colocar ${resource.label} en el visor`
       : `Aplicar ${resource.label} a la escena seleccionada`;
     const thumbnail = resource.characterRef
@@ -393,7 +399,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     } else {
       const preview = document.createElement('span');
       preview.className = 'render-job-icon';
-      preview.textContent = resource.type === 'voice' ? '♪' : '▧';
+      preview.textContent = resource.type === 'voice' || resource.type === 'sfx' ? '♪' : '▧';
       primary.append(preview);
     }
     const name = document.createElement('strong');
@@ -440,6 +446,22 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
         card.classList.add('is-dragging');
       });
       card.addEventListener('dragend', () => card.classList.remove('is-dragging'));
+    } else if (resource.type === 'sfx') {
+      primary.addEventListener('click', () => {
+        activeAudio?.pause();
+        if (!resource.asset) {
+          setLibraryStatus('Este efecto no tiene un WAV reproducible.', true);
+          return;
+        }
+        const audio = new Audio(`/${resource.asset}`);
+        activeAudio = audio;
+        setLibraryStatus(`Reproduciendo «${resource.label}»…`, false);
+        audio.addEventListener('ended', () => {
+          if (activeAudio === audio) activeAudio = null;
+          setLibraryStatus(`«${resource.label}» listo para usar.`, false);
+        }, { once: true });
+        void audio.play().catch(() => setLibraryStatus('El navegador bloqueó la reproducción del efecto.', true));
+      });
     } else {
       primary.addEventListener('click', () => apply(resource));
     }

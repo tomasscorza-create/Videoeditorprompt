@@ -9,6 +9,7 @@ import { normalizeSpanishTtsText } from './tts-text.mjs';
 import { validateMeasuredDuration } from './validate-scene-config.mjs';
 import { buildHybridVisemeCues } from './viseme-analysis.mjs';
 import { resolveAsset } from './job-context.mjs';
+import { appendSoundEffectMix, resolveSoundEffects } from './sound-effects.mjs';
 
 export function prepareDialogueJob(context, config, report) {
   report('preparing', { stage: 'prepare', config: 'input/scene.config.json', contractVersion: 2 });
@@ -86,9 +87,11 @@ export function prepareDialogueJob(context, config, report) {
     cursor = endSeconds + turn.gapAfterSeconds;
   }
 
+  const resolvedSoundEffects = resolveSoundEffects(config.soundEffects ?? [], timelineTurns, cursor, context);
   const timelineKey = sha256(JSON.stringify({
     configVersion: config.version,
     music: config.assets.music ?? null,
+    soundEffects: resolvedSoundEffects.map(({ id, asset, startSeconds, gainDb }) => ({ id, asset, startSeconds, gainDb })),
     turns: timelineTurns.map(({ id, speakerType, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture, gestureCue, layout, mouthCueSource }) => ({
       id,
       ...(speakerType === 'voiceover' ? { speakerType } : { speakerId }),
@@ -110,6 +113,7 @@ export function prepareDialogueJob(context, config, report) {
     config.assets.music ? resolveAsset(context, config.assets.music, 'music') : null,
     cursor,
     timelineTurns,
+    resolvedSoundEffects,
   );
   const masterProbe = ffprobe(masterPath);
   const durationSeconds = Number(masterProbe.format.duration);
@@ -120,6 +124,7 @@ export function prepareDialogueJob(context, config, report) {
     jobId: context.jobId,
     timelineKey,
     turns: timelineTurns,
+    ...(resolvedSoundEffects.length ? { soundEffects: resolvedSoundEffects.map(({ file, ...effect }) => effect) } : {}),
   });
 
   const characters = context.resolvedCharacters.map((character) => ({
@@ -156,6 +161,7 @@ export function prepareDialogueJob(context, config, report) {
     ...(props.length ? { props } : {}),
     ...(templates.length ? { templates } : {}),
     dialoguePath: dialogueRelative,
+    ...(resolvedSoundEffects.length ? { soundEffects: resolvedSoundEffects.map(({ file, ...effect }) => effect) } : {}),
     audio: {
       path: masterRelative,
       durationSeconds,
@@ -194,7 +200,7 @@ export function prepareDialogueJob(context, config, report) {
   return { runtime, runtimePath };
 }
 
-export function composeDialogueAudio(sequence, outputPath, musicPath = null, durationSeconds = 0, turns = []) {
+export function composeDialogueAudio(sequence, outputPath, musicPath = null, durationSeconds = 0, turns = [], soundEffects = []) {
   const inputArgs = [];
   const labels = [];
   const filters = [];
@@ -205,7 +211,7 @@ export function composeDialogueAudio(sequence, outputPath, musicPath = null, dur
     labels.push(`[s${index}]`);
   }
   filters.push(`${labels.join('')}concat=n=${sequence.length}:v=0:a=1[voice]`);
-  let outputLabel = 'voice';
+  const mixLabels = ['[voice]'];
   if (musicPath) {
     const musicIndex = sequence.length;
     inputArgs.push('-stream_loop', '-1', '-i', musicPath);
@@ -213,7 +219,19 @@ export function composeDialogueAudio(sequence, outputPath, musicPath = null, dur
       .map((turn) => `between(t\\,${turn.startSeconds.toFixed(6)}\\,${turn.endSeconds.toFixed(6)})`)
       .join('+') || '0';
     filters.push(`[${musicIndex}:a]aresample=22050,aformat=sample_fmts=s16:channel_layouts=mono,atrim=0:${durationSeconds.toFixed(6)},volume='if(${voiceRanges}\\,0.199526\\,0.501187)':eval=frame[music]`);
-    filters.push('[voice][music]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[mixed]');
+    mixLabels.push('[music]');
+  }
+  appendSoundEffectMix({
+    inputArgs,
+    filters,
+    mixLabels,
+    soundEffects,
+    firstInputIndex: sequence.length + (musicPath ? 1 : 0),
+    durationSeconds,
+  });
+  let outputLabel = 'voice';
+  if (mixLabels.length > 1) {
+    filters.push(`${mixLabels.join('')}amix=inputs=${mixLabels.length}:duration=first:normalize=0,alimiter=limit=0.95[mixed]`);
     outputLabel = 'mixed';
   }
   run('ffmpeg', [

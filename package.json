@@ -49,6 +49,8 @@
     "stage2f:test-prop-pack": "node scripts/stage2f/test-visual-prop-pack.mjs",
     "stage2f:character-pack": "node scripts/stage2f/generate-character-pack.mjs",
     "stage2f:test-character-pack": "node scripts/stage2f/test-character-pack.mjs",
+    "stage2f:sfx-pack": "node scripts/stage2f/generate-sfx-assets.mjs",
+    "stage2f:test-sfx-pack": "node scripts/stage2f/test-sfx-pack.mjs",
     "stage2f:parametric-pipeline": "node scripts/stage1/pipeline.mjs --job-id=piloto-parametrico-01 --config=pilots/parametric-character-01/scene.config.json --assets-dir=public --publish-dir=public/generated",
     "stage3a:validate-project": "node scripts/stage3a/validate-video-project.mjs --project=pilots/proyecto-editable-01/project.json --assets-dir=public",
     "stage3a:test-project": "node scripts/stage3a/test-video-project.mjs",

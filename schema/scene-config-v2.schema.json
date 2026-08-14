@@ -336,6 +336,41 @@
         }
       }
     },
+    "soundEffects": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "asset", "anchor", "offsetSeconds", "gainDb"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "asset": { "$ref": "#/$defs/assetPath" },
+          "anchor": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "edge"],
+                "properties": { "kind": { "const": "scene" }, "edge": { "enum": ["start", "end"] } }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "turnId", "edge"],
+                "properties": {
+                  "kind": { "const": "turn" },
+                  "turnId": { "$ref": "#/$defs/id" },
+                  "edge": { "enum": ["start", "end"] }
+                }
+              }
+            ]
+          },
+          "offsetSeconds": { "type": "number", "minimum": -5, "maximum": 5 },
+          "gainDb": { "type": "number", "minimum": -30, "maximum": 6 }
+        }
+      }
+    },
     "mouth": {
       "type": "object",
       "additionalProperties": false,

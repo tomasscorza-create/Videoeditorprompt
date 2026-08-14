@@ -83,7 +83,7 @@
           "required": ["resourceId", "assetType", "origin", "rightsHolder", "licenseExpression", "status", "commercialUse", "redistribution", "attribution", "notes"],
           "properties": {
             "resourceId": { "$ref": "#/$defs/id" },
-            "assetType": { "enum": ["character", "prop", "template", "voice", "background", "image", "music"] },
+            "assetType": { "enum": ["character", "prop", "template", "voice", "background", "image", "music", "sfx"] },
             "origin": { "enum": ["original", "third-party", "ai-assisted", "user-created"] },
             "rightsHolder": { "$ref": "#/$defs/nonEmpty" },
             "sourceUrl": { "$ref": "#/$defs/webUrl" },

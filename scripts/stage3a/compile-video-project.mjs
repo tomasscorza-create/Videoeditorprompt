@@ -270,6 +270,13 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
       gapAfterSeconds: turn.gapAfterSeconds,
     };
   });
+  const soundEffects = (scene.soundEffects ?? []).map((effect) => ({
+    id: effect.id,
+    asset: resources.get(effect.resourceId).asset,
+    anchor: structuredClone(effect.anchor),
+    offsetSeconds: effect.offsetSeconds,
+    gainDb: effect.gainDb,
+  }));
   const config = {
     version: 2,
     video: project.video,
@@ -283,6 +290,7 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     ...(props.length ? { props } : {}),
     ...(templates.length ? { templates } : {}),
     dialogue,
+    ...(soundEffects.length ? { soundEffects } : {}),
     mouth: { ...MOUTH_DEFAULTS },
     subtitleStyle: { ...SUBTITLE_DEFAULTS },
   };
@@ -446,6 +454,7 @@ function collectSourceHashes(project, resources, assetsRoot) {
       if (element.type === 'prop') paths.add(resources.get(element.resourceId).resourceRef.catalog);
       if (element.type === 'image') paths.add(resources.get(element.resourceId).asset);
     }
+    for (const effect of scene.soundEffects ?? []) paths.add(resources.get(effect.resourceId).asset);
   }
   return [...paths].sort().map((relativePath) => ({
     path: relativePath,

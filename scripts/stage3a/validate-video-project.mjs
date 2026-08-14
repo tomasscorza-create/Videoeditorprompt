@@ -177,9 +177,9 @@ export function validateResourceCatalogSemantics(catalog, assetsRoot) {
         resolveAuthoringAsset(assetsRoot, entry[name], `${name} de imagen ${entry.id}`);
       }
     }
-    if (entry.type === 'music') {
+    if (entry.type === 'music' || entry.type === 'sfx') {
       assertPortableRelativePath(entry.asset, `/resourceCatalog/entries/${index}/asset`);
-      resolveAuthoringAsset(assetsRoot, entry.asset, `música ${entry.id}`);
+      resolveAuthoringAsset(assetsRoot, entry.asset, `${entry.type === 'music' ? 'música' : 'efecto'} ${entry.id}`);
     }
   }
   return resources;
@@ -246,6 +246,16 @@ function validateProjectSemantics(project, resources) {
         }
       }
       requireResource(resources, turn.voiceId, 'voice', `${turnPath}/voiceId`);
+    }
+    const effectIds = new Set();
+    for (const [effectIndex, effect] of (scene.soundEffects ?? []).entries()) {
+      const effectPath = `/scenes/${sceneIndex}/soundEffects/${effectIndex}`;
+      if (effectIds.has(effect.id)) semanticError(`${effectPath}/id`, 'debe ser único dentro de la escena');
+      effectIds.add(effect.id);
+      requireResource(resources, effect.resourceId, 'sfx', `${effectPath}/resourceId`);
+      if (effect.anchor.kind === 'turn' && !turnIds.has(effect.anchor.turnId)) {
+        semanticError(`${effectPath}/anchor/turnId`, 'debe referenciar un turno de la misma escena');
+      }
     }
   }
 }

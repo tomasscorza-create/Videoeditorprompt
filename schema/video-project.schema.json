@@ -467,9 +467,49 @@
             "$ref": "#/$defs/dialogueTurn"
           }
         },
+        "soundEffects": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/soundEffectEvent" }
+        },
         "transitionToNext": {
           "$ref": "#/$defs/transition"
         }
+      }
+    },
+    "soundEffectAnchor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "edge"],
+          "properties": {
+            "kind": { "const": "scene" },
+            "edge": { "enum": ["start", "end"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "turnId", "edge"],
+          "properties": {
+            "kind": { "const": "turn" },
+            "turnId": { "$ref": "#/$defs/id" },
+            "edge": { "enum": ["start", "end"] }
+          }
+        }
+      ]
+    },
+    "soundEffectEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "resourceId", "anchor", "offsetSeconds", "gainDb"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "resourceId": { "$ref": "#/$defs/id" },
+        "anchor": { "$ref": "#/$defs/soundEffectAnchor" },
+        "offsetSeconds": { "type": "number", "minimum": -5, "maximum": 5 },
+        "gainDb": { "type": "number", "minimum": -30, "maximum": 6 }
       }
     },
     "animationAnchor": {

@@ -828,6 +828,94 @@
         "source": "Síntesis determinista original generada por scripts/stage2f/generate-music-assets.mjs.",
         "license": "CC0-1.0"
       }
+    },
+    {
+      "id": "sfx-click-suave-v1",
+      "type": "sfx",
+      "label": "Click suave",
+      "tags": ["click", "interfaz", "sutil"],
+      "asset": "assets/audio/sfx/click-soft-v1.wav",
+      "category": "interface",
+      "durationSeconds": 0.12,
+      "gainDb": -8,
+      "provenance": { "source": "Síntesis determinista original del paquete SFX V1.", "license": "CC0-1.0" }
+    },
+    {
+      "id": "sfx-pop-positivo-v1",
+      "type": "sfx",
+      "label": "Pop positivo",
+      "tags": ["acento", "pop", "positivo"],
+      "asset": "assets/audio/sfx/pop-positive-v1.wav",
+      "category": "accent",
+      "durationSeconds": 0.28,
+      "gainDb": -6,
+      "provenance": { "source": "Síntesis determinista original del paquete SFX V1.", "license": "CC0-1.0" }
+    },
+    {
+      "id": "sfx-whoosh-corto-v1",
+      "type": "sfx",
+      "label": "Whoosh corto",
+      "tags": ["cambio", "transicion", "whoosh"],
+      "asset": "assets/audio/sfx/whoosh-short-v1.wav",
+      "category": "transition",
+      "durationSeconds": 0.46,
+      "gainDb": -7,
+      "provenance": { "source": "Síntesis determinista original del paquete SFX V1.", "license": "CC0-1.0" }
+    },
+    {
+      "id": "sfx-whoosh-ascendente-v1",
+      "type": "sfx",
+      "label": "Whoosh ascendente",
+      "tags": ["ascendente", "reveal", "transicion", "whoosh"],
+      "asset": "assets/audio/sfx/whoosh-rise-v1.wav",
+      "category": "transition",
+      "durationSeconds": 0.78,
+      "gainDb": -8,
+      "provenance": { "source": "Síntesis determinista original del paquete SFX V1.", "license": "CC0-1.0" }
+    },
+    {
+      "id": "sfx-impacto-suave-v1",
+      "type": "sfx",
+      "label": "Impacto suave",
+      "tags": ["acento", "golpe", "impacto", "suave"],
+      "asset": "assets/audio/sfx/impact-soft-v1.wav",
+      "category": "impact",
+      "durationSeconds": 0.38,
+      "gainDb": -8,
+      "provenance": { "source": "Síntesis determinista original del paquete SFX V1.", "license": "CC0-1.0" }
+    },
+    {
+      "id": "sfx-impacto-profundo-v1",
+      "type": "sfx",
+      "label": "Impacto profundo",
+      "tags": ["dramatico", "golpe", "impacto", "profundo"],
+      "asset": "assets/audio/sfx/impact-deep-v1.wav",
+      "category": "impact",
+      "durationSeconds": 0.62,
+      "gainDb": -10,
+      "provenance": { "source": "Síntesis determinista original del paquete SFX V1.", "license": "CC0-1.0" }
+    },
+    {
+      "id": "sfx-destello-v1",
+      "type": "sfx",
+      "label": "Destello",
+      "tags": ["acento", "brillo", "destello", "magico"],
+      "asset": "assets/audio/sfx/sparkle-v1.wav",
+      "category": "accent",
+      "durationSeconds": 0.92,
+      "gainDb": -9,
+      "provenance": { "source": "Síntesis determinista original del paquete SFX V1.", "license": "CC0-1.0" }
+    },
+    {
+      "id": "sfx-alerta-limpia-v1",
+      "type": "sfx",
+      "label": "Alerta limpia",
+      "tags": ["alerta", "confirmacion", "interfaz", "notificacion"],
+      "asset": "assets/audio/sfx/alert-clean-v1.wav",
+      "category": "interface",
+      "durationSeconds": 0.68,
+      "gainDb": -9,
+      "provenance": { "source": "Síntesis determinista original del paquete SFX V1.", "license": "CC0-1.0" }
     }
   ]
 }

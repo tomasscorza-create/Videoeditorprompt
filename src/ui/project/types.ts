@@ -4,7 +4,7 @@
 
 import type { AnimationAnchor } from '../../../shared/animation-contract.js';
 
-export type ResourceType = 'character' | 'prop' | 'template' | 'voice' | 'background' | 'image';
+export type ResourceType = 'character' | 'prop' | 'template' | 'voice' | 'background' | 'image' | 'music' | 'sfx';
 
 export interface ResourceEntry {
   id: string;
@@ -17,6 +17,10 @@ export interface ResourceEntry {
   templateRef?: { definition: string };
   thumbnail?: string;
   backgroundManifest?: string;
+  asset?: string;
+  category?: 'interface' | 'accent' | 'transition' | 'impact';
+  durationSeconds?: number;
+  gainDb?: number;
   provenance?: { source?: string; license?: string };
 }
 
@@ -106,6 +110,13 @@ export interface SceneView {
   background: { resourceId: string; cameraPreset: string };
   elements: ElementView[];
   dialogue: TurnView[];
+  soundEffects?: Array<{
+    id: string;
+    resourceId: string;
+    anchor: { kind: 'scene'; edge: 'start' | 'end' } | { kind: 'turn'; turnId: string; edge: 'start' | 'end' };
+    offsetSeconds: number;
+    gainDb: number;
+  }>;
   transitionToNext?: TransitionView;
 }
 

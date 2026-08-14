@@ -177,6 +177,14 @@ function validateDialogueSemantics(config) {
       semanticError(`/dialogue/${index}/speakerId`, 'debe referenciar un personaje existente');
     }
   }
+  const soundEffectIds = new Set();
+  for (const [index, effect] of (config.soundEffects ?? []).entries()) {
+    if (soundEffectIds.has(effect.id)) semanticError(`/soundEffects/${index}/id`, 'debe ser único');
+    soundEffectIds.add(effect.id);
+    if (effect.anchor.kind === 'turn' && !turnIds.has(effect.anchor.turnId)) {
+      semanticError(`/soundEffects/${index}/anchor/turnId`, 'debe referenciar un turno existente');
+    }
+  }
   const backgroundIds = new Set();
   for (const [index, layer] of (config.backgroundAnimation?.layers || []).entries()) {
     if (backgroundIds.has(layer.id)) semanticError(`/backgroundAnimation/layers/${index}/id`, 'debe ser único');
@@ -190,6 +198,10 @@ function resolveDialogueAssets(config, context) {
   if (config.assets.music) {
     assertPortableRelativePath(config.assets.music, '/assets/music');
     resolveAsset(context, config.assets.music, 'music');
+  }
+  for (const [index, effect] of (config.soundEffects ?? []).entries()) {
+    assertPortableRelativePath(effect.asset, `/soundEffects/${index}/asset`);
+    resolveAsset(context, effect.asset, `soundEffect/${effect.id}`);
   }
   context.resolvedAssets = {
     background: config.assets.background,

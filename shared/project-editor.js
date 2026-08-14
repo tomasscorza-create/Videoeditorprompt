@@ -148,7 +148,7 @@ export function redoProjectEditor(state) {
 
 export function listEditorResources(state, type) {
   assertEditorState(state);
-  if (!['character', 'prop', 'template', 'voice', 'background', 'image'].includes(type)) fail('EDITOR_RESOURCE_TYPE_INVALID', `Tipo de recurso no soportado: ${type}.`, '/type');
+  if (!['character', 'prop', 'template', 'voice', 'background', 'image', 'music', 'sfx'].includes(type)) fail('EDITOR_RESOURCE_TYPE_INVALID', `Tipo de recurso no soportado: ${type}.`, '/type');
   return state.catalog.entries.filter((entry) => entry.type === type);
 }
 
@@ -244,6 +244,19 @@ export function validateEditableProject(project, catalog) {
         if (turn.gestureAtWord >= wordCount) fail('EDITOR_GESTURE_TIMING_INVALID', 'El gesto debe apuntar a una palabra existente.', `${turnPath}/gestureAtWord`);
       }
     }
+    if (scene.soundEffects !== undefined && (!Array.isArray(scene.soundEffects) || scene.soundEffects.length > 16)) {
+      fail('EDITOR_SFX_INVALID', 'Una escena admite hasta 16 efectos de sonido.', `${scenePath}/soundEffects`);
+    }
+    const effectIds = new Set();
+    for (const [effectIndex, effect] of (scene.soundEffects ?? []).entries()) {
+      const effectPath = `${scenePath}/soundEffects/${effectIndex}`;
+      if (!effect || effectIds.has(effect.id)) fail('EDITOR_SFX_INVALID', 'Los IDs de efectos deben ser únicos dentro de la escena.', `${effectPath}/id`);
+      effectIds.add(effect.id);
+      requireResource(resources, effect.resourceId, 'sfx', `${effectPath}/resourceId`);
+      validateSoundEffectAnchor(effect.anchor, turnIds, `${effectPath}/anchor`);
+      numberInRange(effect.offsetSeconds, -5, 5, `${effectPath}/offsetSeconds`);
+      numberInRange(effect.gainDb, -30, 6, `${effectPath}/gainDb`);
+    }
   }
   return true;
 }
@@ -314,11 +327,18 @@ function applyMutation(project, catalog, command) {
       copy.title = command.title;
       copy.elements = copy.elements.map((element, index) => ({ ...element, id: `${command.newSceneId}-e${index + 1}` }));
       const elementIds = new Map(project.scenes[sourceIndex].elements.map((element, index) => [element.id, copy.elements[index].id]));
+      const turnIds = new Map(project.scenes[sourceIndex].dialogue.map((turn, index) => [turn.id, `${command.newSceneId}-t${index + 1}`]));
       copy.dialogue = copy.dialogue.map((turn, index) => ({
         ...turn,
         id: `${command.newSceneId}-t${index + 1}`,
         ...((turn.speakerType ?? 'character') === 'character'
           ? { speakerElementId: elementIds.get(turn.speakerElementId) }
+          : {}),
+      }));
+      copy.soundEffects = copy.soundEffects?.map((effect) => ({
+        ...effect,
+        ...(effect.anchor.kind === 'turn'
+          ? { anchor: { ...effect.anchor, turnId: turnIds.get(effect.anchor.turnId) } }
           : {}),
       }));
       project.scenes.splice(sourceIndex + 1, 0, copy);
@@ -695,6 +715,25 @@ function applyMutation(project, catalog, command) {
           ? { speakerElementId: elementIds.get(turn.speakerElementId) ?? turn.speakerElementId }
           : {}),
       }));
+      const movedTurnIds = new Map(moved.map((turn, position) => [turn.id, copy.dialogue[position].id]));
+      const originalEffects = scene.soundEffects ?? [];
+      scene.soundEffects = originalEffects.filter((effect) => (
+        effect.anchor.kind === 'scene'
+          ? effect.anchor.edge === 'start'
+          : !movedTurnIds.has(effect.anchor.turnId)
+      ));
+      copy.soundEffects = originalEffects
+        .filter((effect) => (
+          effect.anchor.kind === 'scene'
+            ? effect.anchor.edge === 'end'
+            : movedTurnIds.has(effect.anchor.turnId)
+        ))
+        .map((effect) => ({
+          ...cloneJson(effect),
+          ...(effect.anchor.kind === 'turn'
+            ? { anchor: { ...effect.anchor, turnId: movedTurnIds.get(effect.anchor.turnId) } }
+            : {}),
+        }));
       // La escena original conserva sus primeros turnos; la nueva hereda la transición de
       // salida (copy ya la clonó) y el corte entre ambas es un cut.
       scene.dialogue = scene.dialogue.slice(0, turnIndex);
@@ -890,6 +929,15 @@ function requireResource(resources, id, type, path) {
   const resource = resources.get(id);
   if (!resource || resource.type !== type) fail('EDITOR_RESOURCE_INVALID', `El recurso debe existir y ser de tipo ${type}.`, path);
   return resource;
+}
+
+function validateSoundEffectAnchor(anchor, turnIds, path) {
+  if (!anchor || !['scene', 'turn'].includes(anchor.kind) || !['start', 'end'].includes(anchor.edge)) {
+    fail('EDITOR_SFX_INVALID', 'El ancla del efecto no es compatible.', path);
+  }
+  if (anchor.kind === 'turn' && (!anchor.turnId || !turnIds.has(anchor.turnId))) {
+    fail('EDITOR_SFX_INVALID', 'El efecto debe referenciar un turno de la misma escena.', `${path}/turnId`);
+  }
 }
 
 function assertEditorState(state) {
