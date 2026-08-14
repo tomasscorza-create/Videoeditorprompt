@@ -10,12 +10,16 @@
 import { PROCEDURAL_PAGE_LAYOUTS } from './video-template-page.js';
 
 export const TEMPLATE_WORD_MAX_LENGTH = 24;
+export const MOTION_CARD_LAYOUTS = ['title', 'list', 'comparison', 'cta'];
 
 /**
  * @param {unknown} value
  * @param {string} [expectedId]
  */
 export function parseVideoTemplateDefinition(value, expectedId) {
+  if (isRecord(value) && value.kind === 'procedural-motion-card') {
+    return parseMotionCardDefinition(value, expectedId);
+  }
   if (!isRecord(value) || value.version !== 2
     || value.kind !== 'procedural-word-match-cut'
     || !isNonEmptyString(value.id) || (expectedId !== undefined && value.id !== expectedId)
@@ -52,6 +56,46 @@ export function parseVideoTemplateDefinition(value, expectedId) {
     defaultValues: { word: value.defaultValues.word },
     fields: [field],
     pageStyles: value.pageStyles.map(parseProceduralPageStyle),
+  };
+}
+
+function parseMotionCardDefinition(value, expectedId) {
+  if (value.version !== 2
+    || !isNonEmptyString(value.id) || (expectedId !== undefined && value.id !== expectedId)
+    || !isNonEmptyString(value.label) || !isFiniteInRange(value.durationSeconds, 0.5, 30)
+    || !Number.isInteger(value.fps) || !isFiniteInRange(value.fps, 12, 60)
+    || !MOTION_CARD_LAYOUTS.includes(String(value.layout))
+    || !Number.isInteger(value.seed) || !isFiniteInRange(value.seed, 1, 2147483647)
+    || !isRecord(value.defaultValues) || !isNonEmptyString(value.defaultValues.word)
+    || !Array.isArray(value.fields) || value.fields.length !== 1
+    || !Array.isArray(value.labels) || value.labels.length < 1 || value.labels.length > 3
+    || !value.labels.every((label) => isNonEmptyString(label) && label.length <= 28)
+    || !isRecord(value.palette)
+    || !hasExactKeys(value.palette, ['background', 'surface', 'primary', 'secondary', 'text', 'muted'])) {
+    throw new Error('La definición de la tarjeta animada no tiene un formato compatible.');
+  }
+  const field = parseTextField(value.fields[0]);
+  if (field.id !== 'word' || value.defaultValues.word.length > field.maxLength) {
+    throw new Error('El texto editable de la tarjeta animada es inválido.');
+  }
+  const palette = {};
+  for (const key of ['background', 'surface', 'primary', 'secondary', 'text', 'muted']) {
+    if (!isHexColor(value.palette[key])) throw new Error(`El color ${key} de la tarjeta animada es inválido.`);
+    palette[key] = value.palette[key];
+  }
+  return {
+    version: 2,
+    id: value.id,
+    kind: 'procedural-motion-card',
+    label: value.label,
+    durationSeconds: value.durationSeconds,
+    fps: value.fps,
+    layout: value.layout,
+    seed: value.seed,
+    labels: [...value.labels],
+    palette,
+    defaultValues: { word: value.defaultValues.word },
+    fields: [field],
   };
 }
 
@@ -117,4 +161,10 @@ function isFiniteInRange(value, minimum, maximum) {
 
 function isHexColor(value) {
   return typeof value === 'string' && /^#[0-9a-f]{6}$/iu.test(value);
+}
+
+function hasExactKeys(value, expected) {
+  const keys = Object.keys(value).sort();
+  const expectedKeys = [...expected].sort();
+  return keys.length === expectedKeys.length && keys.every((key, index) => key === expectedKeys[index]);
 }

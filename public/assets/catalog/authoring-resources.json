@@ -561,6 +561,58 @@
       }
     },
     {
+      "id": "procedural-title-reveal-v1",
+      "type": "template",
+      "label": "Título editorial",
+      "tags": ["título", "apertura", "editorial", "texto"],
+      "templateRef": { "definition": "assets/templates/procedural-title-reveal-v1.json" },
+      "thumbnail": "assets/templates/procedural-title-reveal-v1-thumb.svg",
+      "capabilities": { "fields": ["word"] },
+      "provenance": {
+        "source": "Plantilla procedural original dibujada por código compartido.",
+        "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+      }
+    },
+    {
+      "id": "procedural-list-stack-v1",
+      "type": "template",
+      "label": "Lista escalonada",
+      "tags": ["lista", "pasos", "tutorial", "información"],
+      "templateRef": { "definition": "assets/templates/procedural-list-stack-v1.json" },
+      "thumbnail": "assets/templates/procedural-list-stack-v1-thumb.svg",
+      "capabilities": { "fields": ["word"] },
+      "provenance": {
+        "source": "Plantilla procedural original dibujada por código compartido.",
+        "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+      }
+    },
+    {
+      "id": "procedural-comparison-split-v1",
+      "type": "template",
+      "label": "Comparación dividida",
+      "tags": ["comparación", "antes", "después", "datos"],
+      "templateRef": { "definition": "assets/templates/procedural-comparison-split-v1.json" },
+      "thumbnail": "assets/templates/procedural-comparison-split-v1-thumb.svg",
+      "capabilities": { "fields": ["word"] },
+      "provenance": {
+        "source": "Plantilla procedural original dibujada por código compartido.",
+        "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+      }
+    },
+    {
+      "id": "procedural-cta-pulse-v1",
+      "type": "template",
+      "label": "Llamada pulsante",
+      "tags": ["cta", "acción", "cierre", "conversión"],
+      "templateRef": { "definition": "assets/templates/procedural-cta-pulse-v1.json" },
+      "thumbnail": "assets/templates/procedural-cta-pulse-v1-thumb.svg",
+      "capabilities": { "fields": ["word"] },
+      "provenance": {
+        "source": "Plantilla procedural original dibujada por código compartido.",
+        "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+      }
+    },
+    {
       "id": "fondo-estudio-parallax-v1",
       "type": "background",
       "label": "Estudio con parallax",

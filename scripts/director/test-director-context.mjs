@@ -39,7 +39,7 @@ const second = buildDirectorContext(options);
 assert.deepEqual(first, second);
 assert.equal(first.catalog.entries.filter((entry) => entry.type === 'character').length, 6);
 assert.equal(first.catalog.entries.filter((entry) => entry.type === 'voice').length, 4);
-assert.equal(first.catalog.entries.filter((entry) => entry.type === 'background').length, 1);
+assert.equal(first.catalog.entries.filter((entry) => entry.type === 'background').length, 4);
 assert.equal(first.catalog.entries.filter((entry) => entry.type === 'music').length, 3);
 assert.ok(first.summary.resourceIds.includes('especialista-ciberseguridad-v1'));
 assert.ok(first.summary.shortlistedEntries < first.summary.totalCatalogEntries);

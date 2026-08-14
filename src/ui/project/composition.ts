@@ -15,12 +15,10 @@ import type { ProjectStore } from './store.js';
 import type { ElementView, SceneView } from './types.js';
 import { nextVisualZIndex } from './layers.js';
 import {
-  drawMatchCutFrame,
-  paintWord,
-  renderPageBase,
-  type PreparedPage,
-} from '../../../shared/video-template-page.js';
-import { evaluateWordMatchCut } from '../../../shared/video-template-evaluator.js';
+  drawVideoTemplateFrame,
+  prepareVideoTemplate,
+  type PreparedVideoTemplate,
+} from '../../../shared/video-template-renderer.js';
 import {
   parseVideoTemplateDefinition,
   type VideoTemplateDefinition,
@@ -205,10 +203,10 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   render();
 }
 
-// Las páginas de una plantilla son caras de componer y no dependen del tiempo:
-// se guardan por plantilla y palabra, y cada dibujo es solo elegir cuál va.
+// La preparación de una plantilla no depende del tiempo: se guarda por
+// definición y texto; cada frame solo evalúa y dibuja su estado temporal.
 const templateDefinitions = new Map<string, VideoTemplateDefinition>();
-const templatePages = new Map<string, PreparedPage[]>();
+const preparedTemplates = new Map<string, PreparedVideoTemplate>();
 const loadingTemplates = new Set<string>();
 const TEMPLATE_PAGE_CACHE_LIMIT = 6;
 
@@ -254,14 +252,13 @@ function templateNode(
   }
 
   const key = `${definitionPath}::${element.values.word}`;
-  let pages = templatePages.get(key);
-  if (!pages) {
-    pages = definition.pageStyles.map((style, index) => paintWord(renderPageBase(style, index), element.values!.word));
-    templatePages.set(key, pages);
-    for (const stale of [...templatePages.keys()].slice(0, -TEMPLATE_PAGE_CACHE_LIMIT)) templatePages.delete(stale);
+  let prepared = preparedTemplates.get(key);
+  if (!prepared) {
+    prepared = prepareVideoTemplate(definition, element.values.word);
+    preparedTemplates.set(key, prepared);
+    for (const stale of [...preparedTemplates.keys()].slice(0, -TEMPLATE_PAGE_CACHE_LIMIT)) preparedTemplates.delete(stale);
   }
-  const frame = evaluateWordMatchCut(definition, seconds);
-  drawMatchCutFrame(node, pages[frame.sourceIndex], frame);
+  drawVideoTemplateFrame(node, prepared, seconds);
   return node;
 }
 

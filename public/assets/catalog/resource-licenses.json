@@ -280,6 +280,54 @@
       "notes": "Plantilla procedural original sin imágenes de terceros; forma parte del producto propietario."
     },
     {
+      "resourceId": "procedural-title-reveal-v1",
+      "assetType": "template",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Plantilla procedural original del paquete interno V1; no contiene material de terceros."
+    },
+    {
+      "resourceId": "procedural-list-stack-v1",
+      "assetType": "template",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Plantilla procedural original del paquete interno V1; no contiene material de terceros."
+    },
+    {
+      "resourceId": "procedural-comparison-split-v1",
+      "assetType": "template",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Plantilla procedural original del paquete interno V1; no contiene material de terceros."
+    },
+    {
+      "resourceId": "procedural-cta-pulse-v1",
+      "assetType": "template",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Plantilla procedural original del paquete interno V1; no contiene material de terceros."
+    },
+    {
       "resourceId": "fondo-estudio-parallax-v1",
       "assetType": "background",
       "origin": "original",

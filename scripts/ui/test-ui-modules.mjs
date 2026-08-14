@@ -271,8 +271,8 @@ check(
   );
   check(
     'el catálogo publicado solo ofrece plantillas generativas sin assets externos',
-    catalog.templates.length === 1
-      && catalog.templates[0].id === 'procedural-word-match-cut-v1'
+    catalog.templates.length === 5
+      && new Set(catalog.templates.map((template) => template.id)).size === 5
       && catalog.templates.every((template) => existsSync(
         path.join(projectRoot, 'public', template.definitionPath),
       )),

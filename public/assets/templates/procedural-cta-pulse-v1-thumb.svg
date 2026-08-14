@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="960" viewBox="0 0 540 960">
+  <rect width="540" height="960" rx="30" fill="#2e1065"/><g fill="none" stroke="#facc15" opacity=".2" stroke-width="12"><circle cx="270" cy="430" r="180"/><circle cx="270" cy="430" r="235"/></g>
+  <text x="270" y="245" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="#f472b6">NO TE LO PIERDAS</text>
+  <rect x="70" y="340" width="400" height="170" rx="85" fill="#facc15"/><text x="245" y="445" text-anchor="middle" font-family="Arial,sans-serif" font-size="54" font-weight="800" fill="#2e1065">SEGUIME</text><path d="M392 418l38 22-38 22z" fill="#2e1065"/>
+  <text x="270" y="610" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#faf5ff">TOCÁ PARA CONTINUAR</text><rect x="125" y="650" width="290" height="10" rx="5" fill="#6d28d9"/><rect x="125" y="650" width="210" height="10" rx="5" fill="#f472b6"/>
+</svg>

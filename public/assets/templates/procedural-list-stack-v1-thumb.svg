@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="960" viewBox="0 0 540 960">
+  <rect width="540" height="960" rx="30" fill="#f1f5f9"/><text x="55" y="165" font-family="Arial,sans-serif" font-size="23" font-weight="700" fill="#0f766e">GUÍA RÁPIDA</text>
+  <text x="55" y="230" font-family="Arial,sans-serif" font-size="48" font-weight="800" fill="#172554">TRES CLAVES</text>
+  <g font-family="Arial,sans-serif" font-weight="700" fill="#172554"><rect x="52" y="315" width="436" height="110" rx="22" fill="#fff"/><circle cx="105" cy="370" r="27" fill="#0f766e"/><text x="105" y="379" text-anchor="middle" font-size="20" fill="#fff">01</text><text x="155" y="380" font-size="23">CONTEXTO</text>
+  <rect x="52" y="460" width="436" height="110" rx="22" fill="#fff"/><circle cx="105" cy="515" r="27" fill="#f59e0b"/><text x="105" y="524" text-anchor="middle" font-size="20" fill="#fff">02</text><text x="155" y="525" font-size="23">ACCIÓN</text>
+  <rect x="52" y="605" width="436" height="110" rx="22" fill="#fff"/><circle cx="105" cy="660" r="27" fill="#0f766e"/><text x="105" y="669" text-anchor="middle" font-size="20" fill="#fff">03</text><text x="155" y="670" font-size="23">RESULTADO</text></g>
+</svg>

@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "id": "procedural-list-stack-v1",
+  "kind": "procedural-motion-card",
+  "label": "Lista escalonada",
+  "durationSeconds": 3.6,
+  "fps": 30,
+  "layout": "list",
+  "seed": 27109,
+  "labels": ["CONTEXTO", "ACCIÓN", "RESULTADO"],
+  "palette": {
+    "background": "#f1f5f9",
+    "surface": "#ffffff",
+    "primary": "#0f766e",
+    "secondary": "#f59e0b",
+    "text": "#172554",
+    "muted": "#cbd5e1"
+  },
+  "defaultValues": { "word": "TRES CLAVES" },
+  "fields": [{
+    "id": "word",
+    "type": "text",
+    "label": "Encabezado",
+    "placeholder": "Escribí un encabezado",
+    "minLength": 1,
+    "maxLength": 24
+  }]
+}

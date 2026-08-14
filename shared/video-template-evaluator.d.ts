@@ -18,4 +18,22 @@ export function evaluateWordMatchCut(
   seconds: number,
 ): WordMatchCutEvaluation;
 
+export interface MotionCardEvaluation {
+  frameIndex: number;
+  loopFrame: number;
+  progress: number;
+  opacity: number;
+  scale: number;
+  offsetY: number;
+  accentProgress: number;
+  pulse: number;
+  comparisonBalance: number;
+  itemProgress: readonly number[];
+}
+
+export function evaluateMotionCard(
+  definition: { durationSeconds: number; fps: number },
+  seconds: number,
+): MotionCardEvaluation;
+
 export function normalizeTemplateWord(value: unknown, fallback?: string, maxLength?: number): string;

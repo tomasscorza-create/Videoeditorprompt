@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "id": "procedural-cta-pulse-v1",
+  "kind": "procedural-motion-card",
+  "label": "Llamada pulsante",
+  "durationSeconds": 3.0,
+  "fps": 30,
+  "layout": "cta",
+  "seed": 46271,
+  "labels": ["NO TE LO PIERDAS", "TOCÁ PARA CONTINUAR"],
+  "palette": {
+    "background": "#2e1065",
+    "surface": "#4c1d95",
+    "primary": "#facc15",
+    "secondary": "#f472b6",
+    "text": "#faf5ff",
+    "muted": "#6d28d9"
+  },
+  "defaultValues": { "word": "SEGUIME" },
+  "fields": [{
+    "id": "word",
+    "type": "text",
+    "label": "Acción principal",
+    "placeholder": "Escribí la acción",
+    "minLength": 1,
+    "maxLength": 20
+  }]
+}

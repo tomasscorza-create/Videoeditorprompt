@@ -6,16 +6,13 @@ import {
   type VideoTemplateDefinition,
 } from './project/video-template-catalog.js';
 import {
-  drawMatchCutFrame,
-  paintWord,
-  renderPageBase,
-  type PageBase,
-  type PreparedPage,
-} from '../../shared/video-template-page.js';
-import {
-  evaluateWordMatchCut,
   normalizeTemplateWord,
 } from '../../shared/video-template-evaluator.js';
+import {
+  drawVideoTemplateFrame,
+  prepareVideoTemplate,
+  type PreparedVideoTemplate,
+} from '../../shared/video-template-renderer.js';
 
 export function initVideoTemplateEditor(): void {
   const panel = optional<HTMLElement>('#video-template-editor');
@@ -41,24 +38,19 @@ export function initVideoTemplateEditor(): void {
   let pausedSeconds = 0;
   let animationFrame = 0;
   let lastCutIndex = -1;
-  let pageBases: PageBase[] = [];
-  let preparedPages: PreparedPage[] = [];
+  let preparedTemplate: PreparedVideoTemplate | null = null;
   let composeTimer = 0;
   const cutAudio = new MatchCutAudio();
 
   const draw = (now: number): void => {
     animationFrame = 0;
-    if (panel.hidden || !definition || preparedPages.length === 0) return;
+    if (panel.hidden || !definition || !preparedTemplate) return;
     const rawSeconds = playing ? (now - startedAt) / 1000 : pausedSeconds;
     const seconds = Math.min(rawSeconds, definition.durationSeconds - 1 / definition.fps);
-    const frame = evaluateWordMatchCut(definition, seconds);
-    const prepared = preparedPages[frame.sourceIndex];
-    if (prepared) {
-      drawMatchCutFrame(canvas, prepared, frame);
-      if (frame.cutIndex !== lastCutIndex) {
-        cutAudio.cue(frame.cutIndex);
-        lastCutIndex = frame.cutIndex;
-      }
+    const frame = drawVideoTemplateFrame(canvas, preparedTemplate, seconds);
+    if ('cutIndex' in frame && frame.cutIndex !== lastCutIndex) {
+      cutAudio.cue(frame.cutIndex);
+      lastCutIndex = frame.cutIndex;
     }
     if (time) time.textContent = `${Math.min(rawSeconds, definition.durationSeconds).toFixed(1)} s`;
     if (playing && rawSeconds >= definition.durationSeconds) {
@@ -76,7 +68,7 @@ export function initVideoTemplateEditor(): void {
   };
 
   const startClock = (): void => {
-    if (!definition || preparedPages.length === 0) return;
+    if (!definition || !preparedTemplate) return;
     pausedSeconds = 0;
     startedAt = performance.now();
     lastCutIndex = -1;
@@ -87,12 +79,12 @@ export function initVideoTemplateEditor(): void {
     ensureClock();
   };
 
-  /** Solo recompone la línea de la palabra: el papel y el cuerpo ya están pintados. */
+  /** Recompone el recurso cacheable de la plantilla con el texto vigente. */
   const composeWord = (): void => {
-    if (!definition || pageBases.length === 0) return;
-    preparedPages = pageBases.map((page) => paintWord(page, word));
+    if (!definition) return;
+    preparedTemplate = prepareVideoTemplate(definition, word);
     status.classList.remove('error');
-    status.textContent = `«${word}» quedó compuesta dentro del renglón en las ${pageBases.length} páginas.`;
+    status.textContent = `«${word}» quedó aplicado a la plantilla ${definition.label}.`;
     startClock();
   };
 
@@ -105,21 +97,18 @@ export function initVideoTemplateEditor(): void {
     title.textContent = template.label;
     description.textContent = template.description;
     status.classList.remove('error');
-    status.textContent = 'Componiendo las páginas…';
+    status.textContent = 'Preparando la plantilla…';
     fields.replaceChildren();
     attribution.hidden = true;
-    pageBases = [];
-    preparedPages = [];
+    preparedTemplate = null;
     void loadVideoTemplateDefinition(template).then((loaded) => {
       definition = loaded;
       word = normalizeTemplateWord(loaded.defaultValues.word, 'IDEA', loaded.fields[0].maxLength);
-      pageBases = loaded.pageStyles.map((style, index) => renderPageBase(style, index));
       renderFields(loaded);
       composeWord();
     }).catch((error) => {
       definition = null;
-      pageBases = [];
-      preparedPages = [];
+      preparedTemplate = null;
       status.textContent = error instanceof Error ? error.message : 'No se pudo abrir la plantilla.';
       status.classList.add('error');
     });
@@ -136,7 +125,7 @@ export function initVideoTemplateEditor(): void {
   });
 
   toggle.addEventListener('click', () => {
-    if (!definition || preparedPages.length === 0) return;
+    if (!definition || !preparedTemplate) return;
     if (playing) {
       pausedSeconds = (performance.now() - startedAt) / 1000;
       playing = false;
@@ -185,7 +174,7 @@ export function initVideoTemplateEditor(): void {
       composeTimer = window.setTimeout(composeWord, 190);
     });
     const help = document.createElement('small');
-    help.textContent = `Hasta ${field.maxLength} caracteres. Las palabras cortas conservan mejor el tamaño natural del libro.`;
+    help.textContent = `Hasta ${field.maxLength} caracteres. El texto se ajusta automáticamente al diseño.`;
     label.append(caption, input, help);
     fields!.replaceChildren(label);
   }

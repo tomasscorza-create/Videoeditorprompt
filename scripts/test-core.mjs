@@ -28,6 +28,7 @@ const commands = [
   'anim:test-contract',
   'anim:test-evaluator',
   'anim:test-presets',
+  'templates:test-motion-cards',
   'compositor:test-contract',
   'compositor:test-headless',
   'compositor:compare-v2',

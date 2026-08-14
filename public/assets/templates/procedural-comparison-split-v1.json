@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "id": "procedural-comparison-split-v1",
+  "kind": "procedural-motion-card",
+  "label": "Comparación dividida",
+  "durationSeconds": 4.0,
+  "fps": 30,
+  "layout": "comparison",
+  "seed": 39041,
+  "labels": ["ANTES", "DESPUÉS", "CAMBIO MEDIDO"],
+  "palette": {
+    "background": "#0b1020",
+    "surface": "#19233d",
+    "primary": "#22d3ee",
+    "secondary": "#fb7185",
+    "text": "#f8fafc",
+    "muted": "#334155"
+  },
+  "defaultValues": { "word": "EL CAMBIO" },
+  "fields": [{
+    "id": "word",
+    "type": "text",
+    "label": "Tema comparado",
+    "placeholder": "Escribí el tema",
+    "minLength": 1,
+    "maxLength": 24
+  }]
+}

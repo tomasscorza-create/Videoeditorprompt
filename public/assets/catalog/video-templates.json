@@ -5,6 +5,16 @@
       "id": "animation",
       "label": "Animación",
       "description": "Efectos visuales prearmados que se adaptan mediante campos editables."
+    },
+    {
+      "id": "editorial",
+      "label": "Editorial",
+      "description": "Composiciones para presentar títulos, secuencias y comparaciones."
+    },
+    {
+      "id": "conversion",
+      "label": "Acción",
+      "description": "Cierres y llamadas a la acción con jerarquía visual clara."
     }
   ],
   "templates": [
@@ -22,6 +32,42 @@
       ],
       "definitionPath": "assets/templates/procedural-word-match-cut-v1.json",
       "thumbnail": "assets/templates/procedural-word-match-cut-v1-thumb.svg"
+    },
+    {
+      "id": "procedural-title-reveal-v1",
+      "label": "Título editorial",
+      "description": "Un título entra sobre una tarjeta editorial con acentos, líneas y sello animado.",
+      "categoryId": "editorial",
+      "tags": ["título", "apertura", "editorial", "texto"],
+      "definitionPath": "assets/templates/procedural-title-reveal-v1.json",
+      "thumbnail": "assets/templates/procedural-title-reveal-v1-thumb.svg"
+    },
+    {
+      "id": "procedural-list-stack-v1",
+      "label": "Lista escalonada",
+      "description": "Tres bloques aparecen en secuencia para explicar contexto, acción y resultado.",
+      "categoryId": "editorial",
+      "tags": ["lista", "pasos", "tutorial", "información"],
+      "definitionPath": "assets/templates/procedural-list-stack-v1.json",
+      "thumbnail": "assets/templates/procedural-list-stack-v1-thumb.svg"
+    },
+    {
+      "id": "procedural-comparison-split-v1",
+      "label": "Comparación dividida",
+      "description": "Dos paneles y una barra dinámica presentan un antes y después medible.",
+      "categoryId": "editorial",
+      "tags": ["comparación", "antes", "después", "datos"],
+      "definitionPath": "assets/templates/procedural-comparison-split-v1.json",
+      "thumbnail": "assets/templates/procedural-comparison-split-v1-thumb.svg"
+    },
+    {
+      "id": "procedural-cta-pulse-v1",
+      "label": "Llamada pulsante",
+      "description": "Un botón amplio, anillos y progreso conducen la atención hacia una acción.",
+      "categoryId": "conversion",
+      "tags": ["cta", "acción", "cierre", "conversión"],
+      "definitionPath": "assets/templates/procedural-cta-pulse-v1.json",
+      "thumbnail": "assets/templates/procedural-cta-pulse-v1-thumb.svg"
     }
   ]
 }

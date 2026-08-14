@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "id": "procedural-title-reveal-v1",
+  "kind": "procedural-motion-card",
+  "label": "Título editorial",
+  "durationSeconds": 3.2,
+  "fps": 30,
+  "layout": "title",
+  "seed": 18437,
+  "labels": ["IDEA PRINCIPAL"],
+  "palette": {
+    "background": "#111827",
+    "surface": "#1f2937",
+    "primary": "#f97316",
+    "secondary": "#7c3aed",
+    "text": "#f9fafb",
+    "muted": "#64748b"
+  },
+  "defaultValues": { "word": "IDEA CLAVE" },
+  "fields": [{
+    "id": "word",
+    "type": "text",
+    "label": "Título",
+    "placeholder": "Escribí un título",
+    "minLength": 1,
+    "maxLength": 24
+  }]
+}

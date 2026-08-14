@@ -38,6 +38,32 @@ export function evaluateWordMatchCut(definition, seconds) {
   });
 }
 
+/** Evalúa tarjetas procedurales siempre desde frameIndex / fps. */
+export function evaluateMotionCard(definition, seconds) {
+  const durationSeconds = positive(definition?.durationSeconds, 3.2);
+  const fps = positive(definition?.fps, 30);
+  const loopFrameCount = Math.max(1, Math.round(durationSeconds * fps));
+  const frameIndex = Math.max(0, Math.floor(Math.max(0, seconds) * fps));
+  const loopFrame = frameIndex % loopFrameCount;
+  const progress = loopFrame / loopFrameCount;
+  const enter = smoothstep(0, 0.18, progress);
+  const exit = 1 - smoothstep(0.82, 1, progress);
+  const visibility = Math.min(enter, exit);
+  const itemProgress = [0, 1, 2].map((index) => smoothstep(0.12 + index * 0.1, 0.31 + index * 0.1, progress) * exit);
+  return Object.freeze({
+    frameIndex,
+    loopFrame,
+    progress,
+    opacity: visibility,
+    scale: 0.92 + enter * 0.08 - (1 - exit) * 0.035,
+    offsetY: (1 - enter) * 90 - (1 - exit) * 65,
+    accentProgress: smoothstep(0.18, 0.66, progress) * exit,
+    pulse: 0.5 + Math.sin(progress * Math.PI * 4) * 0.5,
+    comparisonBalance: 0.5 + Math.sin(progress * Math.PI * 2) * 0.08,
+    itemProgress: Object.freeze(itemProgress),
+  });
+}
+
 export function normalizeTemplateWord(value, fallback = 'IDEA', maxLength = 24) {
   const normalized = String(value ?? '')
     .replace(/\s+/gu, ' ')
@@ -48,4 +74,9 @@ export function normalizeTemplateWord(value, fallback = 'IDEA', maxLength = 24) 
 
 function positive(value, fallback) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function smoothstep(from, to, value) {
+  const normalized = Math.max(0, Math.min(1, (value - from) / Math.max(0.000001, to - from)));
+  return normalized * normalized * (3 - 2 * normalized);
 }

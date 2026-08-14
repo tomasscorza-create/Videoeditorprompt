@@ -67,6 +67,7 @@
     "anim:test-contract": "node scripts/animation/test-animation-contract.mjs",
     "anim:test-evaluator": "node scripts/animation/test-animation-evaluator.mjs",
     "anim:test-presets": "node scripts/animation/test-animation-presets.mjs",
+    "templates:test-motion-cards": "node scripts/templates/test-motion-card-templates.mjs",
     "compositor:test-contract": "node scripts/compositor/test-compositor-contract.mjs",
     "compositor:test-headless": "node scripts/compositor/test-pixi-compositor.mjs",
     "compositor:compare-v2": "node scripts/compositor/compare-v2-backends.mjs",

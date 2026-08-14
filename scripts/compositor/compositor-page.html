@@ -37,8 +37,8 @@ trace('pagina cargada');
 // navegador.
 
 import { Application, Assets, Container, Sprite, Texture } from './pixi.min.mjs';
-import { drawMatchCutFrame, paintWord, renderPageBase } from './shared/video-template-page.js';
-import { evaluateWordMatchCut } from './shared/video-template-evaluator.js';
+import { parseVideoTemplateDefinition } from './shared/video-template-definition.js';
+import { drawVideoTemplateFrame, prepareVideoTemplate } from './shared/video-template-renderer.js';
 
 /**
  * Las páginas de una plantilla dependen de su definición y de la palabra, no del
@@ -51,7 +51,7 @@ async function prepareTemplates(frames, video) {
     for (const template of frame.templates ?? []) {
       const key = `${template.definition}::${template.word}`;
       if (prepared.has(key)) continue;
-      const definition = await (await fetch(`./${template.definition}`)).json();
+      const definition = parseVideoTemplateDefinition(await (await fetch(`./${template.definition}`)).json());
       const canvas = document.createElement('canvas');
       canvas.width = video.width;
       canvas.height = video.height;
@@ -59,7 +59,7 @@ async function prepareTemplates(frames, video) {
         definition,
         canvas,
         texture: Texture.from(canvas),
-        pages: definition.pageStyles.map((style, index) => paintWord(renderPageBase(style, index), template.word)),
+        prepared: prepareVideoTemplate(definition, template.word),
       });
     }
   }
@@ -136,8 +136,7 @@ async function run() {
         const key = `${layer.template.definition}::${layer.template.word}`;
         const entry = templates.get(key);
         if (!entry) throw new Error(`plantilla sin preparar: ${key}; preparadas: ${[...templates.keys()].join(' | ') || 'ninguna'}`);
-        const evaluated = evaluateWordMatchCut(entry.definition, layer.template.seconds);
-        drawMatchCutFrame(entry.canvas, entry.pages[evaluated.sourceIndex], evaluated);
+        drawVideoTemplateFrame(entry.canvas, entry.prepared, layer.template.seconds);
         entry.texture.source.update();
         const node = new Sprite(entry.texture);
         node.anchor.set(0.5);
