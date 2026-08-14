@@ -328,6 +328,102 @@
       }
     },
     {
+      "id": "presentadora-coral-v1",
+      "type": "character",
+      "label": "Presentadora coral",
+      "tags": ["articulada", "coral", "humana", "presentadora"],
+      "characterRef": { "catalog": "assets/catalog/index.json", "entryId": "presentadora-coral-v1" },
+      "capabilities": {
+        "poses": ["neutral", "point", "celebrate", "doubt", "deny"],
+        "animationPresets": ["idle-calm", "talk-calm"],
+        "parameters": ["armRaise", "leftArmRaise", "headTilt", "headNod", "bodyLean", "bodyBounce"]
+      },
+      "provenance": {
+        "source": "Diseño geométrico original creado para el paquete de personajes articulados V1.",
+        "license": "Asset propietario redistribuible únicamente como parte del producto."
+      }
+    },
+    {
+      "id": "presentadora-indigo-v1",
+      "type": "character",
+      "label": "Presentadora índigo",
+      "tags": ["articulada", "humana", "indigo", "presentadora"],
+      "characterRef": { "catalog": "assets/catalog/index.json", "entryId": "presentadora-indigo-v1" },
+      "capabilities": {
+        "poses": ["neutral", "point", "celebrate", "doubt", "deny"],
+        "animationPresets": ["idle-calm", "talk-calm"],
+        "parameters": ["armRaise", "leftArmRaise", "headTilt", "headNod", "bodyLean", "bodyBounce"]
+      },
+      "provenance": {
+        "source": "Variante cromática original de la presentadora modular V1.",
+        "license": "Asset propietario redistribuible únicamente como parte del producto."
+      }
+    },
+    {
+      "id": "analista-menta-v1",
+      "type": "character",
+      "label": "Analista menta",
+      "tags": ["analista", "articulado", "gafas", "humano", "menta"],
+      "characterRef": { "catalog": "assets/catalog/index.json", "entryId": "analista-menta-v1" },
+      "capabilities": {
+        "poses": ["neutral", "point", "celebrate", "doubt", "deny"],
+        "animationPresets": ["idle-calm", "talk-calm"],
+        "parameters": ["armRaise", "leftArmRaise", "headTilt", "headNod", "bodyLean", "bodyBounce"]
+      },
+      "provenance": {
+        "source": "Diseño geométrico original creado para el paquete de personajes articulados V1.",
+        "license": "Asset propietario redistribuible únicamente como parte del producto."
+      }
+    },
+    {
+      "id": "analista-mostaza-v1",
+      "type": "character",
+      "label": "Analista mostaza",
+      "tags": ["analista", "articulado", "gafas", "humano", "mostaza"],
+      "characterRef": { "catalog": "assets/catalog/index.json", "entryId": "analista-mostaza-v1" },
+      "capabilities": {
+        "poses": ["neutral", "point", "celebrate", "doubt", "deny"],
+        "animationPresets": ["idle-calm", "talk-calm"],
+        "parameters": ["armRaise", "leftArmRaise", "headTilt", "headNod", "bodyLean", "bodyBounce"]
+      },
+      "provenance": {
+        "source": "Variante cromática original del analista modular V1.",
+        "license": "Asset propietario redistribuible únicamente como parte del producto."
+      }
+    },
+    {
+      "id": "robot-asistente-cian-v1",
+      "type": "character",
+      "label": "Robot asistente cian",
+      "tags": ["articulado", "asistente", "cian", "robot", "tecnologia"],
+      "characterRef": { "catalog": "assets/catalog/index.json", "entryId": "robot-asistente-cian-v1" },
+      "capabilities": {
+        "poses": ["neutral", "point", "celebrate", "doubt", "deny"],
+        "animationPresets": ["idle-calm", "talk-calm"],
+        "parameters": ["armRaise", "leftArmRaise", "headTilt", "headNod", "bodyLean", "bodyBounce"]
+      },
+      "provenance": {
+        "source": "Diseño geométrico original creado para el paquete de personajes articulados V1.",
+        "license": "Asset propietario redistribuible únicamente como parte del producto."
+      }
+    },
+    {
+      "id": "robot-asistente-lima-v1",
+      "type": "character",
+      "label": "Robot asistente lima",
+      "tags": ["articulado", "asistente", "lima", "robot", "tecnologia"],
+      "characterRef": { "catalog": "assets/catalog/index.json", "entryId": "robot-asistente-lima-v1" },
+      "capabilities": {
+        "poses": ["neutral", "point", "celebrate", "doubt", "deny"],
+        "animationPresets": ["idle-calm", "talk-calm"],
+        "parameters": ["armRaise", "leftArmRaise", "headTilt", "headNod", "bodyLean", "bodyBounce"]
+      },
+      "provenance": {
+        "source": "Variante cromática original del robot asistente V1.",
+        "license": "Asset propietario redistribuible únicamente como parte del producto."
+      }
+    },
+    {
       "id": "voz-ald-mx-v1",
       "type": "voice",
       "label": "ALd — español de México (masculina)",

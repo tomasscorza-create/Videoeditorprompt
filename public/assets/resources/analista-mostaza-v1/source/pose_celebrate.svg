@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <g>
+    <path d="M370 1120 H525 L505 1515 H365 Z" fill="#293548" stroke="#171b24" stroke-width="14" stroke-linejoin="round"/>
+    <path d="M555 1120 H710 L715 1515 H575 Z" fill="#293548" stroke="#171b24" stroke-width="14" stroke-linejoin="round"/>
+    <ellipse cx="430" cy="1515" rx="120" ry="54" fill="#141923" stroke="#171b24" stroke-width="12"/>
+    <ellipse cx="650" cy="1515" rx="120" ry="54" fill="#141923" stroke="#171b24" stroke-width="12"/>
+  </g>
+  <g>
+    <path d="M310 865 Q540 760 770 865 L735 1205 Q540 1285 345 1205 Z" fill="#d59a2f" stroke="#171b24" stroke-width="16" stroke-linejoin="round"/>
+    <path d="M450 820 H630 L650 1145 Q540 1190 430 1145 Z" fill="#f8f1df" stroke="#171b24" stroke-width="10"/>
+    <path d="M420 835 L500 930 L450 1010 L355 875 Z" fill="#8d611c" stroke="#171b24" stroke-width="9"/>
+    <path d="M660 835 L580 930 L630 1010 L725 875 Z" fill="#8d611c" stroke="#171b24" stroke-width="9"/>
+    <rect x="475" y="1035" width="130" height="88" rx="18" fill="#65d6d0" stroke="#171b24" stroke-width="8"/>
+  </g>
+  <g transform="rotate(100 340 910)">
+    <path d="M340 910 Q297.5 1055 255 1195" fill="none" stroke="#d59a2f" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/>
+    <ellipse cx="255" cy="1195" rx="48" ry="54" fill="#744b38" stroke="#171b24" stroke-width="10"/>
+  </g>
+  <g transform="rotate(-100 740 910)">
+    <path d="M740 910 Q782.5 1055 825 1195" fill="none" stroke="#d59a2f" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/>
+    <ellipse cx="825" cy="1195" rx="48" ry="54" fill="#744b38" stroke="#171b24" stroke-width="10"/>
+  </g>
+  <g>
+    <rect x="500" y="800" width="80" height="90" rx="28" fill="#744b38" stroke="#171b24" stroke-width="10"/>
+    <ellipse cx="540" cy="660" rx="205" ry="205" fill="#744b38" stroke="#171b24" stroke-width="15"/>
+    <path d="M345 610 Q355 420 540 420 Q725 420 735 610 Q665 545 590 525 Q475 555 345 610 Z" fill="#171717" stroke="#171b24" stroke-width="12"/>
+    <path d="M405 780 Q540 870 675 780 Q635 880 540 895 Q445 880 405 780 Z" fill="#171717" stroke="#171b24" stroke-width="10"/>
+    <ellipse cx="540" cy="745" rx="20" ry="26" fill="#744b38" stroke="#171b24" stroke-width="6"/>
+  </g>
+  <g>
+    <ellipse cx="475" cy="650" rx="19" ry="27" fill="#111827"/>
+    <ellipse cx="605" cy="650" rx="19" ry="27" fill="#111827"/>
+    <ellipse cx="470" cy="642" rx="5" ry="7" fill="#ffffff"/>
+    <ellipse cx="600" cy="642" rx="5" ry="7" fill="#ffffff"/>
+    <ellipse cx="475" cy="650" rx="62" ry="48" fill="none" stroke="#171b24" stroke-width="12"/>
+    <ellipse cx="605" cy="650" rx="62" ry="48" fill="none" stroke="#171b24" stroke-width="12"/>
+    <path d="M537 650 H543" fill="none" stroke="#171b24" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  <g>
+    <path d="M485 775 Q540 800 595 775" fill="none" stroke="#171b24" stroke-width="13" stroke-linecap="round"/>
+  </g>
+</svg>

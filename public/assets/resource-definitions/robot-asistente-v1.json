@@ -1,0 +1,619 @@
+{
+  "version": 3,
+  "id": "def-robot-asistente-v1",
+  "kind": "character",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "variants": [
+    {
+      "id": "cian",
+      "outputId": "robot-asistente-cian-v1",
+      "label": "Robot asistente cian",
+      "palette": {
+        "body": "#d8e6ed",
+        "bodyDark": "#7c95a3",
+        "panel": "#17233b",
+        "accent": "#22d3ee",
+        "outline": "#172033",
+        "eye": "#67e8f9",
+        "mouthDark": "#101827",
+        "tongue": "#f472b6",
+        "metal": "#91a9b6",
+        "wheels": "#273449"
+      }
+    },
+    {
+      "id": "lima",
+      "outputId": "robot-asistente-lima-v1",
+      "label": "Robot asistente lima",
+      "palette": {
+        "body": "#e7edd8",
+        "bodyDark": "#8f9c68",
+        "panel": "#26321d",
+        "accent": "#a3e635",
+        "outline": "#202719",
+        "eye": "#bef264",
+        "mouthDark": "#182012",
+        "tongue": "#fb7185",
+        "metal": "#a7b489",
+        "wheels": "#303928"
+      }
+    }
+  ],
+  "parts": [
+    {
+      "id": "legs",
+      "parentId": "torso",
+      "pivot": {
+        "x": 540,
+        "y": 1200
+      },
+      "zIndex": -10,
+      "shapes": [
+        {
+          "type": "rect",
+          "x": 405,
+          "y": 1160,
+          "width": 105,
+          "height": 290,
+          "fill": "$metal",
+          "rx": 45,
+          "stroke": "$outline",
+          "strokeWidth": 13
+        },
+        {
+          "type": "rect",
+          "x": 570,
+          "y": 1160,
+          "width": 105,
+          "height": 290,
+          "fill": "$metal",
+          "rx": 45,
+          "stroke": "$outline",
+          "strokeWidth": 13
+        },
+        {
+          "type": "ellipse",
+          "cx": 455,
+          "cy": 1460,
+          "rx": 120,
+          "ry": 68,
+          "fill": "$wheels",
+          "stroke": "$outline",
+          "strokeWidth": 13
+        },
+        {
+          "type": "ellipse",
+          "cx": 625,
+          "cy": 1460,
+          "rx": 120,
+          "ry": 68,
+          "fill": "$wheels",
+          "stroke": "$outline",
+          "strokeWidth": 13
+        }
+      ]
+    },
+    {
+      "id": "torso",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "shapes": [
+        {
+          "type": "rect",
+          "x": 330,
+          "y": 840,
+          "width": 420,
+          "height": 420,
+          "fill": "$body",
+          "rx": 110,
+          "stroke": "$outline",
+          "strokeWidth": 17
+        },
+        {
+          "type": "rect",
+          "x": 405,
+          "y": 930,
+          "width": 270,
+          "height": 185,
+          "fill": "$panel",
+          "rx": 42,
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "ellipse",
+          "cx": 480,
+          "cy": 1015,
+          "rx": 25,
+          "ry": 25,
+          "fill": "$accent"
+        },
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 1015,
+          "rx": 25,
+          "ry": 25,
+          "fill": "$bodyDark"
+        },
+        {
+          "type": "ellipse",
+          "cx": 600,
+          "cy": 1015,
+          "rx": 25,
+          "ry": 25,
+          "fill": "$accent"
+        },
+        {
+          "type": "path",
+          "d": "M430 1170 H650",
+          "fill": "none",
+          "stroke": "$bodyDark",
+          "strokeWidth": 18,
+          "lineCap": "round"
+        }
+      ]
+    },
+    {
+      "id": "arm_left",
+      "parentId": "torso",
+      "pivot": {
+        "x": 350,
+        "y": 925
+      },
+      "zIndex": 5,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M350 925 Q300 1070 250 1190",
+          "fill": "none",
+          "stroke": "$metal",
+          "strokeWidth": 92,
+          "lineCap": "round",
+          "lineJoin": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 250,
+          "cy": 1190,
+          "rx": 48,
+          "ry": 54,
+          "fill": "$body",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        }
+      ]
+    },
+    {
+      "id": "arm_right",
+      "parentId": "torso",
+      "pivot": {
+        "x": 730,
+        "y": 925
+      },
+      "zIndex": 15,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M730 925 Q780 1070 830 1190",
+          "fill": "none",
+          "stroke": "$metal",
+          "strokeWidth": 92,
+          "lineCap": "round",
+          "lineJoin": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 830,
+          "cy": 1190,
+          "rx": 48,
+          "ry": 54,
+          "fill": "$body",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        }
+      ]
+    },
+    {
+      "id": "head",
+      "parentId": "torso",
+      "pivot": {
+        "x": 540,
+        "y": 650
+      },
+      "zIndex": 20,
+      "shapes": [
+        {
+          "type": "rect",
+          "x": 485,
+          "y": 805,
+          "width": 110,
+          "height": 85,
+          "fill": "$metal",
+          "rx": 30,
+          "stroke": "$outline",
+          "strokeWidth": 11
+        },
+        {
+          "type": "rect",
+          "x": 335,
+          "y": 440,
+          "width": 410,
+          "height": 405,
+          "fill": "$body",
+          "rx": 115,
+          "stroke": "$outline",
+          "strokeWidth": 17
+        },
+        {
+          "type": "rect",
+          "x": 390,
+          "y": 545,
+          "width": 300,
+          "height": 255,
+          "fill": "$panel",
+          "rx": 72,
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "path",
+          "d": "M540 440 V335",
+          "fill": "none",
+          "stroke": "$metal",
+          "strokeWidth": 22,
+          "lineCap": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 315,
+          "rx": 42,
+          "ry": 42,
+          "fill": "$accent",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        },
+        {
+          "type": "rect",
+          "x": 370,
+          "y": 580,
+          "width": 24,
+          "height": 160,
+          "fill": "$accent",
+          "rx": 12,
+          "opacity": 0.65
+        },
+        {
+          "type": "rect",
+          "x": 686,
+          "y": 580,
+          "width": 24,
+          "height": 160,
+          "fill": "$accent",
+          "rx": 12,
+          "opacity": 0.65
+        }
+      ]
+    }
+  ],
+  "stateParentPartId": "head",
+  "states": {
+    "eyes": {
+      "open": [
+        {
+          "type": "ellipse",
+          "cx": 475,
+          "cy": 650,
+          "rx": 30,
+          "ry": 38,
+          "fill": "$eye"
+        },
+        {
+          "type": "ellipse",
+          "cx": 605,
+          "cy": 650,
+          "rx": 30,
+          "ry": 38,
+          "fill": "$eye"
+        },
+        {
+          "type": "ellipse",
+          "cx": 466,
+          "cy": 638,
+          "rx": 8,
+          "ry": 11,
+          "fill": "#ffffff"
+        },
+        {
+          "type": "ellipse",
+          "cx": 596,
+          "cy": 638,
+          "rx": 8,
+          "ry": 11,
+          "fill": "#ffffff"
+        }
+      ],
+      "closed": [
+        {
+          "type": "path",
+          "d": "M440 650 H510",
+          "fill": "none",
+          "stroke": "$eye",
+          "strokeWidth": 16,
+          "lineCap": "round"
+        },
+        {
+          "type": "path",
+          "d": "M570 650 H640",
+          "fill": "none",
+          "stroke": "$eye",
+          "strokeWidth": 16,
+          "lineCap": "round"
+        }
+      ]
+    },
+    "mouth": {
+      "closed": [
+        {
+          "type": "path",
+          "d": "M475 760 H605",
+          "fill": "none",
+          "stroke": "$eye",
+          "strokeWidth": 14,
+          "lineCap": "round"
+        }
+      ],
+      "medium": [
+        {
+          "type": "rect",
+          "x": 475,
+          "y": 735,
+          "width": 130,
+          "height": 52,
+          "fill": "$mouthDark",
+          "rx": 22,
+          "stroke": "$outline",
+          "strokeWidth": 8
+        },
+        {
+          "type": "rect",
+          "x": 505,
+          "y": 758,
+          "width": 70,
+          "height": 9,
+          "fill": "$tongue",
+          "rx": 4
+        }
+      ],
+      "open": [
+        {
+          "type": "rect",
+          "x": 480,
+          "y": 720,
+          "width": 120,
+          "height": 88,
+          "fill": "$mouthDark",
+          "rx": 30,
+          "stroke": "$outline",
+          "strokeWidth": 9
+        },
+        {
+          "type": "rect",
+          "x": 505,
+          "y": 774,
+          "width": 70,
+          "height": 13,
+          "fill": "$tongue",
+          "rx": 6
+        }
+      ],
+      "round": [
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 760,
+          "rx": 37,
+          "ry": 45,
+          "fill": "$mouthDark",
+          "stroke": "$outline",
+          "strokeWidth": 9
+        }
+      ],
+      "labiodental": [
+        {
+          "type": "rect",
+          "x": 485,
+          "y": 735,
+          "width": 110,
+          "height": 48,
+          "fill": "$mouthDark",
+          "rx": 18,
+          "stroke": "$outline",
+          "strokeWidth": 8
+        },
+        {
+          "type": "path",
+          "d": "M500 750 H580",
+          "fill": "none",
+          "stroke": "#ffffff",
+          "strokeWidth": 9,
+          "lineCap": "round"
+        }
+      ],
+      "bilabial": [
+        {
+          "type": "path",
+          "d": "M480 755 Q540 735 600 755 Q540 780 480 755 Z",
+          "fill": "$tongue",
+          "stroke": "$outline",
+          "strokeWidth": 9
+        }
+      ]
+    }
+  },
+  "poses": [
+    {
+      "id": "neutral",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": 0
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -48
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "celebrate",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -100
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 100
+        }
+      ]
+    },
+    {
+      "id": "doubt",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -22
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 38
+        }
+      ]
+    },
+    {
+      "id": "deny",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -15
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 15
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "armRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "leftArmRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headTilt",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headNod",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyLean",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyBounce",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    }
+  ],
+  "bindings": [
+    {
+      "parameterId": "armRaise",
+      "partId": "arm_right",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": -100
+    },
+    {
+      "parameterId": "leftArmRaise",
+      "partId": "arm_left",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": 100
+    },
+    {
+      "parameterId": "headTilt",
+      "partId": "head",
+      "channel": "rotationDegrees",
+      "from": -12,
+      "to": 12
+    },
+    {
+      "parameterId": "headNod",
+      "partId": "head",
+      "channel": "offsetY",
+      "from": 0,
+      "to": 24
+    },
+    {
+      "parameterId": "bodyLean",
+      "partId": "torso",
+      "channel": "rotationDegrees",
+      "from": -8,
+      "to": 8
+    },
+    {
+      "parameterId": "bodyBounce",
+      "partId": "torso",
+      "channel": "offsetY",
+      "from": 0,
+      "to": -34
+    }
+  ],
+  "provenance": {
+    "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+    "license": "Asset propietario original habilitado para uso comercial en el producto."
+  }
+}

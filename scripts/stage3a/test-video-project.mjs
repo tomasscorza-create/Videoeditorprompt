@@ -25,13 +25,13 @@ function invalidCase(name, expectedCode, change) {
 
 const valid = validate('valid');
 assert.equal(valid.project.scenes.length, 2);
-assert.equal(valid.catalog.entries.length, 34);
+assert.equal(valid.catalog.entries.length, 40);
 assert.deepEqual(
   Object.fromEntries(Object.entries([...valid.resources.values()].reduce((counts, entry) => ({
     ...counts,
     [entry.type]: (counts[entry.type] ?? 0) + 1,
   }), {})).sort(([left], [right]) => left.localeCompare(right))),
-  { background: 5, character: 10, music: 3, prop: 7, template: 5, voice: 4 },
+  { background: 5, character: 16, music: 3, prop: 7, template: 5, voice: 4 },
 );
 results.push({ name: 'valid-project-resolves-authoring-catalog', accepted: true });
 

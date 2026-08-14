@@ -14,6 +14,7 @@ const commands = [
   'stage2f:test-resource-manifest',
   'stage2f:test-resource',
   'stage2f:test-prop-pack',
+  'stage2f:test-character-pack',
   'stage3a:test-project',
   'stage3a:test-compiler',
   'stage3a:test-assembly',

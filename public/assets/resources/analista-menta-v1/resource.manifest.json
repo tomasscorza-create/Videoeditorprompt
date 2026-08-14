@@ -1,0 +1,259 @@
+{
+  "version": 3,
+  "id": "analista-menta-v1",
+  "kind": "character",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/resource-definitions/analista-modular-v1.json",
+  "variant": {
+    "id": "menta",
+    "label": "Analista menta",
+    "palette": {
+      "skin": "#c8845f",
+      "hair": "#24323a",
+      "outfit": "#4da88d",
+      "outfitDark": "#28715f",
+      "shirt": "#edf7ef",
+      "pants": "#334155",
+      "shoes": "#18222f",
+      "outline": "#1b2730",
+      "eye": "#1c2730",
+      "mouthDark": "#54282c",
+      "tongue": "#d56a72",
+      "accent": "#f4c95d"
+    }
+  },
+  "parts": [
+    {
+      "id": "legs",
+      "parentId": "torso",
+      "pivot": {
+        "x": 540,
+        "y": 1170
+      },
+      "zIndex": -10,
+      "layer": "part_legs.png"
+    },
+    {
+      "id": "torso",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "layer": "part_torso.png"
+    },
+    {
+      "id": "arm_left",
+      "parentId": "torso",
+      "pivot": {
+        "x": 340,
+        "y": 910
+      },
+      "zIndex": 5,
+      "layer": "part_arm_left.png"
+    },
+    {
+      "id": "arm_right",
+      "parentId": "torso",
+      "pivot": {
+        "x": 740,
+        "y": 910
+      },
+      "zIndex": 15,
+      "layer": "part_arm_right.png"
+    },
+    {
+      "id": "head",
+      "parentId": "torso",
+      "pivot": {
+        "x": 540,
+        "y": 660
+      },
+      "zIndex": 20,
+      "layer": "part_head.png"
+    }
+  ],
+  "stateParentPartId": "head",
+  "states": {
+    "eyes": {
+      "open": "eyes_open.png",
+      "closed": "eyes_closed.png"
+    },
+    "mouth": {
+      "closed": "mouth_closed.png",
+      "medium": "mouth_medium.png",
+      "open": "mouth_open.png",
+      "round": "mouth_round.png",
+      "labiodental": "mouth_labiodental.png",
+      "bilabial": "mouth_bilabial.png"
+    },
+    "thumbnails": {
+      "neutral": "pose_neutral.png",
+      "point": "pose_point.png",
+      "celebrate": "pose_celebrate.png",
+      "doubt": "pose_doubt.png",
+      "deny": "pose_deny.png"
+    }
+  },
+  "poses": [
+    {
+      "id": "neutral",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": 0
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -48
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "celebrate",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -100
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 100
+        }
+      ]
+    },
+    {
+      "id": "doubt",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -22
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 38
+        }
+      ]
+    },
+    {
+      "id": "deny",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -15
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 15
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "armRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "leftArmRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headTilt",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headNod",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyLean",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyBounce",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    }
+  ],
+  "bindings": [
+    {
+      "parameterId": "armRaise",
+      "partId": "arm_right",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": -100
+    },
+    {
+      "parameterId": "leftArmRaise",
+      "partId": "arm_left",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": 100
+    },
+    {
+      "parameterId": "headTilt",
+      "partId": "head",
+      "channel": "rotationDegrees",
+      "from": -12,
+      "to": 12
+    },
+    {
+      "parameterId": "headNod",
+      "partId": "head",
+      "channel": "offsetY",
+      "from": 0,
+      "to": 24
+    },
+    {
+      "parameterId": "bodyLean",
+      "partId": "torso",
+      "channel": "rotationDegrees",
+      "from": -8,
+      "to": 8
+    },
+    {
+      "parameterId": "bodyBounce",
+      "partId": "torso",
+      "channel": "offsetY",
+      "from": 0,
+      "to": -34
+    }
+  ],
+  "provenance": {
+    "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+    "license": "Asset propietario original habilitado para uso comercial en el producto."
+  }
+}

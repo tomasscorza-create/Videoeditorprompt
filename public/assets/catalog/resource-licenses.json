@@ -128,6 +128,78 @@
       "notes": "Rig articulado original; redistribución permitida únicamente como parte del producto autorizado."
     },
     {
+      "resourceId": "presentadora-coral-v1",
+      "assetType": "character",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Diseño y rig originales; no se concede redistribución independiente."
+    },
+    {
+      "resourceId": "presentadora-indigo-v1",
+      "assetType": "character",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Variante original del paquete; no se concede redistribución independiente."
+    },
+    {
+      "resourceId": "analista-menta-v1",
+      "assetType": "character",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Diseño y rig originales; no se concede redistribución independiente."
+    },
+    {
+      "resourceId": "analista-mostaza-v1",
+      "assetType": "character",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Variante original del paquete; no se concede redistribución independiente."
+    },
+    {
+      "resourceId": "robot-asistente-cian-v1",
+      "assetType": "character",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Diseño y rig originales; no se concede redistribución independiente."
+    },
+    {
+      "resourceId": "robot-asistente-lima-v1",
+      "assetType": "character",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Variante original del paquete; no se concede redistribución independiente."
+    },
+    {
       "resourceId": "voz-ald-mx-v1",
       "assetType": "voice",
       "origin": "third-party",

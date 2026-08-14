@@ -520,6 +520,292 @@
         "source": "Definición geométrica original creada para el paquete visual interno V1.",
         "license": "Asset propietario original del proyecto."
       }
+    },
+    {
+      "id": "presentadora-coral-v1",
+      "type": "character",
+      "label": "Presentadora coral",
+      "manifest": "assets/resources/presentadora-coral-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/presentadora-coral-v1/pose_neutral.png",
+      "tags": [
+        "personaje",
+        "articulado",
+        "rig-v3",
+        "presentadora-modular"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
+        ],
+        "parts": [
+          "legs",
+          "torso",
+          "arm_left",
+          "arm_right",
+          "head"
+        ],
+        "parameters": [
+          "armRaise",
+          "leftArmRaise",
+          "headTilt",
+          "headNod",
+          "bodyLean",
+          "bodyBounce"
+        ]
+      },
+      "provenance": {
+        "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+        "license": "Asset propietario original habilitado para uso comercial en el producto."
+      }
+    },
+    {
+      "id": "presentadora-indigo-v1",
+      "type": "character",
+      "label": "Presentadora índigo",
+      "manifest": "assets/resources/presentadora-indigo-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/presentadora-indigo-v1/pose_neutral.png",
+      "tags": [
+        "personaje",
+        "articulado",
+        "rig-v3",
+        "presentadora-modular"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
+        ],
+        "parts": [
+          "legs",
+          "torso",
+          "arm_left",
+          "arm_right",
+          "head"
+        ],
+        "parameters": [
+          "armRaise",
+          "leftArmRaise",
+          "headTilt",
+          "headNod",
+          "bodyLean",
+          "bodyBounce"
+        ]
+      },
+      "provenance": {
+        "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+        "license": "Asset propietario original habilitado para uso comercial en el producto."
+      }
+    },
+    {
+      "id": "analista-menta-v1",
+      "type": "character",
+      "label": "Analista menta",
+      "manifest": "assets/resources/analista-menta-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/analista-menta-v1/pose_neutral.png",
+      "tags": [
+        "parametrico",
+        "character"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
+        ],
+        "parts": [
+          "legs",
+          "torso",
+          "arm_left",
+          "arm_right",
+          "head"
+        ],
+        "parameters": [
+          "armRaise",
+          "leftArmRaise",
+          "headTilt",
+          "headNod",
+          "bodyLean",
+          "bodyBounce"
+        ]
+      },
+      "provenance": {
+        "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+        "license": "Asset propietario original habilitado para uso comercial en el producto."
+      }
+    },
+    {
+      "id": "analista-mostaza-v1",
+      "type": "character",
+      "label": "Analista mostaza",
+      "manifest": "assets/resources/analista-mostaza-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/analista-mostaza-v1/pose_neutral.png",
+      "tags": [
+        "parametrico",
+        "character"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
+        ],
+        "parts": [
+          "legs",
+          "torso",
+          "arm_left",
+          "arm_right",
+          "head"
+        ],
+        "parameters": [
+          "armRaise",
+          "leftArmRaise",
+          "headTilt",
+          "headNod",
+          "bodyLean",
+          "bodyBounce"
+        ]
+      },
+      "provenance": {
+        "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+        "license": "Asset propietario original habilitado para uso comercial en el producto."
+      }
+    },
+    {
+      "id": "robot-asistente-cian-v1",
+      "type": "character",
+      "label": "Robot asistente cian",
+      "manifest": "assets/resources/robot-asistente-cian-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/robot-asistente-cian-v1/pose_neutral.png",
+      "tags": [
+        "parametrico",
+        "character"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
+        ],
+        "parts": [
+          "legs",
+          "torso",
+          "arm_left",
+          "arm_right",
+          "head"
+        ],
+        "parameters": [
+          "armRaise",
+          "leftArmRaise",
+          "headTilt",
+          "headNod",
+          "bodyLean",
+          "bodyBounce"
+        ]
+      },
+      "provenance": {
+        "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+        "license": "Asset propietario original habilitado para uso comercial en el producto."
+      }
+    },
+    {
+      "id": "robot-asistente-lima-v1",
+      "type": "character",
+      "label": "Robot asistente lima",
+      "manifest": "assets/resources/robot-asistente-lima-v1/resource.manifest.json",
+      "thumbnail": "assets/resources/robot-asistente-lima-v1/pose_neutral.png",
+      "tags": [
+        "parametrico",
+        "character"
+      ],
+      "capabilities": {
+        "poses": [
+          "neutral",
+          "point",
+          "celebrate",
+          "doubt",
+          "deny"
+        ],
+        "mouthStates": [
+          "closed",
+          "medium",
+          "open",
+          "round",
+          "labiodental",
+          "bilabial"
+        ],
+        "parts": [
+          "legs",
+          "torso",
+          "arm_left",
+          "arm_right",
+          "head"
+        ],
+        "parameters": [
+          "armRaise",
+          "leftArmRaise",
+          "headTilt",
+          "headNod",
+          "bodyLean",
+          "bodyBounce"
+        ]
+      },
+      "provenance": {
+        "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+        "license": "Asset propietario original habilitado para uso comercial en el producto."
+      }
     }
   ]
 }

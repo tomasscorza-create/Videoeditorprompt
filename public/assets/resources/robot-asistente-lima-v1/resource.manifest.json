@@ -1,0 +1,257 @@
+{
+  "version": 3,
+  "id": "robot-asistente-lima-v1",
+  "kind": "character",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "sourceDefinition": "assets/resource-definitions/robot-asistente-v1.json",
+  "variant": {
+    "id": "lima",
+    "label": "Robot asistente lima",
+    "palette": {
+      "body": "#e7edd8",
+      "bodyDark": "#8f9c68",
+      "panel": "#26321d",
+      "accent": "#a3e635",
+      "outline": "#202719",
+      "eye": "#bef264",
+      "mouthDark": "#182012",
+      "tongue": "#fb7185",
+      "metal": "#a7b489",
+      "wheels": "#303928"
+    }
+  },
+  "parts": [
+    {
+      "id": "legs",
+      "parentId": "torso",
+      "pivot": {
+        "x": 540,
+        "y": 1200
+      },
+      "zIndex": -10,
+      "layer": "part_legs.png"
+    },
+    {
+      "id": "torso",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "layer": "part_torso.png"
+    },
+    {
+      "id": "arm_left",
+      "parentId": "torso",
+      "pivot": {
+        "x": 350,
+        "y": 925
+      },
+      "zIndex": 5,
+      "layer": "part_arm_left.png"
+    },
+    {
+      "id": "arm_right",
+      "parentId": "torso",
+      "pivot": {
+        "x": 730,
+        "y": 925
+      },
+      "zIndex": 15,
+      "layer": "part_arm_right.png"
+    },
+    {
+      "id": "head",
+      "parentId": "torso",
+      "pivot": {
+        "x": 540,
+        "y": 650
+      },
+      "zIndex": 20,
+      "layer": "part_head.png"
+    }
+  ],
+  "stateParentPartId": "head",
+  "states": {
+    "eyes": {
+      "open": "eyes_open.png",
+      "closed": "eyes_closed.png"
+    },
+    "mouth": {
+      "closed": "mouth_closed.png",
+      "medium": "mouth_medium.png",
+      "open": "mouth_open.png",
+      "round": "mouth_round.png",
+      "labiodental": "mouth_labiodental.png",
+      "bilabial": "mouth_bilabial.png"
+    },
+    "thumbnails": {
+      "neutral": "pose_neutral.png",
+      "point": "pose_point.png",
+      "celebrate": "pose_celebrate.png",
+      "doubt": "pose_doubt.png",
+      "deny": "pose_deny.png"
+    }
+  },
+  "poses": [
+    {
+      "id": "neutral",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": 0
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -48
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "celebrate",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -100
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 100
+        }
+      ]
+    },
+    {
+      "id": "doubt",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -22
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 38
+        }
+      ]
+    },
+    {
+      "id": "deny",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -15
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 15
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "armRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "leftArmRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headTilt",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headNod",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyLean",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyBounce",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    }
+  ],
+  "bindings": [
+    {
+      "parameterId": "armRaise",
+      "partId": "arm_right",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": -100
+    },
+    {
+      "parameterId": "leftArmRaise",
+      "partId": "arm_left",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": 100
+    },
+    {
+      "parameterId": "headTilt",
+      "partId": "head",
+      "channel": "rotationDegrees",
+      "from": -12,
+      "to": 12
+    },
+    {
+      "parameterId": "headNod",
+      "partId": "head",
+      "channel": "offsetY",
+      "from": 0,
+      "to": 24
+    },
+    {
+      "parameterId": "bodyLean",
+      "partId": "torso",
+      "channel": "rotationDegrees",
+      "from": -8,
+      "to": 8
+    },
+    {
+      "parameterId": "bodyBounce",
+      "partId": "torso",
+      "channel": "offsetY",
+      "from": 0,
+      "to": -34
+    }
+  ],
+  "provenance": {
+    "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+    "license": "Asset propietario original habilitado para uso comercial en el producto."
+  }
+}

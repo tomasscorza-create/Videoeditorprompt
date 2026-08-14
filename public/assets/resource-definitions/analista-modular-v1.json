@@ -1,0 +1,625 @@
+{
+  "version": 3,
+  "id": "def-analista-modular-v1",
+  "kind": "character",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "pivot": {
+    "x": 540,
+    "y": 960
+  },
+  "variants": [
+    {
+      "id": "menta",
+      "outputId": "analista-menta-v1",
+      "label": "Analista menta",
+      "palette": {
+        "skin": "#c8845f",
+        "hair": "#24323a",
+        "outfit": "#4da88d",
+        "outfitDark": "#28715f",
+        "shirt": "#edf7ef",
+        "pants": "#334155",
+        "shoes": "#18222f",
+        "outline": "#1b2730",
+        "eye": "#1c2730",
+        "mouthDark": "#54282c",
+        "tongue": "#d56a72",
+        "accent": "#f4c95d"
+      }
+    },
+    {
+      "id": "mostaza",
+      "outputId": "analista-mostaza-v1",
+      "label": "Analista mostaza",
+      "palette": {
+        "skin": "#744b38",
+        "hair": "#171717",
+        "outfit": "#d59a2f",
+        "outfitDark": "#8d611c",
+        "shirt": "#f8f1df",
+        "pants": "#293548",
+        "shoes": "#141923",
+        "outline": "#171b24",
+        "eye": "#111827",
+        "mouthDark": "#3f2022",
+        "tongue": "#bc5864",
+        "accent": "#65d6d0"
+      }
+    }
+  ],
+  "parts": [
+    {
+      "id": "legs",
+      "parentId": "torso",
+      "pivot": {
+        "x": 540,
+        "y": 1170
+      },
+      "zIndex": -10,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M370 1120 H525 L505 1515 H365 Z",
+          "fill": "$pants",
+          "stroke": "$outline",
+          "strokeWidth": 14,
+          "lineJoin": "round"
+        },
+        {
+          "type": "path",
+          "d": "M555 1120 H710 L715 1515 H575 Z",
+          "fill": "$pants",
+          "stroke": "$outline",
+          "strokeWidth": 14,
+          "lineJoin": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 430,
+          "cy": 1515,
+          "rx": 120,
+          "ry": 54,
+          "fill": "$shoes",
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "ellipse",
+          "cx": 650,
+          "cy": 1515,
+          "rx": 120,
+          "ry": 54,
+          "fill": "$shoes",
+          "stroke": "$outline",
+          "strokeWidth": 12
+        }
+      ]
+    },
+    {
+      "id": "torso",
+      "parentId": null,
+      "pivot": {
+        "x": 540,
+        "y": 960
+      },
+      "zIndex": 0,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M310 865 Q540 760 770 865 L735 1205 Q540 1285 345 1205 Z",
+          "fill": "$outfit",
+          "stroke": "$outline",
+          "strokeWidth": 16,
+          "lineJoin": "round"
+        },
+        {
+          "type": "path",
+          "d": "M450 820 H630 L650 1145 Q540 1190 430 1145 Z",
+          "fill": "$shirt",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        },
+        {
+          "type": "path",
+          "d": "M420 835 L500 930 L450 1010 L355 875 Z",
+          "fill": "$outfitDark",
+          "stroke": "$outline",
+          "strokeWidth": 9
+        },
+        {
+          "type": "path",
+          "d": "M660 835 L580 930 L630 1010 L725 875 Z",
+          "fill": "$outfitDark",
+          "stroke": "$outline",
+          "strokeWidth": 9
+        },
+        {
+          "type": "rect",
+          "x": 475,
+          "y": 1035,
+          "width": 130,
+          "height": 88,
+          "fill": "$accent",
+          "rx": 18,
+          "stroke": "$outline",
+          "strokeWidth": 8
+        }
+      ]
+    },
+    {
+      "id": "arm_left",
+      "parentId": "torso",
+      "pivot": {
+        "x": 340,
+        "y": 910
+      },
+      "zIndex": 5,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M340 910 Q297.5 1055 255 1195",
+          "fill": "none",
+          "stroke": "$outfit",
+          "strokeWidth": 92,
+          "lineCap": "round",
+          "lineJoin": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 255,
+          "cy": 1195,
+          "rx": 48,
+          "ry": 54,
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        }
+      ]
+    },
+    {
+      "id": "arm_right",
+      "parentId": "torso",
+      "pivot": {
+        "x": 740,
+        "y": 910
+      },
+      "zIndex": 15,
+      "shapes": [
+        {
+          "type": "path",
+          "d": "M740 910 Q782.5 1055 825 1195",
+          "fill": "none",
+          "stroke": "$outfit",
+          "strokeWidth": 92,
+          "lineCap": "round",
+          "lineJoin": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 825,
+          "cy": 1195,
+          "rx": 48,
+          "ry": 54,
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        }
+      ]
+    },
+    {
+      "id": "head",
+      "parentId": "torso",
+      "pivot": {
+        "x": 540,
+        "y": 660
+      },
+      "zIndex": 20,
+      "shapes": [
+        {
+          "type": "rect",
+          "x": 500,
+          "y": 800,
+          "width": 80,
+          "height": 90,
+          "fill": "$skin",
+          "rx": 28,
+          "stroke": "$outline",
+          "strokeWidth": 10
+        },
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 660,
+          "rx": 205,
+          "ry": 205,
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 15
+        },
+        {
+          "type": "path",
+          "d": "M345 610 Q355 420 540 420 Q725 420 735 610 Q665 545 590 525 Q475 555 345 610 Z",
+          "fill": "$hair",
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "path",
+          "d": "M405 780 Q540 870 675 780 Q635 880 540 895 Q445 880 405 780 Z",
+          "fill": "$hair",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        },
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 745,
+          "rx": 20,
+          "ry": 26,
+          "fill": "$skin",
+          "stroke": "$outline",
+          "strokeWidth": 6
+        }
+      ]
+    }
+  ],
+  "stateParentPartId": "head",
+  "states": {
+    "eyes": {
+      "open": [
+        {
+          "type": "ellipse",
+          "cx": 475,
+          "cy": 650,
+          "rx": 19,
+          "ry": 27,
+          "fill": "$eye"
+        },
+        {
+          "type": "ellipse",
+          "cx": 605,
+          "cy": 650,
+          "rx": 19,
+          "ry": 27,
+          "fill": "$eye"
+        },
+        {
+          "type": "ellipse",
+          "cx": 470,
+          "cy": 642,
+          "rx": 5,
+          "ry": 7,
+          "fill": "#ffffff"
+        },
+        {
+          "type": "ellipse",
+          "cx": 600,
+          "cy": 642,
+          "rx": 5,
+          "ry": 7,
+          "fill": "#ffffff"
+        },
+        {
+          "type": "ellipse",
+          "cx": 475,
+          "cy": 650,
+          "rx": 62,
+          "ry": 48,
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "ellipse",
+          "cx": 605,
+          "cy": 650,
+          "rx": 62,
+          "ry": 48,
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "path",
+          "d": "M537 650 H543",
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 12,
+          "lineCap": "round"
+        }
+      ],
+      "closed": [
+        {
+          "type": "path",
+          "d": "M447 650 Q475 668 503 650",
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 11,
+          "lineCap": "round"
+        },
+        {
+          "type": "path",
+          "d": "M577 650 Q605 668 633 650",
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 11,
+          "lineCap": "round"
+        },
+        {
+          "type": "ellipse",
+          "cx": 475,
+          "cy": 650,
+          "rx": 62,
+          "ry": 48,
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "ellipse",
+          "cx": 605,
+          "cy": 650,
+          "rx": 62,
+          "ry": 48,
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 12
+        },
+        {
+          "type": "path",
+          "d": "M537 650 H543",
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 12,
+          "lineCap": "round"
+        }
+      ]
+    },
+    "mouth": {
+      "closed": [
+        {
+          "type": "path",
+          "d": "M485 775 Q540 800 595 775",
+          "fill": "none",
+          "stroke": "$outline",
+          "strokeWidth": 13,
+          "lineCap": "round"
+        }
+      ],
+      "medium": [
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 783,
+          "rx": 55,
+          "ry": 29,
+          "fill": "$mouthDark",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        },
+        {
+          "type": "path",
+          "d": "M505 790 Q540 810 575 790",
+          "fill": "none",
+          "stroke": "$tongue",
+          "strokeWidth": 9,
+          "lineCap": "round"
+        }
+      ],
+      "open": [
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 785,
+          "rx": 58,
+          "ry": 52,
+          "fill": "$mouthDark",
+          "stroke": "$outline",
+          "strokeWidth": 11
+        },
+        {
+          "type": "path",
+          "d": "M503 805 Q540 837 577 805",
+          "fill": "$tongue",
+          "stroke": "$tongue",
+          "strokeWidth": 8,
+          "lineCap": "round"
+        }
+      ],
+      "round": [
+        {
+          "type": "ellipse",
+          "cx": 540,
+          "cy": 785,
+          "rx": 32,
+          "ry": 42,
+          "fill": "$mouthDark",
+          "stroke": "$outline",
+          "strokeWidth": 11
+        }
+      ],
+      "labiodental": [
+        {
+          "type": "path",
+          "d": "M490 773 Q540 755 590 773 Q540 802 490 773 Z",
+          "fill": "$mouthDark",
+          "stroke": "$outline",
+          "strokeWidth": 9
+        },
+        {
+          "type": "path",
+          "d": "M500 774 H580",
+          "fill": "none",
+          "stroke": "#ffffff",
+          "strokeWidth": 9,
+          "lineCap": "round"
+        }
+      ],
+      "bilabial": [
+        {
+          "type": "path",
+          "d": "M490 775 Q540 761 590 775 Q540 791 490 775 Z",
+          "fill": "$tongue",
+          "stroke": "$outline",
+          "strokeWidth": 10
+        }
+      ]
+    }
+  },
+  "poses": [
+    {
+      "id": "neutral",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": 0
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -48
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 0
+        }
+      ]
+    },
+    {
+      "id": "celebrate",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -100
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 100
+        }
+      ]
+    },
+    {
+      "id": "doubt",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -22
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 38
+        }
+      ]
+    },
+    {
+      "id": "deny",
+      "parts": [
+        {
+          "partId": "arm_right",
+          "rotationDegrees": -15
+        },
+        {
+          "partId": "arm_left",
+          "rotationDegrees": 15
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "id": "armRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "leftArmRaise",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headTilt",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "headNod",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyLean",
+      "minimum": -1,
+      "maximum": 1,
+      "default": 0
+    },
+    {
+      "id": "bodyBounce",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
+    }
+  ],
+  "bindings": [
+    {
+      "parameterId": "armRaise",
+      "partId": "arm_right",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": -100
+    },
+    {
+      "parameterId": "leftArmRaise",
+      "partId": "arm_left",
+      "channel": "rotationDegrees",
+      "from": 0,
+      "to": 100
+    },
+    {
+      "parameterId": "headTilt",
+      "partId": "head",
+      "channel": "rotationDegrees",
+      "from": -12,
+      "to": 12
+    },
+    {
+      "parameterId": "headNod",
+      "partId": "head",
+      "channel": "offsetY",
+      "from": 0,
+      "to": 24
+    },
+    {
+      "parameterId": "bodyLean",
+      "partId": "torso",
+      "channel": "rotationDegrees",
+      "from": -8,
+      "to": 8
+    },
+    {
+      "parameterId": "bodyBounce",
+      "partId": "torso",
+      "channel": "offsetY",
+      "from": 0,
+      "to": -34
+    }
+  ],
+  "provenance": {
+    "source": "Diseño geométrico y rig articulado original del paquete interno de personajes V1.",
+    "license": "Asset propietario original habilitado para uso comercial en el producto."
+  }
+}
