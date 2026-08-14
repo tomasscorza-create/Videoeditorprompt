@@ -8,6 +8,7 @@ const commands = [
   'assets:test-licenses',
   'stage2d:test-contract',
   'stage2d:test-audio-mix',
+  'stage2e:test-background-pack',
   'stage2f:test-parametric',
   'stage2f:test-hash-baseline',
   'stage2f:test-resource-manifest',

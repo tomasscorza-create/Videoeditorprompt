@@ -583,6 +583,54 @@
       }
     },
     {
+      "id": "fondo-interior-creativo-v1",
+      "type": "background",
+      "label": "Interior creativo cálido",
+      "tags": ["interior", "creativo", "calido", "parallax", "vertical"],
+      "backgroundManifest": "assets/backgrounds/interior-creativo-v1/background.manifest.json",
+      "capabilities": { "cameraPresets": ["static", "slow-pan", "slow-zoom"] },
+      "provenance": {
+        "source": "Creación vectorial determinista original del proyecto.",
+        "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+      }
+    },
+    {
+      "id": "fondo-gradiente-editorial-v1",
+      "type": "background",
+      "label": "Gradiente editorial",
+      "tags": ["gradiente", "editorial", "limpio", "parallax", "vertical"],
+      "backgroundManifest": "assets/backgrounds/gradiente-editorial-v1/background.manifest.json",
+      "capabilities": { "cameraPresets": ["static", "slow-pan", "slow-zoom"] },
+      "provenance": {
+        "source": "Creación vectorial determinista original del proyecto.",
+        "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+      }
+    },
+    {
+      "id": "fondo-escenario-abstracto-v1",
+      "type": "background",
+      "label": "Escenario abstracto claro",
+      "tags": ["abstracto", "claro", "presentacion", "parallax", "vertical"],
+      "backgroundManifest": "assets/backgrounds/escenario-abstracto-v1/background.manifest.json",
+      "capabilities": { "cameraPresets": ["static", "slow-pan", "slow-zoom"] },
+      "provenance": {
+        "source": "Creación vectorial determinista original del proyecto.",
+        "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+      }
+    },
+    {
+      "id": "fondo-ciudad-nocturna-v1",
+      "type": "background",
+      "label": "Ciudad nocturna",
+      "tags": ["ciudad", "noche", "urbano", "parallax", "vertical"],
+      "backgroundManifest": "assets/backgrounds/ciudad-nocturna-v1/background.manifest.json",
+      "capabilities": { "cameraPresets": ["static", "slow-pan", "slow-zoom"] },
+      "provenance": {
+        "source": "Creación vectorial determinista original del proyecto.",
+        "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+      }
+    },
+    {
       "id": "musica-calma-v1",
       "type": "music",
       "label": "Pulso calmo",

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+<defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#332744"/><stop offset="1" stop-color="#19172a"/></linearGradient>
+    <linearGradient id="sunset" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffcf82"/><stop offset="1" stop-color="#e36b70"/></linearGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#wall)"/>
+  <rect x="82" y="170" width="430" height="610" rx="34" fill="#17182b" stroke="#75618b" stroke-width="12"/>
+  <rect x="112" y="200" width="370" height="550" rx="18" fill="url(#sunset)"/>
+  <circle cx="380" cy="350" r="112" fill="#ffe6a6" opacity=".9"/>
+  <path d="M112 585 L215 470 L305 565 L390 430 L482 535 L482 750 L112 750 Z" fill="#6f4165"/>
+  <path d="M112 665 L235 560 L328 645 L420 535 L482 600 L482 750 L112 750 Z" fill="#3f3157"/>
+  <rect y="1240" width="1080" height="680" fill="#171522"/>
+  <path d="M0 1240 H1080" stroke="#65506f" stroke-width="14"/>
+  <circle cx="860" cy="250" r="170" fill="#6d537e" opacity=".25"/>
+  <circle cx="925" cy="1010" r="230" fill="#e77b61" opacity=".08"/>
+</svg>

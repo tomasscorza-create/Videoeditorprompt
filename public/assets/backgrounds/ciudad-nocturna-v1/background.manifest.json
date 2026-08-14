@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "id": "ciudad-nocturna-v1",
+  "canvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "layers": {
+    "far": "far.png",
+    "mid": "mid.png",
+    "front": "front.png"
+  },
+  "provenance": {
+    "source": "Creación vectorial determinista original del proyecto; SVG incluido en source/.",
+    "license": "Asset propietario original habilitado para uso comercial dentro del producto."
+  }
+}

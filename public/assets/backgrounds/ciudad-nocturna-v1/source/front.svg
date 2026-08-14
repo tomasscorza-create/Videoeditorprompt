@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+<path d="M0 1510 C240 1460 410 1575 610 1515 S920 1455 1080 1515 V1920 H0 Z" fill="#080d20"/>
+  <path d="M0 1510 C240 1460 410 1575 610 1515 S920 1455 1080 1515" fill="none" stroke="#f06a9b" stroke-width="12" opacity=".8"/>
+  <path d="M-40 1710 H1120" stroke="#263664" stroke-width="46"/><path d="M-40 1710 H1120" stroke="#9fe8ee" stroke-width="5" opacity=".7"/>
+  <circle cx="125" cy="1685" r="22" fill="#ffd77d"/><circle cx="930" cy="1685" r="22" fill="#f06a9b"/>
+</svg>

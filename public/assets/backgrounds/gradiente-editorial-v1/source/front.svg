@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+<path d="M-80 1640 C170 1420 400 1730 665 1515 S1010 1450 1160 1540 V1920 H-80 Z" fill="#0c153c" opacity=".92"/>
+  <path d="M-80 1640 C170 1420 400 1730 665 1515 S1010 1450 1160 1540" fill="none" stroke="#f9a8d4" stroke-width="13" opacity=".65"/>
+  <circle cx="970" cy="1320" r="95" fill="#fde68a" opacity=".22"/>
+  <path d="M50 1765 H1030" stroke="#ffffff" stroke-width="5" opacity=".15"/>
+</svg>

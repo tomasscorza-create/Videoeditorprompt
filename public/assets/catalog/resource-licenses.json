@@ -292,6 +292,54 @@
       "notes": "Fondo vectorial original; no se autoriza su venta como asset independiente."
     },
     {
+      "resourceId": "fondo-interior-creativo-v1",
+      "assetType": "background",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Fondo modular vectorial original del paquete interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
+      "resourceId": "fondo-gradiente-editorial-v1",
+      "assetType": "background",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Fondo modular vectorial original del paquete interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
+      "resourceId": "fondo-escenario-abstracto-v1",
+      "assetType": "background",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Fondo modular vectorial original del paquete interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
+      "resourceId": "fondo-ciudad-nocturna-v1",
+      "assetType": "background",
+      "origin": "original",
+      "rightsHolder": "Tomás Scorza",
+      "licenseExpression": "LicenseRef-Proprietary-Asset",
+      "status": "cleared",
+      "commercialUse": "allowed",
+      "redistribution": "product-only",
+      "attribution": { "required": false },
+      "notes": "Fondo modular vectorial original del paquete interno V1; no se autoriza su venta como asset independiente."
+    },
+    {
       "resourceId": "musica-calma-v1",
       "assetType": "music",
       "origin": "original",

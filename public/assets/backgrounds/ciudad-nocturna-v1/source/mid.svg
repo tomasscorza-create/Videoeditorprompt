@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+<g fill="#111a38" stroke="#3e4e82" stroke-width="6">
+    <path d="M35 1390 V620 H245 V1390 Z"/><path d="M265 1390 V810 H455 V1390 Z"/><path d="M475 1390 V500 H735 V1390 Z"/><path d="M755 1390 V720 H1045 V1390 Z"/>
+  </g>
+  <g fill="#ffd77d" opacity=".82">
+    <rect x="75" y="690" width="48" height="70" rx="8"/><rect x="155" y="690" width="48" height="70" rx="8"/><rect x="75" y="810" width="48" height="70" rx="8"/><rect x="155" y="930" width="48" height="70" rx="8"/>
+    <rect x="310" y="875" width="45" height="65" rx="8"/><rect x="380" y="995" width="45" height="65" rx="8"/>
+    <rect x="525" y="575" width="55" height="75" rx="8"/><rect x="625" y="700" width="55" height="75" rx="8"/><rect x="525" y="840" width="55" height="75" rx="8"/>
+    <rect x="805" y="790" width="55" height="70" rx="8"/><rect x="900" y="910" width="55" height="70" rx="8"/>
+  </g>
+  <path d="M605 500 V380 M555 380 H655" stroke="#72d7e4" stroke-width="12"/>
+</svg>

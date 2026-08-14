@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+<path d="M-40 1580 C170 1470 300 1660 515 1550 S850 1420 1120 1570 V1920 H-40 Z" fill="#233b69"/>
+  <path d="M-40 1580 C170 1470 300 1660 515 1550 S850 1420 1120 1570" fill="none" stroke="#ef6f61" stroke-width="14"/>
+  <path d="M70 1810 C155 1630 275 1625 350 1810 Z" fill="#ffb85c" opacity=".9"/>
+  <path d="M780 1920 C815 1710 945 1640 1085 1780 V1920 Z" fill="#56a88b"/>
+</svg>
