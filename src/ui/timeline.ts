@@ -9,6 +9,7 @@ import {
   editorOutputState,
   editorWorkspace,
   measuredTimelineFor,
+  measuredVisualSceneFor,
   pauseEditorPlayback,
   seekEditorPlayback,
   setEditorPlayhead,
@@ -137,7 +138,11 @@ export function attachProjectTimeline(projectStore: ProjectStore): void {
   });
   // Un proyecto nuevo obtiene audio y regla real en segundo plano; la primera
   // exportación deja de ser un requisito para empezar a editar profesionalmente.
-  if (!compatibleTimeline(store.project().scenes)) scheduleAutomaticMeasurement();
+  const initialScenes = store.project().scenes;
+  const missingVisualRuntime = initialScenes
+    .filter((scene) => scene.elements.some((element) => element.type === 'character'))
+    .some((scene) => !measuredVisualSceneFor(scene.id));
+  if (!compatibleTimeline(initialScenes) || missingVisualRuntime) scheduleAutomaticMeasurement();
   render();
 }
 
@@ -1620,6 +1625,7 @@ async function remeasureProject(options: { automatic?: boolean } = {}): Promise<
       projectId: result.projectId,
       timingRevision: projectTimingFingerprint(current),
       timeline: result.timeline as MeasuredProjectTimeline,
+      visualScenes: result.visualScenes as Parameters<typeof setProjectMeasurement>[0]['visualScenes'],
       audioUrl: result.audioUrl,
     });
     if (!options.automatic) {

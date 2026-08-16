@@ -30,6 +30,19 @@ export interface MeasuredProjectTimeline {
   scenes: MeasuredScene[];
 }
 
+export interface MeasuredVisualScene {
+  id: string;
+  runtime: {
+    audio: { durationSeconds: number };
+    characters: Array<{
+      id: string;
+      transform: Record<string, unknown>;
+      blinks: Array<{ start: number; end: number }>;
+    }>;
+  };
+  dialogue: { turns: Array<Record<string, unknown>> };
+}
+
 export interface RenderedOutput {
   projectId: string;
   projectRevision: string | null;
@@ -67,6 +80,7 @@ let measurement: {
   projectId: string;
   timingRevision: string;
   timeline: MeasuredProjectTimeline;
+  visualScenes: MeasuredVisualScene[];
   audioUrl: string;
 } | null = null;
 let media: HTMLVideoElement | null = null;
@@ -226,6 +240,16 @@ export function measuredTimelineFor(sceneIds: readonly string[]): MeasuredProjec
   return matchesScenes(timeline, sceneIds) ? timeline : null;
 }
 
+/** Runtime temporal portable de una escena medida y todavía vigente. */
+export function measuredVisualSceneFor(sceneId: string): MeasuredVisualScene | null {
+  if (
+    !measurement
+    || measurement.projectId !== activeProjectId
+    || measurement.timingRevision !== activeTimingRevision
+  ) return null;
+  return measurement.visualScenes.find((scene) => scene.id === sceneId) ?? null;
+}
+
 function matchesScenes(timeline: MeasuredProjectTimeline, sceneIds: readonly string[]): boolean {
   if (timeline.scenes.length !== sceneIds.length) return false;
   return timeline.scenes.every((scene, index) => scene.id === sceneIds[index]);
@@ -243,10 +267,11 @@ export function setProjectMeasurement(value: {
   projectId: string;
   timingRevision: string;
   timeline: MeasuredProjectTimeline;
+  visualScenes?: MeasuredVisualScene[];
   audioUrl: string;
 }): void {
   stopAuthoringPreview(false);
-  measurement = value;
+  measurement = { ...value, visualScenes: value.visualScenes ?? [] };
   if (typeof Audio !== 'undefined') {
     previewAudio ??= createPreviewAudio();
     previewAudio.src = value.audioUrl;

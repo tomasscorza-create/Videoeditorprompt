@@ -87,6 +87,20 @@ if (ttsDisponible) {
     }
   });
 
+  test('la medicion conserva el runtime visual que usa el render', () => {
+    assert.equal(medicion.visualScenes.length, medicion.timeline.scenes.length);
+    for (const visual of medicion.visualScenes) {
+      assert.equal(visual.runtime.audio.durationSeconds > 0, true);
+      assert.equal(Array.isArray(visual.runtime.characters), true);
+      assert.equal(visual.dialogue.turns.length > 0, true);
+      for (const turn of visual.dialogue.turns) {
+        assert.equal(Array.isArray(turn.mouthCues), true);
+        assert.equal(turn.mouthCues.length > 0, true);
+        assert.equal(typeof turn.mouthCueSource, 'string');
+      }
+    }
+  });
+
   test('medir dos veces da el mismo resultado', async () => {
     // Segunda pasada: todo sale de la caché de voz y no puede mover un tiempo.
     const repetido = createProjectCompilationContext({
@@ -95,6 +109,7 @@ if (ttsDisponible) {
     });
     return measureProject(repetido, { report: () => {} }).then((segunda) => {
       assert.deepEqual(segunda.timeline, medicion.timeline);
+      assert.deepEqual(segunda.visualScenes, medicion.visualScenes);
       rmSync(path.join(projectRoot, '.local-video', 'work', `${jobId}-b`), { recursive: true, force: true });
       rmSync(path.join(projectRoot, '.local-video', 'output', `${jobId}-b`), { recursive: true, force: true });
     });

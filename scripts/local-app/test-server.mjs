@@ -528,6 +528,8 @@ if (existsSync(ttsRoot)) {
   assert.equal(cuerpo.projectId, project.id);
   assert.equal(cuerpo.timeline.scenes.length, project.scenes.length);
   assert.equal(cuerpo.timeline.durationSeconds > 0, true);
+  assert.equal(cuerpo.visualScenes.length, project.scenes.length);
+  assert.equal(cuerpo.visualScenes.every((scene) => scene.dialogue.turns.every((turn) => turn.mouthCues.length > 0)), true);
   assert.match(cuerpo.audioUrl, /^\/api\/measurement-audio\/measure-/u);
   const previewAudio = await request(cuerpo.audioUrl);
   assert.equal(previewAudio.status, 200);
@@ -541,7 +543,7 @@ if (existsSync(ttsRoot)) {
   }
   // No debe existir un MP4: medir no renderiza.
   assert.equal(Object.hasOwn(cuerpo, 'videoUrl'), false);
-  medicionProbada = 9;
+  medicionProbada = 11;
 }
 
 // Un proyecto inválido no llega a gastar Piper.

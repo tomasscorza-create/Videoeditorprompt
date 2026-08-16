@@ -18,6 +18,7 @@ const sources = [
   'src/ui/right-panel.ts',
   'src/ui/project/video-template-catalog.ts',
   'src/ui/project/animation-sequence-catalog.ts',
+  'src/ui/project/rig-preview.ts',
   'src/ui/project/editing-panel.ts',
   'src/ui/project/store.ts',
   'src/ui/timeline-geometry.ts',
@@ -64,6 +65,7 @@ for (const name of [
   'animation-evaluator.js',
   'video-template-page.js',
   'video-template-definition.js',
+  'compositor-contract.js',
 ]) {
   copyFileSync(path.join(projectRoot, 'shared', name), path.join(outDir, 'shared', name));
 }
@@ -72,12 +74,14 @@ const workspacePath = path.join(outDir, 'src', 'ui', 'editor-workspace.js');
 const rightPanelPath = path.join(outDir, 'src', 'ui', 'right-panel.js');
 const videoTemplateCatalogPath = path.join(outDir, 'src', 'ui', 'project', 'video-template-catalog.js');
 const editingPanelPath = path.join(outDir, 'src', 'ui', 'project', 'editing-panel.js');
+const rigPreviewPath = path.join(outDir, 'src', 'ui', 'project', 'rig-preview.js');
 const layersPath = path.join(outDir, 'src', 'ui', 'project', 'layers.js');
 const storePath = path.join(outDir, 'src', 'ui', 'project', 'store.js');
 assert.equal(existsSync(workspacePath), true, 'editor-workspace.js no se compiló');
 assert.equal(existsSync(rightPanelPath), true, 'right-panel.js no se compiló');
 assert.equal(existsSync(videoTemplateCatalogPath), true, 'video-template-catalog.js no se compiló');
 assert.equal(existsSync(editingPanelPath), true, 'editing-panel.js no se compiló');
+assert.equal(existsSync(rigPreviewPath), true, 'rig-preview.js no se compiló');
 assert.equal(existsSync(layersPath), true, 'layers.js no se compiló');
 assert.equal(existsSync(storePath), true, 'store.js no se compiló');
 
@@ -132,6 +136,7 @@ const workspace = await import(pathToFileURL(workspacePath).href);
 const rightPanel = await import(pathToFileURL(rightPanelPath).href);
 const videoTemplateCatalog = await import(pathToFileURL(videoTemplateCatalogPath).href);
 const editingPanel = await import(pathToFileURL(editingPanelPath).href);
+const rigPreview = await import(pathToFileURL(rigPreviewPath).href);
 const layers = await import(pathToFileURL(layersPath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
@@ -157,6 +162,33 @@ const check = (label, condition) => {
   assert.equal(condition, true, label);
   passed += 1;
 };
+
+// ---- rig-preview.ts: el lienzo usa las piezas reales, no una miniatura ----
+{
+  const manifestPath = 'assets/resources/presentadora-coral-v1/resource.manifest.json';
+  const manifest = readJson(path.join(projectRoot, 'public', manifestPath));
+  const neutral = rigPreview.rigSpritePlan(manifest, manifestPath, {
+    poseId: 'neutral', eyes: 'open', mouth: 'closed', params: {},
+  });
+  const speaking = rigPreview.rigSpritePlan(manifest, manifestPath, {
+    poseId: 'point', eyes: 'closed', mouth: 'open', params: { headNod: 1 },
+  });
+  check('el preview cambia la capa de boca y ojos del rig',
+    neutral.some((sprite) => sprite.id === 'mouth:closed')
+      && speaking.some((sprite) => sprite.id === 'mouth:open')
+      && speaking.some((sprite) => sprite.id === 'eyes:closed'));
+  check('el preview aplica gesto y parametros articulados',
+    speaking.find((sprite) => sprite.id === 'arm_right').transforms.some((item) => item.kind === 'rotate')
+      && speaking.find((sprite) => sprite.id === 'head').transforms.some((item) => item.kind === 'translate'));
+
+  const legacyPath = 'assets/characters/mono-parametrico-azul-v1/character.manifest.json';
+  const legacy = rigPreview.rigSpritePlan(readJson(path.join(projectRoot, 'public', legacyPath)), legacyPath, {
+    poseId: 'point', mouth: 'medium', eyes: 'open',
+  });
+  check('los rigs v2 conservan boca y manos mediante el adaptador de preview',
+    legacy.some((sprite) => sprite.id === 'mouth:medium')
+      && legacy.some((sprite) => sprite.id === 'hands:point'));
+}
 
 check(
   'la revisión visual es determinista y sensible al proyecto',
@@ -210,6 +242,13 @@ const timelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'timelin
 const editorWorkspaceSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'editor-workspace.ts'), 'utf8');
 const editingPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'editing-panel.ts'), 'utf8');
 const compositionSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'composition.ts'), 'utf8');
+check(
+  'el preview vivo consume cues medidos y dibuja el rig en vez de una miniatura',
+  compositionSource.includes('measuredVisualSceneFor(scene.id)')
+    && compositionSource.includes('evaluateScene({ version: 2 }')
+    && compositionSource.includes('rigSpritePlan(manifest')
+    && compositionSource.includes('drawRigPreview(image, sprites, render)'),
+);
 check(
   'el panel derecho ofrece Recursos y Edición como páginas hermanas',
   appHtml.includes('id="right-panel-resources-tab"')
@@ -549,6 +588,7 @@ check(
   timelineSource.includes('void remeasureProject();')
     && timelineSource.includes('measureProjectTimes(project)')
     && timelineSource.includes('setProjectMeasurement({')
+    && timelineSource.includes('missingVisualRuntime')
     // Una medición que llega tarde no puede adoptarse sobre un proyecto que ya cambió.
     && timelineSource.includes('El proyecto cambió mientras se medía'),
 );
@@ -556,6 +596,7 @@ check(
   'la medición liviana gana sobre el MP4 y habilita el preview con su propio audio',
   editorWorkspaceSource.includes('export function setProjectMeasurement(')
     && editorWorkspaceSource.includes('measurement.timingRevision === activeTimingRevision')
+    && editorWorkspaceSource.includes('export function measuredVisualSceneFor(')
     && editorWorkspaceSource.includes('previewAudio.src = value.audioUrl')
     && editorWorkspaceSource.includes('function authoringMedia()'),
 );
@@ -1008,6 +1049,25 @@ check('cada transición notifica por evento', dispatched.length > 0);
   });
   workspace.syncActiveEditorProject('proyecto-3', 'rev-2', 'timing-1');
   check('sin revisión de tiempo no se supone una medición ajena', workspace.measuredTimelineFor(['escena-1']) === null);
+}
+
+
+{
+  workspace.setActiveEditorProject('proyecto-visual', 'visual-1', 'timing-visual-1');
+  workspace.setProjectMeasurement({
+    projectId: 'proyecto-visual',
+    timingRevision: 'timing-visual-1',
+    timeline: { durationSeconds: 2, scenes: [{ id: 'escena-visual', startSeconds: 0, endSeconds: 2 }] },
+    visualScenes: [{
+      id: 'escena-visual',
+      runtime: { audio: { durationSeconds: 2 }, characters: [] },
+      dialogue: { turns: [] },
+    }],
+    audioUrl: 'blob:preview-visual',
+  });
+  check('la medicion vigente expone su runtime visual', workspace.measuredVisualSceneFor('escena-visual')?.runtime.audio.durationSeconds === 2);
+  workspace.syncActiveEditorProject('proyecto-visual', 'visual-2', 'timing-visual-2');
+  check('el runtime visual caduca junto con los tiempos', workspace.measuredVisualSceneFor('escena-visual') === null);
 }
 
 // ---- store.ts: comandos, undo/redo, suscripción ----

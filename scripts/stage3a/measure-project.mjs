@@ -68,6 +68,18 @@ export async function measureProject(context, options = {}) {
     scenes.push({
       id: scene.id,
       turns: dialogue.turns,
+      // El preview visual necesita exactamente los mismos cues, parpadeos y
+      // transformaciones temporales que usaría el render. Se conserva solo el
+      // subconjunto portable que lee `shared/scene-evaluator.js`: nada de rutas
+      // absolutas, cachés ni archivos de trabajo.
+      visualRuntime: {
+        audio: { durationSeconds: runtime.audio.durationSeconds },
+        characters: runtime.characters.map((character) => ({
+          id: character.id,
+          transform: character.transform,
+          blinks: character.blinks,
+        })),
+      },
       audioFile: resolveWithin(
         sceneContext.generatedRoot,
         runtime.audio.path,
@@ -106,6 +118,11 @@ export async function measureProject(context, options = {}) {
     video: compiled.manifest.video,
     audio,
     timeline,
+    visualScenes: scenes.map((scene) => ({
+      id: scene.id,
+      runtime: scene.visualRuntime,
+      dialogue: { turns: scene.turns },
+    })),
   };
   writeJson(path.join(context.resultRoot, 'measurement.json'), manifest);
   report('completed', {

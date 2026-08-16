@@ -35,6 +35,7 @@ import {
   editorPlayhead,
   editorWorkspace,
   measuredTimelineFor,
+  measuredVisualSceneFor,
   type MeasuredProjectTimeline,
   type MeasuredScene,
 } from '../editor-workspace.js';
@@ -49,9 +50,12 @@ import {
 } from '../timeline-animation.js';
 import { quantizeToFrame } from '../../../shared/animation-contract.js';
 import type { SceneTiming } from '../../../shared/animation-evaluator.js';
+import { evaluateScene } from '../../../shared/scene-evaluator.js';
+import { drawRigPreview, rigSpritePlan } from './rig-preview.js';
 
 interface AssetCatalogEntry {
   id: string;
+  manifest?: string;
   thumbnail?: string;
 }
 
@@ -63,12 +67,31 @@ let activeStore: ProjectStore | null = null;
 let renderActiveComposition: (() => void) | null = null;
 let placementEventsBound = false;
 const visualBoundsCache = new Map<string, Promise<VisualBounds>>();
+const rigManifestCache = new Map<string, unknown>();
+const loadingRigManifests = new Set<string>();
 
 interface VisualBounds {
   x: number;
   y: number;
   width: number;
   height: number;
+}
+
+interface EvaluatedDialogueFrame {
+  characters: EvaluatedCharacterFrame[];
+}
+
+interface EvaluatedCharacterFrame {
+  id: string;
+  eyes: string;
+  mouth: string;
+  gesture: string;
+  character: { x: number; y: number; scale: number; opacity: number };
+}
+
+interface PreviewRuntimeCharacter {
+  id: string;
+  transform: Record<string, unknown>;
 }
 
 const DEFAULT_VISUAL_BOUNDS: VisualBounds = { x: 0.18, y: 0.2, width: 0.64, height: 0.6 };
@@ -117,6 +140,14 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       canvas.replaceChildren(empty('No hay una escena seleccionada.'));
       return;
     }
+    const sceneTiming = measured?.scenes.find((item) => item.id === scene.id) ?? null;
+    const measuredVisual = measuredVisualSceneFor(scene.id);
+    const localSeconds = sceneTiming
+      ? clamp(editorPlayhead() - sceneTiming.startSeconds, 0, sceneTiming.endSeconds - sceneTiming.startSeconds)
+      : 0;
+    const evaluatedFrame = measuredVisual
+      ? evaluateScene({ version: 2 }, measuredVisual.runtime, measuredVisual.dialogue, localSeconds) as EvaluatedDialogueFrame
+      : null;
     const nodes: HTMLElement[] = [];
     const background = store.resources('background').find((entry) => entry.id === scene.background.resourceId);
     if (background?.backgroundManifest) {
@@ -142,11 +173,34 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
         ? assetEntries.get(resource.characterRef.entryId)
         : resource?.resourceRef ? assetEntries.get(resource.resourceRef.entryId) : null;
       const thumbnail = resource?.thumbnail ?? entry?.thumbnail;
-      if (!thumbnail) continue;
-      const image = document.createElement('img');
+      if (!thumbnail && !entry?.manifest) continue;
+      // Una pista REEMPLAZA el valor base de su parámetro: la vista previa en el
+      // cabezal sale del mismo evaluador que produce el render.
+      const animated = elementParamsAt(element, scope);
+      const runtimeCharacter = measuredVisual?.runtime.characters.find((item) => item.id === element.id) ?? null;
+      const evaluatedCharacter = evaluatedFrame?.characters.find((item) => item.id === element.id) ?? null;
+      const view = characterPreviewTransform(element, animated, runtimeCharacter, evaluatedCharacter);
+      const manifest = entry?.manifest ? requestRigManifest(entry.manifest, render) : null;
+      let image: HTMLImageElement | HTMLCanvasElement;
+      if (manifest) {
+        image = document.createElement('canvas');
+        image.width = 540;
+        image.height = 960;
+        image.setAttribute('role', 'img');
+        image.setAttribute('aria-label', resource?.label || (element.type === 'prop' ? 'Prop' : 'Personaje'));
+        const sprites = rigSpritePlan(manifest, entry!.manifest!, {
+          params: animated,
+          poseId: evaluatedCharacter?.gesture ?? element.poseId ?? 'neutral',
+          eyes: evaluatedCharacter?.eyes ?? 'open',
+          mouth: evaluatedCharacter?.mouth ?? 'closed',
+        });
+        drawRigPreview(image, sprites, render);
+      } else {
+        image = document.createElement('img');
+        image.src = `/${thumbnail}`;
+        image.alt = resource?.label || (element.type === 'prop' ? 'Prop' : 'Personaje');
+      }
       image.className = element.type === 'prop' ? 'composition-character composition-prop' : 'composition-character';
-      image.src = `/${thumbnail}`;
-      image.alt = resource?.label || (element.type === 'prop' ? 'Prop' : 'Personaje');
       image.dataset.elementId = element.id;
       const selection = projectSelection();
       image.classList.toggle(
@@ -160,10 +214,6 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       if (animating) animatingElement = element;
       image.draggable = false;
       image.tabIndex = 0;
-      // Una pista REEMPLAZA el valor base de su parámetro: la vista previa en el
-      // cabezal sale del mismo evaluador que produce el render.
-      const animated = elementParamsAt(element, scope);
-      const view = viewTransform(element, animated);
       image.style.left = `${view.x / 10.8}%`;
       image.style.top = `${view.y / 19.2}%`;
       image.style.zIndex = String(element.transform.zIndex);
@@ -318,6 +368,38 @@ function viewTransform(
     rotationDegrees: animated.rotationDegrees ?? element.transform.rotationDegrees ?? 0,
     opacity: animated.opacity ?? element.transform.opacity ?? 1,
   };
+}
+
+/**
+ * Combina la autoría actual con la dinámica medida.
+ *
+ * La medición conserva la entrada, el idle y los layouts del render que midió;
+ * la posición base sigue saliendo del proyecto actual. Si una pista anima un
+ * canal, ese valor manda y no se le suma movimiento implícito, igual que en el
+ * evaluador final.
+ */
+export function characterPreviewTransform(
+  element: ElementView,
+  animated: Record<string, number>,
+  runtime: PreviewRuntimeCharacter | null,
+  evaluated: EvaluatedCharacterFrame | null,
+): ReturnType<typeof viewTransform> {
+  const base = viewTransform(element, animated);
+  if (!runtime || !evaluated) return base;
+  const runtimeX = finiteNumber(runtime.transform.toX, evaluated.character.x);
+  const runtimeY = finiteNumber(runtime.transform.baseY, evaluated.character.y);
+  const runtimeScale = finiteNumber(runtime.transform.baseScale, evaluated.character.scale);
+  return {
+    x: Object.hasOwn(animated, 'position.x') ? base.x : base.x + evaluated.character.x - runtimeX,
+    y: Object.hasOwn(animated, 'position.y') ? base.y : base.y + evaluated.character.y - runtimeY,
+    scale: Object.hasOwn(animated, 'scale') ? base.scale : base.scale + evaluated.character.scale - runtimeScale,
+    rotationDegrees: base.rotationDegrees,
+    opacity: Object.hasOwn(animated, 'opacity') ? base.opacity : base.opacity * evaluated.character.opacity,
+  };
+}
+
+function finiteNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 /**
@@ -891,6 +973,26 @@ function reportPlacement(message: string, isError: boolean): void {
     status.classList.toggle('error', isError);
     status.classList.toggle('ok', !isError);
   }
+}
+
+function requestRigManifest(manifestPath: string, rerender: () => void): unknown | null {
+  if (rigManifestCache.has(manifestPath)) return rigManifestCache.get(manifestPath) ?? null;
+  if (loadingRigManifests.has(manifestPath)) return null;
+  loadingRigManifests.add(manifestPath);
+  void fetch(`/${manifestPath}`, { cache: 'force-cache' })
+    .then((response) => {
+      if (!response.ok) throw new Error(String(response.status));
+      return response.json();
+    })
+    .then((manifest) => {
+      rigManifestCache.set(manifestPath, manifest);
+      rerender();
+    })
+    .catch(() => {
+      // La miniatura permanece como fallback si el manifest no está disponible.
+    })
+    .finally(() => loadingRigManifests.delete(manifestPath));
+  return null;
 }
 
 async function loadBackgroundLayers(manifestPath: string): Promise<string[]> {

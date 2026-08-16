@@ -75,6 +75,7 @@ export function createMeasurementManager(options = {}) {
       projectId: manifest.projectId,
       video: manifest.video,
       timeline: manifest.timeline,
+      visualScenes: manifest.visualScenes,
       audioUrl: `/api/measurement-audio/${jobId}?v=${audioVersion}`,
     };
   }
