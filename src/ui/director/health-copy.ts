@@ -57,13 +57,13 @@ export function summarizeHealth(health: LocalHealth): HealthSummary {
   }
 
   dependencies.push(health.tts.available
-    ? { id: 'tts', name: 'Voces (Piper)', state: 'ok', detail: 'Disponible para generar voces y medir tiempos.', action: null }
+    ? { id: 'tts', name: 'Voces (ElevenLabs)', state: 'ok', detail: 'API disponible para generar voces y medir tiempos.', action: null }
     : {
       id: 'tts',
-      name: 'Voces (Piper)',
+      name: 'Voces (ElevenLabs)',
       state: 'error',
       detail: 'No está disponible: sin él no se puede renderizar ni medir la duración real.',
-      action: 'Revisá la instalación de Piper y su runtime local.',
+      action: 'Configurá la clave de ElevenLabs y verificá la conexión.',
     });
 
   dependencies.push(health.renderBusy

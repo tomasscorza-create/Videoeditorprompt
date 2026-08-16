@@ -10,7 +10,7 @@
     {
       "id": "narracion-01",
       "kind": "voiceover",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "text": "La receta necesita una plantilla que no fue incluida.",
       "pace": "normal",
       "gapAfterSeconds": 0

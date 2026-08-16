@@ -86,7 +86,7 @@
       "id": "turno-01",
       "speakerId": "presentadora",
       "text": "Probemos una conversación breve. Yo hablo con calma, hago una pausa y dejo que la otra persona responda.",
-      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.08, "volume": 1 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "Xb7hH8MSUJpSbSDYk0k2", "lengthScale": 1.08, "volume": 1 },
       "gesture": "point",
       "gapAfterSeconds": 0.35
     },
@@ -94,7 +94,7 @@
       "id": "turno-02",
       "speakerId": "analista",
       "text": "Te escucho. Cuando llega mi turno, la voz cambia y el movimiento acompaña sin exagerar.",
-      "voice": { "model": "es_ES-davefx-medium", "lengthScale": 1.04, "volume": 1 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "pNInz6obpgDQGcFmaJgB", "lengthScale": 1.04, "volume": 1 },
       "gesture": "neutral",
       "gapAfterSeconds": 0.35
     },
@@ -102,7 +102,7 @@
       "id": "turno-03",
       "speakerId": "presentadora",
       "text": "La boca debe cerrarse en cada silencio y evitar esos saltos rápidos que distraen.",
-      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.08, "volume": 1 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "Xb7hH8MSUJpSbSDYk0k2", "lengthScale": 1.08, "volume": 1 },
       "gesture": "neutral",
       "gapAfterSeconds": 0.35
     },
@@ -110,7 +110,7 @@
       "id": "turno-04",
       "speakerId": "analista",
       "text": "Y los gestos deberían aparecer solo cuando ayudan a entender la frase, no todo el tiempo.",
-      "voice": { "model": "es_ES-davefx-medium", "lengthScale": 1.04, "volume": 1 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "pNInz6obpgDQGcFmaJgB", "lengthScale": 1.04, "volume": 1 },
       "gesture": "point",
       "gapAfterSeconds": 0
     }

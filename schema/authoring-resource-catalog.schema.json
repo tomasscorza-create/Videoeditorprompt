@@ -88,12 +88,12 @@
         "voice": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["provider", "model", "locale", "lengthScale", "volume"],
+          "required": ["provider", "model", "locale", "voiceId", "lengthScale", "volume"],
           "properties": {
-            "provider": { "const": "piper" },
+            "provider": { "const": "elevenlabs" },
             "model": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$" },
             "locale": { "type": "string", "pattern": "^[a-z]{2}_[A-Z]{2}$" },
-            "speaker": { "type": "integer", "minimum": 0, "maximum": 999 },
+            "voiceId": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{8,128}$" },
             "lengthScale": { "type": "number", "minimum": 0.5, "maximum": 3 },
             "volume": { "type": "number", "minimum": 0, "maximum": 2 }
           }

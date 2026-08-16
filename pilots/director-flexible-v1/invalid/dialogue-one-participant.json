@@ -8,7 +8,7 @@
     {
       "roleId": "unico",
       "characterResourceId": "mono-azul-v1",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "narrativeRole": "Intentar dialogar sin contraparte.",
       "animationPresetId": "talk-calm"
     }
@@ -19,7 +19,7 @@
       "id": "turno-01",
       "kind": "character",
       "speakerRoleId": "unico",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "text": "Falta la segunda voz del diálogo.",
       "pace": "normal",
       "gapAfterSeconds": 0

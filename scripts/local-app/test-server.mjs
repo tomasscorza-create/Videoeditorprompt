@@ -203,6 +203,7 @@ const timelineExporter = {
 };
 const app = await createLocalAppServer({
   port: 0,
+  environment: { ...process.env, ELEVENLABS_API_KEY: 'test-only-key' },
   manager,
   library,
   director,
@@ -230,6 +231,16 @@ const app = await createLocalAppServer({
     version: 'test',
     digest: 'sha256:qwen3-test',
   }),
+  elevenLabs: {
+    inspect: async () => ({ available: true, configured: true, voiceCount: 1 }),
+    listVoices: async () => [{
+      voiceId: 'VoiceTest1234567890', name: 'Luna Latina', category: 'premade',
+      labels: { accent: 'latin american', gender: 'female' }, description: 'Cálida', previewUrl: 'https://example.invalid/voice.mp3',
+    }],
+    getVoice: async (voiceId) => voiceId === 'VoiceTest1234567890' ? {
+      voiceId, name: 'Luna Latina', category: 'premade', labels: { accent: 'latin american', gender: 'female' }, description: 'Cálida', previewUrl: null,
+    } : null,
+  },
 });
 assert.equal(app.persistence, 'filesystem');
 await assert.rejects(
@@ -250,10 +261,27 @@ const healthResponse = await request('/api/health');
 assert.equal(healthResponse.status, 200);
 const health = await healthResponse.json();
 assert.equal(health.ollama.modelInstalled, true);
+assert.equal(health.tts.providers.elevenlabs.configured, true);
+assert.equal(Object.hasOwn(health.tts.providers, 'piper'), false);
 
 const libraryResponse = await request('/api/library/resources');
 assert.equal(libraryResponse.status, 200);
 assert.equal((await libraryResponse.json()).resources.length, catalog.entries.length);
+
+const elevenLabsResponse = await request('/api/tts/elevenlabs');
+assert.equal(elevenLabsResponse.status, 200);
+const elevenLabsBody = await elevenLabsResponse.json();
+assert.equal(elevenLabsBody.diagnostic.available, true);
+assert.equal(elevenLabsBody.voices[0].name, 'Luna Latina');
+
+const importedElevenLabs = await request('/api/library/voices/elevenlabs', {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ voiceId: 'VoiceTest1234567890', model: 'eleven_multilingual_v2', locale: 'es_MX' }),
+});
+assert.equal(importedElevenLabs.status, 201);
+const importedVoice = (await importedElevenLabs.json()).resource.entry;
+assert.equal(importedVoice.voice.provider, 'elevenlabs');
+assert.equal(importedVoice.voice.voiceId, 'VoiceTest1234567890');
 
 const catalogResponse = await request('/api/library/catalog');
 assert.equal(catalogResponse.status, 200);
@@ -517,7 +545,7 @@ assert.equal(missing.status, 404);
 // Sin runtime de voz local no hay nada que medir y la prueba se omite.
 const ttsRoot = process.env.LOCAL_VIDEO_TTS_ROOT || 'C:\\LocalVideoTTS';
 let medicionProbada = 0;
-if (existsSync(ttsRoot)) {
+if (process.env.LOCAL_VIDEO_RUN_PAID_TTS_TESTS === '1' && existsSync(ttsRoot)) {
   const medicion = await request('/api/measurements', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -546,7 +574,7 @@ if (existsSync(ttsRoot)) {
   medicionProbada = 11;
 }
 
-// Un proyecto inválido no llega a gastar Piper.
+// Un proyecto inválido no llega a gastar créditos de ElevenLabs.
 const medicionInvalida = await request('/api/measurements', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
@@ -555,4 +583,4 @@ const medicionInvalida = await request('/api/measurements', {
 assert.equal(medicionInvalida.status >= 400, true);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 66 + medicionProbada, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 74 + medicionProbada, failed: 0, url: listening.url })}\n`);

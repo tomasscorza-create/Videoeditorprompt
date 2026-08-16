@@ -36,20 +36,20 @@ function basePlan() {
         title: 'El dato', purpose: 'Abrir con una narración visual.', mode: 'voiceover', durationWeight: 0.7, sceneRecipeId: 'voiceover-feature-v1', effectSequenceIds: ['visual-reveal-v1'],
         backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'slow-zoom', layoutPreset: 'wide', transitionPreset: 'fade', transitionDurationSeconds: 0.3,
         participants: [], visualElements: [{ roleId: 'dato', type: 'prop', resourceId: 'cartel-dato-v1' }],
-        speech: [{ kind: 'voiceover', voiceId: 'voz-ald-mx-v1', text: 'Primero vemos el dato que cambia la pregunta y abre una forma concreta de entender el problema antes de buscar respuestas apresuradas.', gapAfterSeconds: 0 }],
+        speech: [{ kind: 'voiceover', voiceId: 'voz-elevenlabs-ce6ff01ff0d4', text: 'Primero vemos el dato que cambia la pregunta y abre una forma concreta de entender el problema antes de buscar respuestas apresuradas.', gapAfterSeconds: 0 }],
       },
       {
         title: 'La explicación', purpose: 'Explicar con una persona.', mode: 'solo', durationWeight: 1.3, sceneRecipeId: 'solo-explainer-v1', effectSequenceIds: ['entrance-emphasis-exit-v1'],
         backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'static', layoutPreset: 'focus-a', transitionPreset: 'cut', transitionDurationSeconds: 0,
-        participants: [{ roleId: 'guia', characterResourceId: 'mono-azul-v1', voiceId: 'voz-claude-mx-v1', animationPresetId: 'talk-calm' }], visualElements: [],
+        participants: [{ roleId: 'guia', characterResourceId: 'mono-azul-v1', voiceId: 'voz-elevenlabs-c8ff047a678d', animationPresetId: 'talk-calm' }], visualElements: [],
         speech: [{ kind: 'character', speakerRoleId: 'guia', text: 'Una sola voz puede desarrollar la idea con claridad, presentar un ejemplo útil y llegar a una conclusión sin forzar un diálogo innecesario.', gestureId: 'point', gestureAtWord: 2, gapAfterSeconds: 0 }],
       },
       {
         title: 'El contraste', purpose: 'Cerrar comparando dos miradas.', mode: 'dialogue', durationWeight: 1, sceneRecipeId: 'dialogue-contrast-v1', effectSequenceIds: ['speaker-focus-reaction-v1'],
         backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'slow-pan', layoutPreset: 'balanced', transitionPreset: 'cut', transitionDurationSeconds: 0,
         participants: [
-          { roleId: 'rol-a', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-sharvard-es-v1', animationPresetId: 'talk-calm' },
-          { roleId: 'rol-b', characterResourceId: 'el-peque-v1', voiceId: 'voz-davefx-es-v1', animationPresetId: 'talk-calm' },
+          { roleId: 'rol-a', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-elevenlabs-c8ff047a678d', animationPresetId: 'talk-calm' },
+          { roleId: 'rol-b', characterResourceId: 'el-peque-v1', voiceId: 'voz-elevenlabs-e029c0d67044', animationPresetId: 'talk-calm' },
         ], visualElements: [],
         speech: [
           { kind: 'character', speakerRoleId: 'rol-a', text: 'La variedad mejora el ritmo y ayuda a sostener la atención.', gestureId: 'celebrate', gapAfterSeconds: 0.15 },
@@ -147,7 +147,7 @@ await test('orquestador-ollama-crea-y-rehidrata-un-plan-v2', async () => {
 
 await test('plan-v2-rechaza-reparto-receta-y-hablante-incompatibles', () => {
   const wrongCast = basePlan();
-  wrongCast.scenes[0].participants.push({ roleId: 'extra', characterResourceId: 'mono-azul-v1', voiceId: 'voz-ald-mx-v1', animationPresetId: 'talk-calm' });
+  wrongCast.scenes[0].participants.push({ roleId: 'extra', characterResourceId: 'mono-azul-v1', voiceId: 'voz-elevenlabs-ce6ff01ff0d4', animationPresetId: 'talk-calm' });
   wrongCast.scenes[0].sceneRecipeId = 'keyword-pages-v1';
   assert.throws(() => validateDirectorPlanV2(wrongCast, catalog, recipes), (error) => error.code === 'DIRECTOR_RECIPE_INVALID');
   const wrongSpeaker = basePlan();
@@ -169,7 +169,7 @@ await test('plan-v2-admite-omitir-secuencias-opcionales', () => {
 await test('plan-v2-corrige-contradicciones-del-modelo-sin-reescribir-el-texto', () => {
   const plan = basePlan();
   const originalText = plan.scenes[0].speech[0].text;
-  plan.scenes[0].participants = [{ roleId: 'guia', characterResourceId: 'mono-azul-v1', voiceId: 'voz-claude-mx-v1', animationPresetId: 'talk-calm' }];
+  plan.scenes[0].participants = [{ roleId: 'guia', characterResourceId: 'mono-azul-v1', voiceId: 'voz-elevenlabs-c8ff047a678d', animationPresetId: 'talk-calm' }];
   plan.scenes[0].speech = [{ kind: 'character', speakerRoleId: 'guia', text: originalText, gestureId: 'point', gapAfterSeconds: 0 }];
   plan.scenes[0].sceneRecipeId = 'dialogue-contrast-v1';
   const repaired = canonicalizeDirectorPlanV2(plan, catalog, recipes);

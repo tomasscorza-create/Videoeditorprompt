@@ -2,10 +2,9 @@ import { isMain } from '../stage1/common.mjs';
 import { createPostgresPool } from '../storage/postgres-client.mjs';
 import { createPostgresProjectRepository } from '../storage/postgres-project-repository.mjs';
 import { createProjectRepository } from './project-repository.mjs';
+import { LEGACY_VOICE_REPLACEMENTS as LEGACY_VOICE_REPLACEMENT_IDS } from '../../shared/project-editor.js';
 
-export const LEGACY_VOICE_REPLACEMENTS = new Map([
-  ['voz-daniela-ar-v1', 'voz-claude-mx-v1'],
-]);
+export const LEGACY_VOICE_REPLACEMENTS = new Map(Object.entries(LEGACY_VOICE_REPLACEMENT_IDS));
 
 export async function migrateLegacyProjectVoices(repository, options = {}) {
   const apply = options.apply === true;

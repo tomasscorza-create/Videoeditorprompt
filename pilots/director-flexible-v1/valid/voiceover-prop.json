@@ -17,7 +17,7 @@
     {
       "id": "narracion-01",
       "kind": "voiceover",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "text": "Una idea clara puede sostener toda la escena sin personajes visibles.",
       "pace": "normal",
       "gapAfterSeconds": 0

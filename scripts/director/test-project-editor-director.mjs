@@ -50,7 +50,7 @@ try {
   assert.equal(first.project.scenes[1].dialogue[0].text, 'Texto actualizado por el Director.');
   assert.ok(first.context.shortlistedEntries <= first.context.totalCatalogEntries);
   assert.ok(first.context.resourceIds.includes('mono-azul-v1'));
-  assert.ok(first.context.resourceIds.includes('voz-claude-mx-v1'));
+  assert.ok(first.context.resourceIds.includes('voz-elevenlabs-c8ff047a678d'));
   assert.deepEqual(firstProgress, ['preparing_context', 'generating', 'validating', 'applying']);
   const second = await editProjectWithDirector({
     instruction: 'Cambiá el primer texto de la escena 2.',
@@ -146,7 +146,7 @@ try {
   // B1: agregar un turno de diálogo a una escena existente.
   const added = await runEdit([{
     type: 'add-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-03',
-    speakerElementId: 'analista', text: 'Y este turno lo agregó el copiloto.', voiceId: 'voz-davefx-es-v1',
+    speakerElementId: 'analista', text: 'Y este turno lo agregó el copiloto.', voiceId: 'voz-elevenlabs-e029c0d67044',
     gestureId: 'point', gapAfterSeconds: 0.2, afterTurnId: 'turno-presentacion-02',
   }]);
   assert.equal(added.project.scenes[0].dialogue.length, 3);

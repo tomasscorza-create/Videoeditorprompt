@@ -116,7 +116,7 @@
           "id": "narracion-01",
           "speakerType": "voiceover",
           "text": "No hace falta mostrar personajes para contar una idea. La voz guía el ritmo mientras el dato aparece, respira y recibe el énfasis visual.",
-          "voiceId": "voz-claude-mx-v1",
+          "voiceId": "voz-elevenlabs-c8ff047a678d",
           "gestureId": "neutral",
           "pace": "normal",
           "gapAfterSeconds": 0

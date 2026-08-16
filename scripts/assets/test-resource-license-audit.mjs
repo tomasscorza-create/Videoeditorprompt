@@ -32,8 +32,8 @@ assert.throws(
 
 const blockers = commercialReleaseBlockers(manifest);
 assert.ok(blockers.some((blocker) => blocker.id === 'conejo-traje-v1'));
-assert.ok(blockers.some((blocker) => blocker.id === 'voz-claude-mx-v1'));
-assert.ok(blockers.some((blocker) => blocker.id === 'piper-tts-runtime'));
+assert.ok(blockers.some((blocker) => blocker.id === 'voz-elevenlabs-c8ff047a678d'));
+assert.equal(blockers.some((blocker) => blocker.id === 'piper-tts-runtime'), false);
 assert.ok(blockers.some((blocker) => blocker.id === 'elevenlabs-service'));
 
 const summary = auditResourceLicenses();

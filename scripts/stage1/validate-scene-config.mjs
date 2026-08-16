@@ -167,6 +167,12 @@ function validateDialogueSemantics(config) {
   for (const [index, turn] of config.dialogue.entries()) {
     if (turnIds.has(turn.id)) semanticError(`/dialogue/${index}/id`, 'debe ser único');
     turnIds.add(turn.id);
+    if (turn.voice.provider !== 'elevenlabs') {
+      semanticError(`/dialogue/${index}/voice/provider`, 'debe ser elevenlabs');
+    }
+    if (!turn.voice.voiceId) {
+      semanticError(`/dialogue/${index}/voice/voiceId`, 'es obligatorio para ElevenLabs');
+    }
     const speakerType = turn.speakerType ?? 'character';
     if (speakerType === 'voiceover') {
       if (turn.speakerId !== undefined) semanticError(`/dialogue/${index}/speakerId`, 'no se usa en una voz fuera de campo');

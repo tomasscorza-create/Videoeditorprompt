@@ -32,25 +32,26 @@ const project = {
 try {
   const pure = replaceLegacyVoices(project);
   assert.equal(project.scenes[0].dialogue[0].voiceId, 'voz-daniela-ar-v1');
-  assert.equal(pure.project.scenes[0].dialogue[0].voiceId, 'voz-claude-mx-v1');
-  assert.equal(pure.project.scenes[0].dialogue[1].voiceId, 'voz-davefx-es-v1');
+  assert.equal(pure.project.scenes[0].dialogue[0].voiceId, 'voz-elevenlabs-c8ff047a678d');
+  assert.equal(pure.project.scenes[0].dialogue[1].voiceId, 'voz-elevenlabs-e029c0d67044');
 
   await repository.save(project);
   const dryRun = await migrateLegacyProjectVoices(repository);
   assert.equal(dryRun.mode, 'dry-run');
   assert.equal(dryRun.changedProjects, 1);
-  assert.equal(dryRun.replacementCount, 1);
+  assert.equal(dryRun.replacementCount, 2);
   assert.equal((await repository.get(project.id)).project.scenes[0].dialogue[0].voiceId, 'voz-daniela-ar-v1');
 
   const applied = await migrateLegacyProjectVoices(repository, { apply: true });
   assert.equal(applied.mode, 'apply');
   assert.equal(applied.changedProjects, 1);
-  assert.equal((await repository.get(project.id)).project.scenes[0].dialogue[0].voiceId, 'voz-claude-mx-v1');
+  assert.equal((await repository.get(project.id)).project.scenes[0].dialogue[0].voiceId, 'voz-elevenlabs-c8ff047a678d');
+  assert.equal((await repository.get(project.id)).project.scenes[0].dialogue[1].voiceId, 'voz-elevenlabs-e029c0d67044');
 
   const repeated = await migrateLegacyProjectVoices(repository, { apply: true });
   assert.equal(repeated.changedProjects, 0);
   assert.equal(repeated.replacementCount, 0);
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 12, failed: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 13, failed: 0 })}\n`);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

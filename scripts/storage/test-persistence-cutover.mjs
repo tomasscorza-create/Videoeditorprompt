@@ -35,9 +35,10 @@ try {
       label: 'Voz de prueba',
       tags: ['prueba'],
       voice: {
-        provider: 'piper',
-        model: 'test_voice',
+        provider: 'elevenlabs',
+        model: 'eleven_multilingual_v2',
         locale: 'es_AR',
+        voiceId: 'VoiceTest1234567890',
         lengthScale: 1,
         volume: 1,
       },

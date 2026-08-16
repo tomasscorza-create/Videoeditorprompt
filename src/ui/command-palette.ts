@@ -144,7 +144,7 @@ function actions(): CommandAction[] {
       id: 'health',
       label: 'Ver diagnóstico del servicio local',
       group: 'Aplicación',
-      keywords: ['salud', 'ollama', 'piper', 'estado'],
+      keywords: ['salud', 'elevenlabs', 'voces', 'estado'],
       run: () => clickTarget('#director-health-badge'),
     },
   ];

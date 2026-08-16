@@ -45,9 +45,10 @@ try {
     label: 'Voz local de prueba',
     tags: ['local', 'prueba'],
     voice: {
-      provider: 'piper',
-      model: 'es_TEST-local-medium',
+      provider: 'elevenlabs',
+      model: 'eleven_multilingual_v2',
       locale: 'es_AR',
+      voiceId: 'VoiceTest1234567890',
       lengthScale: 1,
       volume: 1
     },
@@ -75,6 +76,7 @@ try {
       provider: voice.voice.provider,
       lengthScale: voice.voice.lengthScale,
       model: voice.voice.model,
+      voiceId: voice.voice.voiceId,
     },
   });
   assert.equal(alias.created, false);

@@ -3,7 +3,7 @@ import { performance } from 'node:perf_hooks';
 import { analyzeWav } from './audio-analysis.mjs';
 import { buildBlinkSchedule } from '../../shared/scene-evaluator.js';
 import { ensureDirectory, ffprobe, run, sha256, writeJson } from './common.mjs';
-import { generatePiperVoice } from './piper-voice.mjs';
+import { generateVoice } from './tts-voice.mjs';
 import { renderSubtitle, wrapSubtitleText } from './subtitle-renderer.mjs';
 import { normalizeSpanishTtsText } from './tts-text.mjs';
 import { validateMeasuredDuration } from './validate-scene-config.mjs';
@@ -23,7 +23,7 @@ export function prepareDialogueJob(context, config, report) {
   for (const turn of config.dialogue) {
     const speakerType = turn.speakerType ?? 'character';
     const ttsText = normalizeSpanishTtsText(turn.text);
-    const generated = generatePiperVoice(context, { text: ttsText, ...turn.voice }, report, {
+    const generated = generateVoice(context, { text: ttsText, ...turn.voice }, report, {
       turnId: turn.id,
       ...(turn.speakerId ? { speakerId: turn.speakerId } : {}),
       speakerType,
@@ -78,7 +78,13 @@ export function prepareDialogueJob(context, config, report) {
       gesture: turn.gesture ?? 'neutral',
       ...(gestureCue ? { gestureCue } : {}),
       ...(turn.layout ? { layout: turn.layout } : {}),
-      voice: { model: turn.voice.model, ...(turn.voice.speaker !== undefined ? { speaker: turn.voice.speaker } : {}), lengthScale: turn.voice.lengthScale, volume: turn.voice.volume },
+      voice: {
+        provider: 'elevenlabs',
+        model: turn.voice.model,
+        voiceId: turn.voice.voiceId,
+        lengthScale: turn.voice.lengthScale,
+        volume: turn.voice.volume,
+      },
       cacheKey: generated.voiceKey,
       cacheHit: generated.cacheHit,
     });

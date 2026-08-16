@@ -46,7 +46,8 @@ const outputRoot = path.join(projectRoot, '.local-video', 'output', jobId);
 for (const directory of [workRoot, outputRoot]) rmSync(directory, { recursive: true, force: true });
 
 let medicion = null;
-const ttsDisponible = existsSync(process.env.LOCAL_VIDEO_TTS_ROOT || 'C:\\LocalVideoTTS');
+const ttsDisponible = process.env.LOCAL_VIDEO_RUN_PAID_TTS_TESTS === '1'
+  && existsSync(process.env.LOCAL_VIDEO_TTS_ROOT || 'C:\\LocalVideoTTS');
 
 if (ttsDisponible) {
   const context = createProjectCompilationContext({
@@ -115,7 +116,7 @@ if (ttsDisponible) {
     });
   });
 } else {
-  results.push({ name: 'medicion real omitida: no hay runtime TTS local', passed: true, skipped: true });
+  results.push({ name: 'medicion real omitida: requiere LOCAL_VIDEO_RUN_PAID_TTS_TESTS=1', passed: true, skipped: true });
 }
 
 // El medidor NO puede tener su propia aritmética de ensamblaje: comparte las

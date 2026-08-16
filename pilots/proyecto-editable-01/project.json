@@ -43,7 +43,7 @@
           "id": "turno-intro-01",
           "speakerElementId": "presentadora",
           "text": "La inteligencia artificial puede proponer una primera versión del video.",
-          "voiceId": "voz-claude-mx-v1",
+          "voiceId": "voz-elevenlabs-c8ff047a678d",
           "gestureId": "point",
           "gapAfterSeconds": 0.3
         },
@@ -51,7 +51,7 @@
           "id": "turno-intro-02",
           "speakerElementId": "analista",
           "text": "Y después podemos ajustar cada escena manualmente.",
-          "voiceId": "voz-davefx-es-v1",
+          "voiceId": "voz-elevenlabs-e029c0d67044",
           "gestureId": "neutral",
           "gapAfterSeconds": 0
         }
@@ -87,7 +87,7 @@
           "id": "turno-cierre-01",
           "speakerElementId": "presentadora",
           "text": "El mismo proyecto sirve para generar, editar y exportar sin perder el control.",
-          "voiceId": "voz-claude-mx-v1",
+          "voiceId": "voz-elevenlabs-c8ff047a678d",
           "gestureId": "point",
           "gapAfterSeconds": 0
         }

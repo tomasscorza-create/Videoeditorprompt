@@ -50,6 +50,30 @@ assert.equal(voiceoverContext.resolvedCharacters.length, 0);
 assert.equal(voiceoverConfig.dialogue[0].speakerId, undefined);
 results.push({ name: 'voiceover-allows-zero-characters-and-one-turn', passed: true });
 
+const elevenLabsVoiceover = structuredClone(voiceover);
+elevenLabsVoiceover.dialogue[0].voice = {
+  provider: 'elevenlabs', model: 'eleven_multilingual_v2', voiceId: 'VoiceTest1234567890', lengthScale: 1, volume: 1,
+};
+const elevenLabsConfig = loadAndValidateJobConfig(contextFor('elevenlabs-voiceover', elevenLabsVoiceover));
+assert.equal(elevenLabsConfig.dialogue[0].voice.provider, 'elevenlabs');
+assert.equal(elevenLabsConfig.dialogue[0].voice.voiceId, 'VoiceTest1234567890');
+results.push({ name: 'elevenlabs-voice-contract', passed: true });
+
+const missingElevenLabsVoiceId = structuredClone(elevenLabsVoiceover);
+delete missingElevenLabsVoiceId.dialogue[0].voice.voiceId;
+assert.throws(() => loadAndValidateJobConfig(contextFor('elevenlabs-missing-voice', missingElevenLabsVoiceId)), (error) => error.code === 'CONFIG_SCHEMA_INVALID');
+results.push({ name: 'elevenlabs-requires-voice-id', passed: true });
+
+const retiredPiperVoice = structuredClone(elevenLabsVoiceover);
+retiredPiperVoice.dialogue[0].voice = {
+  provider: 'piper', model: 'es_MX-claude-high', lengthScale: 1, volume: 1,
+};
+assert.throws(
+  () => loadAndValidateJobConfig(contextFor('piper-retired', retiredPiperVoice)),
+  (error) => error.code === 'CONFIG_SCHEMA_INVALID',
+);
+results.push({ name: 'piper-is-not-accepted-by-v2', passed: true });
+
 const solo = structuredClone(source);
 solo.characters = [solo.characters[0]];
 solo.dialogue = [solo.dialogue[0]];

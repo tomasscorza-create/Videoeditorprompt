@@ -104,6 +104,13 @@ export function validateResourceCatalogSemantics(catalog, assetsRoot) {
           `debe coincidir con los parámetros compilados: ${compiledParameters.join(', ') || 'ninguno'}`,
         );
       }
+    } else if (entry.type === 'voice') {
+      if (entry.voice.provider !== 'elevenlabs') {
+        semanticError(`/resourceCatalog/entries/${index}/voice/provider`, 'debe ser elevenlabs');
+      }
+      if (!entry.voice.voiceId) {
+        semanticError(`/resourceCatalog/entries/${index}/voice/voiceId`, 'es obligatorio para una voz de ElevenLabs');
+      }
     } else if (entry.type === 'prop') {
       assertPortableRelativePath(entry.resourceRef.catalog, `/resourceCatalog/entries/${index}/resourceRef/catalog`);
       assertPortableRelativePath(entry.thumbnail, `/resourceCatalog/entries/${index}/thumbnail`);

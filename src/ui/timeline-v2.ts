@@ -466,7 +466,7 @@ async function addCurrentRender(): Promise<void> {
       setStatus(ranges?.length ? `${ranges.length} escenas agregadas como clips A/V separados y enlazados.` : 'Exportación agregada como video y audio enlazados.');
     } else {
       addMedia(await importTimelineMeasurement(measurementMatch![1]));
-      setStatus('Voces agregadas como una fuente WAV inmutable; los cortes no vuelven a ejecutar Piper.');
+      setStatus('Voces agregadas como una fuente WAV inmutable; los cortes no vuelven a llamar a ElevenLabs.');
     }
   } catch (error) {
     setStatus(messageOf(error), true);

@@ -13,14 +13,14 @@ const validPlan = {
     a: {
       role: 'presentadora optimista',
       characterResourceId: 'mono-azul-v1',
-      voiceId: 'voz-claude-mx-v1',
+      voiceId: 'voz-elevenlabs-c8ff047a678d',
       poseId: 'neutral',
       animationPreset: 'talk-calm',
     },
     b: {
       role: 'analista escéptico',
       characterResourceId: 'mono-ciruela-v1',
-      voiceId: 'voz-davefx-es-v1',
+      voiceId: 'voz-elevenlabs-e029c0d67044',
       poseId: 'neutral',
       animationPreset: 'idle-calm',
     },

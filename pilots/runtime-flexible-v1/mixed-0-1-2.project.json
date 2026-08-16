@@ -23,7 +23,7 @@
           "id": "voz-01",
           "speakerType": "voiceover",
           "text": "Primero habla una voz fuera de campo.",
-          "voiceId": "voz-claude-mx-v1",
+          "voiceId": "voz-elevenlabs-c8ff047a678d",
           "gestureId": "neutral",
           "gapAfterSeconds": 0
         }
@@ -49,7 +49,7 @@
           "id": "solo-01",
           "speakerElementId": "divulgadora",
           "text": "Después una protagonista continúa el relato.",
-          "voiceId": "voz-claude-mx-v1",
+          "voiceId": "voz-elevenlabs-c8ff047a678d",
           "gestureId": "point",
           "gapAfterSeconds": 0
         }
@@ -83,7 +83,7 @@
           "id": "dialogo-01",
           "speakerElementId": "presentadora",
           "text": "Y al final podemos conversar.",
-          "voiceId": "voz-claude-mx-v1",
+          "voiceId": "voz-elevenlabs-c8ff047a678d",
           "gestureId": "point",
           "gapAfterSeconds": 0.2
         },
@@ -91,7 +91,7 @@
           "id": "dialogo-02",
           "speakerElementId": "analista",
           "text": "Sin imponer la misma estructura a todas las escenas.",
-          "voiceId": "voz-davefx-es-v1",
+          "voiceId": "voz-elevenlabs-e029c0d67044",
           "gestureId": "neutral",
           "gapAfterSeconds": 0
         }

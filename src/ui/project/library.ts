@@ -17,6 +17,7 @@ import type { ProjectStore } from './store.js';
 import type { ResourceEntry, ResourceType } from './types.js';
 import { PROJECT_SELECTION_EVENT, projectSelection } from './selection.js';
 import { showRightPanelPage } from '../right-panel.js';
+import { openElevenLabsVoices } from '../elevenlabs-voices.js';
 import {
   loadVideoTemplateCatalog,
   loadVideoTemplateDefinition,
@@ -183,7 +184,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     } else if (activeType === 'prop') {
       notify({ message: 'Los props incluidos ya están disponibles para colocar.', level: 'info' });
     } else if (activeType === 'voice') {
-      notify({ message: 'La carga de voces se habilitará en una próxima etapa.', level: 'info' });
+      void openElevenLabsVoices();
     }
   });
   registerFile?.addEventListener('change', async () => {

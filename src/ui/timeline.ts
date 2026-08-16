@@ -1483,7 +1483,7 @@ function setCutMode(active: boolean): void {
 
 // ---- Corte de diálogo: partir un turno en dos por una palabra ----
 
-// Un turno es una síntesis de Piper entera, así que «cortar el audio» significa
+// Un turno es una síntesis de ElevenLabs entera, así que «cortar el audio» significa
 // producir dos enunciados que se vuelven a medir, nunca recortar un WAV. El punto
 // de corte sale del cabezal por el mismo prorrateo que ubica las anclas de
 // palabra, y por eso exige medición vigente: sin ella no hay dónde cae el cabezal
@@ -1573,7 +1573,7 @@ function cutDialogueTurnAtWord(sceneId: string, turnId: string, atWord: number):
   notify({ message: `Cortaste el diálogo después de la palabra ${plan.atWord}. Volviendo a medir…` });
   // El corte cambia el diálogo, así que la medición anterior deja de describir
   // el proyecto. Recuperarla no necesita un render: solo las dos mitades nuevas
-  // pasan por Piper y el resto sale de caché.
+  // pasan por ElevenLabs y el resto sale de caché.
   void remeasureProject();
 }
 
@@ -2547,7 +2547,7 @@ function renderTimelineModeExplanation(measured: boolean): void {
       : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace de las voces sintetizadas: medir las genera sin producir un video.';
   popover.replaceChildren(title, body);
   if (!measured) {
-    // Medir corre solo Piper y FFprobe: segundos, contra los minutos de un
+    // Medir corre solo ElevenLabs y FFprobe: segundos, contra los minutos de un
     // render. No hace falta un MP4 para saber cuánto dura cada diálogo.
     const medir = document.createElement('button');
     medir.type = 'button';

@@ -214,7 +214,7 @@ export function editorCanPlay(): boolean {
  *
  * Medir y reproducir son dos cosas distintas. El MP4 queda viejo apenas se toca
  * cualquier cosa, y por eso el transporte se bloquea; pero la duración de cada
- * turno la sintetizó Piper y la midió FFprobe, y sigue siendo verdadera mientras
+ * turno la sintetizó ElevenLabs y la midió FFprobe, y sigue siendo verdadera mientras
  * no cambie nada que la altere. Mover un personaje o animarlo no mueve un
  * milisegundo, así que la regla de tiempo se conserva y los keyframes siguen
  * ubicados. Si el diálogo, las voces, las pausas, las transiciones o la lista de
@@ -222,7 +222,7 @@ export function editorCanPlay(): boolean {
  */
 export function measuredTimelineFor(sceneIds: readonly string[]): MeasuredProjectTimeline | null {
   // Una medición liviana describe el proyecto de hoy y gana sobre el MP4: se
-  // obtiene en segundos corriendo solo Piper y FFprobe, y es exactamente la
+  // obtiene en segundos corriendo solo ElevenLabs y FFprobe, y es exactamente la
   // misma línea de tiempo que produciría un render.
   if (
     measurement

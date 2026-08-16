@@ -11,6 +11,8 @@
     "dev": "node scripts/local-app/dev-postgres-s3.mjs",
     "dev:postgres-s3": "node scripts/local-app/dev-postgres-s3.mjs",
     "dev:filesystem": "node scripts/local-app/dev.mjs",
+    "elevenlabs:configure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-app/configure-elevenlabs-key.ps1",
+    "elevenlabs:test": "node scripts/tts/test-elevenlabs-client.mjs",
     "dev:web": "vite",
     "local:server": "node scripts/local-app/server-postgres-s3.mjs",
     "local:server:postgres-s3": "node scripts/local-app/server-postgres-s3.mjs",

@@ -76,7 +76,7 @@
           "id": "turno-presentacion-01",
           "speakerElementId": "presentadora",
           "text": "Esta es la primera escena de un proyecto editable.",
-          "voiceId": "voz-claude-mx-v1",
+          "voiceId": "voz-elevenlabs-c8ff047a678d",
           "gestureId": "point",
           "gapAfterSeconds": 0.3
         },
@@ -84,7 +84,7 @@
           "id": "turno-presentacion-02",
           "speakerElementId": "analista",
           "text": "Los recursos y las voces se seleccionan mediante identificadores estables.",
-          "voiceId": "voz-davefx-es-v1",
+          "voiceId": "voz-elevenlabs-e029c0d67044",
           "gestureId": "neutral",
           "gapAfterSeconds": 0
         }

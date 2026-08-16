@@ -25,7 +25,7 @@
           "id": "monologo-01",
           "speakerElementId": "presentadora",
           "text": "Ahora una sola protagonista puede explicar la idea.",
-          "voiceId": "voz-claude-mx-v1",
+          "voiceId": "voz-elevenlabs-c8ff047a678d",
           "gestureId": "point",
           "gestureAtWord": 4,
           "pace": "fast",

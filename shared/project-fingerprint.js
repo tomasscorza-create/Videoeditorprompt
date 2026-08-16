@@ -37,7 +37,7 @@ export function projectFingerprint(project) {
 /**
  * Revisión de lo que puede mover un milisegundo.
  *
- * La duración de un video local nace del audio: la sintetiza Piper y la mide
+ * La duración de un video local nace del audio: la sintetiza ElevenLabs y la mide
  * FFprobe. Mover un personaje, animarlo, cambiar un fondo o renombrar una escena
  * dejan el MP4 viejo, pero NO cambian ni un tiempo de la medición anterior. Con
  * el fingerprint completo esa distinción se perdía y cualquier edición devolvía

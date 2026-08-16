@@ -1,18 +1,18 @@
 // Medición de un proyecto SIN renderizarlo.
 //
-// La duración de un video local nace del audio: la sintetiza Piper y la mide
+// La duración de un video local nace del audio: la sintetiza ElevenLabs y la mide
 // FFprobe. Renderizar cuadros y encodear no aporta ni un milisegundo a esa
 // medición, pero hoy es la única forma de obtenerla, y por eso cualquier cambio
 // de diálogo obliga a esperar minutos para volver a ubicar el cabezal, los
 // keyframes o un corte.
 //
 // Este módulo hace exactamente el trabajo que sí mide: compila el proyecto y
-// corre la preparación de cada escena, que es Piper más FFprobe. Después arma
+// corre la preparación de cada escena, que es ElevenLabs más FFprobe. Después arma
 // la línea de tiempo con LAS MISMAS funciones que usa el render
 // (`buildAssemblyPlan` y `buildRenderedTurnTimeline`), así que no produce una
 // aproximación: produce el mismo resultado que produciría el render.
 //
-// Lo que lo vuelve barato es que la caché de voz de `piper-voice.mjs` está
+// Lo que lo vuelve barato es que la caché de voz de `elevenlabs-voice.mjs` está
 // indexada por contenido y es compartida entre trabajos: al cortar un turno,
 // solo los dos textos nuevos se sintetizan y el resto sale de caché.
 

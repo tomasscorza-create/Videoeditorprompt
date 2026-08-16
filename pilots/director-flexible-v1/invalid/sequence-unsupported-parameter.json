@@ -8,14 +8,14 @@
     {
       "roleId": "hablante",
       "characterResourceId": "mono-azul-v1",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "narrativeRole": "Presentar la idea.",
       "animationPresetId": "talk-calm"
     },
     {
       "roleId": "reaccion",
       "characterResourceId": "mono-ciruela-v1",
-      "voiceId": "voz-davefx-es-v1",
+      "voiceId": "voz-elevenlabs-e029c0d67044",
       "narrativeRole": "Responder sin articulación declarada.",
       "animationPresetId": "idle-calm"
     }
@@ -26,7 +26,7 @@
       "id": "turno-01",
       "kind": "character",
       "speakerRoleId": "hablante",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "text": "La reacción pide un parámetro que el rig no declara.",
       "pace": "normal",
       "gapAfterSeconds": 0.2
@@ -35,7 +35,7 @@
       "id": "turno-02",
       "kind": "character",
       "speakerRoleId": "reaccion",
-      "voiceId": "voz-davefx-es-v1",
+      "voiceId": "voz-elevenlabs-e029c0d67044",
       "text": "El contrato debe rechazarlo antes del render.",
       "pace": "normal",
       "gapAfterSeconds": 0

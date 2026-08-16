@@ -5,7 +5,7 @@
 // y sin ella la interfaz no puede ubicar el cabezal, un keyframe ni un corte,
 // pero recuperarla no necesita un solo cuadro dibujado.
 //
-// Corre en un proceso aparte, igual que el render, por dos razones: Piper se
+// Corre en un proceso aparte, igual que el render, por dos razones: el TTS se
 // invoca de forma bloqueante y no puede congelar el servicio, y un fallo suyo
 // no debe arrastrar al servidor.
 

@@ -258,9 +258,10 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
         ? { speakerType: 'voiceover' }
         : { speakerId: turn.speakerElementId }),
       text: turn.text,
-      voice: {
-        model: voiceResource.voice.model,
-        ...(voiceResource.voice.speaker !== undefined ? { speaker: voiceResource.voice.speaker } : {}),
+        voice: {
+          provider: 'elevenlabs',
+          model: voiceResource.voice.model,
+          voiceId: voiceResource.voice.voiceId,
         lengthScale: Number((voiceResource.voice.lengthScale * PACE_SCALES[pace]).toFixed(4)),
         volume: voiceResource.voice.volume,
       },

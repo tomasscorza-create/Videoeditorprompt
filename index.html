@@ -650,7 +650,30 @@
             <option value="violet">Violeta</option>
           </select>
         </label>
+        <div class="settings-group">
+          <div>
+            <strong>Voces</strong>
+            <p class="muted">Las voces se generan exclusivamente con ElevenLabs. La clave queda en el servicio local y cada síntesis consume los créditos de tu plan.</p>
+          </div>
+          <button id="elevenlabs-manage" class="secondary-button" type="button">Administrar voces de ElevenLabs</button>
+        </div>
         <p class="muted">Los proyectos se guardan automáticamente en este navegador.</p>
+      </div>
+    </dialog>
+
+    <dialog id="elevenlabs-voices-modal" class="modal elevenlabs-voices-modal">
+      <div class="modal-content">
+        <header class="section-header">
+          <div><span class="eyebrow">Voces conectadas</span><h2>ElevenLabs</h2></div>
+          <button id="elevenlabs-voices-close" class="icon-button" type="button" aria-label="Cerrar"><svg class="icon" aria-hidden="true"><use href="#ui-icon-close"/></svg></button>
+        </header>
+        <p class="muted">Elegí voces de tu cuenta para agregarlas a este proyecto. La clave nunca llega al navegador.</p>
+        <div class="voice-import-controls">
+          <label class="field" for="elevenlabs-model-select"><span>Modelo</span><select id="elevenlabs-model-select"><option value="eleven_multilingual_v2">Multilingual v2 · estable</option><option value="eleven_v3">Eleven v3 · expresivo</option><option value="eleven_flash_v2_5">Flash v2.5 · económico</option></select></label>
+          <label class="field" for="elevenlabs-voice-search"><span>Buscar</span><input id="elevenlabs-voice-search" type="search" placeholder="Nombre, acento o estilo"></label>
+        </div>
+        <p id="elevenlabs-voices-status" class="muted" role="status" aria-live="polite"></p>
+        <div id="elevenlabs-voices-list" class="elevenlabs-voices-list"></div>
       </div>
     </dialog>
 

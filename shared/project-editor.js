@@ -17,6 +17,13 @@ const HISTORY_LIMIT_DEFAULT = 50;
 const PORTABLE_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/u;
 const PACE_IDS = new Set(['slow', 'normal', 'fast']);
 const LAYOUT_PRESET_IDS = new Set(['balanced', 'focus-a', 'focus-b', 'close-up-a', 'close-up-b', 'wide', 'stacked']);
+export const LEGACY_VOICE_REPLACEMENTS = Object.freeze({
+  'voz-daniela-ar-v1': 'voz-elevenlabs-c8ff047a678d',
+  'voz-claude-mx-v1': 'voz-elevenlabs-c8ff047a678d',
+  'voz-sharvard-es-v1': 'voz-elevenlabs-c8ff047a678d',
+  'voz-ald-mx-v1': 'voz-elevenlabs-ce6ff01ff0d4',
+  'voz-davefx-es-v1': 'voz-elevenlabs-e029c0d67044',
+});
 
 export class ProjectEditorError extends Error {
   constructor(code, message, path = '/') {
@@ -49,9 +56,13 @@ export function repairMissingVoiceReferences(project, catalog, options = {}) {
   const projectCopy = cloneJson(project);
   const entries = Array.isArray(catalog?.entries) ? catalog.entries : [];
   const resources = new Map(entries.map((entry) => [entry?.id, entry]));
-  const voices = entries.filter((entry) => entry?.type === 'voice' && typeof entry.id === 'string');
-  const preferredVoiceId = options.preferredVoiceId ?? 'voz-claude-mx-v1';
-  const fallback = voices.find((entry) => entry.id === preferredVoiceId) ?? voices[0];
+  const voices = entries.filter((entry) => (
+    entry?.type === 'voice'
+    && entry.voice?.provider === 'elevenlabs'
+    && typeof entry.id === 'string'
+  ));
+  const defaultPreferredVoiceId = options.preferredVoiceId ?? 'voz-elevenlabs-c8ff047a678d';
+  const fallback = voices.find((entry) => entry.id === defaultPreferredVoiceId) ?? voices[0];
   const replacements = [];
 
   if (!fallback || !Array.isArray(projectCopy?.scenes)) {
@@ -61,14 +72,19 @@ export function repairMissingVoiceReferences(project, catalog, options = {}) {
   for (const scene of projectCopy.scenes) {
     if (!Array.isArray(scene?.dialogue)) continue;
     for (const turn of scene.dialogue) {
-      if (!turn || typeof turn.voiceId !== 'string' || resources.has(turn.voiceId)) continue;
+      const current = resources.get(turn?.voiceId);
+      if (!turn || typeof turn.voiceId !== 'string' || current?.type === 'voice' && current.voice?.provider === 'elevenlabs') continue;
+      const preferredVoiceId = options.preferredVoiceId
+        ?? LEGACY_VOICE_REPLACEMENTS[turn.voiceId]
+        ?? defaultPreferredVoiceId;
+      const replacement = voices.find((entry) => entry.id === preferredVoiceId) ?? fallback;
       replacements.push({
         sceneId: scene.id,
         turnId: turn.id,
         previousVoiceId: turn.voiceId,
-        replacementVoiceId: fallback.id,
+        replacementVoiceId: replacement.id,
       });
-      turn.voiceId = fallback.id;
+      turn.voiceId = replacement.id;
     }
   }
 
@@ -612,7 +628,7 @@ function applyMutation(project, catalog, command) {
       if (index < 0) fail('EDITOR_TURN_NOT_FOUND', `No existe el turno ${command.turnId}.`, '/command/turnId');
       const turn = scene.dialogue[index];
       // Mismo criterio de palabra que usa la validación de `gestureAtWord`: el
-      // texto de autoría, no el normalizado para Piper.
+      // texto de autoría, no el normalizado para TTS.
       const words = turn.text.trim().split(/\s+/u).filter(Boolean);
       integerInRange(command.atWord, 1, 99, '/command/atWord');
       if (command.atWord > words.length - 1) {

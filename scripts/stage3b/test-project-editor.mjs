@@ -69,20 +69,21 @@ test('repairs-only-missing-voice-references-without-mutating-the-project', () =>
   legacy.scenes[0].dialogue[0].voiceId = 'voz-daniela-ar-v1';
   const repaired = repairMissingVoiceReferences(legacy, catalog);
   assert.equal(legacy.scenes[0].dialogue[0].voiceId, 'voz-daniela-ar-v1');
-  assert.equal(repaired.project.scenes[0].dialogue[0].voiceId, 'voz-claude-mx-v1');
+  assert.equal(repaired.project.scenes[0].dialogue[0].voiceId, 'voz-elevenlabs-c8ff047a678d');
   assert.deepEqual(repaired.replacements, [{
     sceneId: legacy.scenes[0].id,
     turnId: legacy.scenes[0].dialogue[0].id,
     previousVoiceId: 'voz-daniela-ar-v1',
-    replacementVoiceId: 'voz-claude-mx-v1',
+    replacementVoiceId: 'voz-elevenlabs-c8ff047a678d',
   }]);
   assert.doesNotThrow(() => createProjectEditor(repaired.project, catalog));
 
   const wrongType = structuredClone(project);
   wrongType.scenes[0].dialogue[0].voiceId = 'mono-azul-v1';
-  const unchanged = repairMissingVoiceReferences(wrongType, catalog);
-  assert.equal(unchanged.replacements.length, 0);
-  rejects('EDITOR_RESOURCE_INVALID', () => createProjectEditor(unchanged.project, catalog));
+  const repairedWrongType = repairMissingVoiceReferences(wrongType, catalog);
+  assert.equal(repairedWrongType.replacements.length, 1);
+  assert.equal(repairedWrongType.project.scenes[0].dialogue[0].voiceId, 'voz-elevenlabs-c8ff047a678d');
+  assert.doesNotThrow(() => createProjectEditor(repairedWrongType.project, catalog));
 });
 
 test('selection-does-not-create-project-history', () => {
@@ -176,13 +177,13 @@ test('places-character-resource-and-position-atomically', () => {
 test('edits-dialogue-voice-gesture-and-gap', () => {
   const state = command(createProjectEditor(project, catalog), {
     type: 'set-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01',
-    text: 'Texto corregido manualmente.', voiceId: 'voz-davefx-es-v1', gestureId: 'neutral', gapAfterSeconds: 0.6,
+    text: 'Texto corregido manualmente.', voiceId: 'voz-elevenlabs-e029c0d67044', gestureId: 'neutral', gapAfterSeconds: 0.6,
   });
   assert.deepEqual(
     state.project.scenes[0].dialogue[0],
     {
       id: 'turno-presentacion-01', speakerElementId: 'presentadora', text: 'Texto corregido manualmente.',
-      voiceId: 'voz-davefx-es-v1', gestureId: 'neutral', gapAfterSeconds: 0.6,
+      voiceId: 'voz-elevenlabs-e029c0d67044', gestureId: 'neutral', gapAfterSeconds: 0.6,
     },
   );
 });
@@ -257,12 +258,12 @@ test('supports-incomplete-drafts-and-structural-authoring-commands', () => {
   });
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-vacia', turnId: 'turno-01',
-    speakerElementId: 'personaje-01', text: 'Primer turno.', voiceId: 'voz-claude-mx-v1',
+    speakerElementId: 'personaje-01', text: 'Primer turno.', voiceId: 'voz-elevenlabs-c8ff047a678d',
     gestureId: 'neutral', gapAfterSeconds: 0.2,
   });
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-vacia', turnId: 'turno-02',
-    speakerElementId: 'personaje-02', text: 'Segundo turno.', voiceId: 'voz-davefx-es-v1',
+    speakerElementId: 'personaje-02', text: 'Segundo turno.', voiceId: 'voz-elevenlabs-e029c0d67044',
     gestureId: 'neutral', gapAfterSeconds: 0,
   });
   assert.equal(validateRenderableProject(state.project, catalog), true);
@@ -339,11 +340,11 @@ test('splits-a-scene-at-a-turn-boundary', () => {
   // Se lleva a cuatro turnos para verificar el remapeo de varios hablantes.
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-03',
-    speakerElementId: 'presentadora', text: 'Tercer turno.', voiceId: 'voz-claude-mx-v1', gestureId: 'neutral', gapAfterSeconds: 0,
+    speakerElementId: 'presentadora', text: 'Tercer turno.', voiceId: 'voz-elevenlabs-c8ff047a678d', gestureId: 'neutral', gapAfterSeconds: 0,
   });
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-04',
-    speakerElementId: 'analista', text: 'Cuarto turno.', voiceId: 'voz-claude-mx-v1', gestureId: 'neutral', gapAfterSeconds: 0,
+    speakerElementId: 'analista', text: 'Cuarto turno.', voiceId: 'voz-elevenlabs-c8ff047a678d', gestureId: 'neutral', gapAfterSeconds: 0,
   });
   state = command(state, { type: 'split-scene', sceneId: 'escena-presentacion', atTurnId: 'turno-presentacion-03', newSceneId: 'escena-partida' });
   assert.equal(state.project.scenes.length, 3);
@@ -515,7 +516,7 @@ test('creates-a-renderable-voiceover-scene-without-characters-and-preserves-undo
   const initial = createProjectEditor(draft, catalog);
   const edited = command(initial, {
     type: 'add-voiceover-turn', sceneId: 'escena-narrada', turnId: 'narracion-01',
-    text: 'Una voz cuenta la historia sin aparecer en pantalla.', voiceId: 'voz-claude-mx-v1', gapAfterSeconds: 0,
+    text: 'Una voz cuenta la historia sin aparecer en pantalla.', voiceId: 'voz-elevenlabs-c8ff047a678d', gapAfterSeconds: 0,
   });
   const turn = edited.project.scenes[0].dialogue[0];
   assert.equal(turn.speakerType, 'voiceover');
@@ -540,7 +541,7 @@ test('supports-one-character-one-turn-and-enforces-the-two-character-maximum', (
   });
   state = command(state, {
     type: 'add-dialogue-turn', sceneId: 'escena-monologo', turnId: 'turno-01', speakerElementId: 'persona-01',
-    text: 'Un personaje puede sostener una escena.', voiceId: 'voz-claude-mx-v1', gestureId: 'neutral', gapAfterSeconds: 0,
+    text: 'Un personaje puede sostener una escena.', voiceId: 'voz-elevenlabs-c8ff047a678d', gestureId: 'neutral', gapAfterSeconds: 0,
   });
   assert.equal(validateRenderableProject(state.project, catalog), true);
   state = command(state, {

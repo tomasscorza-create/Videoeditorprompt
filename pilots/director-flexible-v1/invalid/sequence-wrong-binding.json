@@ -12,7 +12,7 @@
     {
       "id": "narracion-01",
       "kind": "voiceover",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "text": "Un prop no puede ocupar un slot exclusivo de personaje.",
       "pace": "normal",
       "gapAfterSeconds": 0

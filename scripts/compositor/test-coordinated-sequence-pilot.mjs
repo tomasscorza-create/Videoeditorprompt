@@ -188,7 +188,7 @@ function sceneFor(definition, index) {
       id: `turno-${definition.id}`,
       speakerElementId: `guide-${definition.id}`,
       text: definition.text,
-      voiceId: 'voz-davefx-es-v1',
+      voiceId: 'voz-elevenlabs-e029c0d67044',
       gestureId: 'neutral',
       gapAfterSeconds: 0,
     }],

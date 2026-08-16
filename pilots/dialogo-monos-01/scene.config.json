@@ -53,21 +53,21 @@
       "id": "turno-01",
       "speakerId": "presentador",
       "text": "¿Viste que ahora somos dos?",
-      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.3, "volume": 1 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "Xb7hH8MSUJpSbSDYk0k2", "lengthScale": 1.3, "volume": 1 },
       "gapAfterSeconds": 0.28
     },
     {
       "id": "turno-02",
       "speakerId": "invitado",
       "text": "Sí, pero seguimos usando una sola computadora.",
-      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.72, "volume": 0.96 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "pNInz6obpgDQGcFmaJgB", "lengthScale": 1.72, "volume": 0.96 },
       "gapAfterSeconds": 0.28
     },
     {
       "id": "turno-03",
       "speakerId": "presentador",
       "text": "Perfecto. Discutimos rápido y renderizamos barato.",
-      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.3, "volume": 1 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "Xb7hH8MSUJpSbSDYk0k2", "lengthScale": 1.3, "volume": 1 },
       "gapAfterSeconds": 0
     }
   ],

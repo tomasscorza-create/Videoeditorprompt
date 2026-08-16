@@ -424,93 +424,57 @@
       }
     },
     {
-      "id": "voz-ald-mx-v1",
+      "id": "voz-elevenlabs-e029c0d67044",
       "type": "voice",
-      "label": "ALd — español de México (masculina)",
-      "tags": [
-        "espanol",
-        "latino",
-        "masculina",
-        "mexico",
-        "piper"
-      ],
+      "label": "Adam - Dominant, Firm · ElevenLabs",
+      "tags": ["elevenlabs", "premium", "espanol", "social-media", "middle-aged", "american", "male", "en"],
       "voice": {
-        "provider": "piper",
-        "model": "es_MX-ald-medium",
+        "provider": "elevenlabs",
+        "model": "eleven_multilingual_v2",
         "locale": "es_MX",
-        "lengthScale": 1.05,
-        "volume": 1
-      },
-      "provenance": {
-        "source": "Piper Voices, modelo es_MX-ald-medium; dataset Ald Mexican Spanish (rmcpantoja).",
-        "license": "Modelo/repositorio de voces MIT; dataset Unlicense. El runtime Piper se licencia por separado."
-      }
-    },
-    {
-      "id": "voz-claude-mx-v1",
-      "type": "voice",
-      "label": "Claude — español de México (femenina)",
-      "tags": [
-        "espanol",
-        "femenina",
-        "latino",
-        "mexico",
-        "piper"
-      ],
-      "voice": {
-        "provider": "piper",
-        "model": "es_MX-claude-high",
-        "locale": "es_MX",
+        "voiceId": "pNInz6obpgDQGcFmaJgB",
         "lengthScale": 1,
         "volume": 1
       },
       "provenance": {
-        "source": "Piper Voices, modelo es_MX-claude-high; dataset HirCoir Piper-TTS-Spanish.",
-        "license": "Modelo/repositorio de voces MIT; dataset Apache-2.0. REVISAR audio base. Piper se licencia por separado."
+        "source": "Voz Adam - Dominant, Firm disponible en la cuenta local de ElevenLabs.",
+        "license": "Uso sujeto al plan y a los términos vigentes de ElevenLabs; verificar derechos de la voz antes de publicar."
       }
     },
     {
-      "id": "voz-sharvard-es-v1",
+      "id": "voz-elevenlabs-c8ff047a678d",
       "type": "voice",
-      "label": "sHarvard — español de España (femenina)",
-      "tags": [
-        "espana",
-        "espanol",
-        "femenina",
-        "piper"
-      ],
+      "label": "Alice - Clear, Engaging Educator · ElevenLabs",
+      "tags": ["elevenlabs", "premium", "espanol", "informative-educational", "middle-aged", "professional", "british", "female", "en"],
       "voice": {
-        "provider": "piper",
-        "model": "es_ES-sharvard-medium",
-        "locale": "es_ES",
-        "speaker": 1,
+        "provider": "elevenlabs",
+        "model": "eleven_multilingual_v2",
+        "locale": "es_MX",
+        "voiceId": "Xb7hH8MSUJpSbSDYk0k2",
         "lengthScale": 1,
         "volume": 1
       },
       "provenance": {
-        "source": "Piper Voices, modelo es_ES-sharvard-medium (hablante F, id 1); dataset Univ. Edimburgo datashare 10283/574.",
-        "license": "Modelo/repositorio de voces MIT; dataset CC BY 3.0. Requiere atribución; Piper se licencia por separado."
+        "source": "Voz Alice - Clear, Engaging Educator disponible en la cuenta local de ElevenLabs.",
+        "license": "Uso sujeto al plan y a los términos vigentes de ElevenLabs; verificar derechos de la voz antes de publicar."
       }
     },
     {
-      "id": "voz-davefx-es-v1",
+      "id": "voz-elevenlabs-ce6ff01ff0d4",
       "type": "voice",
-      "label": "DaveFX — español de España",
-      "tags": [
-        "espana",
-        "espanol",
-        "piper"
-      ],
+      "label": "Bill - Wise, Mature, Balanced · ElevenLabs",
+      "tags": ["elevenlabs", "premium", "espanol", "advertisement", "old", "crisp", "american", "male", "en"],
       "voice": {
-        "provider": "piper",
-        "model": "es_ES-davefx-medium",
-        "locale": "es_ES",
-        "lengthScale": 1.04,
+        "provider": "elevenlabs",
+        "model": "eleven_multilingual_v2",
+        "locale": "es_MX",
+        "voiceId": "pqHfZKP75CvOlQylNhV4",
+        "lengthScale": 1,
         "volume": 1
       },
       "provenance": {
-        "source": "Piper Voices, revisión fijada del modelo es_ES-davefx-medium.",
-        "license": "Modelo/repositorio de voces MIT; dataset CC0. El runtime Piper se licencia por separado."
+        "source": "Voz Bill - Wise, Mature, Balanced disponible en la cuenta local de ElevenLabs.",
+        "license": "Uso sujeto al plan y a los términos vigentes de ElevenLabs; verificar derechos de la voz antes de publicar."
       }
     },
     {

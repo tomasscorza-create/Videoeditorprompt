@@ -25,12 +25,14 @@ import { setActiveEditorProject, syncActiveEditorProject } from './editor-worksp
 import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
 import { initVideoTemplateEditor } from './video-template-editor.js';
 import { initTimelineV2 } from './timeline-v2.js';
+import { initElevenLabsVoices } from './elevenlabs-voices.js';
 
 export { renderJobGallery } from './gallery.js';
 
 // Interfaz que no depende de que la escena cargue.
 export function initShellUi(): void {
   initTheme();
+  initElevenLabsVoices();
   initTablists();
   initRightPanel();
   initCommandPalette();

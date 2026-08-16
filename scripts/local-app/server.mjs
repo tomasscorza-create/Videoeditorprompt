@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import path from 'node:path';
 import { createDirectorProposal, inspectOllama } from '../director/ollama-director.mjs';
@@ -23,6 +23,7 @@ import { createPersistenceRuntime } from '../storage/persistence-runtime.mjs';
 import { createTimelineMediaLibrary } from '../timeline/media-library.mjs';
 import { createTimelineProjectRepository } from '../timeline/timeline-project-repository.mjs';
 import { createTimelineExporter } from '../timeline/timeline-exporter.mjs';
+import { getElevenLabsVoice, inspectElevenLabs, listElevenLabsVoices, DEFAULT_ELEVENLABS_MODEL } from '../tts/elevenlabs-client.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
@@ -81,6 +82,11 @@ export async function createLocalAppServer(options = {}) {
     throw error;
   }
   const currentCatalog = () => library.catalog();
+  const elevenLabs = options.elevenLabs || {
+    inspect: (requestOptions = {}) => inspectElevenLabs({ ...requestOptions, environment: options.environment || process.env }),
+    listVoices: (requestOptions = {}) => listElevenLabsVoices({ ...requestOptions, environment: options.environment || process.env }),
+    getVoice: (voiceId, requestOptions = {}) => getElevenLabsVoice(voiceId, { ...requestOptions, environment: options.environment || process.env }),
+  };
   const measurements = options.measurements || createMeasurementManager({
     root,
     assetsRoot,
@@ -149,16 +155,22 @@ export async function createLocalAppServer(options = {}) {
           ollama = { available: false, modelInstalled: false, error: serializeError(error, 'directing') };
         }
         const ttsRoot = resolveTtsRoot({}, { validate: false });
+        const elevenLabsConfigured = Boolean(
+          (options.environment || process.env).ELEVENLABS_API_KEY
+          || (options.environment || process.env).ELEVENLABS_API_KEY_FILE,
+        );
         sendJson(response, 200, {
           version: 1,
-          ready: ollama.available && ollama.modelInstalled && existsSync(ttsRoot),
+          ready: ollama.available && ollama.modelInstalled && existsSync(ttsRoot) && elevenLabsConfigured,
           ollama,
-          // Estado por proveedor registrado (D2). Hoy solo `ollama` está registrado;
-          // su salud sale del inspector inyectable. `registeredProviders` anuncia qué
-          // proveedores acepta el servidor en `provider`.
           providers: { ollama },
           registeredProviders: listProviderNames(),
-          tts: { available: existsSync(ttsRoot) },
+          tts: {
+            available: existsSync(ttsRoot) && elevenLabsConfigured,
+            providers: {
+              elevenlabs: { configured: elevenLabsConfigured, available: existsSync(ttsRoot) && elevenLabsConfigured },
+            },
+          },
           renderBusy: Boolean(manager.activeJobId),
           persistence: persistenceRuntime.diagnostic,
         });
@@ -217,6 +229,38 @@ export async function createLocalAppServer(options = {}) {
         const removed = await projects.remove(projectMatch[1], url.searchParams.get('expectedRevision') || undefined);
         if (!removed) return sendNotFound(response);
         sendJson(response, 200, { version: 1, removed: true });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/library/voices/elevenlabs') {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        const voice = await elevenLabs.getVoice(String(body.voiceId || ''));
+        if (!voice) {
+          const error = new Error('La voz seleccionada ya no está disponible en ElevenLabs.');
+          error.code = 'ELEVENLABS_VOICE_INVALID';
+          throw error;
+        }
+        const model = ['eleven_multilingual_v2', 'eleven_v3', 'eleven_flash_v2_5'].includes(body.model)
+          ? body.model
+          : DEFAULT_ELEVENLABS_MODEL;
+        const locale = /^[a-z]{2}_[A-Z]{2}$/u.test(String(body.locale || '')) ? body.locale : 'es_MX';
+        const suffix = createHash('sha256').update(voice.voiceId).digest('hex').slice(0, 12);
+        const tags = ['elevenlabs', 'premium', 'espanol', ...Object.values(voice.labels || {})]
+          .map((value) => String(value).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, ''))
+          .filter(Boolean)
+          .slice(0, 16);
+        const result = await library.register({
+          id: `voz-elevenlabs-${suffix}`,
+          type: 'voice',
+          label: `${voice.name} · ElevenLabs`,
+          tags: [...new Set(tags)],
+          voice: { provider: 'elevenlabs', model, locale, voiceId: voice.voiceId, lengthScale: 1, volume: 1 },
+          provenance: {
+            source: `Voz ${voice.name} disponible en la cuenta local de ElevenLabs.`,
+            license: 'Uso sujeto al plan y a los términos vigentes de ElevenLabs; verificar derechos de la voz antes de publicar.',
+          },
+        });
+        sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/library/resources') {
@@ -353,6 +397,11 @@ export async function createLocalAppServer(options = {}) {
         const body = await readJsonBody(request);
         const measurement = await measurements.measure(body.project);
         sendJson(response, 200, { version: 1, ...measurement });
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/tts/elevenlabs') {
+        const [diagnostic, voices] = await Promise.all([elevenLabs.inspect(), elevenLabs.listVoices()]);
+        sendJson(response, 200, { version: 1, diagnostic, voices });
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/timeline/director') {

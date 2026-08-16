@@ -118,7 +118,7 @@ export function analyzeDirectorPlanQuality(plan, options = {}) {
     version: DIRECTOR_QUALITY_VERSION,
     score,
     floor: DIRECTOR_QUALITY_FLOOR,
-    // La cantidad de palabras solo aproxima la duración. Piper y FFprobe son la
+    // La cantidad de palabras solo aproxima la duración. ElevenLabs y FFprobe son la
     // autoridad real, por lo que un déficit conserva su penalización y aviso sin
     // convertir por sí solo una propuesta semánticamente válida en un error.
     passed: score >= DIRECTOR_QUALITY_FLOOR,

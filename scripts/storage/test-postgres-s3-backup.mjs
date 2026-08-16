@@ -48,9 +48,10 @@ try {
     scenes: [{ id: 'scene-1' }],
   };
   const voice = {
-    provider: 'piper',
-    model: 'backup_voice',
+    provider: 'elevenlabs',
+    model: 'eleven_multilingual_v2',
     locale: 'es_AR',
+    voiceId: 'VoiceTest1234567890',
     lengthScale: 1,
     volume: 1,
   };

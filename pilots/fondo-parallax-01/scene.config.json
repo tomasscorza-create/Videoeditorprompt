@@ -86,14 +86,14 @@
       "id": "turno-01",
       "speakerId": "presentador",
       "text": "El fondo también se mueve.",
-      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.3, "volume": 1 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "Xb7hH8MSUJpSbSDYk0k2", "lengthScale": 1.3, "volume": 1 },
       "gapAfterSeconds": 0.25
     },
     {
       "id": "turno-02",
       "speakerId": "invitado",
       "text": "Bien. Ahora la escena parece menos estática.",
-      "voice": { "model": "es_MX-claude-high", "lengthScale": 1.65, "volume": 0.96 },
+      "voice": { "provider": "elevenlabs", "model": "eleven_multilingual_v2", "voiceId": "pNInz6obpgDQGcFmaJgB", "lengthScale": 1.65, "volume": 0.96 },
       "gapAfterSeconds": 0
     }
   ],

@@ -8,14 +8,14 @@
     {
       "roleId": "afirmacion",
       "characterResourceId": "mono-articulado-azul-v1",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "narrativeRole": "Plantear la expectativa inicial.",
       "animationPresetId": "talk-calm"
     },
     {
       "roleId": "contraste",
       "characterResourceId": "el-peque-v1",
-      "voiceId": "voz-davefx-es-v1",
+      "voiceId": "voz-elevenlabs-e029c0d67044",
       "narrativeRole": "Mostrar el límite y sintetizar.",
       "animationPresetId": "idle-calm"
     }
@@ -26,7 +26,7 @@
       "id": "dialogo-01",
       "kind": "character",
       "speakerRoleId": "afirmacion",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "text": "Si agregamos más efectos, el video siempre será mejor.",
       "pace": "normal",
       "gestureId": "point",
@@ -37,7 +37,7 @@
       "id": "dialogo-02",
       "kind": "character",
       "speakerRoleId": "contraste",
-      "voiceId": "voz-davefx-es-v1",
+      "voiceId": "voz-elevenlabs-e029c0d67044",
       "text": "Solo cuando cada efecto ayuda a entender la idea.",
       "pace": "slow",
       "gestureId": "neutral",

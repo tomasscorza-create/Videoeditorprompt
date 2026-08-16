@@ -8,7 +8,7 @@
     {
       "roleId": "presentador",
       "characterResourceId": "el-peque-v1",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "narrativeRole": "Explicar con cercanía y cerrar con una acción.",
       "animationPresetId": "talk-calm"
     }
@@ -19,7 +19,7 @@
       "id": "solo-01",
       "kind": "character",
       "speakerRoleId": "presentador",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "text": "No hace falta una pareja de personajes para explicar una idea concreta.",
       "pace": "normal",
       "gestureId": "point",

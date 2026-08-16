@@ -101,7 +101,7 @@ export async function createRenderJobManager(options = {}) {
         code: 'RENDER_TIMEOUT',
         stage: 'rendering',
         message: 'El render superó el tiempo máximo permitido.',
-        suggestedAction: 'Reducí la cantidad de escenas o revisá el rendimiento de Piper y FFmpeg.',
+        suggestedAction: 'Reducí la cantidad de escenas o revisá la conexión con ElevenLabs y el rendimiento de FFmpeg.',
       })).catch(() => {});
       terminateTree(child);
     }, timeoutMs);
@@ -132,13 +132,13 @@ export async function createRenderJobManager(options = {}) {
           message: reportedFailure.message || 'El pipeline local no pudo completar el video.',
           technicalDetail: reportedFailure.technicalDetail || stderr.trim() || `exitCode=${code}`,
           cause: reportedFailure.cause,
-          suggestedAction: reportedFailure.suggestedAction || 'Revisá el estado del trabajo y la instalación local de Piper/FFmpeg.',
+          suggestedAction: reportedFailure.suggestedAction || 'Revisá el estado del trabajo, ElevenLabs y FFmpeg.',
         } : {
           code: 'PROJECT_PIPELINE_EXIT_NONZERO',
           stage: job.stage || 'rendering',
           message: 'El pipeline local no pudo completar el video.',
           technicalDetail: stderr.trim() || `exitCode=${code}`,
-          suggestedAction: 'Revisá el estado del trabajo y la instalación local de Piper/FFmpeg.',
+          suggestedAction: 'Revisá el estado del trabajo, ElevenLabs y FFmpeg.',
         }));
         return;
       }

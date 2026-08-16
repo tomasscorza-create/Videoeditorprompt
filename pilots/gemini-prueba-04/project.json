@@ -34,7 +34,7 @@
           "id": "t1-1",
           "speakerElementId": "tucan",
           "text": "He estado revisando a fondo el presupuesto anual de nuestro bosque.",
-          "voiceId": "voz-davefx-es-v1",
+          "voiceId": "voz-elevenlabs-e029c0d67044",
           "gestureId": "point",
           "gapAfterSeconds": 0.3
         },
@@ -42,7 +42,7 @@
           "id": "t1-2",
           "speakerElementId": "conejo",
           "text": "¿Y qué encontraste? ¿Acaso descubriste más zanahorias para todos?",
-          "voiceId": "voz-ald-mx-v1",
+          "voiceId": "voz-elevenlabs-ce6ff01ff0d4",
           "gestureId": "neutral",
           "gapAfterSeconds": 0
         }
@@ -76,7 +76,7 @@
           "id": "t2-1",
           "speakerElementId": "tucan",
           "text": "No, encontramos que el noventa por ciento se destina a investigar por qué no hay zanahorias.",
-          "voiceId": "voz-davefx-es-v1",
+          "voiceId": "voz-elevenlabs-e029c0d67044",
           "gestureId": "neutral",
           "gapAfterSeconds": 0.3
         },
@@ -84,7 +84,7 @@
           "id": "t2-2",
           "speakerElementId": "conejo",
           "text": "Ah, maravilloso. Al menos la burocracia está muy bien alimentada este año.",
-          "voiceId": "voz-ald-mx-v1",
+          "voiceId": "voz-elevenlabs-ce6ff01ff0d4",
           "gestureId": "point",
           "gapAfterSeconds": 0
         }

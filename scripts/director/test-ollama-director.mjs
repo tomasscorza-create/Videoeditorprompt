@@ -10,8 +10,8 @@ const plan = {
   tone: 'educational',
   targetDurationSeconds: 20,
   cast: {
-    a: { role: 'optimista', characterResourceId: 'mono-azul-v1', voiceId: 'voz-claude-mx-v1', poseId: 'neutral', animationPreset: 'talk-calm' },
-    b: { role: 'escéptico', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-davefx-es-v1', poseId: 'neutral', animationPreset: 'idle-calm' },
+    a: { role: 'optimista', characterResourceId: 'mono-azul-v1', voiceId: 'voz-elevenlabs-c8ff047a678d', poseId: 'neutral', animationPreset: 'talk-calm' },
+    b: { role: 'escéptico', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-elevenlabs-e029c0d67044', poseId: 'neutral', animationPreset: 'idle-calm' },
   },
   scenes: [{
     title: 'Debate',
@@ -88,7 +88,7 @@ assert.equal(first.project.scenes.length, 1);
 assert.ok(first.context.shortlistedEntries > 14);
 assert.ok(first.context.resourceIds.includes('cartel-dato-v1'));
 assert.ok(first.context.resourceIds.includes('procedural-word-match-cut-v1'));
-assert.equal(first.context.totalCatalogEntries, 20);
+assert.ok(first.context.totalCatalogEntries >= first.context.shortlistedEntries);
 assert.equal(first.context.templateIds.length, 3);
 assert.ok(first.context.recommendedTemplateId);
 assert.equal(first.context.selectedTemplateId, first.context.recommendedTemplateId);

@@ -13,7 +13,7 @@
       "id": "turno-01",
       "kind": "character",
       "speakerRoleId": "fantasma",
-      "voiceId": "voz-claude-mx-v1",
+      "voiceId": "voz-elevenlabs-c8ff047a678d",
       "text": "Este personaje no existe en una escena de narración.",
       "pace": "normal",
       "gapAfterSeconds": 0

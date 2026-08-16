@@ -362,6 +362,35 @@ export async function registerLibraryResource(entry: unknown): Promise<{ version
   });
 }
 
+export interface ElevenLabsVoice {
+  voiceId: string;
+  name: string;
+  category: string;
+  labels: Record<string, string>;
+  description: string | null;
+  previewUrl: string | null;
+}
+
+export async function listElevenLabsVoices(): Promise<{
+  version: number;
+  diagnostic: { available: boolean; configured: boolean; voiceCount: number };
+  voices: ElevenLabsVoice[];
+}> {
+  return apiRequest('/api/tts/elevenlabs');
+}
+
+export async function importElevenLabsVoice(voiceId: string, model: string, locale = 'es_MX'): Promise<{
+  version: number;
+  created: boolean;
+  resource: RegisteredResource;
+}> {
+  return apiRequest('/api/library/voices/elevenlabs', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ voiceId, model, locale }),
+  });
+}
+
 export async function importBackgroundResource(file: File): Promise<{
   version: number;
   created: boolean;

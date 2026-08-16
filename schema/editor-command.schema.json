@@ -1120,7 +1120,7 @@
     "splitDialogueTurn": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Parte un turno en dos por una frontera de palabra. Es el único corte de audio que el contrato admite: cada turno se sintetiza entero, así que cortar significa producir dos enunciados que Piper vuelve a medir, nunca recortar un WAV.",
+      "description": "Parte un turno en dos por una frontera de palabra. Es el único corte de audio que el contrato admite: cada turno se sintetiza entero, así que cortar significa producir dos enunciados que ElevenLabs vuelve a medir, nunca recortar un WAV.",
       "required": [
         "type",
         "sceneId",

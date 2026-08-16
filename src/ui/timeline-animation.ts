@@ -105,7 +105,7 @@ export interface SceneAnimationReference {
 /**
  * Diálogo vigente en la forma que espera el contrato. El conteo de palabras usa
  * el mismo criterio que `shared/project-editor.js` aplica a `gestureAtWord`:
- * palabras del texto de autoría, no del texto normalizado para Piper.
+ * palabras del texto de autoría, no del texto normalizado para TTS.
  */
 export function sceneAnimationReference(
   dialogue: ReadonlyArray<{ id: string; text: string }>,

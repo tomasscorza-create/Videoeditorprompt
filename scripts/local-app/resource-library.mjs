@@ -94,7 +94,7 @@ export async function createResourceLibrary(options = {}) {
     catalog: () => mergedCatalog(),
     list: async () => [
       ...builtinCatalog.entries.map((entry) => summary(entry, 'builtin', null)),
-      ...registry.entries.map((record) => summary(record.entry, 'local', record)),
+      ...activeRegistryRecords().map((record) => summary(record.entry, 'local', record)),
     ],
     async register(input) {
       const entry = clone(input);
@@ -123,7 +123,7 @@ export async function createResourceLibrary(options = {}) {
 
       const candidateCatalog = {
         version: 1,
-        entries: [...builtinCatalog.entries, ...registry.entries.map((record) => record.entry), entry],
+        entries: [...mergedCatalog().entries, entry],
       };
       try {
         validateCatalog(candidateCatalog, assetsRoot);
@@ -347,8 +347,19 @@ export async function createResourceLibrary(options = {}) {
   function mergedCatalog() {
     return {
       version: 1,
-      entries: clone([...builtinCatalog.entries, ...registry.entries.map((record) => record.entry)]),
+      entries: clone([...builtinCatalog.entries, ...activeRegistryRecords().map((record) => record.entry)]),
     };
+  }
+
+  // Una voz importada puede pasar a formar parte del catálogo incluido en una
+  // versión posterior. Conservamos el registro durable, pero no publicamos dos
+  // copias del mismo recurso ni obligamos al usuario a borrarlo manualmente.
+  function activeRegistryRecords() {
+    const builtins = new Map(builtinCatalog.entries.map((entry) => [entry.id, entry]));
+    return registry.entries.filter((record) => {
+      const builtin = builtins.get(record.entry.id);
+      return !builtin || resourceFingerprint(builtin) !== resourceFingerprint(record.entry);
+    });
   }
 
   function publish() {

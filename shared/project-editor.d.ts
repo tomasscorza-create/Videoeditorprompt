@@ -14,6 +14,8 @@ export class ProjectEditorError extends Error {
   path: string;
 }
 
+export const LEGACY_VOICE_REPLACEMENTS: Readonly<Record<string, string>>;
+
 export interface VoiceReferenceReplacement {
   sceneId: unknown;
   turnId: unknown;
