@@ -1,5 +1,5 @@
 // E5 — Guía de primer uso. Aparece sobre el visor cuando el proyecto todavía
-// no tiene contenido, presenta el flujo Idea → Propuesta → Exportar apuntando a
+// no tiene contenido, presenta el flujo Idea → Base → Video apuntando a
 // los controles reales, y ofrece ejemplos de prompt que rellenan el textarea.
 //
 // Sin overlay bloqueante ni tour por pasos: es un panel descartable. Una vez
@@ -18,8 +18,8 @@ const EXAMPLES = [
 
 const STEPS: Array<{ title: string; detail: string }> = [
   { title: 'Escribí tu idea', detail: 'Contale al Director, en el panel izquierdo, de qué querés que trate el video.' },
-  { title: 'Revisá con preview', detail: 'El Director arma escenas, diálogos y personajes; las voces y tiempos se preparan en segundo plano.' },
-  { title: 'Exportá al terminar', detail: 'Generá un único MP4 final cuando la edición esté lista.' },
+  { title: 'Revisá la base', detail: 'El Director arma un storyboard; desde ahí podés pedir ajustes o abrir la edición contextual.' },
+  { title: 'Creá el video', detail: 'Generá o actualizá el MP4 cuando la base esté lista.' },
 ];
 
 export function initOnboarding(store: ProjectStore | null): void {

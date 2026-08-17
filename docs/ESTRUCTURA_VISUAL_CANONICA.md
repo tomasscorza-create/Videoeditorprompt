@@ -81,31 +81,30 @@ Es el punto de entrada y comando del flujo creativo.
 ### Responsabilidades
 
 - Escribir instrucciones para el Director IA.
-- Seleccionar tono, duración, escenas y futuros parámetros de dirección.
-- Generar, cancelar o regenerar propuestas.
-- Organizar el recorrido inicial en subpáginas internas de cambio rápido: `Idea`, `Propuesta` y `Render`.
-- Permitir revisar escenas, diálogo y ajustes básicos de la propuesta antes del render.
+- Inferir por omisión tono, duración, escenas y estructura; exponerlos solo como dirección opcional.
+- Generar, cancelar o replantear bases de proyecto.
+- Organizar el recorrido guiado en tres fases: `Idea`, `Base` y `Video`.
+- Resumir el proyecto como storyboard y llevar la edición detallada al panel derecho.
+- Presentar los cambios propuestos por IA antes de aplicarlos al proyecto.
 - Seleccionar el proyecto o contexto de autoría en el que se trabajará.
 - Iniciar el render cuando corresponda.
 
 ### Comportamiento esperado
 
 - Cambiar de proyecto actualiza el visor, el inspector y la timeline.
-- En el recorrido inicial, `Idea` contiene el prompt y sus parámetros editoriales, `Propuesta` contiene la revisión editable y `Render` concentra validación, progreso, cancelación y resultado.
-- Solo una subpágina está visible a la vez. `Propuesta` permanece deshabilitada hasta que exista contenido generado; generar una propuesta la abre automáticamente e iniciar un render abre `Render`.
-- En un proyecto vacío el Director conserva el recorrido de creación hasta completar el primer render. Con contenido existente se compacta y cambia a `Ajustar con IA`, `Estado actual` y `Render`.
-- `Ajustar con IA` acepta peticiones contextuales convertidas en comandos semánticos deshacibles. Al aplicar un cambio se abre `Estado actual`, que proyecta el mismo proyecto utilizado por visor, inspector y timeline.
-- Tras el primer render, la propuesta deja de presentarse como un paso pendiente, pero el proyecto sigue disponible para edición.
-- El panel mantiene una densidad compacta: parámetros principales visibles, opciones de calidad plegables, separadores ligeros y acciones primarias de altura moderada.
-- IA y render comparten un único control contextual de cancelación porque solo uno puede estar activo. Durante esas tareas, el estado muestra actividad animada; el progreso del render añade movimiento sin alterar el porcentaje real y respeta `prefers-reduced-motion`.
-- `Estado actual` no duplica acciones estructurales de escenas: insertar, duplicar y eliminar permanecen en la timeline.
-- La edición interna de la propuesta se separa en pestañas de nombres directos —escena, personajes, fondo y transición— para evitar un formulario vertical único.
-- Estas pestañas forman una única fila compacta dentro de `Propuesta` o `Estado actual`; todo el contenido inferior pertenece a la pestaña activa.
-- El título del proyecto se muestra junto a `Proyecto` o `Propuesta` en la cabecera de la subpágina.
-- `Escena` muestra todas las escenas en orden, cada una con su título y sus diálogos completos. Solo permite editar esos textos; una línea pequeña identifica el personaje de cada turno sin exponer cambios de personaje, voz, gesto o pausa.
-- `Personajes`, `Fondo` y `Transición` recorren las escenas con el mismo patrón visual y solo exponen controles de su propia categoría.
-- La propuesta no mantiene una cabecera paralela de acciones o reordenamiento.
-- La propuesta prioriza decisiones creativas; no muestra descargas técnicas ni explicaciones internas del pipeline.
+- `Idea` comienza por un prompt dominante. Solo duración y formato acompañan a la vista, ambos en automático; tono, escenas, riqueza y exploración viven en `Más dirección`.
+- Los valores automáticos no fijan restricciones. El prompt completa esas decisiones y cualquier elección explícita del usuario prevalece.
+- Solo una fase está visible a la vez. `Base` se habilita cuando la IA termina de preparar las preguntas y `Video` cuando existe un proyecto; un proyecto existente abre directamente en `Video`.
+- `Idea` contiene el prompt y tres decisiones iniciales compactas: duración, escenas y modelo IA. El botón principal dice `Aceptar` porque todavía no crea el proyecto.
+- `Base` muestra exactamente tres preguntas contextuales generadas por el mismo proveedor/modelo. Cada pregunta contiene tres opciones prearmadas y un campo `Otra respuesta` para escribir una alternativa. No contiene storyboard, resumen del proyecto ni otro prompt global.
+- Al confirmar las tres respuestas, el Director crea el proyecto de forma atómica y pasa a `Video`. La medición liviana prepara voces, tiempos y preview en segundo plano, pero no inicia la exportación del MP4. Si existe un proyecto anterior, el aviso de reemplazo se muestra en `Base` y aquel se conserva hasta que la nueva creación termina correctamente.
+- Eliminar animación manual o personalizada requiere una confirmación inline específica. El flujo normal no usa diálogos nativos del navegador.
+- `Replantear idea` solicita confirmación inline antes de reemplazar una base existente; el proyecto vigente no cambia mientras se espera ni mientras se genera.
+- Calidad, recursos considerados, plantilla y variantes se revelan progresivamente después del storyboard.
+- `Video` permite revisar el preview sin esperar un render y ofrece la exportación del MP4 como acción explícita. Oculta los requisitos completos y muestra solo bloqueos accionables. Durante una exportación informa la etapa humana y la escena disponible en los datos reales, sin inventar porcentajes.
+- IA y render comparten un único control contextual de cancelación porque solo uno puede estar activo.
+- El Director no duplica el título, los diálogos, las propiedades, las acciones estructurales ni el ordenamiento de escenas: esas responsabilidades permanecen en cabecera, Edición y timeline.
+- La base prioriza decisiones creativas; no muestra descargas técnicas ni explicaciones internas del pipeline.
 - La biblioteca persistente de videos terminados pertenece a `Archivos > Videos creados` en el encabezado, no al panel del Director.
 - Su scroll es independiente.
 - Las acciones primarias deben ser claras y estar cerca del contexto que las origina.

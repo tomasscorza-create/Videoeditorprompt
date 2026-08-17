@@ -32,14 +32,15 @@ export async function editProjectWithDirector(options) {
     resourceLimits: options.resourceLimits,
   });
   const schema = commandBatchSchema(state.project, directorContext.catalog);
-  const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
-  const modelIdentity = normalizeModelIdentity(options.modelIdentity, model);
   // El proveedor concentra la especificidad de la IA (D1/D2); su nombre entra en
   // la clave de caché.
   const provider = resolveDirectorProvider(options.provider, {
     fetchImpl: options.fetchImpl,
-    baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
+    baseUrl: options.baseUrl,
+    apiKey: options.apiKey,
   });
+  const model = String(options.model || provider.defaultModel || DEFAULT_DIRECTOR_MODEL);
+  const modelIdentity = normalizeModelIdentity(options.modelIdentity, model);
   const cacheKey = hashJson({
     version: DIRECTOR_PIPELINE_VERSION,
     provider: provider.name,
@@ -138,6 +139,7 @@ export async function editProjectWithDirector(options) {
     projectRevision: hashJson(next.project),
     context: directorContext.summary,
     usage: {
+      ...(usage || {}),
       promptEvalCount: usage?.promptEvalCount ?? null,
       evalCount: usage?.evalCount ?? null,
       totalDurationNanoseconds: usage?.totalDurationNanoseconds ?? null,

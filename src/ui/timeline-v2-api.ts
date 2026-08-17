@@ -1,4 +1,5 @@
 import type { TimelineDocumentV2 } from '../../shared/timeline-clip-core.js';
+import { getDirectorProviderSettings } from './director/provider-settings.js';
 
 export interface TimelineMediaEntry {
   id: string;
@@ -34,8 +35,9 @@ export async function directTimelineProject(instruction: string, project: Timeli
   project: TimelineDocumentV2;
   explanation: string;
 }> {
+  const provider = getDirectorProviderSettings();
   return request('/api/timeline/director', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ instruction, project }),
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ instruction, project, ...provider }),
   });
 }
 

@@ -1422,6 +1422,12 @@ function readableOption(value: string): string {
     static: 'Estática',
     'slow-pan': 'Paneo suave',
     'slow-zoom': 'Zoom suave',
+    'drift-left': 'Deriva hacia la izquierda',
+    'drift-right': 'Deriva hacia la derecha',
+    'push-in': 'Acercamiento progresivo',
+    'pull-back': 'Alejamiento progresivo',
+    rise: 'Ascenso suave',
+    'diagonal-glide': 'Recorrido diagonal',
     'idle-calm': 'Reposo suave',
     'talk-calm': 'Habla suave',
   };

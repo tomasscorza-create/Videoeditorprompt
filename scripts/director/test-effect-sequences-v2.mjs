@@ -22,6 +22,7 @@ const newSequenceIds = [
   'shake-and-pulse-v2',
   'float-and-pulse-v2',
   'exit-up-and-fade-v2',
+  'final-emphasis-v3',
 ];
 const results = [];
 

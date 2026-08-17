@@ -15,7 +15,7 @@
         { "id": "explain", "kind": "speech", "intent": "Explicar una sola idea mientras el elemento permanece legible.", "preferredDelivery": "voiceover" },
         { "id": "emphasize", "kind": "visual", "intent": "Destacar el dato o concepto principal sin saturar el cuadro.", "preferredDelivery": "none" }
       ],
-      "recommendedEffectSequenceIds": ["visual-reveal-v1", "rise-and-settle-v2", "pop-and-wobble-v2"]
+      "recommendedEffectSequenceIds": ["visual-reveal-v1", "prop-reveal-slide-v3", "prop-mid-callout-v3", "prop-hover-v3", "prop-close-v3", "rise-and-settle-v2", "pop-and-wobble-v2"]
     },
     {
       "id": "solo-explainer-v1",
@@ -31,7 +31,7 @@
         { "id": "explanation", "kind": "speech", "intent": "Desarrollar la idea con un ejemplo breve.", "preferredDelivery": "character" },
         { "id": "close", "kind": "speech", "intent": "Cerrar con una conclusión aplicable.", "preferredDelivery": "character" }
       ],
-      "recommendedEffectSequenceIds": ["entrance-emphasis-exit-v1", "rise-and-settle-v2", "shake-and-pulse-v2"]
+      "recommendedEffectSequenceIds": ["entrance-emphasis-exit-v1", "character-explain-v3", "character-celebrate-v3", "final-emphasis-v3", "rise-and-settle-v2", "shake-and-pulse-v2"]
     },
     {
       "id": "dialogue-contrast-v1",
@@ -47,7 +47,7 @@
         { "id": "counterpoint", "kind": "speech", "intent": "El segundo personaje muestra el límite o la contradicción.", "preferredDelivery": "character" },
         { "id": "synthesis", "kind": "speech", "intent": "Ambos convergen en una conclusión útil.", "preferredDelivery": "character" }
       ],
-      "recommendedEffectSequenceIds": ["speaker-focus-reaction-v1"]
+      "recommendedEffectSequenceIds": ["speaker-focus-reaction-v1", "dialogue-exchange-v3", "character-celebrate-v3", "final-emphasis-v3"]
     },
     {
       "id": "keyword-pages-v1",
@@ -73,7 +73,7 @@
         { "id": "hook-card", "kind": "visual", "intent": "Abrir con el dato principal.", "preferredDelivery": "none" },
         { "id": "explain-card", "kind": "speech", "intent": "Explicar el dato con una frase breve.", "preferredDelivery": "voiceover" },
         { "id": "close-card", "kind": "visual", "intent": "Cerrar con la consecuencia útil.", "preferredDelivery": "none" }
-      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "pop-and-wobble-v2"]
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "prop-reveal-slide-v3", "prop-mid-callout-v3", "prop-close-v3", "pop-and-wobble-v2"]
     },
     {
       "id": "prop-reveal-v1", "label": "Revelado de objeto", "description": "Un objeto aparece como respuesta visual a la narración.",
@@ -83,7 +83,7 @@
         { "id": "question", "kind": "speech", "intent": "Plantear la tensión.", "preferredDelivery": "voiceover" },
         { "id": "reveal-prop", "kind": "visual", "intent": "Revelar el objeto que resuelve la idea.", "preferredDelivery": "none" },
         { "id": "resolve", "kind": "speech", "intent": "Explicar por qué importa.", "preferredDelivery": "voiceover" }
-      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "pop-and-wobble-v2", "jump-and-flash-v2"]
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "prop-reveal-slide-v3", "prop-mid-callout-v3", "prop-hover-v3", "prop-close-v3", "jump-and-flash-v2"]
     },
     {
       "id": "before-after-v1", "label": "Antes y después", "description": "Contrasta dos estados mediante entradas opuestas y una conclusión narrada.",
@@ -93,7 +93,7 @@
         { "id": "before", "kind": "visual", "intent": "Mostrar el estado inicial.", "preferredDelivery": "none" },
         { "id": "change", "kind": "speech", "intent": "Nombrar el cambio decisivo.", "preferredDelivery": "voiceover" },
         { "id": "after", "kind": "visual", "intent": "Mostrar el resultado final.", "preferredDelivery": "none" }
-      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "rise-and-settle-v2", "exit-up-and-fade-v2"]
+      ], "recommendedEffectSequenceIds": ["visual-reveal-v1", "prop-reveal-slide-v3", "prop-mid-callout-v3", "prop-close-v3", "exit-up-and-fade-v2"]
     },
     {
       "id": "countdown-visual-v1", "label": "Cuenta regresiva visual", "description": "Una palabra o número protagonista marca pasos breves con ritmo creciente.",
@@ -112,6 +112,7 @@
       "label": "Aparición y énfasis visual",
       "description": "Hace aparecer un elemento y aplica un pulso breve después de que queda visible.",
       "tags": ["entrada", "aparicion", "enfasis", "visual"],
+      "phase": "opening",
       "compatibleAnchorKinds": ["scene", "turn", "word"],
       "slots": [
         { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["opacity", "scale"] }
@@ -126,6 +127,7 @@
       "label": "Entrada, énfasis y salida",
       "description": "Coordina una entrada lateral, un énfasis central y una salida por opacidad.",
       "tags": ["entrada", "enfasis", "salida", "personaje"],
+      "phase": "opening",
       "compatibleAnchorKinds": ["scene", "turn"],
       "slots": [
         { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.x", "scale", "opacity"] }
@@ -141,6 +143,7 @@
       "label": "Foco y reacción",
       "description": "El hablante recibe énfasis y el segundo personaje responde con un asentimiento articulado.",
       "tags": ["dialogo", "reaccion", "foco", "coordinado"],
+      "phase": "development",
       "compatibleAnchorKinds": ["turn", "word"],
       "slots": [
         { "id": "speaker", "elementTypes": ["character"], "requiredParameters": ["scale"] },
@@ -156,6 +159,7 @@
       "label": "Prop protagonista y señalamiento",
       "description": "Hace aparecer un prop, lo enfatiza y coordina un gesto del personaje guía.",
       "tags": ["prop", "personaje", "señalar", "coordinado"],
+      "phase": "development",
       "compatibleAnchorKinds": ["turn", "word"],
       "slots": [
         { "id": "prop", "elementTypes": ["prop"], "requiredParameters": ["opacity", "scale"] },
@@ -172,6 +176,7 @@
       "label": "Subida y asentamiento",
       "description": "Introduce el elemento desde abajo y lo asienta con un pulso breve.",
       "tags": ["entrada", "vertical", "pulso", "dinamico"],
+      "phase": "opening",
       "compatibleAnchorKinds": ["scene", "turn", "word"],
       "slots": [
         { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.y", "scale"] }
@@ -186,6 +191,7 @@
       "label": "Rebote y balanceo",
       "description": "Hace aparecer el elemento con rebote y agrega un balanceo corto de asentamiento.",
       "tags": ["entrada", "rebote", "balanceo", "visual"],
+      "phase": "opening",
       "compatibleAnchorKinds": ["scene", "turn", "word"],
       "slots": [
         { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["scale", "rotationDegrees"] }
@@ -200,6 +206,7 @@
       "label": "Salto y destello",
       "description": "Coordina un salto corto con un destello de visibilidad para remarcar una reacción.",
       "tags": ["salto", "destello", "reaccion", "enfasis"],
+      "phase": "development",
       "compatibleAnchorKinds": ["turn", "word"],
       "slots": [
         { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.y", "opacity"] }
@@ -214,6 +221,7 @@
       "label": "Sacudida y pulso",
       "description": "Combina una sacudida lateral con un pulso para enfatizar una palabra o dato.",
       "tags": ["sacudida", "pulso", "dato", "enfasis"],
+      "phase": "development",
       "compatibleAnchorKinds": ["turn", "word"],
       "slots": [
         { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.x", "scale"] }
@@ -228,6 +236,7 @@
       "label": "Flotación y respiración",
       "description": "Mantiene un movimiento vertical suave y agrega un pulso contenido durante la exposición.",
       "tags": ["flotar", "suave", "pulso", "ambiental"],
+      "phase": "development",
       "compatibleAnchorKinds": ["scene", "turn"],
       "slots": [
         { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.y", "scale"] }
@@ -242,6 +251,7 @@
       "label": "Salida ascendente",
       "description": "Retira el elemento hacia arriba mientras reduce su opacidad.",
       "tags": ["salida", "vertical", "desvanecer", "cierre"],
+      "phase": "closing",
       "compatibleAnchorKinds": ["scene", "turn"],
       "slots": [
         { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["position.y", "opacity"] }
@@ -249,6 +259,123 @@
       "actions": [
         { "slotId": "subject", "presetId": "exit-top", "offsetSeconds": 0, "intensity": "inherit" },
         { "slotId": "subject", "presetId": "fade-out", "offsetSeconds": 0.15, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "prop-reveal-slide-v3",
+      "label": "Prop revelado con asentamiento",
+      "description": "Reserva el protagonismo para un prop: aparece, cae suavemente en su lugar y termina con un acento inclinado.",
+      "tags": ["prop", "entrada", "revelado", "variado"],
+      "phase": "opening",
+      "compatibleAnchorKinds": ["scene", "turn"],
+      "slots": [
+        { "id": "prop", "elementTypes": ["prop"], "requiredParameters": ["opacity", "position.y"] }
+      ],
+      "actions": [
+        { "slotId": "prop", "presetId": "fade-in", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "prop", "presetId": "settle-down", "offsetSeconds": 0.08, "intensity": "inherit" }
+      ]
+    },
+    {
+      "id": "prop-mid-callout-v3",
+      "label": "Prop destacado durante la explicación",
+      "description": "Mueve y respira el prop alrededor de una palabra intermedia sin tapar al personaje.",
+      "tags": ["prop", "desarrollo", "dato", "llamada"],
+      "phase": "development",
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "prop", "elementTypes": ["prop"], "requiredParameters": ["position.x"] }
+      ],
+      "actions": [
+        { "slotId": "prop", "presetId": "drift-horizontal", "offsetSeconds": 0, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "prop-hover-v3",
+      "label": "Prop flotante con acento",
+      "description": "Da vida al prop durante el desarrollo con un rebote contenido y una inclinación breve.",
+      "tags": ["prop", "desarrollo", "flotar", "ambiental"],
+      "phase": "development",
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "prop", "elementTypes": ["prop"], "requiredParameters": ["position.y"] }
+      ],
+      "actions": [
+        { "slotId": "prop", "presetId": "gentle-bob", "offsetSeconds": 0, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "prop-close-v3",
+      "label": "Cierre gestual del prop",
+      "description": "Da al prop un último acento inclinado que termina exactamente con la escena.",
+      "tags": ["prop", "salida", "cierre", "limpio"],
+      "phase": "closing",
+      "compatibleAnchorKinds": ["scene", "turn"],
+      "slots": [
+        { "id": "prop", "elementTypes": ["prop"], "requiredParameters": ["rotationDegrees"] }
+      ],
+      "actions": [
+        { "slotId": "prop", "presetId": "tilt-accent", "offsetSeconds": 0, "intensity": "inherit" }
+      ]
+    },
+    {
+      "id": "character-explain-v3",
+      "label": "Explicación corporal",
+      "description": "Acompaña una frase intermedia con inclinación de cabeza y cuerpo, sin repetir una entrada.",
+      "tags": ["personaje", "desarrollo", "explicacion", "gesto"],
+      "phase": "development",
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "speaker", "elementTypes": ["character"], "requiredParameters": ["headTilt", "bodyLean"] }
+      ],
+      "actions": [
+        { "slotId": "speaker", "presetId": "head-tilt", "offsetSeconds": 0, "intensity": "soft" },
+        { "slotId": "speaker", "presetId": "body-lean", "offsetSeconds": 0.18, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "character-celebrate-v3",
+      "label": "Reacción corporal positiva",
+      "description": "Combina un rebote corporal con el brazo para remarcar una consecuencia o logro.",
+      "tags": ["personaje", "desarrollo", "reaccion", "energia"],
+      "phase": "development",
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "speaker", "elementTypes": ["character"], "requiredParameters": ["bodyBounce", "armRaise"] }
+      ],
+      "actions": [
+        { "slotId": "speaker", "presetId": "body-bounce", "offsetSeconds": 0, "intensity": "inherit" },
+        { "slotId": "speaker", "presetId": "arm-raise", "offsetSeconds": 0.12, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "dialogue-exchange-v3",
+      "label": "Intercambio y respuesta",
+      "description": "El hablante se inclina al desarrollar la idea y el otro personaje responde con un asentimiento.",
+      "tags": ["dialogo", "desarrollo", "respuesta", "coordinado"],
+      "phase": "development",
+      "compatibleAnchorKinds": ["turn", "word"],
+      "slots": [
+        { "id": "speaker", "elementTypes": ["character"], "requiredParameters": ["bodyLean"] },
+        { "id": "reactor", "elementTypes": ["character"], "requiredParameters": ["headNod"] }
+      ],
+      "actions": [
+        { "slotId": "speaker", "presetId": "body-lean", "offsetSeconds": 0, "intensity": "soft" },
+        { "slotId": "reactor", "presetId": "head-nod", "offsetSeconds": 0.32, "intensity": "soft" }
+      ]
+    },
+    {
+      "id": "final-emphasis-v3",
+      "label": "Remate final",
+      "description": "Da al protagonista un acento visual breve que termina exactamente contra el final de la escena.",
+      "tags": ["personaje", "prop", "remate", "cierre"],
+      "phase": "closing",
+      "compatibleAnchorKinds": ["scene", "turn"],
+      "slots": [
+        { "id": "subject", "elementTypes": ["character", "prop"], "requiredParameters": ["rotationDegrees"] }
+      ],
+      "actions": [
+        { "slotId": "subject", "presetId": "tilt-accent", "offsetSeconds": 0, "intensity": "soft" }
       ]
     }
   ]

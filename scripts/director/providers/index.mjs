@@ -1,11 +1,13 @@
 import { PipelineError } from '../../stage1/errors.mjs';
 import { createOllamaProvider } from './ollama.mjs';
+import { createOpenAIProvider } from './openai.mjs';
 
 // Registro de proveedores de IA (D2). Sumar un proveedor = implementar la interfaz
 // DirectorProvider (generatePlan/generateCommands/inspect) y registrarlo acá.
 // Contrato documentado en docs/PROVEEDORES_IA.md.
 const FACTORIES = new Map([
   ['ollama', createOllamaProvider],
+  ['openai', createOpenAIProvider],
 ]);
 
 export const DEFAULT_PROVIDER_NAME = 'ollama';

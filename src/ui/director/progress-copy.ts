@@ -12,10 +12,13 @@ export function describeDirectorProgress(status: DirectorStatus): string | null 
     : '';
   const repairing = (status.attempt ?? 1) > 1;
   const messages: Record<string, string> = {
-    checking_model: 'Comprobando Ollama y la versión del modelo…',
+    checking_model: 'Comprobando el proveedor y el modelo de IA…',
     preparing_context: 'Preparando recursos y contexto del proyecto…',
     cache: 'Recuperando una propuesta ya calculada…',
-    generating: repairing ? `Reparando la propuesta${candidate}${segment}…` : `Generando la propuesta${candidate}${segment} con Ollama…`,
+    generating_questions: 'Preparando tres preguntas para personalizar tu idea…',
+    validating_questions: 'Revisando que las preguntas sean claras y útiles…',
+    repairing_questions: 'Ajustando las preguntas al formato correcto…',
+    generating: repairing ? `Reparando la propuesta${candidate}${segment}…` : `Generando la propuesta${candidate}${segment}…`,
     validating: `Validando la propuesta${candidate}…`,
     comparing: 'Comparando las propuestas y eligiendo la más sólida…',
     repairing: 'Reparando la propuesta mejor puntuada…',

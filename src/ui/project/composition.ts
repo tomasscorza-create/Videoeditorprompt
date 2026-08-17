@@ -51,6 +51,7 @@ import {
 import { quantizeToFrame } from '../../../shared/animation-contract.js';
 import type { SceneTiming } from '../../../shared/animation-evaluator.js';
 import { evaluateScene } from '../../../shared/scene-evaluator.js';
+import { buildSubtitleCues, subtitleCueAt } from '../../../shared/subtitle-cues.js';
 import { drawRigPreview, rigSpritePlan } from './rig-preview.js';
 
 interface AssetCatalogEntry {
@@ -152,8 +153,6 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
     const background = store.resources('background').find((entry) => entry.id === scene.background.resourceId);
     if (background?.backgroundManifest) {
       nodes.push(...backgroundNodes(backgroundLayers.get(background.backgroundManifest) ?? []));
-    } else {
-      nodes.push(label(scene.title));
     }
 
     const scope = animationScope(store, scene);
@@ -235,7 +234,6 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
     if (animatingElement && !previewing) nodes.push(animationBanner(scope));
     const subtitle = previewTiming ? liveSubtitle(scene, previewTiming, editorPlayhead()) : null;
     if (subtitle) nodes.push(subtitle);
-    if (!previewing) nodes.push(label(`${scene.title} · ${scene.background.cameraPreset}`));
     canvas.replaceChildren(...nodes);
   };
 
@@ -323,9 +321,14 @@ function liveSubtitle(scene: SceneView, timing: MeasuredScene, seconds: number):
   if (!measuredTurn) return null;
   const turn = scene.dialogue.find((item) => item.id === measuredTurn.id);
   if (!turn) return null;
+  const cue = subtitleCueAt(
+    buildSubtitleCues(turn.text, measuredTurn.durationSeconds),
+    seconds - measuredTurn.startSeconds,
+  );
+  if (!cue) return null;
   const subtitle = document.createElement('div');
   subtitle.className = 'composition-live-subtitle';
-  subtitle.textContent = turn.text;
+  subtitle.textContent = cue.text;
   subtitle.setAttribute('aria-hidden', 'true');
   return subtitle;
 }
@@ -965,7 +968,6 @@ function nextElementId(sceneId: string, existing: string[], kind: 'personaje' | 
 
 function reportPlacement(message: string, isError: boolean): void {
   for (const status of [
-    optional<HTMLElement>('#project-status'),
     optional<HTMLElement>('#resource-library-status'),
   ]) {
     if (!status) continue;
@@ -1018,14 +1020,6 @@ function backgroundNodes(paths: readonly string[]): HTMLElement[] {
     image.style.zIndex = '0';
     return image;
   });
-}
-
-function label(text: string): HTMLElement {
-  const node = document.createElement('span');
-  node.className = 'composition-label';
-  node.textContent = text;
-  node.style.zIndex = '2000';
-  return node;
 }
 
 function placementHint(text: string): HTMLElement {

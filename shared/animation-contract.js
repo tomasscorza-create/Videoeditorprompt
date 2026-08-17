@@ -45,6 +45,7 @@ export const ANIMATION_PRESET_IDS = Object.freeze([
   'exit-left', 'exit-right', 'exit-top',
   'fade-in', 'fade-out', 'blink',
   'emphasis-pulse', 'shake-horizontal', 'wobble', 'squash-stretch', 'jump', 'float',
+  'drift-horizontal', 'gentle-bob', 'tilt-accent', 'scale-breathe', 'settle-down', 'exit-shrink',
   'arm-raise', 'left-arm-raise', 'right-elbow-bend', 'left-elbow-bend',
   'head-tilt', 'head-nod', 'body-lean', 'body-bounce',
 ]);

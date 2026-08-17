@@ -30,7 +30,7 @@ const sourceProject = readJson(path.join(projectRoot, 'pilots', 'proyecto-compil
 for (const definition of BACKGROUND_PACK) {
   const catalogEntry = catalogById.get(definition.resourceId);
   assert.equal(catalogEntry?.type, 'background');
-  assert.deepEqual(catalogEntry.capabilities.cameraPresets, ['static', 'slow-pan', 'slow-zoom']);
+  assert.deepEqual(catalogEntry.capabilities.cameraPresets, ['static', 'slow-pan', 'slow-zoom', 'drift-left', 'drift-right', 'push-in', 'pull-back', 'rise', 'diagonal-glide']);
 
   const committedRoot = path.join(assetsRoot, 'assets', 'backgrounds', definition.id);
   const manifest = readJson(path.join(committedRoot, 'background.manifest.json'));

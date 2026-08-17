@@ -1,9 +1,19 @@
 import type { CharacterDesign } from '../../../shared/character-design-presets.js';
+import { getDirectorProviderSettings } from './provider-settings.js';
 
 export interface LocalHealth {
   version: number;
   ready: boolean;
-  ollama: {
+  director?: {
+    provider: 'ollama' | 'openai';
+    available: boolean;
+    modelInstalled: boolean;
+    model?: string;
+    version?: string;
+    digest?: string | null;
+    error?: ApiError;
+  };
+  ollama?: {
     available: boolean;
     modelInstalled: boolean;
     model?: string;
@@ -59,16 +69,31 @@ export interface DirectorProposal {
   quality?: DirectorQualityReport;
   candidateQuality?: DirectorQualityReport[];
   repairAttempts?: number;
-  usage?: {
-    think: boolean;
-    generationCount: number;
-    qualityEscalations: number;
-    promptEvalCount: number | null;
-    evalCount: number | null;
-    totalDurationNanoseconds: number | null;
-    elapsedMilliseconds: number;
-    candidateElapsedMilliseconds: number[];
-  };
+  usage?: DirectorUsage;
+}
+
+export interface DirectorUsage {
+  version?: number;
+  requestCount?: number;
+  currentRequestCount?: number;
+  transportAttempts?: number;
+  retryCount?: number;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  cachedInputTokens?: number | null;
+  cacheWriteTokens?: number | null;
+  uncachedInputTokens?: number | null;
+  totalTokens?: number | null;
+  promptEvalCount?: number | null;
+  evalCount?: number | null;
+  totalDurationNanoseconds?: number | null;
+  elapsedMilliseconds?: number | null;
+  cacheHit?: boolean;
+  repairAttempts?: number;
+  generationCount?: number;
+  qualityEscalations?: number;
+  judgeRequestCount?: number;
+  candidateElapsedMilliseconds?: number[];
 }
 
 export interface DirectorQualityReport {
@@ -91,11 +116,15 @@ export interface DirectorContextSummary {
   queryTokens: string[];
   resourceIds: string[];
   resourceScores: Record<string, number>;
+  explicitResourceIds?: string[];
   templateIds: string[];
   recommendedTemplateId: string | null;
   selectedTemplateId?: string | null;
   totalCatalogEntries: number;
   shortlistedEntries: number;
+  availableByType?: Record<string, number>;
+  shortlistedByType?: Record<string, number>;
+  unsupportedResourceTypes?: string[];
   resolvedConstraints?: DirectorConstraints;
 }
 
@@ -155,16 +184,21 @@ export type ApiErrorKind = 'cancelled' | 'busy' | 'timeout' | 'dependency' | 'in
 
 export function classifyApiError(error: ApiError): ApiErrorKind {
   const code = error.code ?? '';
-  if (code === 'DIRECTOR_CANCELLED' || code === 'OLLAMA_CANCELLED') return 'cancelled';
+  if (code === 'DIRECTOR_CANCELLED' || code === 'OLLAMA_CANCELLED' || code === 'OPENAI_CANCELLED') return 'cancelled';
   if (code === 'DIRECTOR_BUSY' || code === 'RENDER_BUSY') return 'busy';
   if (code.includes('TIMEOUT')) return 'timeout';
   if (
     code === 'LOCAL_SERVICE_UNAVAILABLE'
     || code === 'OLLAMA_UNAVAILABLE'
     || code === 'OLLAMA_DIRECTOR_REQUEST_FAILED'
+    || code === 'OPENAI_UNAVAILABLE'
+    || code === 'OPENAI_API_KEY_MISSING'
+    || code === 'OPENAI_AUTH_INVALID'
+    || code === 'OPENAI_RATE_LIMITED'
+    || code === 'OPENAI_REQUEST_FAILED'
     || code.startsWith('TTS_')
   ) return 'dependency';
-  if (code === 'LOCAL_SERVICE_INVALID_RESPONSE' || code.includes('JSON_INVALID') || code === 'OLLAMA_RESPONSE_EMPTY') {
+  if (code === 'LOCAL_SERVICE_INVALID_RESPONSE' || code.includes('JSON_INVALID') || code === 'OLLAMA_RESPONSE_EMPTY' || code === 'OPENAI_RESPONSE_EMPTY') {
     return 'invalid-response';
   }
   return 'error';
@@ -191,17 +225,43 @@ export interface DirectorStatus {
 }
 
 export interface DirectorConstraints {
-  tone: 'educational' | 'ironic' | 'serious' | 'energetic' | 'inspirational';
-  targetDurationSeconds: number;
-  sceneCount: number;
+  tone?: 'educational' | 'ironic' | 'serious' | 'energetic' | 'inspirational';
+  targetDurationSeconds?: number;
+  sceneCount?: number;
   planVersion: 2;
-  richnessProfile: 'automatic' | 'simple' | 'varied' | 'dynamic';
-  structure: 'automatic' | 'narration' | 'one-character' | 'dialogue';
+  richnessProfile?: 'automatic' | 'simple' | 'varied' | 'dynamic';
+  structure?: 'automatic' | 'narration' | 'one-character' | 'dialogue';
 }
 
 export interface DirectorGenerationOptions {
   think: boolean;
   bestOf: 1 | 2 | 3;
+}
+
+export interface DirectorChoiceQuestion {
+  id: string;
+  kind: 'choice';
+  prompt: string;
+  multiple: boolean;
+  options: Array<{ id: string; label: string }>;
+  otherPlaceholder: string;
+}
+
+export type DirectorQuestion = DirectorChoiceQuestion;
+
+export interface DirectorQuestionSet {
+  version: number;
+  questionContract: 2;
+  cacheHit: boolean;
+  model: string;
+  questions: [DirectorChoiceQuestion, DirectorChoiceQuestion, DirectorChoiceQuestion];
+  modelIdentity?: { model: string; digest: string | null; runtimeVersion: string | null };
+  usage?: DirectorUsage;
+}
+
+export interface DirectorPersonalizationAnswer {
+  question: string;
+  answer: string;
 }
 
 export interface RegisteredResource {
@@ -249,7 +309,10 @@ export async function deleteSavedProject(id: string): Promise<void> {
 }
 
 export async function getHealth(): Promise<LocalHealth> {
-  return apiRequest<LocalHealth>('/api/health');
+  const settings = getDirectorProviderSettings();
+  const query = new URLSearchParams({ provider: settings.provider });
+  if (settings.model) query.set('model', settings.model);
+  return apiRequest<LocalHealth>(`/api/health?${query}`);
 }
 
 export async function getDirectorStatus(): Promise<DirectorStatus> {
@@ -261,14 +324,48 @@ export async function createProposal(
   variant: number,
   constraints: DirectorConstraints,
   generation: DirectorGenerationOptions,
+  personalization: DirectorPersonalizationAnswer[],
   signal?: AbortSignal,
 ): Promise<DirectorProposal> {
+  const provider = getDirectorProviderSettings();
   return apiRequest<DirectorProposal>('/api/director/proposals', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, variant, constraints, ...generation }),
+    body: JSON.stringify({ prompt, variant, constraints, personalization, ...generation, ...provider }),
     signal,
   });
+}
+
+export async function createClarifyingQuestions(
+  prompt: string,
+  constraints: DirectorConstraints,
+  signal?: AbortSignal,
+): Promise<DirectorQuestionSet> {
+  const provider = getDirectorProviderSettings();
+  const response = await apiRequest<DirectorQuestionSet>('/api/director/questions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt, constraints, ...provider }),
+    signal,
+  });
+  const validQuestions = response.questionContract === 2
+    && Array.isArray(response.questions)
+    && response.questions.length === 3
+    && response.questions.every((question) => (
+      question?.kind === 'choice'
+      && Array.isArray(question.options)
+      && question.options.length === 3
+      && typeof question.otherPlaceholder === 'string'
+      && question.otherPlaceholder.trim().length > 0
+    ));
+  if (!validQuestions) {
+    throw friendlyError(
+      'LOCAL_SERVICE_RESTART_REQUIRED',
+      'El servicio local sigue usando una versión anterior del formulario.',
+      'Cerrá por completo npm run dev, volvé a iniciarlo y repetí la idea.',
+    );
+  }
+  return response;
 }
 
 export async function editProjectWithAi(
@@ -299,10 +396,11 @@ export async function editProjectWithAi(
     elapsedMilliseconds: number;
   };
 }> {
+  const provider = getDirectorProviderSettings();
   return apiRequest('/api/director/edits', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ instruction, project, selection }),
+    body: JSON.stringify({ instruction, project, selection, ...provider }),
     signal,
   });
 }

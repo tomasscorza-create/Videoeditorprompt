@@ -5,7 +5,6 @@ import { initWorkspaceResize } from './layout-resize.js';
 import { initCompositionPreview } from './project/composition.js';
 import { initCompositionZoom } from './project/composition-zoom.js';
 import { initResourceLibrary } from './project/library.js';
-import { initProjectEditor } from './project/panel.js';
 import { initEditingPanel } from './project/editing-panel.js';
 import { persistStore, restoreSession } from './project/persistence.js';
 import { initProjectTimeline } from './project/project-timeline.js';
@@ -25,6 +24,7 @@ import { setActiveEditorProject, syncActiveEditorProject } from './editor-worksp
 import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
 import { initVideoTemplateEditor } from './video-template-editor.js';
 import { initTimelineV2 } from './timeline-v2.js';
+import { initDirectorProviderSettings } from './director/provider-settings.js';
 import { initElevenLabsVoices } from './elevenlabs-voices.js';
 
 export { renderJobGallery } from './gallery.js';
@@ -32,6 +32,7 @@ export { renderJobGallery } from './gallery.js';
 // Interfaz que no depende de que la escena cargue.
 export function initShellUi(): void {
   initTheme();
+  initDirectorProviderSettings();
   initElevenLabsVoices();
   initTablists();
   initRightPanel();
@@ -62,12 +63,11 @@ export async function initProjectUi(): Promise<void> {
       ...store.recoveryWarnings(),
     ]);
   } catch (error) {
-    const root = optional<HTMLElement>('#project-editor');
-    const status = optional<HTMLElement>('#project-status');
-    if (root) root.hidden = false;
+    const status = optional<HTMLElement>('#director-status');
     if (status) {
       status.textContent = `No se pudo abrir el proyecto de autoría: ${error instanceof Error ? error.message : String(error)}`;
       status.classList.add('error');
+      status.closest<HTMLElement>('.director-global-status')?.removeAttribute('hidden');
     }
     console.warn('Editor de proyecto no disponible', error);
   }
@@ -79,10 +79,11 @@ export async function initProjectUi(): Promise<void> {
 
 function showRecoveryWarnings(warnings: readonly string[]): void {
   if (warnings.length === 0) return;
-  const status = optional<HTMLElement>('#project-status');
+  const status = optional<HTMLElement>('#director-status');
   if (status) {
     status.textContent = warnings.join(' ');
     status.classList.remove('error');
+    status.closest<HTMLElement>('.director-global-status')?.removeAttribute('hidden');
   }
   console.warn('Recuperación del proyecto', ...warnings);
 }
@@ -93,7 +94,6 @@ function attachProjectUi(store: ProjectStore): void {
   initProjectIdentity(store);
   initOnboarding(store);
   initProjectFiles(store);
-  initProjectEditor(store);
   initEditingPanel(store);
   initProjectTimeline(store);
   void initCompositionPreview(store);

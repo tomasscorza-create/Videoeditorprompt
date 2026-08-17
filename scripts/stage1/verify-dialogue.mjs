@@ -52,7 +52,26 @@ export function verifyDialogueJob(context, config) {
     && ['hybrid-grapheme-rms-v1', 'rms-fallback'].includes(turn.mouthCueSource)
     && turn.mouthCues.every((cue) => mouthStates.has(cue.state))
   )), dialogue.turns.map((turn) => ({ source: turn.mouthCueSource, cues: turn.mouthCues.length })));
-  check('Subtítulos por turno y portables', dialogue.turns.every((turn) => turn.subtitlePath && !path.isAbsolute(turn.subtitlePath)), dialogue.turns.map((turn) => turn.subtitlePath));
+  check(
+    'Subtítulos cortos, temporizados, de una línea y portables',
+    dialogue.turns.every((turn) => (
+      Array.isArray(turn.subtitleCues)
+      && turn.subtitleCues.length > 0
+      && turn.subtitleCues.every((cue, index) => (
+        cue.subtitlePath
+        && !path.isAbsolute(cue.subtitlePath)
+        && !/[\r\n]/u.test(cue.text)
+        && cue.wordCount === cue.text.split(/\s+/u).filter(Boolean).length
+        && (cue.wordCount >= 2 || turn.subtitleCues.length === 1)
+        && cue.wordCount <= 3
+        && cue.endSeconds > cue.startSeconds
+        && (index === 0 || Math.abs(cue.startSeconds - turn.subtitleCues[index - 1].endSeconds) < 1e-9)
+      ))
+      && Math.abs(turn.subtitleCues[0].startSeconds) < 1e-9
+      && Math.abs(turn.subtitleCues.at(-1).endSeconds - turn.durationSeconds) < 1e-9
+    )),
+    dialogue.turns.map((turn) => turn.subtitleCues?.map((cue) => cue.text)),
+  );
   check(
     'Parpadeos independientes y válidos',
     runtime.characters.every((character) => character.blinks.every((blink) => (
@@ -81,6 +100,13 @@ export function verifyDialogueJob(context, config) {
   check('Frames PNG idénticos', metrics1.frameContentHash === metrics2.frameContentHash, metrics1.frameContentHash);
   check('Cantidad de frames consistente', metrics1.frameCount === metrics2.frameCount && metrics1.frameCount === Math.ceil(runtime.audio.durationSeconds * config.video.fps), metrics1.frameCount);
   check('Cada turno aparece en frames', dialogue.turns.every((turn) => plan1.frames.some((frame) => frame.activeTurnId === turn.id)), true);
+  check(
+    'Cada fragmento de subtítulo aparece en frames',
+    dialogue.turns.every((turn) => turn.subtitleCues.every((cue) => (
+      plan1.frames.some((frame) => frame.subtitlePath === cue.subtitlePath)
+    ))),
+    true,
+  );
   check('Solo habla un personaje', plan1.frames.every((frame) => frame.characters.filter((character) => character.speaking).length <= 1), true);
   check('Boca inactiva siempre cerrada', plan1.frames.every((frame) => frame.characters.filter((character) => !character.speaking).every((character) => character.mouth === 'closed')), true);
   check('Hablante activo coincide', plan1.frames.every((frame) => frame.characters.find((character) => character.speaking)?.id === frame.activeSpeakerId || frame.activeSpeakerId === null), true);

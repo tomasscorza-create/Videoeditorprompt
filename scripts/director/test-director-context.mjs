@@ -46,6 +46,19 @@ assert.ok(first.summary.shortlistedEntries < first.summary.totalCatalogEntries);
 assert.equal(first.templates.length, 3);
 assert.ok(first.summary.recommendedTemplateId);
 
+const explicitlyRequested = buildDirectorContext({
+  prompt: 'Usá al Especialista en ciberseguridad para explicar el problema.',
+  catalog: expandedCatalog,
+  templates,
+  resourceLimits: { character: 2 },
+});
+assert.ok(explicitlyRequested.summary.explicitResourceIds.includes('especialista-ciberseguridad-v1'));
+assert.ok(explicitlyRequested.summary.resourceIds.includes('especialista-ciberseguridad-v1'));
+
+const reorderedCatalog = { ...expandedCatalog, entries: [...expandedCatalog.entries].reverse() };
+const reordered = buildDirectorContext({ ...options, catalog: reorderedCatalog });
+assert.deepEqual(reordered.summary.resourceIds, first.summary.resourceIds);
+
 const compactResources = compactResourceEntries(first.catalog);
 assert.equal(Object.hasOwn(compactResources[0], 'provenance'), false);
 assert.equal(Object.hasOwn(compactResources[0], 'characterRef'), false);
@@ -69,7 +82,7 @@ assert.throws(
 
 process.stdout.write(`${JSON.stringify({
   version: 1,
-  passed: 16,
+  passed: 19,
   failed: 0,
   shortlisted: first.summary.shortlistedEntries,
   total: first.summary.totalCatalogEntries,

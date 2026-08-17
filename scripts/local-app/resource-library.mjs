@@ -209,7 +209,7 @@ export async function createResourceLibrary(options = {}) {
           label,
           tags: ['local', 'importado', 'fondo-estatico'],
           backgroundManifest: manifestRelative,
-          capabilities: { cameraPresets: ['static', 'slow-pan', 'slow-zoom'] },
+          capabilities: { cameraPresets: ['static', 'slow-pan', 'slow-zoom', 'drift-left', 'drift-right', 'push-in', 'pull-back', 'rise', 'diagonal-glide'] },
           provenance: { source, license },
         });
         return {

@@ -9,7 +9,7 @@ import { PipelineError } from '../../stage1/errors.mjs';
 //
 // Garantías verificadas:
 // - name: identificador de proveedor no vacío.
-// - generatePlan / generateCommands: devuelven { content } string parseable como
+// - generatePlan / generateCommands / generateQuestions: devuelven { content } string parseable como
 //   JSON que cumple el schema pedido.
 // - inspect(): responde { available, model, modelInstalled, version }.
 // - respeta signal (abortable) propagando un PipelineError.
@@ -17,7 +17,12 @@ import { PipelineError } from '../../stage1/errors.mjs';
 //
 // Lo que un proveedor NO puede asumir: determinismo por seed es opcional (se declara
 // por proveedor); la caché aguas arriba mitiga el no-determinismo pero no lo exige.
-export async function assertDirectorProviderContract({ makeProvider, schema }) {
+export async function assertDirectorProviderContract({
+  makeProvider,
+  schema,
+  expectedCancelledCode = 'OLLAMA_CANCELLED',
+  expectedDigest = 'sha256:modelo-x',
+}) {
   const validate = new Ajv2020({ strict: false }).compile(schema);
   const baseCall = {
     schema,
@@ -34,7 +39,7 @@ export async function assertDirectorProviderContract({ makeProvider, schema }) {
   assert.ok(named.name.length > 0, 'el proveedor debe declarar un name no vacío');
   checks += 1;
 
-  for (const operation of ['generatePlan', 'generateCommands']) {
+  for (const operation of ['generatePlan', 'generateCommands', 'generateQuestions']) {
     const provider = makeProvider('ok');
     const result = await provider[operation]({ ...baseCall });
     assert.equal(typeof result.content, 'string', `${operation} debe devolver content string`);
@@ -48,7 +53,7 @@ export async function assertDirectorProviderContract({ makeProvider, schema }) {
   assert.equal(typeof health.modelInstalled, 'boolean');
   assert.equal(health.model, 'modelo-x');
   assert.ok('version' in health, 'inspect() debe declarar version (puede ser null)');
-  assert.equal(health.digest, 'sha256:modelo-x');
+  assert.equal(health.digest, expectedDigest);
   checks += 1;
 
   const controller = new AbortController();
@@ -56,7 +61,7 @@ export async function assertDirectorProviderContract({ makeProvider, schema }) {
   controller.abort();
   await assert.rejects(
     () => pending,
-    (error) => error instanceof PipelineError && error.code === 'OLLAMA_CANCELLED',
+    (error) => error instanceof PipelineError && error.code === expectedCancelledCode,
   );
   checks += 1;
 

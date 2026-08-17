@@ -80,9 +80,11 @@ const library = {
 let receivedConstraints = null;
 let receivedGenerationOptions = null;
 let receivedModelIdentity = null;
-const director = async ({ prompt, signal, constraints, think, bestOf, modelIdentity, onProgress }) => {
+let receivedPersonalization = null;
+const director = async ({ prompt, signal, constraints, think, bestOf, personalization, modelIdentity, onProgress }) => {
   receivedConstraints = constraints;
   receivedGenerationOptions = { think, bestOf };
+  receivedPersonalization = personalization;
   receivedModelIdentity = modelIdentity;
   onProgress?.({ stage: 'preparing_context' });
   if (prompt === 'slow') {
@@ -201,12 +203,30 @@ const timelineExporter = {
   }),
   open: () => null,
 };
+let inspectionCalls = 0;
 const app = await createLocalAppServer({
   port: 0,
   environment: { ...process.env, ELEVENLABS_API_KEY: 'test-only-key' },
   manager,
   library,
   director,
+  questionDirector: async ({ prompt, constraints, modelIdentity, onProgress }) => {
+    assert.equal(prompt, 'Un video educativo sobre inteligencia artificial.');
+    assert.deepEqual(constraints, { planVersion: 2 });
+    assert.deepEqual(modelIdentity, { digest: 'sha256:qwen3-test', runtimeVersion: 'test' });
+    onProgress?.({ stage: 'generating_questions' });
+    return {
+      version: 1,
+      questionContract: 2,
+      cacheHit: false,
+      model: 'qwen3:8b',
+      questions: [
+        { id: 'audiencia', kind: 'choice', prompt: '¿A quién querés dirigir el mensaje?', multiple: false, options: [{ id: 'curiosos', label: 'Personas curiosas' }, { id: 'profesionales', label: 'Profesionales' }, { id: 'estudiantes', label: 'Estudiantes' }], otherPlaceholder: 'Ejemplo: emprendedores' },
+        { id: 'enfoque', kind: 'choice', prompt: '¿Qué enfoque debe tener la explicación?', multiple: false, options: [{ id: 'practico', label: 'Práctico' }, { id: 'conceptual', label: 'Conceptual' }, { id: 'comparativo', label: 'Comparativo' }], otherPlaceholder: 'Ejemplo: una historia breve' },
+        { id: 'ejemplo', kind: 'choice', prompt: '¿Qué ejemplo concreto querés incluir?', multiple: false, options: [{ id: 'busqueda', label: 'Una búsqueda cotidiana' }, { id: 'trabajo', label: 'Una situación laboral' }, { id: 'noticia', label: 'Una noticia viral' }], otherPlaceholder: 'Ejemplo: una compra por internet' },
+      ],
+    };
+  },
   projectDirector: async ({ instruction, project: value }) => ({
     version: 1,
     model: 'qwen3:8b',
@@ -224,13 +244,16 @@ const app = await createLocalAppServer({
     project: { ...value, clips: value.clips.map((clip, index) => index === 0 ? { ...clip, enabled: false } : clip) },
     explanation: instruction,
   }),
-  ollamaInspector: async () => ({
-    available: true,
-    modelInstalled: true,
-    model: 'qwen3:8b',
-    version: 'test',
-    digest: 'sha256:qwen3-test',
-  }),
+  ollamaInspector: async () => {
+    inspectionCalls += 1;
+    return {
+      available: true,
+      modelInstalled: true,
+      model: 'qwen3:8b',
+      version: 'test',
+      digest: 'sha256:qwen3-test',
+    };
+  },
   elevenLabs: {
     inspect: async () => ({ available: true, configured: true, voiceCount: 1 }),
     listVoices: async () => [{
@@ -330,13 +353,34 @@ const characterResponse = await request('/api/library/characters', {
 assert.equal(characterResponse.status, 201);
 assert.equal((await characterResponse.json()).resource.type, 'character');
 
+const questionsResponse = await request('/api/director/questions', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ prompt: 'Un video educativo sobre inteligencia artificial.', constraints: { planVersion: 2 } }),
+});
+assert.equal(questionsResponse.status, 200);
+const questionsBody = await questionsResponse.json();
+assert.equal(questionsBody.questionContract, 2);
+assert.equal(questionsBody.questions.length, 3);
+assert.deepEqual(questionsBody.questions.map((question) => question.kind), ['choice', 'choice', 'choice']);
+assert.equal(questionsBody.questions.every((question) => question.options.length === 3), true);
+
 const proposalResponse = await request('/api/director/proposals', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ prompt: 'Un video educativo sobre inteligencia artificial.' }),
+  body: JSON.stringify({
+    prompt: 'Un video educativo sobre inteligencia artificial.',
+    personalization: [
+      { question: '¿A quién querés dirigir el mensaje?', answer: 'Personas curiosas' },
+      { question: '¿Qué enfoque debe tener la explicación?', answer: 'Práctico' },
+      { question: '¿Qué ejemplo concreto querés incluir?', answer: 'Una búsqueda cotidiana' },
+    ],
+  }),
 });
 assert.equal(proposalResponse.status, 200);
 assert.equal((await proposalResponse.json()).project.id, project.id);
+assert.equal(receivedPersonalization.length, 3);
+assert.equal(inspectionCalls, 1);
 
 const constrainedProposalResponse = await request('/api/director/proposals', {
   method: 'POST',
@@ -583,4 +627,4 @@ const medicionInvalida = await request('/api/measurements', {
 assert.equal(medicionInvalida.status >= 400, true);
 
 await app.close();
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 74 + medicionProbada, failed: 0, url: listening.url })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 79 + medicionProbada, failed: 0, url: listening.url })}\n`);

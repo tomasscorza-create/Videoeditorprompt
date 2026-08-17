@@ -121,7 +121,7 @@ export function buildPixiFrameFromV2({
   frame.sprites.push(...backgroundSprites(video, runtime, evaluatedFrame));
   if (subtitleSrc) {
     frame.sprites.push({
-      id: `subtitle:${evaluatedFrame.activeTurnId ?? 'none'}`,
+      id: `subtitle:${evaluatedFrame.subtitlePath ?? evaluatedFrame.activeTurnId ?? 'none'}`,
       src: subtitleSrc,
       zIndex: 1_000_000,
       opacity: 1,

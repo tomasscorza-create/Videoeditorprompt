@@ -1,24 +1,20 @@
-import { summarizeCommands } from '../command-labels.js';
 import { required } from '../dom.js';
 import { notify } from '../notifications.js';
-import {
-  authorizeCustomizedRemovals,
-  formatCustomizedRemovalConfirmation,
-  formatDirectorEditConfirmation,
-} from './edit-proposal.js';
-import { revealResource } from '../project/library.js';
-import { persistLastJobId, readLastJobId } from '../project/persistence.js';
+import { editorOutputState, editorWorkspace, EDITOR_WORKSPACE_EVENT } from '../editor-workspace.js';
 import { createProjectStore, type ProjectStore } from '../project/store.js';
-import { projectSelection } from '../project/selection.js';
+import { persistLastJobId, readLastJobId } from '../project/persistence.js';
 import { showFinalVideo } from '../viewer.js';
-import { EDITOR_WORKSPACE_EVENT, editorOutputState, editorWorkspace, showWorkspaceMode } from '../editor-workspace.js';
 import { projectFingerprint, projectTimingFingerprint } from '../../../shared/project-fingerprint.js';
+import { buildDirectorConstraints } from './brief.js';
+import { canOpenDirectorPhase, initialDirectorPhase, type DirectorPhase } from './flow-state.js';
+import { describeDirectorProgress } from './progress-copy.js';
+import { DIRECTOR_PROVIDER_CHANGE_EVENT, getDirectorProviderSettings } from './provider-settings.js';
 import {
   cancelDirectorProposal,
   cancelRenderJob,
   classifyApiError,
+  createClarifyingQuestions,
   createProposal,
-  editProjectWithAi,
   formatApiError,
   formatApiTechnicalDetails,
   getDirectorStatus,
@@ -28,95 +24,99 @@ import {
   startRender,
   type ApiError,
   type DirectorConstraints,
-  type DirectorGenerationOptions,
-  type DirectorProposal,
+  type DirectorPersonalizationAnswer,
+  type DirectorQuestion,
+  type DirectorQuestionSet,
+  type DirectorUsage,
   type RenderJob,
 } from './api.js';
-import { describeDirectorProgress } from './progress-copy.js';
-import {
-  describeDirectorFlow,
-  describeRenderRequirements,
-  type DirectorFlowAction,
-  type DirectorFlowInput,
-} from './flow-guidance.js';
-import { compareCandidates, strongestCriterion } from './candidates-copy.js';
-import { summarizeHealth, type DependencyView } from './health-copy.js';
-import { summarizeQuality } from './quality-copy.js';
-import {
-  DIRECTOR_PAGES,
-  createDirectorNavigation,
-  describeDirectorPages,
-  updateDirectorNavigation,
-  type DirectorNavigationEvent,
-  type DirectorNavigationState,
-  type DirectorPage,
-} from './navigation.js';
 
 const POLL_INTERVAL_MS = 1000;
 const HEALTH_INTERVAL_MS = 15_000;
+const DIRECTOR_USAGE_STORAGE_KEY = 'local-video.director-usage.v1';
+
+interface IdeaDraft {
+  prompt: string;
+  constraints: DirectorConstraints;
+}
+
+type EditableProject = ReturnType<ProjectStore['project']>;
+
+interface DirectorUsageRecord {
+  provider: 'ollama' | 'openai';
+  model: string;
+  usage: DirectorUsage;
+  cache: { questionsFromCache: boolean; planFromCache: boolean };
+  resources?: { selected: number; total: number; unsupportedTypes: string[] };
+}
 
 export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated: (store: ProjectStore) => void): void {
   const root = required<HTMLElement>('#director-panel');
+  const idea = required<HTMLElement>('#director-phase-idea');
+  const base = required<HTMLElement>('#director-phase-base');
+  const video = required<HTMLElement>('#director-phase-video');
+  const composer = required<HTMLElement>('#director-composer');
   const prompt = required<HTMLTextAreaElement>('#director-prompt');
-  const tone = required<HTMLSelectElement>('#director-tone');
   const duration = required<HTMLSelectElement>('#director-duration');
   const scenes = required<HTMLSelectElement>('#director-scenes');
-  const richness = required<HTMLSelectElement>('#director-richness');
-  const structure = required<HTMLSelectElement>('#director-structure');
-  const think = required<HTMLInputElement>('#director-think');
-  const bestOf = required<HTMLSelectElement>('#director-best-of');
   const generate = required<HTMLButtonElement>('#director-generate');
-  const render = required<HTMLButtonElement>('#director-render');
-  const cancel = required<HTMLButtonElement>('#director-cancel');
   const status = required<HTMLElement>('#director-status');
+  const statusBlock = status.closest<HTMLElement>('.director-global-status')!;
+  const submittedMessage = required<HTMLElement>('#director-submitted-message');
+  const submittedText = required<HTMLElement>('#director-submitted-text');
+  const cancel = required<HTMLButtonElement>('#director-cancel');
   const healthBadge = required<HTMLButtonElement>('#director-health-badge');
   const healthPopover = required<HTMLElement>('#director-health-popover');
-  const proposalQuality = required<HTMLElement>('#proposal-quality');
-  const progressRoot = required<HTMLElement>('#render-progress');
-  const progressBar = required<HTMLElement>('#render-progress-bar');
-  const progressLabel = required<HTMLElement>('#render-progress-label');
+  const phaseButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-director-phase]'));
+  const questionsForm = required<HTMLFormElement>('#director-questions-form');
+  const questionsRoot = required<HTMLElement>('#director-questions');
+  const questionsBack = required<HTMLButtonElement>('#director-questions-back');
+  const createVideo = required<HTMLButtonElement>('#director-create-video');
+  const backBase = required<HTMLButtonElement>('#director-back-base');
+  const replacement = required<HTMLElement>('#director-replacement');
+  const render = required<HTMLButtonElement>('#director-render');
   const renderReadiness = required<HTMLElement>('#render-readiness');
+  const renderRequirements = required<HTMLUListElement>('#render-requirements');
+  const aiUsage = required<HTMLDetailsElement>('#director-ai-usage');
+  const aiUsageValues = required<HTMLElement>('#director-ai-usage-values');
+  const progressRoot = required<HTMLElement>('#render-progress');
+  const progressLabel = required<HTMLElement>('#render-progress-label');
+  const videoResult = required<HTMLElement>('#director-video-result');
+  const videoResultMeta = required<HTMLElement>('#director-video-result-meta');
+  const viewVideo = required<HTMLButtonElement>('#director-view-video');
+  const downloadVideo = required<HTMLAnchorElement>('#director-download-video');
   const gallery = required<HTMLElement>('#render-job-gallery');
   const jobDetails = required<HTMLElement>('#render-job-details');
-  const renderIndicator = required<HTMLButtonElement>('#render-indicator');
-  const renderIndicatorLabel = required<HTMLElement>('#render-indicator-label');
   const refreshJobs = required<HTMLButtonElement>('#jobs-refresh');
   const filesMenu = required<HTMLDetailsElement>('#files-menu');
-  const promptLabel = required<HTMLElement>('#director-prompt-label');
-  const constraintsRoot = required<HTMLElement>('#director-constraints');
-  const proposalKind = required<HTMLElement>('#proposal-kind');
-  const proposalTitle = required<HTMLInputElement>('#proposal-title');
-  const nextEyebrow = required<HTMLElement>('#director-next-eyebrow');
-  const nextTitle = required<HTMLElement>('#director-next-title');
-  const nextDetail = required<HTMLElement>('#director-next-detail');
-  const nextAction = required<HTMLButtonElement>('#director-next-action');
-  const renderRequirements = required<HTMLUListElement>('#render-requirements');
-  const pageTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-director-page]'));
-  const pagePanels = new Map<DirectorPage, HTMLElement>(
-    DIRECTOR_PAGES.map((page) => [page, required<HTMLElement>(`#director-page-${page}`)] as [DirectorPage, HTMLElement]),
-  );
+  const renderIndicator = required<HTMLButtonElement>('#render-indicator');
+  const renderIndicatorLabel = required<HTMLElement>('#render-indicator-label');
 
-  let variant = 0;
   let store = initialStore;
-  let navigation: DirectorNavigationState = createDirectorNavigation(hasAuthoredContent(store));
+  let phase: DirectorPhase = initialDirectorPhase(hasAuthoredContent(store));
+  let busyMode: 'ai' | 'render' | null = null;
   let proposalController: AbortController | null = null;
   let currentJobId: string | null = null;
-  let busyMode: 'ai' | 'render' | null = null;
   let pollTimer: number | null = null;
   let directorStatusTimer: number | null = null;
   let readyForProposal = false;
   let readyForRender = false;
   let healthChecked = false;
+  let variant = 0;
+  let latestCompletedJob: RenderJob | null = null;
+  let submittedInstruction: string | null = null;
+  let ideaDraft: IdeaDraft | null = null;
+  let questionSet: DirectorQuestionSet | null = null;
   const subscribedStores = new WeakSet<ProjectStore>();
 
   root.hidden = false;
-  wirePageNavigation();
   subscribeToStore(store);
-  syncDirectorMode();
-  syncPageNavigation();
-  syncButtons();
+  const restoredUsage = store ? readPersistedDirectorUsage(store.project()) : null;
+  if (restoredUsage) renderAiUsage(restoredUsage.model, restoredUsage.usage, restoredUsage.cache, restoredUsage.provider, restoredUsage.resources);
+  syncUi();
   void refreshHealth();
   void refreshGallery(true);
+
   const healthTimer = window.setInterval(() => void refreshHealth(), HEALTH_INTERVAL_MS);
   window.addEventListener('pagehide', () => window.clearInterval(healthTimer), { once: true });
   document.addEventListener('visibilitychange', () => {
@@ -125,139 +125,209 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       void refreshGallery(false);
     }
   });
-  refreshJobs.addEventListener('click', () => void refreshGallery(false));
-  nextAction.addEventListener('click', () => {
-    const action = nextAction.dataset.flowAction;
-    if (isDirectorFlowAction(action)) runFlowAction(action);
+
+  for (const button of phaseButtons) {
+    button.addEventListener('click', () => {
+      const wanted = button.dataset.directorPhase as DirectorPhase;
+      if (canOpenDirectorPhase(flowState(), wanted)) setPhase(wanted);
+    });
+  }
+  questionsBack.addEventListener('click', () => {
+    questionSet = null;
+    ideaDraft = null;
+    setPhase('idea');
+    prompt.focus();
   });
-  // C5: el render sigue visible aunque el panel esté colapsado o en otra página.
+  backBase.addEventListener('click', () => {
+    questionSet = null;
+    ideaDraft = null;
+    prompt.value = '';
+    setPhase('idea');
+    prompt.focus();
+  });
+  generate.addEventListener('click', () => void requestQuestions());
+  questionsForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void createPersonalizedVideo();
+  });
+  prompt.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      void requestQuestions();
+    }
+  });
+  refreshJobs.addEventListener('click', () => void refreshGallery(false));
   renderIndicator.addEventListener('click', () => {
-    transitionNavigation({ type: 'render-opened' });
+    setPhase('video');
     root.scrollIntoView({ block: 'nearest' });
   });
+  render.addEventListener('click', () => void startCurrentRender());
+  viewVideo.addEventListener('click', () => {
+    if (latestCompletedJob) showCompleted(latestCompletedJob, true, true);
+  });
+  cancel.addEventListener('click', () => void cancelCurrentWork());
+  healthBadge.addEventListener('click', () => toggleHealthPopover(Boolean(healthPopover.hidden)));
   document.addEventListener('pointerdown', (event) => {
-    if (filesMenu.open && event.target instanceof Node && !filesMenu.contains(event.target)) filesMenu.open = false;
+    if (!(event.target instanceof Node)) return;
+    if (filesMenu.open && !filesMenu.contains(event.target)) filesMenu.open = false;
+    if (!healthPopover.hidden && !healthPopover.contains(event.target) && !healthBadge.contains(event.target)) toggleHealthPopover(false);
   });
   window.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     filesMenu.open = false;
-    if (!healthPopover.hidden) {
-      toggleHealthPopover(false);
-      healthBadge.focus();
-    }
+    toggleHealthPopover(false);
   });
-  healthBadge.addEventListener('click', () => toggleHealthPopover(healthPopover.hidden !== false));
-  document.addEventListener('pointerdown', (event) => {
-    if (healthPopover.hidden || !(event.target instanceof Node)) return;
-    if (!healthPopover.contains(event.target) && !healthBadge.contains(event.target)) toggleHealthPopover(false);
-  });
+  window.addEventListener(EDITOR_WORKSPACE_EVENT, syncUi);
+  window.addEventListener(DIRECTOR_PROVIDER_CHANGE_EVENT, () => void refreshHealth());
 
-  generate.addEventListener('click', async () => {
-    const value = prompt.value.trim();
-    if (value.length < 3) {
+  async function requestQuestions(): Promise<void> {
+    const instruction = prompt.value.trim();
+    if (instruction.length < 3) {
       report('Escribí una idea de al menos tres caracteres.');
+      prompt.focus();
       return;
     }
-    const editing = navigation.mode === 'editing';
-    const editingProject = editing && store ? structuredClone(store.project()) : null;
-    if (!editing && store?.canUndo() && !window.confirm('Crear otra propuesta reemplazará tus cambios manuales y el historial de deshacer. ¿Continuar?')) {
-      return;
+    const constraints = buildDirectorConstraints({ duration: duration.value, scenes: scenes.value });
+    if (getDirectorProviderSettings().provider === 'openai' && (constraints.sceneCount ?? 0) > 3) {
+      const blocks = Math.ceil((constraints.sceneCount ?? 0) / 3);
+      notify({
+        message: `OpenAI preparará el plan en ${blocks} bloques. Los videos largos consumen más tokens y el total quedará visible en Video.`,
+        level: 'info',
+      });
     }
     proposalController = new AbortController();
-    const generation = readGenerationOptions();
-    const highQuality = generation.think || generation.bestOf > 1;
-    setBusy('ai', highQuality
-      ? 'El Director IA está comparando propuestas en modo calidad. Puede tardar varios minutos en CPU.'
-      : 'El Director IA está preparando la propuesta. Puede tardar entre uno y cuatro minutos en CPU.');
+    submittedInstruction = instruction;
+    setBusy('ai', 'Leyendo tu idea para preparar tres preguntas…');
+    root.closest<HTMLElement>('.director-column')?.scrollTo({ top: 0, behavior: 'auto' });
+    let succeeded = false;
     try {
-      const result = editing && store
-        ? await editProjectWithAi(value, editingProject, projectSelection(), proposalController.signal)
-        : await createProposal(value, variant, readConstraints(), generation, proposalController.signal);
-      if (!editing && 'context' in result) syncResolvedConstraints(result.context?.resolvedConstraints);
-      const appliedCommands = 'commands' in result ? result.commands.length : 0;
-      if (editing && store && 'commands' in result) {
-        if (JSON.stringify(store.project()) !== JSON.stringify(editingProject)) {
-          throw new Error('El proyecto cambió mientras el Director trabajaba. Repetí la petición sobre la versión actual.');
-        }
-        if (result.commands.length > 0 && !window.confirm(formatDirectorEditConfirmation(result.explanation))) {
-          report('La propuesta del Director no se aplicó. El proyecto conserva su estado anterior.', true);
-          notify({ message: 'Propuesta del Director cancelada sin modificar el proyecto.', level: 'info' });
-          return;
-        }
-        if (
-          result.explanation.customizedTrackRemovalIndexes.length > 0
-          && !window.confirm(formatCustomizedRemovalConfirmation(result.explanation))
-        ) {
-          report('La eliminación de animación personalizada fue cancelada. El proyecto conserva su estado anterior.', true);
-          notify({ message: 'No se eliminó la animación personalizada.', level: 'info' });
-          return;
-        }
-        const executableCommands = authorizeCustomizedRemovals(
-          result.commands,
-          result.explanation.customizedTrackRemovalIndexes,
-        );
-        const commandError = store.dispatchBatch(executableCommands);
-        if (commandError) throw new Error(commandError);
-      } else if (store) {
-        const replacementError = store.replaceProject(result.project);
-        if (replacementError) throw new Error(replacementError);
+      questionSet = await createClarifyingQuestions(instruction, constraints, proposalController.signal);
+      ideaDraft = { prompt: instruction, constraints };
+      renderQuestions(questionSet.questions);
+      phase = 'base';
+      report('Respondé las tres preguntas para personalizar el video.', true);
+      succeeded = true;
+    } catch (error) {
+      submittedInstruction = null;
+      reportError(error);
+    } finally {
+      proposalController = null;
+      if (succeeded) submittedInstruction = null;
+      setBusy(null);
+      syncUi();
+      if (succeeded) {
+        statusBlock.hidden = true;
+        root.closest<HTMLElement>('.director-column')?.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    }
+  }
+
+  async function createPersonalizedVideo(): Promise<void> {
+    if (!ideaDraft || !questionSet) return report('Volvé a la idea para preparar las preguntas.');
+    const personalization = collectAnswers(questionSet.questions);
+    if (!personalization) return;
+    proposalController = new AbortController();
+    submittedInstruction = ideaDraft.prompt;
+    setBusy('ai', 'Creando el video con tus respuestas…');
+    try {
+      const questionUsage = questionSet.usage;
+      const questionsFromCache = questionSet.cacheHit;
+      const result = await createProposal(
+        ideaDraft.prompt,
+        variant,
+        ideaDraft.constraints,
+        { think: false, bestOf: 1 },
+        personalization,
+        proposalController.signal,
+      );
+      if (store) {
+        const error = store.replaceProject(result.project);
+        if (error) throw new Error(error);
       } else {
         store = await createProjectStore(result.project);
         onStoreCreated(store);
         subscribeToStore(store);
       }
-      // E1: la propuesta trae su reporte de calidad; una edición IA no.
-      renderProposalQuality('commands' in result ? null : result);
       variant += 1;
+      const creationUsage = mergeDirectorUsage(questionUsage, result.usage);
+      const resourceSummary = {
+        selected: result.context.shortlistedEntries,
+        total: result.context.totalCatalogEntries,
+        unsupportedTypes: result.context.unsupportedResourceTypes ?? [],
+      };
+      renderAiUsage(result.model, creationUsage, {
+        questionsFromCache,
+        planFromCache: result.cacheHit,
+      }, undefined, resourceSummary);
+      persistDirectorUsage(store.project(), {
+        provider: getDirectorProviderSettings().provider,
+        model: result.model,
+        usage: creationUsage,
+        cache: { questionsFromCache, planFromCache: result.cacheHit },
+        resources: resourceSummary,
+      });
+      phase = 'video';
+      questionSet = null;
+      ideaDraft = null;
       prompt.value = '';
-      transitionNavigation({ type: editing ? 'ai-change-applied' : 'proposal-created' });
-      syncDirectorMode();
-      const contextDetail = result.context
-        ? ` Recursos: ${result.context.shortlistedEntries}/${result.context.totalCatalogEntries}.`
-        : '';
-      const templateId = result.context?.selectedTemplateId ?? result.context?.recommendedTemplateId;
-      const templateDetail = !editing && templateId
-        ? ` Plantilla base: ${templateId}.`
-        : '';
-      // C3: la respuesta trae los comandos exactos; se narran en vez de contarlos.
-      if (editing && 'commands' in result) {
-        const changes = summarizeCommands(result.commands, { sceneIds: store?.project().scenes.map((scene) => scene.id) });
-        report(appliedCommands > 0
-          ? `${changes}.${contextDetail} La exportación quedó pendiente; podés seguir editando o deshacer desde la timeline.`
-          : `El Director no encontró cambios representables para aplicar.${contextDetail}`, true);
-        notify({
-          message: appliedCommands > 0 ? `El Director cambió: ${changes}.` : 'El Director no encontró cambios para aplicar.',
-          level: appliedCommands > 0 ? 'success' : 'info',
-        });
-      } else {
-        report(`Propuesta creada.${templateDetail}${contextDetail} Está lista para revisar; exportá el MP4 cuando termines.`, true);
-      }
+      report('Proyecto creado. Preparando el preview con voces y tiempos reales…', true);
+      submittedInstruction = null;
+      setBusy(null);
+      syncUi();
     } catch (error) {
+      submittedInstruction = null;
       reportError(error);
     } finally {
       proposalController = null;
-      setBusy(null);
+      if (busyMode === 'ai') setBusy(null);
+      syncUi();
     }
-  });
-  window.addEventListener(EDITOR_WORKSPACE_EVENT, syncButtons);
+  }
 
-  render.addEventListener('click', async () => {
-    if (!store) {
-      report('Primero creá una propuesta válida.');
-      return;
+  function renderQuestions(questions: readonly DirectorQuestion[]): void {
+    questionsRoot.replaceChildren(...questions.map((question, index) => questionCard(question, index)));
+    replacement.hidden = !hasAuthoredContent(store);
+  }
+
+  function collectAnswers(questions: readonly DirectorQuestion[]): DirectorPersonalizationAnswer[] | null {
+    const answers: DirectorPersonalizationAnswer[] = [];
+    for (const question of questions) {
+      const selected = Array.from(questionsRoot.querySelectorAll<HTMLInputElement>(`[data-question-id="${question.id}"] input:checked`));
+      if (selected.length === 0) {
+        report('Elegí una opción en cada pregunta para continuar.');
+        questionsRoot.querySelector<HTMLInputElement>(`[data-question-id="${question.id}"] input`)?.focus();
+        return null;
+      }
+      const selectedValue = selected[0].value;
+      if (selectedValue === '__other__') {
+        const otherInput = questionsRoot.querySelector<HTMLInputElement>(`[data-question-id="${question.id}"] .director-question-other-input`);
+        const otherAnswer = otherInput?.value.trim() ?? '';
+        if (!otherAnswer) {
+          report('Escribí tu respuesta en el campo Otra para continuar.');
+          otherInput?.focus();
+          return null;
+        }
+        answers.push({ question: question.prompt, answer: otherAnswer });
+        continue;
+      }
+      const options = Array.isArray(question.options) ? question.options : [];
+      const label = options.find((option) => option.id === selectedValue)?.label ?? selectedValue;
+      answers.push({ question: question.prompt, answer: label });
     }
+    return answers;
+  }
+
+  async function startCurrentRender(): Promise<void> {
+    if (!store) return report('Primero creá una base.');
     const validationError = store.validate();
-    if (validationError) {
-      report(`El proyecto no se puede exportar: ${validationError}`);
-      return;
-    }
-    setBusy('render', 'Preparando la exportación MP4…');
+    if (validationError) return report(`El proyecto no se puede exportar: ${validationError}`);
+    videoResult.hidden = true;
+    setPhase('video');
+    setBusy('render', 'Preparando el video…');
     try {
       const job = await startRender(store.project());
       currentJobId = job.jobId;
       persistLastJobId(job.jobId);
-      transitionNavigation({ type: 'render-opened' });
-      syncButtons();
       reportJob(job);
       await refreshGallery(false);
       schedulePoll();
@@ -266,23 +336,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       setBusy(null);
       reportError(error);
     }
-  });
+  }
 
-  proposalTitle.addEventListener('change', () => {
-    if (!store) return;
-    const title = proposalTitle.value.trim();
-    if (!title) {
-      syncProjectHeading();
-      return;
-    }
-    const error = store.dispatch({ type: 'set-project-title', title });
-    if (error) {
-      report(error);
-      syncProjectHeading();
-    }
-  });
-
-  cancel.addEventListener('click', async () => {
+  async function cancelCurrentWork(): Promise<void> {
     if (proposalController) {
       cancel.disabled = true;
       proposalController.abort();
@@ -299,222 +355,151 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       await refreshGallery(false);
     } catch (error) {
       reportError(error);
-      syncButtons();
     }
-  });
-
-  function wirePageNavigation(): void {
-    for (const tab of pageTabs) {
-      tab.addEventListener('click', () => {
-        const page = tab.dataset.directorPage;
-        if (isDirectorPage(page)) transitionNavigation({ type: 'select-page', page });
-      });
-    }
-    // La navegación por flechas vive en el helper compartido src/ui/tabs.ts.
   }
 
   function subscribeToStore(target: ProjectStore | null): void {
     if (!target || subscribedStores.has(target)) return;
     subscribedStores.add(target);
-    target.subscribe(() => {
-      transitionNavigation({
-        type: 'project-availability-changed',
-        available: hasAuthoredContent(target),
-      });
-      syncProjectHeading();
-      syncButtons();
-    });
+    target.subscribe(syncUi);
   }
 
-  function transitionNavigation(event: DirectorNavigationEvent): void {
-    navigation = updateDirectorNavigation(navigation, event);
-    syncPageNavigation();
+  function setPhase(next: DirectorPhase): void {
+    if (!canOpenDirectorPhase(flowState(), next)) return;
+    phase = next;
+    syncUi();
+    root.closest<HTMLElement>('.director-column')?.scrollTo({ top: 0, behavior: 'auto' });
   }
 
-  function syncPageNavigation(): void {
-    for (const [index, descriptor] of describeDirectorPages(navigation).entries()) {
-      const tab = pageTabs.find((candidate) => candidate.dataset.directorPage === descriptor.page);
-      if (tab) {
-        const number = document.createElement('span');
-        number.className = 'director-step-number';
-        number.textContent = String(index + 1);
-        const label = document.createElement('span');
-        label.textContent = descriptor.label;
-        tab.replaceChildren(number, label);
-        tab.setAttribute('aria-label', `Paso ${index + 1}: ${descriptor.label}`);
-        tab.disabled = !descriptor.enabled;
-        tab.classList.toggle('is-active', descriptor.selected);
-        tab.setAttribute('aria-selected', String(descriptor.selected));
-        tab.tabIndex = descriptor.selected ? 0 : -1;
-      }
-      const panel = pagePanels.get(descriptor.page);
-      if (panel) panel.hidden = !descriptor.selected;
-    }
-    syncFlowGuidance();
-  }
-
-  function flowInput(): DirectorFlowInput {
+  function flowState() {
     return {
-      mode: navigation.mode,
-      page: navigation.page,
+      phase,
       projectAvailable: hasAuthoredContent(store),
-      validationError: store?.validate() ?? null,
-      workspaceMode: editorWorkspace().mode,
-      healthChecked,
-      directorReady: readyForProposal,
-      renderReady: readyForRender,
-      outputState: editorOutputState(),
-      busyMode,
+      questionsAvailable: questionSet !== null,
+      busy: busyMode,
     };
   }
 
-  function syncFlowGuidance(): void {
-    const input = flowInput();
-    const guidance = describeDirectorFlow(input);
-    nextEyebrow.textContent = guidance.eyebrow;
-    nextTitle.textContent = guidance.title;
-    nextDetail.textContent = guidance.detail;
-    nextAction.hidden = guidance.action === null;
-    nextAction.textContent = guidance.action?.label ?? '';
-    nextAction.dataset.flowAction = guidance.action?.id ?? '';
+  function syncUi(): void {
+    const projectAvailable = hasAuthoredContent(store);
+    if (phase === 'base' && !questionSet) phase = projectAvailable ? 'video' : 'idea';
+    if (phase === 'video' && !projectAvailable) phase = questionSet ? 'base' : 'idea';
+    idea.hidden = phase !== 'idea';
+    base.hidden = phase !== 'base';
+    video.hidden = phase !== 'video';
+    composer.hidden = phase !== 'idea' || busyMode === 'ai';
+    submittedMessage.hidden = submittedInstruction === null;
+    submittedText.textContent = submittedInstruction ?? '';
+    root.dataset.phase = phase;
+    for (const button of phaseButtons) {
+      const buttonPhase = button.dataset.directorPhase as DirectorPhase;
+      const selected = buttonPhase === phase;
+      button.classList.toggle('is-active', selected);
+      button.classList.toggle('is-complete', buttonPhase === 'idea' ? questionSet !== null || projectAvailable : buttonPhase === 'base' && projectAvailable);
+      button.setAttribute('aria-current', selected ? 'step' : 'false');
+      button.disabled = !canOpenDirectorPhase(flowState(), buttonPhase);
+    }
+    generate.textContent = 'Aceptar';
+    generate.disabled = busyMode !== null || !readyForProposal;
+    createVideo.disabled = busyMode !== null || !readyForProposal || questionSet === null;
+    cancel.hidden = busyMode === null;
+    cancel.disabled = busyMode === 'ai' ? proposalController === null : busyMode === 'render' ? currentJobId === null : true;
+    syncRenderState();
+  }
 
-    renderRequirements.replaceChildren(...describeRenderRequirements(input).map((requirement) => {
-      const item = document.createElement('li');
-      item.className = `render-requirement is-${requirement.state}`;
-      const marker = document.createElement('span');
-      marker.className = 'render-requirement-marker';
-      marker.setAttribute('aria-hidden', 'true');
-      marker.textContent = requirement.state === 'complete' ? '✓' : requirement.state === 'pending' ? '…' : '!';
-      const copy = document.createElement('span');
-      const label = document.createElement('strong');
-      label.textContent = requirement.label;
-      const detail = document.createElement('span');
-      detail.textContent = requirement.detail;
-      copy.append(label, detail);
-      item.append(marker, copy);
-      return item;
+  function renderAiUsage(
+    model: string,
+    usage: DirectorUsage,
+    cache: { questionsFromCache: boolean; planFromCache: boolean },
+    persistedProvider?: 'ollama' | 'openai',
+    resources?: { selected: number; total: number; unsupportedTypes: string[] },
+  ): void {
+    const providerName = persistedProvider ?? getDirectorProviderSettings().provider;
+    const provider = providerName === 'openai' ? 'OpenAI' : 'Ollama local';
+    const requests = usage.currentRequestCount ?? usage.requestCount ?? 0;
+    const cacheLabel = cache.questionsFromCache && cache.planFromCache
+      ? 'Preguntas y plan reutilizados'
+      : cache.questionsFromCache ? 'Preguntas reutilizadas' : cache.planFromCache ? 'Plan reutilizado' : 'Sin reutilización completa';
+    const rows: Array<[string, string]> = [
+      ['Modelo', `${provider} · ${model}`],
+      ['Solicitudes', String(requests)],
+      ['Reintentos de red', String(usage.retryCount ?? 0)],
+      ['Tokens de entrada', formatTokenCount(usage.inputTokens)],
+      ['Entrada cacheada', formatTokenCount(usage.cachedInputTokens)],
+      ['Tokens de salida', formatTokenCount(usage.outputTokens)],
+      ['Tokens totales', formatTokenCount(usage.totalTokens)],
+      ['Reparaciones', String(usage.repairAttempts ?? 0)],
+      ['Caché local', cacheLabel],
+    ];
+    if (resources) {
+      rows.push(['Recursos enviados', `${resources.selected} de ${resources.total}`]);
+      if (resources.unsupportedTypes.length) rows.push(['Tipos aún no dirigibles', resources.unsupportedTypes.join(', ')]);
+    }
+    aiUsageValues.replaceChildren(...rows.flatMap(([label, value]) => {
+      const term = document.createElement('dt');
+      term.textContent = label;
+      const description = document.createElement('dd');
+      description.textContent = value;
+      return [term, description];
     }));
+    aiUsage.hidden = false;
   }
 
-  function runFlowAction(action: DirectorFlowAction): void {
-    if (action === 'editor') {
-      showWorkspaceMode('editor');
-      return;
+  function syncRenderState(): void {
+    const state = describeRenderAvailability();
+    render.disabled = !state.enabled;
+    render.textContent = state.label;
+    renderReadiness.textContent = state.message;
+    renderReadiness.className = `render-readiness is-${state.kind}`;
+    renderRequirements.replaceChildren();
+    if (state.kind === 'blocked' && busyMode !== 'render') {
+      const item = document.createElement('li');
+      item.className = 'render-requirement is-blocked';
+      item.textContent = state.message;
+      renderRequirements.append(item);
     }
-    if (action === 'health') {
-      void refreshHealth();
-      toggleHealthPopover(true);
-      healthBadge.focus();
-      return;
-    }
-    transitionNavigation({ type: 'select-page', page: action });
-    if (action === 'command') prompt.focus();
   }
 
-  function readConstraints(): DirectorConstraints {
-    return {
-      tone: tone.value as DirectorConstraints['tone'],
-      targetDurationSeconds: Number(duration.value),
-      sceneCount: Number(scenes.value),
-      planVersion: 2,
-      richnessProfile: richness.value as DirectorConstraints['richnessProfile'],
-      structure: structure.value as DirectorConstraints['structure'],
-    };
-  }
-
-  function syncResolvedConstraints(resolved?: DirectorConstraints): void {
-    if (!resolved) return;
-    tone.value = resolved.tone;
-    const durationValue = String(resolved.targetDurationSeconds);
-    if (![...duration.options].some((option) => option.value === durationValue)) {
-      const inferred = document.createElement('option');
-      inferred.value = durationValue;
-      inferred.textContent = `${durationValue} s · inferida`;
-      inferred.dataset.inferred = 'true';
-      duration.add(inferred);
-    }
-    duration.value = durationValue;
-    scenes.value = String(resolved.sceneCount);
-    richness.value = resolved.richnessProfile;
-    structure.value = resolved.structure;
-  }
-
-  function readGenerationOptions(): DirectorGenerationOptions {
-    return {
-      think: think.checked,
-      bestOf: Number(bestOf.value) as DirectorGenerationOptions['bestOf'],
-    };
+  function describeRenderAvailability(): { enabled: boolean; label: string; message: string; kind: 'ready' | 'current' | 'blocked' } {
+    if (busyMode === 'render') return { enabled: false, label: 'Creando MP4…', message: 'El video se está produciendo con la revisión enviada.', kind: 'blocked' };
+    if (busyMode === 'ai') return { enabled: false, label: 'Exportar MP4', message: 'Esperá a que el Director termine.', kind: 'blocked' };
+    if (!store) return { enabled: false, label: 'Exportar MP4', message: 'Creá una base antes de exportar el video.', kind: 'blocked' };
+    if (editorWorkspace().mode === 'creator') return { enabled: false, label: 'Exportar MP4', message: 'Volvé al Editor de video para exportar el proyecto.', kind: 'blocked' };
+    const validationError = store.validate();
+    if (validationError) return { enabled: false, label: 'Proyecto incompleto', message: `Completá el proyecto: ${validationError}`, kind: 'blocked' };
+    if (!healthChecked) return { enabled: false, label: 'Comprobando motor…', message: 'Verificando las herramientas locales.', kind: 'blocked' };
+    if (!readyForRender) return { enabled: false, label: 'Video no disponible', message: 'La voz local no está disponible. Abrí el diagnóstico.', kind: 'blocked' };
+    const output = editorOutputState();
+    if (output === 'current') return { enabled: false, label: 'MP4 actualizado', message: 'El MP4 coincide con la edición actual.', kind: 'current' };
+    if (output === 'stale') return { enabled: true, label: 'Exportar MP4 actualizado', message: 'El preview refleja los cambios. El MP4 anterior sigue disponible.', kind: 'ready' };
+    return { enabled: true, label: 'Exportar MP4', message: 'Revisá el preview y exportá el archivo cuando estés listo.', kind: 'ready' };
   }
 
   async function refreshHealth(): Promise<void> {
     try {
       const health = await getHealth();
       healthChecked = true;
-      readyForProposal = health.ollama.available && health.ollama.modelInstalled;
+      const directorHealth = health.director ?? health.ollama;
+      readyForProposal = Boolean(directorHealth?.available && directorHealth.modelInstalled);
       readyForRender = health.tts.available;
-      const summary = summarizeHealth(health);
-      healthBadge.className = `health-badge ${summary.ready ? 'is-ready' : 'is-error'}`;
-      healthBadge.textContent = summary.badge;
-      healthBadge.title = 'Ver diagnóstico del servicio local';
-      renderHealthPopover(summary.dependencies, summary.modelIdentity);
-      if (status.textContent === 'Comprobando el servicio local…') {
-        report(readyForProposal
-          ? readyForRender ? 'Servicios locales listos.' : 'Director listo; falta Piper para preparar voces y exportar.'
-          : 'Ollama no está listo para crear propuestas.', readyForProposal);
-      }
-      syncButtons();
-    } catch {
+      healthBadge.textContent = health.ready ? 'Listo' : 'Revisar';
+      healthBadge.className = `health-badge ${health.ready ? 'is-ready' : 'is-warning'}`;
+      const title = document.createElement('strong');
+      title.textContent = health.ready ? 'Herramientas locales listas' : 'Hay herramientas por revisar';
+      const details = document.createElement('p');
+      const providerLabel = getDirectorProviderSettings().provider === 'openai' ? 'OpenAI' : 'Ollama';
+      details.textContent = `${providerLabel}: ${readyForProposal ? 'listo' : 'no disponible'} · Voz: ${readyForRender ? 'lista' : 'no disponible'} · Render: ${health.renderBusy ? 'ocupado' : 'libre'}`;
+      healthPopover.replaceChildren(title, details);
+      if (busyMode === null && health.ready) statusBlock.hidden = true;
+    } catch (error) {
       healthChecked = true;
       readyForProposal = false;
       readyForRender = false;
-      healthBadge.className = 'health-badge is-error';
       healthBadge.textContent = 'Sin servicio';
-      healthBadge.title = 'Ver diagnóstico del servicio local';
-      renderHealthPopover([{
-        id: 'service',
-        name: 'Servicio local',
-        state: 'error',
-        detail: 'No se pudo contactar al servicio local.',
-        action: 'Iniciá la aplicación con npm run dev.',
-      }], null);
-      syncButtons();
+      healthBadge.className = 'health-badge is-error';
+      reportError(error);
     }
-  }
-
-  // E3: el badge deja de ser solo un semáforo y explica cada dependencia.
-  function renderHealthPopover(dependencies: DependencyView[], modelIdentity: string | null): void {
-    const list = document.createElement('ul');
-    list.className = 'health-list';
-    for (const dependency of dependencies) {
-      const item = document.createElement('li');
-      item.className = `health-item is-${dependency.state}`;
-      const name = document.createElement('strong');
-      name.textContent = dependency.name;
-      const detail = document.createElement('span');
-      detail.textContent = dependency.detail;
-      item.append(name, detail);
-      if (dependency.action) {
-        const action = document.createElement('span');
-        action.className = 'health-action';
-        action.textContent = dependency.action;
-        item.append(action);
-      }
-      list.append(item);
-    }
-    const children: HTMLElement[] = [list];
-    if (modelIdentity) {
-      const identity = document.createElement('p');
-      identity.className = 'health-identity';
-      identity.textContent = `Modelo: ${modelIdentity}`;
-      children.push(identity);
-    }
-    const recheck = document.createElement('button');
-    recheck.type = 'button';
-    recheck.className = 'text-button';
-    recheck.textContent = 'Comprobar de nuevo';
-    recheck.addEventListener('click', () => void refreshHealth());
-    children.push(recheck);
-    healthPopover.replaceChildren(...children);
+    syncUi();
   }
 
   function toggleHealthPopover(open: boolean): void {
@@ -522,201 +507,26 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     healthBadge.setAttribute('aria-expanded', String(open));
   }
 
-  // E1: el reporte de calidad que el motor ya calcula deja de descartarse.
-  function renderProposalQuality(proposal: DirectorProposal | null): void {
-    const summary = proposal ? summarizeQuality(proposal.quality, proposal.repairAttempts) : null;
-    if (!summary) {
-      proposalQuality.hidden = true;
-      proposalQuality.replaceChildren();
-      return;
-    }
-    const heading = document.createElement('div');
-    heading.className = `quality-heading ${summary.passed ? 'is-passed' : 'is-below'}`;
-    const score = document.createElement('strong');
-    score.textContent = String(summary.score);
-    const headline = document.createElement('span');
-    headline.textContent = summary.headline;
-    heading.append(score, headline);
-
-    const children: HTMLElement[] = [heading];
-    if (proposal?.quality?.richness) {
-      const richnessSummary = document.createElement('p');
-      richnessSummary.className = 'quality-repair';
-      const creative = proposal.quality.richness;
-      richnessSummary.textContent = `Perfil ${creative.policy.resolved}: ${creative.metrics.modes.join(', ')} · recursos visuales ${creative.metrics.visualFamilies.join(', ') || 'ninguno'} · ${creative.metrics.animatedScenes} escenas con secuencias.`;
-      children.push(richnessSummary);
-    }
-    if (proposal?.plan.version === 2) {
-      const storyboard = document.createElement('ol');
-      storyboard.className = 'quality-issues';
-      for (const [index, scene] of proposal.plan.scenes.entries()) {
-        const item = document.createElement('li');
-        const label = document.createElement('strong');
-        label.textContent = `${index + 1}. ${scene.title || 'Escena'}`;
-        const detail = document.createElement('span');
-        detail.textContent = `${scene.mode || 'estructura libre'} · ${scene.participants?.length ?? 0} personajes · ${scene.visualElements?.length ?? 0} recursos visuales · ${scene.speech?.length ?? 0} intervenciones · ${scene.sceneRecipeId || 'sin receta'}`;
-        item.append(label, detail);
-        storyboard.append(item);
-      }
-      children.push(storyboard);
-    }
-    if (summary.repairNote) {
-      const repair = document.createElement('p');
-      repair.className = 'quality-repair';
-      repair.textContent = summary.repairNote;
-      children.push(repair);
-    }
-    if (summary.issues.length > 0) {
-      const list = document.createElement('ul');
-      list.className = 'quality-issues';
-      for (const issue of summary.issues) {
-        const item = document.createElement('li');
-        const label = document.createElement('strong');
-        label.textContent = issue.label;
-        const instruction = document.createElement('span');
-        instruction.textContent = issue.instruction;
-        item.append(label, instruction);
-        list.append(item);
-      }
-      children.push(list);
-    } else {
-      const clean = document.createElement('p');
-      clean.className = 'quality-clean';
-      clean.textContent = 'El revisor no encontró problemas en el guion.';
-      children.push(clean);
-    }
-    const comparison = proposal ? compareCandidates(proposal.selection) : null;
-    if (comparison) children.push(renderCandidateTable(comparison));
-    const context = proposal ? renderProposalContext(proposal.context) : null;
-    if (context) children.push(context);
-    proposalQuality.replaceChildren(...children);
-    proposalQuality.hidden = false;
-  }
-
-  // C4: qué recursos de la biblioteca consideró la IA. Cada chip lleva a su
-  // tarjeta, para que la conexión Director↔biblioteca sea navegable.
-  function renderProposalContext(context: DirectorProposal['context']): HTMLElement | null {
-    if (!context || context.resourceIds.length === 0) return null;
-    const details = document.createElement('details');
-    details.className = 'proposal-context';
-    const summary = document.createElement('summary');
-    summary.textContent = `Recursos elegidos (${context.resourceIds.length} de ${context.totalCatalogEntries})`;
-    details.append(summary);
-    const template = context.selectedTemplateId ?? context.recommendedTemplateId;
-    if (template) {
-      const line = document.createElement('p');
-      line.className = 'proposal-context-template';
-      line.textContent = `Plantilla base: ${template}`;
-      details.append(line);
-    }
-    const chips = document.createElement('div');
-    chips.className = 'proposal-context-chips';
-    for (const resourceId of context.resourceIds) {
-      const label = store?.resources('character').find((entry) => entry.id === resourceId)?.label
-        ?? store?.resources('background').find((entry) => entry.id === resourceId)?.label
-        ?? store?.resources('voice').find((entry) => entry.id === resourceId)?.label
-        ?? resourceId;
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'proposal-context-chip';
-      chip.textContent = label;
-      chip.title = `Mostrar ${label} en la biblioteca`;
-      chip.addEventListener('click', () => revealResource(resourceId));
-      chips.append(chip);
-    }
-    details.append(chips);
-    return details;
-  }
-
-  // E2a: se muestra qué evaluó el juez. No se ofrece elegir otro candidato:
-  // la API solo devuelve el proyecto del ganador (eso es E2b, con servidor).
-  function renderCandidateTable(comparison: NonNullable<ReturnType<typeof compareCandidates>>): HTMLElement {
-    const details = document.createElement('details');
-    details.className = 'candidate-comparison';
-    const summary = document.createElement('summary');
-    const strongest = strongestCriterion(comparison);
-    summary.textContent = comparison.verdict
-      ? `${comparison.verdict}${strongest ? ` Destacó en ${strongest.toLowerCase()}.` : ''}`
-      : `Se compararon ${comparison.rows.length} propuestas.`;
-    details.append(summary);
-
-    const table = document.createElement('table');
-    table.className = 'candidate-table';
-    const head = document.createElement('thead');
-    const headRow = document.createElement('tr');
-    headRow.append(document.createElement('th'));
-    for (const row of comparison.rows) {
-      const cell = document.createElement('th');
-      cell.scope = 'col';
-      cell.textContent = row.winner ? `${row.name} ✓` : row.name;
-      if (row.winner) cell.className = 'is-winner';
-      headRow.append(cell);
-    }
-    head.append(headRow);
-    const body = document.createElement('tbody');
-    for (const [index, criterion] of comparison.criteria.entries()) {
-      const line = document.createElement('tr');
-      const label = document.createElement('th');
-      label.scope = 'row';
-      label.textContent = criterion;
-      line.append(label);
-      for (const row of comparison.rows) {
-        const cell = document.createElement('td');
-        cell.textContent = String(row.scores[index]?.value ?? '—');
-        if (row.winner) cell.className = 'is-winner';
-        line.append(cell);
-      }
-      body.append(line);
-    }
-    if (comparison.rows.some((row) => row.total !== null)) {
-      const totals = document.createElement('tr');
-      totals.className = 'candidate-total';
-      const label = document.createElement('th');
-      label.scope = 'row';
-      label.textContent = 'Total';
-      totals.append(label);
-      for (const row of comparison.rows) {
-        const cell = document.createElement('td');
-        cell.textContent = row.total === null ? '—' : String(Math.round(row.total * 10) / 10);
-        if (row.winner) cell.className = 'is-winner';
-        totals.append(cell);
-      }
-      body.append(totals);
-    }
-    table.append(head, body);
-    details.append(table);
-    return details;
-  }
-
-  async function refreshGallery(resumeLastJob: boolean): Promise<void> {
-    // M3: esqueleto mientras llega la respuesta, en lugar de un texto de espera.
-    hideJobDetails();
-    if (gallery.childElementCount === 0 || gallery.querySelector('.empty-state')) {
-      gallery.replaceChildren(skeleton(3, true));
-    }
+  async function refreshGallery(resume: boolean): Promise<void> {
     try {
       const jobs = await listRenderJobs();
       gallery.replaceChildren(...jobs.slice(0, 12).map(jobCard));
       if (jobs.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'empty-state';
-        empty.textContent = 'Todavía no hay videos creados desde la app.';
-        gallery.replaceChildren(empty);
+        empty.textContent = 'Todavía no hay videos creados.';
+        gallery.append(empty);
       }
-      if (resumeLastJob) {
+      if (resume) {
         const wanted = readLastJobId();
         const job = jobs.find((item) => item.jobId === wanted) ?? jobs.find((item) => ['queued', 'rendering'].includes(item.state));
-        if (job) {
-          if (['queued', 'rendering'].includes(job.state)) {
-            currentJobId = job.jobId;
-            transitionNavigation({ type: 'render-opened' });
-            setBusy('render');
-            reportJob(job);
-            schedulePoll();
-          } else if (job.state === 'completed' && job.result) {
-            showCompleted(job, false);
-          }
-        }
+        if (job && ['queued', 'rendering'].includes(job.state)) {
+          currentJobId = job.jobId;
+          phase = 'video';
+          setBusy('render');
+          reportJob(job);
+          schedulePoll();
+        } else if (job?.state === 'completed' && job.result) showCompleted(job, false);
       }
     } catch {
       const empty = document.createElement('p');
@@ -730,10 +540,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'render-job-card';
-    card.classList.toggle('is-active', job.jobId === currentJobId);
-    card.disabled = !((job.state === 'completed' && job.result) || job.state === 'failed');
-    card.setAttribute('role', 'listitem');
-    if (job.state === 'failed') card.title = 'Ver por qué falló esta exportación';
+    card.disabled = !job.result && job.state !== 'failed';
     const icon = document.createElement('span');
     icon.className = 'render-job-icon';
     icon.textContent = job.state === 'completed' ? '▶' : job.state === 'failed' ? '!' : '…';
@@ -742,67 +549,34 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     const name = document.createElement('strong');
     name.textContent = job.projectId;
     const detail = document.createElement('span');
-    detail.textContent = job.result
-      ? `${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(1)} s`
-      : humanStage(job.stage);
+    detail.textContent = job.result ? `${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(1)} s` : humanStage(job.stage);
     copy.append(name, detail);
-    const state = document.createElement('span');
-    state.className = 'render-job-state';
-    state.textContent = humanState(job.state);
-    card.append(icon, copy, state);
-    if (job.result) {
-      card.addEventListener('click', () => {
-        hideJobDetails();
-        const current = showCompleted(job, true, true);
-        if (!current) report('Mostrando una exportación anterior. La edición actual conserva cambios sin exportar.', true);
-        filesMenu.open = false;
-      });
-    } else if (job.state === 'failed') {
-      card.addEventListener('click', () => showJobDetails(job));
-    }
+    card.append(icon, copy);
+    card.addEventListener('click', () => {
+      if (job.result) showCompleted(job, true, true);
+      else showJobDetails(job);
+      filesMenu.open = false;
+    });
     return card;
   }
 
   function showJobDetails(job: RenderJob): void {
-    const error = job.error ?? {
-      message: 'La exportación falló sin conservar un detalle adicional.',
-      suggestedAction: 'Volvé al proyecto, revisá su estado e intentá exportarlo otra vez.',
-    };
-    const header = document.createElement('header');
+    const error = job.error ?? { message: 'La exportación no conservó detalles.' };
     const title = document.createElement('strong');
     title.textContent = 'No se pudo completar la exportación';
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.className = 'text-button';
-    close.textContent = 'Cerrar';
-    close.addEventListener('click', hideJobDetails);
-    header.append(title, close);
-
-    const context = document.createElement('p');
-    context.className = 'render-job-detail-context';
-    context.textContent = `${job.projectId} · ${humanStage(job.stage)}`;
     const message = document.createElement('p');
     message.textContent = formatApiError(error);
-    const children: HTMLElement[] = [header, context, message];
-
+    jobDetails.replaceChildren(title, message);
     const technical = formatApiTechnicalDetails(error);
     if (technical) {
       const details = document.createElement('details');
-      const summary = document.createElement('summary');
-      summary.textContent = 'Detalles técnicos';
+      details.innerHTML = '<summary>Detalles técnicos</summary>';
       const pre = document.createElement('pre');
       pre.textContent = technical;
-      details.append(summary, pre);
-      children.push(details);
+      details.append(pre);
+      jobDetails.append(details);
     }
-    jobDetails.replaceChildren(...children);
     jobDetails.hidden = false;
-    jobDetails.scrollIntoView({ block: 'nearest' });
-  }
-
-  function hideJobDetails(): void {
-    jobDetails.hidden = true;
-    jobDetails.replaceChildren();
   }
 
   function schedulePoll(): void {
@@ -818,9 +592,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       if (['completed', 'failed', 'cancelled'].includes(job.state)) {
         finishPolling();
         await refreshGallery(false);
-        return;
-      }
-      schedulePoll();
+      } else schedulePoll();
     } catch (error) {
       finishPolling();
       reportError(error);
@@ -829,87 +601,61 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
 
   function reportJob(job: RenderJob): void {
     if (job.state === 'completed' && job.result) {
+      latestCompletedJob = job;
       const current = showCompleted(job, true);
-      transitionNavigation({ type: 'render-completed' });
-      syncDirectorMode();
-      hideRenderIndicator();
-      const message = current
-        ? `Video listo · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(2)} s.`
-        : 'La exportación terminó, pero corresponde a una versión anterior. Tus cambios actuales siguen pendientes.';
+      const message = current ? `MP4 listo · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(1)} s.` : 'El MP4 corresponde a una versión anterior.';
+      progressRoot.hidden = true;
+      videoResult.hidden = false;
+      videoResultMeta.textContent = `${job.result.scenes} escena${job.result.scenes === 1 ? '' : 's'} · ${job.result.durationSeconds.toFixed(1)} s`;
+      downloadVideo.href = job.result.videoUrl;
+      downloadVideo.download = job.result.downloadName;
       report(message, true);
-      notify({
-        message,
-        level: current ? 'success' : 'info',
-        actionLabel: 'Ver video',
-        onAction: () => showCompleted(job, true, true),
-      });
+      notify({ message, level: current ? 'success' : 'info', actionLabel: 'Ver video', onAction: () => showCompleted(job, true, true) });
       return;
     }
     if (job.state === 'failed') {
       progressRoot.hidden = true;
       hideRenderIndicator();
-      const message = formatApiError(job.error || { message: 'La exportación falló.' });
-      report(message);
-      notify({ message, level: 'error' });
+      report(formatApiError(job.error ?? { message: 'La exportación falló.' }));
       return;
     }
     if (job.state === 'cancelled') {
       progressRoot.hidden = true;
       hideRenderIndicator();
-      report('Exportación cancelada.');
-      notify({ message: 'Exportación cancelada.', level: 'info' });
+      report('Exportación cancelada.', true);
       return;
     }
     const progressState = typeof job.progress?.state === 'string' ? job.progress.state : job.stage;
-    const progress = stageProgress(progressState);
+    const scene = describeSceneProgress(job.progress);
+    const label = `${humanStage(progressState)}${scene ? ` · ${scene}` : ''}`;
     progressRoot.hidden = false;
-    progressBar.style.width = `${progress}%`;
-    progressLabel.textContent = `${progress}% · ${humanStage(progressState)}`;
-    showRenderIndicator(`${progress}% · ${humanStage(progressState)}`);
-    report(`Exportación ${job.jobId}: ${humanStage(progressState)}.`, true);
+    progressLabel.textContent = label;
+    showRenderIndicator(label);
+    report(`Creando el video: ${label}.`, true);
   }
 
-  function showRenderIndicator(label: string): void {
-    renderIndicator.hidden = false;
-    renderIndicatorLabel.textContent = label;
-    renderIndicator.title = `Exportación en curso: ${label}. Abrir la página Exportar.`;
-  }
-
-  function hideRenderIndicator(): void {
-    renderIndicator.hidden = true;
-  }
-
-  function showCompleted(job: RenderJob, switchSource: boolean, allowStaleReveal = false): boolean {
+  function showCompleted(job: RenderJob, reveal: boolean, allowStaleReveal = false): boolean {
     if (!job.result) return false;
-    const projectRevision = job.projectRevision ?? null;
+    latestCompletedJob = job;
+    videoResult.hidden = false;
+    videoResultMeta.textContent = `${job.result.scenes} escena${job.result.scenes === 1 ? '' : 's'} · ${job.result.durationSeconds.toFixed(1)} s`;
+    downloadVideo.href = job.result.videoUrl;
+    downloadVideo.download = job.result.downloadName;
     const currentProject = store?.project();
-    const current = Boolean(currentProject
-      && job.projectId === currentProject.id
-      && projectRevision !== null
-      && projectRevision === projectFingerprint(currentProject));
-    const currentTimingRevision = currentProject && job.projectId === currentProject.id
-      ? projectTimingFingerprint(currentProject)
-      : null;
-    // Los jobs nuevos conservan por separado la revisión de voces y tiempos.
-    // Así un cambio puramente visual puede reutilizar su audio medido incluso
-    // después de recargar la aplicación. Para jobs anteriores solo se deriva
-    // cuando todo el proyecto todavía coincide.
-    const measuredTimingRevision = job.timingRevision ?? (current ? currentTimingRevision : null);
-    const timingMatches = currentTimingRevision !== null
-      && measuredTimingRevision !== null
-      && measuredTimingRevision === currentTimingRevision;
+    const current = Boolean(currentProject && job.projectId === currentProject.id && job.projectRevision === projectFingerprint(currentProject));
+    const timingRevision = currentProject && job.projectId === currentProject.id ? projectTimingFingerprint(currentProject) : null;
+    const measuredTiming = job.timingRevision ?? (current ? timingRevision : null);
     showFinalVideo({
       projectId: job.projectId,
       url: `${job.result.videoUrl}?v=${encodeURIComponent(job.updatedAt ?? '')}`,
       downloadName: job.result.downloadName,
       timeline: job.result.timeline ?? null,
-      projectRevision,
-      timingRevision: timingMatches ? measuredTimingRevision : null,
+      projectRevision: job.projectRevision ?? null,
+      timingRevision: timingRevision === measuredTiming ? measuredTiming : null,
       current,
-      reveal: switchSource && (current || allowStaleReveal),
+      reveal: reveal && (current || allowStaleReveal),
     });
     persistLastJobId(job.jobId);
-    progressRoot.hidden = true;
     return current;
   }
 
@@ -921,9 +667,21 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     setBusy(null);
   }
 
-  function scheduleDirectorStatusPoll(delay = 0): void {
+  function setBusy(mode: 'ai' | 'render' | null, message?: string): void {
+    const previous = busyMode;
+    busyMode = mode;
+    root.classList.toggle('is-ai-busy', mode === 'ai');
+    root.classList.toggle('is-render-busy', mode === 'render');
+    root.setAttribute('aria-busy', String(mode !== null));
+    if (mode === 'ai' && previous !== 'ai') scheduleDirectorStatusPoll();
+    if (mode !== 'ai') stopDirectorStatusPoll();
+    if (message) report(message, true);
+    syncUi();
+  }
+
+  function scheduleDirectorStatusPoll(): void {
     if (directorStatusTimer !== null) window.clearTimeout(directorStatusTimer);
-    directorStatusTimer = window.setTimeout(() => void pollDirectorStatus(), delay);
+    directorStatusTimer = window.setTimeout(() => void pollDirectorStatus(), 700);
   }
 
   async function pollDirectorStatus(): Promise<void> {
@@ -931,11 +689,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     try {
       const progress = describeDirectorProgress(await getDirectorStatus());
       if (progress) report(progress, true);
-    } catch {
-      // La petición principal conserva el error autoritativo. El progreso es
-      // auxiliar y no debe reemplazarlo por un segundo fallo.
-    }
-    if (busyMode === 'ai') scheduleDirectorStatusPoll(700);
+    } catch { /* la petición principal conserva el error autoritativo */ }
+    if (busyMode === 'ai') scheduleDirectorStatusPoll();
   }
 
   function stopDirectorStatusPoll(): void {
@@ -943,207 +698,177 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     directorStatusTimer = null;
   }
 
-  function setBusy(mode: 'ai' | 'render' | null, message?: string): void {
-    const previousMode = busyMode;
-    busyMode = mode;
-    if (mode === 'ai' && previousMode !== 'ai') scheduleDirectorStatusPoll();
-    if (mode !== 'ai') stopDirectorStatusPoll();
-    root.classList.toggle('is-ai-busy', mode === 'ai');
-    root.classList.toggle('is-render-busy', mode === 'render');
-    root.setAttribute('aria-busy', String(mode !== null));
-    cancel.hidden = mode === null;
-    cancel.textContent = mode === 'ai' ? 'Cancelar IA' : 'Cancelar exportación';
-    cancel.title = mode === 'ai' ? 'Detener la propuesta en curso' : 'Detener la exportación en curso';
-    if (message) report(message, true);
-    syncButtons();
+  function showRenderIndicator(label: string): void {
+    renderIndicator.hidden = false;
+    renderIndicatorLabel.textContent = label;
+    renderIndicator.title = `Video en curso: ${label}. Abrir la fase Video.`;
   }
 
-  function syncButtons(): void {
-    const busy = busyMode !== null;
-    generate.disabled = busy || !readyForProposal;
-    const renderState = describeRenderAvailability();
-    render.disabled = !renderState.enabled;
-    render.textContent = renderState.label;
-    render.title = renderState.message;
-    renderReadiness.textContent = renderState.message;
-    renderReadiness.classList.toggle('is-ready', renderState.kind === 'ready');
-    renderReadiness.classList.toggle('is-current', renderState.kind === 'current');
-    renderReadiness.classList.toggle('is-blocked', renderState.kind === 'blocked');
-    const renderTab = pageTabs.find((candidate) => candidate.dataset.directorPage === 'render');
-    renderTab?.classList.toggle('has-pending-render', renderState.kind === 'ready');
-    renderTab?.classList.toggle('has-current-render', renderState.kind === 'current');
-    if (renderTab) renderTab.title = renderState.message;
-    cancel.disabled = busyMode === 'ai' ? proposalController === null : busyMode === 'render' ? currentJobId === null : true;
-    syncFlowGuidance();
-  }
-
-  function describeRenderAvailability(): {
-    enabled: boolean;
-    label: string;
-    message: string;
-    kind: 'ready' | 'current' | 'blocked';
-  } {
-    if (busyMode === 'render') {
-      return { enabled: false, label: 'Exportando…', message: 'El MP4 final se está generando con la revisión enviada.', kind: 'blocked' };
-    }
-    if (busyMode === 'ai') {
-      return { enabled: false, label: 'Exportar MP4', message: 'Esperá a que el Director termine de aplicar la propuesta.', kind: 'blocked' };
-    }
-    if (!store) {
-      return { enabled: false, label: 'Exportar MP4', message: 'Creá o abrí un proyecto antes de exportar.', kind: 'blocked' };
-    }
-    if (editorWorkspace().mode === 'creator') {
-      return { enabled: false, label: 'Exportar MP4', message: 'Volvé al Editor de video para revisar y exportar el proyecto.', kind: 'blocked' };
-    }
-    const validationError = store.validate();
-    if (validationError) {
-      return { enabled: false, label: 'Proyecto incompleto', message: `Completá el proyecto antes de exportar: ${validationError}`, kind: 'blocked' };
-    }
-    if (!healthChecked) {
-      return { enabled: false, label: 'Comprobando motor…', message: 'Verificando que Piper y el servicio local estén disponibles.', kind: 'blocked' };
-    }
-    if (!readyForRender) {
-      return { enabled: false, label: 'Exportación no disponible', message: 'Piper no está disponible para preparar las voces del MP4.', kind: 'blocked' };
-    }
-    const outputState = editorOutputState();
-    if (outputState === 'current') {
-      return { enabled: false, label: 'MP4 actualizado', message: 'El MP4 ya coincide con la edición actual. Podés seguir editando o descargarlo.', kind: 'current' };
-    }
-    if (outputState === 'stale') {
-      return { enabled: true, label: 'Exportar MP4 actualizado', message: 'Hay cambios sin exportar. El preview sigue disponible y el MP4 anterior se conserva.', kind: 'ready' };
-    }
-    return { enabled: true, label: 'Exportar MP4', message: 'Exportá el archivo final cuando hayas terminado de editar.', kind: 'ready' };
-  }
-
-  function syncDirectorMode(): void {
-    const editing = navigation.mode === 'editing';
-    constraintsRoot.hidden = editing;
-    promptLabel.textContent = editing ? 'Pedir un cambio al Director' : 'Idea del video';
-    prompt.placeholder = editing
-      ? 'Ejemplo: En la escena 2, cambiá el segundo diálogo y mové el personaje de la derecha.'
-      : 'Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA.';
-    generate.textContent = editing ? 'Aplicar cambio con IA' : 'Crear propuesta';
-    proposalKind.textContent = editing ? 'Proyecto' : 'Propuesta';
-    syncProjectHeading();
-    root.classList.toggle('is-editing-project', editing);
-    syncPageNavigation();
-  }
-
-  function syncProjectHeading(): void {
-    proposalTitle.value = store?.project().title?.trim()
-      || (navigation.mode === 'editing' ? 'Proyecto sin título' : 'Revisar y ajustar');
+  function hideRenderIndicator(): void {
+    renderIndicator.hidden = true;
   }
 
   function report(message: string, ok = false): void {
+    statusBlock.hidden = false;
     status.textContent = message;
     status.classList.toggle('error', !ok);
     status.classList.toggle('ok', ok);
   }
 
-  // U5: todo error ofrece un siguiente paso. Cuando la causa es una
-  // dependencia local, el botón abre el diagnóstico (E3) en vez de dejar al
-  // usuario con un texto sin salida.
   function reportError(error: unknown): void {
-    const detail = error instanceof Error && 'detail' in error
-      ? (error as Error & { detail?: ApiError }).detail
-      : null;
+    const detail = error instanceof Error && 'detail' in error ? (error as Error & { detail?: ApiError }).detail : null;
     const message = detail ? formatApiError(detail) : error instanceof Error ? error.message : String(error);
     const kind = detail ? classifyApiError(detail) : 'error';
-    if (kind === 'cancelled') {
-      report(message, true);
-      return;
-    }
-    if (kind === 'busy') {
-      report(message, true);
-      notify({ message, level: 'info' });
-      return;
-    }
-    report(message);
-    const isDependencyFailure = kind === 'dependency';
+    report(message, kind === 'cancelled' || kind === 'busy');
     notify({
       message,
-      level: 'error',
-      ...(isDependencyFailure
-        ? {
-          actionLabel: 'Ver diagnóstico',
-          onAction: () => {
-            void refreshHealth();
-            toggleHealthPopover(true);
-            healthBadge.focus();
-          },
-        }
+      level: kind === 'cancelled' || kind === 'busy' ? 'info' : 'error',
+      ...(kind === 'dependency'
+        ? { actionLabel: 'Ver diagnóstico', onAction: () => toggleHealthPopover(true) }
         : kind === 'timeout' || kind === 'invalid-response'
-          ? {
-            actionLabel: 'Volver a intentar',
-            onAction: () => {
-              transitionNavigation({ type: 'select-page', page: 'command' });
-              prompt.focus();
-            },
-          }
-        : {}),
+          ? { actionLabel: 'Volver a intentar', onAction: () => { phase = questionSet ? 'base' : 'idea'; syncUi(); if (phase === 'idea') prompt.focus(); } }
+          : {}),
     });
   }
+
 }
 
 function hasAuthoredContent(store: ProjectStore | null): boolean {
   return Boolean(store?.project().scenes.some((scene) => scene.elements.length > 0 || scene.dialogue.length > 0));
 }
 
-function isDirectorPage(value: string | undefined): value is DirectorPage {
-  return DIRECTOR_PAGES.includes(value as DirectorPage);
-}
+function questionCard(question: DirectorQuestion, index: number): HTMLElement {
+  const fieldset = document.createElement('fieldset');
+  fieldset.className = 'director-question-card';
+  fieldset.dataset.questionId = question.id;
+  const legend = document.createElement('legend');
+  const number = document.createElement('span');
+  number.textContent = String(index + 1).padStart(2, '0');
+  const copy = document.createElement('strong');
+  copy.textContent = question.prompt;
+  legend.append(number, copy);
+  fieldset.append(legend);
 
-function isDirectorFlowAction(value: string | undefined): value is DirectorFlowAction {
-  return ['command', 'project', 'render', 'editor', 'health'].includes(value ?? '');
-}
-
-/** Placeholder de carga: barras que ocupan el lugar del contenido real. */
-function skeleton(lines: number, asCards = false): HTMLElement {
-  const root = document.createElement('div');
-  root.className = 'skeleton';
-  root.setAttribute('aria-hidden', 'true');
-  for (let index = 0; index < lines; index += 1) {
-    const line = document.createElement('div');
-    line.className = asCards ? 'skeleton-line is-card' : 'skeleton-line';
-    root.append(line);
+  const choices = document.createElement('div');
+  choices.className = 'director-question-options';
+  const options = Array.isArray(question.options) ? question.options : [];
+  for (const option of options) {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = question.multiple ? 'checkbox' : 'radio';
+    input.name = `director-question-${question.id}`;
+    input.value = option.id;
+    const mark = document.createElement('span');
+    mark.className = 'director-question-mark';
+    const optionLabel = document.createElement('span');
+    optionLabel.textContent = option.label;
+    label.append(input, mark, optionLabel);
+    choices.append(label);
   }
-  return root;
-}
-
-function humanState(state: RenderJob['state']): string {
-  return { queued: 'En cola', rendering: 'Exportando', completed: 'Listo', failed: 'Falló', cancelled: 'Cancelado' }[state];
+  const other = document.createElement('div');
+  other.className = 'director-question-other';
+  const otherRadio = document.createElement('input');
+  otherRadio.type = 'radio';
+  otherRadio.name = `director-question-${question.id}`;
+  otherRadio.value = '__other__';
+  otherRadio.id = `director-question-${question.id}-other`;
+  const otherMark = document.createElement('span');
+  otherMark.className = 'director-question-mark';
+  const otherBody = document.createElement('div');
+  const otherLabel = document.createElement('label');
+  otherLabel.htmlFor = otherRadio.id;
+  otherLabel.textContent = 'Otra respuesta';
+  const otherInput = document.createElement('input');
+  otherInput.className = 'director-question-other-input';
+  otherInput.type = 'text';
+  otherInput.maxLength = 300;
+  otherInput.placeholder = question.otherPlaceholder;
+  otherInput.setAttribute('aria-label', `Otra respuesta para: ${question.prompt}`);
+  const activateOther = () => {
+    otherRadio.checked = true;
+  };
+  otherRadio.addEventListener('change', () => {
+    otherInput.focus();
+  });
+  otherInput.addEventListener('focus', activateOther);
+  otherInput.addEventListener('input', activateOther);
+  otherBody.append(otherLabel, otherInput);
+  other.append(otherRadio, otherMark, otherBody);
+  choices.append(other);
+  fieldset.append(choices);
+  return fieldset;
 }
 
 function humanStage(stage: string): string {
-  const labels: Record<string, string> = {
-    queueing: 'en cola',
-    starting_pipeline: 'iniciando pipeline',
-    compiling_project: 'compilando proyecto',
-    rendering_scene: 'preparando escena',
-    reusing_scene: 'reutilizando escena',
-    generating_voice: 'generando voces',
-    analyzing_audio: 'analizando audio',
-    rendering_frames: 'renderizando cuadros',
-    encoding: 'codificando video',
-    assembling_project: 'ensamblando escenas',
-    verifying_project: 'verificando resultado',
-  };
-  return labels[stage] || stage.replaceAll('_', ' ');
+  return ({
+    queueing: 'En cola', starting_pipeline: 'Iniciando el motor', compiling_project: 'Preparando el proyecto',
+    rendering_scene: 'Preparando una escena', reusing_scene: 'Reutilizando una escena', generating_voice: 'Creando las voces',
+    analyzing_audio: 'Midiendo el audio', rendering_frames: 'Dibujando el video', encoding: 'Codificando el MP4',
+    assembling_project: 'Uniendo las escenas', verifying_project: 'Verificando el resultado',
+  } as Record<string, string>)[stage] ?? stage.replaceAll('_', ' ');
 }
 
-function stageProgress(stage: string): number {
-  const values: Record<string, number> = {
-    queueing: 3,
-    starting_pipeline: 7,
-    compiling_project: 12,
-    rendering_scene: 18,
-    reusing_scene: 24,
-    generating_voice: 28,
-    analyzing_audio: 38,
-    rendering_frames: 58,
-    encoding: 78,
-    assembling_project: 88,
-    verifying_project: 96,
+function describeSceneProgress(progress: Record<string, unknown> | null): string | null {
+  if (!progress) return null;
+  const index = Number(progress.sceneIndex ?? progress.currentScene ?? 0);
+  const count = Number(progress.sceneCount ?? progress.totalScenes ?? 0);
+  return index > 0 && count > 0 ? `Escena ${index} de ${count}` : null;
+}
+
+function mergeDirectorUsage(...entries: Array<DirectorUsage | undefined>): DirectorUsage {
+  const values = entries.filter((entry): entry is DirectorUsage => Boolean(entry));
+  const sum = (field: keyof DirectorUsage): number | null => {
+    const numbers = values.map((entry) => entry[field]).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    return numbers.length ? numbers.reduce((total, value) => total + value, 0) : null;
   };
-  return values[stage] ?? 10;
+  return {
+    requestCount: sum('requestCount') ?? 0,
+    currentRequestCount: sum('currentRequestCount') ?? sum('requestCount') ?? 0,
+    transportAttempts: sum('transportAttempts') ?? 0,
+    retryCount: sum('retryCount') ?? 0,
+    inputTokens: sum('inputTokens'),
+    outputTokens: sum('outputTokens'),
+    cachedInputTokens: sum('cachedInputTokens'),
+    cacheWriteTokens: sum('cacheWriteTokens'),
+    uncachedInputTokens: sum('uncachedInputTokens'),
+    totalTokens: sum('totalTokens'),
+    repairAttempts: sum('repairAttempts') ?? 0,
+  };
+}
+
+function formatTokenCount(value: number | null | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value) ? new Intl.NumberFormat('es-AR').format(value) : '—';
+}
+
+function persistDirectorUsage(project: EditableProject, record: DirectorUsageRecord): void {
+  try {
+    localStorage.setItem(DIRECTOR_USAGE_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      projectId: project.id,
+      projectRevision: projectFingerprint(project),
+      ...record,
+    }));
+  } catch {
+    // La creación sigue siendo válida si el navegador bloquea almacenamiento local.
+  }
+}
+
+function readPersistedDirectorUsage(project: EditableProject): DirectorUsageRecord | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(DIRECTOR_USAGE_STORAGE_KEY) || 'null') as Partial<DirectorUsageRecord> & {
+      version?: number;
+      projectId?: string;
+      projectRevision?: string;
+    } | null;
+    if (value?.version !== 1
+      || value.projectId !== project.id
+      || value.projectRevision !== projectFingerprint(project)
+      || !['ollama', 'openai'].includes(String(value.provider))
+      || typeof value.model !== 'string'
+      || !value.usage
+      || !value.cache) return null;
+    return value as DirectorUsageRecord;
+  } catch {
+    return null;
+  }
 }

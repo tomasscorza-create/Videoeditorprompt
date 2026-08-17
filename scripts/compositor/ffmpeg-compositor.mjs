@@ -124,9 +124,12 @@ export function composeFramesWithFfmpeg({
     indices: Object.fromEntries(LAYER_KEYS.map((key) => [key, addAsset(character.assets[key], `${character.id}/${key}`)])),
     transform: character.transform,
   }));
-  const subtitleInputs = dialogueData.turns.map((turn) => ({
-    turnId: turn.id,
-    index: inputs.push(generatedPath(turn.subtitlePath)) - 1,
+  const subtitlePaths = [...new Set(dialogueData.turns.flatMap((turn) => (
+    turn.subtitleCues?.map((cue) => cue.subtitlePath) ?? (turn.subtitlePath ? [turn.subtitlePath] : [])
+  )))];
+  const subtitleInputs = subtitlePaths.map((subtitlePath) => ({
+    subtitlePath,
+    index: inputs.push(generatedPath(subtitlePath)) - 1,
   }));
   const enable = (predicate) => ranges(framePlan, predicate)
     .map(([start, end]) => `between(n\\,${start}\\,${end})`).join('+') || '0';
@@ -176,7 +179,7 @@ export function composeFramesWithFfmpeg({
   }
   for (const [index, subtitle] of subtitleInputs.entries()) {
     const output = `sub${index}`;
-    filters.push(`[${sceneLabel}][${subtitle.index}:v]overlay=0:0:format=auto:enable='${enable((frame) => frame.activeTurnId === subtitle.turnId)}'[${output}]`);
+    filters.push(`[${sceneLabel}][${subtitle.index}:v]overlay=0:0:format=auto:enable='${enable((frame) => frame.subtitlePath === subtitle.subtitlePath)}'[${output}]`);
     sceneLabel = output;
   }
   filters.push(`[${sceneLabel}]format=rgba[out]`);

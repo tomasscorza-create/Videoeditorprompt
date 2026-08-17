@@ -35,6 +35,12 @@ const CAMERA_PRESETS = Object.freeze({
   static: { fromX: 0, toX: 0, fromY: 0, toY: 0, fromZoom: 1, toZoom: 1 },
   'slow-pan': { fromX: -20, toX: 20, fromY: 3, toY: -5, fromZoom: 1, toZoom: 1.02 },
   'slow-zoom': { fromX: -2, toX: 2, fromY: 2, toY: -4, fromZoom: 1, toZoom: 1.03 },
+  'drift-left': { fromX: 30, toX: -30, fromY: 6, toY: -3, fromZoom: 1.01, toZoom: 1.035 },
+  'drift-right': { fromX: -30, toX: 30, fromY: -3, toY: 6, fromZoom: 1.01, toZoom: 1.035 },
+  'push-in': { fromX: -4, toX: 5, fromY: 8, toY: -8, fromZoom: 1, toZoom: 1.075 },
+  'pull-back': { fromX: 5, toX: -4, fromY: -8, toY: 6, fromZoom: 1.075, toZoom: 1.005 },
+  rise: { fromX: -8, toX: 8, fromY: 24, toY: -24, fromZoom: 1.015, toZoom: 1.045 },
+  'diagonal-glide': { fromX: -24, toX: 26, fromY: 20, toY: -22, fromZoom: 1.01, toZoom: 1.055 },
 });
 
 const BACKGROUND_LAYER_PRESETS = Object.freeze({

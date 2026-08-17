@@ -2,9 +2,10 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { analyzeWav } from './audio-analysis.mjs';
 import { buildBlinkSchedule } from '../../shared/scene-evaluator.js';
+import { buildSubtitleCues } from '../../shared/subtitle-cues.js';
 import { ensureDirectory, ffprobe, run, sha256, writeJson } from './common.mjs';
 import { generateVoice } from './tts-voice.mjs';
-import { renderSubtitle, wrapSubtitleText } from './subtitle-renderer.mjs';
+import { renderSubtitle } from './subtitle-renderer.mjs';
 import { normalizeSpanishTtsText } from './tts-text.mjs';
 import { validateMeasuredDuration } from './validate-scene-config.mjs';
 import { buildHybridVisemeCues } from './viseme-analysis.mjs';
@@ -45,10 +46,13 @@ export function prepareDialogueJob(context, config, report) {
     const analysis = analyzeWav(generated.jobWav, config.mouth);
     const mouth = buildHybridVisemeCues(ttsText, analysis);
     totalAnalysisSeconds += (performance.now() - analysisStarted) / 1000;
-    const subtitleText = wrapSubtitleText(turn.text);
-    const subtitle = renderSubtitle(context, config.video, subtitleText, config.subtitleStyle, fontPath);
     const startSeconds = cursor;
     const endSeconds = startSeconds + durationSeconds;
+    const subtitleCues = buildSubtitleCues(turn.text, durationSeconds).map((cue) => {
+      const subtitle = renderSubtitle(context, config.video, cue.text, config.subtitleStyle, fontPath);
+      return { ...cue, subtitlePath: subtitle.subtitleRelative };
+    });
+    if (subtitleCues.length === 0) throw new Error(`El turno ${turn.id} no contiene texto visible para subtitular.`);
     const words = ttsText.split(/\s+/u).filter(Boolean);
     const gestureStart = turn.gesture === 'neutral'
       ? null
@@ -70,8 +74,11 @@ export function prepareDialogueJob(context, config, report) {
       durationSeconds,
       gapAfterSeconds: turn.gapAfterSeconds,
       audioPath: generated.audioRelative,
-      subtitlePath: subtitle.subtitleRelative,
-      subtitleText,
+      // Se conserva la primera ruta como fallback para runtimes históricos. El
+      // evaluador actual usa siempre la secuencia temporal cuando está presente.
+      subtitlePath: subtitleCues[0].subtitlePath,
+      subtitleText: turn.text.trim().replace(/\s+/gu, ' '),
+      subtitleCues,
       ttsText,
       mouthCues: mouth.cues,
       mouthCueSource: mouth.source,
@@ -96,6 +103,7 @@ export function prepareDialogueJob(context, config, report) {
   const resolvedSoundEffects = resolveSoundEffects(config.soundEffects ?? [], timelineTurns, cursor, context);
   const timelineKey = sha256(JSON.stringify({
     configVersion: config.version,
+    subtitleContractVersion: 2,
     music: config.assets.music ?? null,
     soundEffects: resolvedSoundEffects.map(({ id, asset, startSeconds, gainDb }) => ({ id, asset, startSeconds, gainDb })),
     turns: timelineTurns.map(({ id, speakerType, speakerId, durationSeconds, gapAfterSeconds, cacheKey, gesture, gestureCue, layout, mouthCueSource }) => ({

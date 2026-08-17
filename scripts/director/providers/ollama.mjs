@@ -1,4 +1,5 @@
 import { PipelineError } from '../../stage1/errors.mjs';
+import { normalizeProviderUsage } from './usage.mjs';
 
 // Toda la especificidad de Ollama vive acá (D1): forma de la petición
 // (format/think/keep_alive/seed/num_predict), parsing de message.content,
@@ -43,18 +44,22 @@ export function createOllamaProvider(config = {}) {
     const content = response?.message?.content;
     return {
       content: typeof content === 'string' ? content : '',
-      usage: {
-        promptEvalCount: response.prompt_eval_count ?? null,
-        evalCount: response.eval_count ?? null,
+      usage: normalizeProviderUsage({
+        inputTokens: response.prompt_eval_count ?? null,
+        outputTokens: response.eval_count ?? null,
         totalDurationNanoseconds: response.total_duration ?? null,
-      },
+        requestCount: 1,
+        transportAttempts: 1,
+      }),
     };
   }
 
   return {
     name: 'ollama',
+    defaultModel: DEFAULT_DIRECTOR_MODEL,
     generatePlan: chat,
     generateCommands: chat,
+    generateQuestions: chat,
     async inspect({ model, timeoutMs } = {}) {
       const requestedModel = String(model || DEFAULT_DIRECTOR_MODEL);
       const [version, tags] = await Promise.all([

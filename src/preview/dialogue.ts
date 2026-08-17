@@ -55,12 +55,15 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
     visualCharacters.push({ id: characterRuntime.id, container, layers });
   }
 
+  const subtitlePaths = [...new Set(dialogue.turns.flatMap((turn) => (
+    turn.subtitleCues?.map((cue) => cue.subtitlePath) ?? (turn.subtitlePath ? [turn.subtitlePath] : [])
+  )))];
   const subtitles = new Map<string, Sprite>();
-  for (const turn of dialogue.turns) {
-    const texture = await Assets.load<Texture>(generatedUrl(turn.subtitlePath));
+  for (const subtitlePath of subtitlePaths) {
+    const texture = await Assets.load<Texture>(generatedUrl(subtitlePath));
     const sprite = fullSprite(texture, config.video.width, config.video.height);
     sprite.visible = false;
-    subtitles.set(turn.id, sprite);
+    subtitles.set(subtitlePath, sprite);
     app.stage.addChild(sprite);
   }
   const audio = new Audio(generatedUrl(runtime.audio.path));
@@ -94,7 +97,7 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
       visual.layers.handDoubt.visible = characterState.gesture === 'doubt';
       visual.layers.handDeny.visible = characterState.gesture === 'deny';
     }
-    for (const [turnId, subtitle] of subtitles) subtitle.visible = turnId === state.activeTurnId;
+    for (const [subtitlePath, subtitle] of subtitles) subtitle.visible = subtitlePath === state.subtitlePath;
     const speakerState = state.characters.find((item) => item.speaking);
     ui.time.textContent = `${state.time.toFixed(2)} / ${runtime.audio.durationSeconds.toFixed(2)} s`;
     ui.mouth.textContent = speakerState ? `${speakerState.id}: ${speakerState.mouth}` : 'silencio';

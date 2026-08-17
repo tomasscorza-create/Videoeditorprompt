@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import path from 'node:path';
-import { createDirectorProposal, inspectOllama } from '../director/ollama-director.mjs';
+import { createDirectorProposal, inspectDirectorProvider } from '../director/ollama-director.mjs';
+import { createClarifyingQuestions } from '../director/clarifying-questions.mjs';
 import { editProjectWithDirector } from '../director/project-editor-director.mjs';
 import { editTimelineWithDirector } from '../director/timeline-director.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
@@ -104,9 +105,27 @@ export async function createLocalAppServer(options = {}) {
     runStartupRetention({ localRoot: options.localRoot || path.join(root, '.local-video') });
   }
   const director = options.director || createDirectorProposal;
+  const questionDirector = options.questionDirector || createClarifyingQuestions;
   const projectDirector = options.projectDirector || editProjectWithDirector;
   const timelineDirector = options.timelineDirector || editTimelineWithDirector;
-  const ollamaInspector = options.ollamaInspector || inspectOllama;
+  const ollamaInspector = options.ollamaInspector || ((providerOptions = {}) => inspectDirectorProvider({
+    ...providerOptions,
+    provider: 'ollama',
+  }));
+  const providerInspector = options.providerInspector || ((providerOptions = {}) => {
+    if (!providerOptions.provider || providerOptions.provider === 'ollama') return ollamaInspector(providerOptions);
+    return inspectDirectorProvider(providerOptions);
+  });
+  const inspectionCache = new Map();
+  const inspectionCacheTtlMs = boundedInspectionTtl(options.inspectionCacheTtlMs ?? 60_000);
+  const inspectProviderCached = async (providerOptions = {}) => {
+    const key = `${providerOptions.provider || 'ollama'}:${providerOptions.model || ''}`;
+    const cached = inspectionCache.get(key);
+    if (cached && Date.now() - cached.createdAt < inspectionCacheTtlMs) return cached.value;
+    const value = await providerInspector(providerOptions);
+    inspectionCache.set(key, { createdAt: Date.now(), value });
+    return value;
+  };
   let directorController = null;
   let directorStatus = createDirectorStatus('idle', 'idle');
   const updateDirectorStatus = (state, stage, detail = {}) => {
@@ -148,11 +167,13 @@ export async function createLocalAppServer(options = {}) {
       }
       const url = new URL(request.url || '/', `http://${host}:${port}`);
       if (request.method === 'GET' && url.pathname === '/api/health') {
-        let ollama;
+        const provider = String(url.searchParams.get('provider') || 'ollama');
+        const model = url.searchParams.get('model') || undefined;
+        let directorHealth;
         try {
-          ollama = await ollamaInspector();
+          directorHealth = await inspectProviderCached({ provider, model });
         } catch (error) {
-          ollama = { available: false, modelInstalled: false, error: serializeError(error, 'directing') };
+          directorHealth = { available: false, modelInstalled: false, model, error: serializeError(error, 'directing') };
         }
         const ttsRoot = resolveTtsRoot({}, { validate: false });
         const elevenLabsConfigured = Boolean(
@@ -161,9 +182,14 @@ export async function createLocalAppServer(options = {}) {
         );
         sendJson(response, 200, {
           version: 1,
-          ready: ollama.available && ollama.modelInstalled && existsSync(ttsRoot) && elevenLabsConfigured,
-          ollama,
-          providers: { ollama },
+          ready: directorHealth.available && directorHealth.modelInstalled && existsSync(ttsRoot) && elevenLabsConfigured,
+          director: { provider, ...directorHealth },
+          // Compatibilidad con clientes anteriores. El diagnóstico canónico es
+          // `director`, que representa al proveedor elegido por el usuario.
+          ollama: provider === 'ollama'
+            ? directorHealth
+            : { available: false, modelInstalled: false, skipped: true },
+          providers: { [provider]: directorHealth },
           registeredProviders: listProviderNames(),
           tts: {
             available: existsSync(ttsRoot) && elevenLabsConfigured,
@@ -290,6 +316,43 @@ export async function createLocalAppServer(options = {}) {
         sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
         return;
       }
+      if (request.method === 'POST' && url.pathname === '/api/director/questions') {
+        assertJsonContentType(request);
+        if (directorController) {
+          const error = new Error('El Director ya está procesando otra petición.');
+          error.code = 'DIRECTOR_BUSY';
+          error.suggestedAction = 'Esperá a que termine o cancelá la petición en curso.';
+          throw error;
+        }
+        const body = await readJsonBody(request);
+        directorController = new AbortController();
+        updateDirectorStatus('running', 'checking_model');
+        try {
+          const modelInspection = await inspectDirectorIdentity(inspectProviderCached, body.provider, body.model);
+          const result = await questionDirector({
+            prompt: body.prompt,
+            constraints: body.constraints,
+            provider: body.provider,
+            model: body.model,
+            modelIdentity: modelInspection,
+            signal: directorController.signal,
+            onProgress: (progress) => updateDirectorStatus('running', progress.stage, progress),
+          });
+          sendJson(response, 200, {
+            version: 1,
+            questionContract: result.questionContract,
+            cacheHit: result.cacheHit,
+            model: result.model,
+            questions: result.questions,
+            usage: result.usage,
+            modelIdentity: result.modelIdentity,
+          });
+        } finally {
+          directorController = null;
+          updateDirectorStatus('idle', 'idle');
+        }
+        return;
+      }
       if (request.method === 'POST' && url.pathname === '/api/director/proposals') {
         assertJsonContentType(request);
         if (directorController) {
@@ -303,7 +366,7 @@ export async function createLocalAppServer(options = {}) {
         updateDirectorStatus('running', 'checking_model');
         let proposal;
         try {
-          const modelInspection = await inspectDirectorIdentity(ollamaInspector, body.model);
+          const modelInspection = await inspectDirectorIdentity(inspectProviderCached, body.provider, body.model);
           proposal = await director({
             prompt: body.prompt,
             variant: body.variant,
@@ -311,6 +374,7 @@ export async function createLocalAppServer(options = {}) {
             provider: body.provider,
             think: body.think,
             bestOf: body.bestOf,
+            personalization: body.personalization,
             model: body.model,
             modelIdentity: modelInspection,
             assetsRoot,
@@ -358,7 +422,7 @@ export async function createLocalAppServer(options = {}) {
         directorController = new AbortController();
         updateDirectorStatus('running', 'checking_model');
         try {
-          const modelInspection = await inspectDirectorIdentity(ollamaInspector, body.model);
+          const modelInspection = await inspectDirectorIdentity(inspectProviderCached, body.provider, body.model);
           const result = await projectDirector({
             instruction: body.instruction,
             project: body.project,
@@ -604,9 +668,9 @@ export async function createLocalAppServer(options = {}) {
   };
 }
 
-async function inspectDirectorIdentity(inspector, model) {
+async function inspectDirectorIdentity(inspector, provider, model) {
   try {
-    const result = await inspector({ model });
+    const result = await inspector({ provider, model });
     return {
       digest: typeof result?.digest === 'string' ? result.digest : null,
       runtimeVersion: typeof result?.version === 'string' ? result.version : null,
@@ -614,6 +678,12 @@ async function inspectDirectorIdentity(inspector, model) {
   } catch {
     return null;
   }
+}
+
+function boundedInspectionTtl(value) {
+  const resolved = Number(value);
+  if (!Number.isInteger(resolved) || resolved < 0 || resolved > 10 * 60_000) return 60_000;
+  return resolved;
 }
 
 async function readJsonBody(request) {

@@ -3,7 +3,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
 
-export const DIRECTOR_CONTEXT_VERSION = 1;
+export const DIRECTOR_CONTEXT_VERSION = 2;
 export const DEFAULT_RESOURCE_LIMITS = Object.freeze({
   character: 6,
   voice: 4,
@@ -20,6 +20,18 @@ const TONE_TERMS = Object.freeze({
   energetic: ['energetic', 'energia', 'rapido', 'ritmo', 'dinamico'],
   inspirational: ['inspirational', 'inspiracion', 'motivacion', 'progreso', 'calma'],
 });
+
+const QUERY_SYNONYM_GROUPS = Object.freeze([
+  ['ia', 'inteligencia', 'artificial', 'tecnologia', 'digital'],
+  ['educacion', 'educativo', 'explicar', 'tutorial', 'aprender', 'ensenar'],
+  ['humor', 'comedia', 'gracioso', 'ironico', 'ironia'],
+  ['dinamico', 'energia', 'rapido', 'ritmo', 'impacto'],
+  ['serio', 'sobrio', 'formal', 'analista'],
+  ['inspiracion', 'motivacion', 'progreso', 'superacion'],
+  ['dinero', 'finanza', 'ahorro', 'presupuesto', 'economia'],
+  ['trabajo', 'laboral', 'profesional', 'oficina'],
+  ['privacidad', 'seguridad', 'ciberseguridad', 'proteccion'],
+]);
 
 const templateSchema = readJson(path.join(projectRoot, 'schema', 'narrative-template-catalog.schema.json'));
 const validateTemplateCatalog = new Ajv2020({ allErrors: true, strict: true }).compile(templateSchema);
@@ -69,10 +81,11 @@ export function buildDirectorContext({
   if (typeof prompt !== 'string' || prompt.trim() === '') {
     contextError('DIRECTOR_CONTEXT_INVALID', 'Se necesita una idea de video para buscar recursos.');
   }
-  const queryTokens = new Set([
+  const queryTokens = expandQueryTokens(new Set([
     ...tokenize(prompt),
     ...(TONE_TERMS[constraints.tone] || []),
-  ]);
+  ]));
+  const explicitResourceIds = findExplicitResourceIds(catalog.entries, prompt);
   const rankedTemplates = rankTemplates(templates.templates, queryTokens, constraints);
   const templateCandidates = rankedTemplates.slice(0, boundedInteger(templateLimit, 1, 8, 'templateLimit'));
   const recommendedTemplate = templateCandidates[0];
@@ -101,7 +114,7 @@ export function buildDirectorContext({
     }
   }
   const selectedIds = new Set(selectedEntries.map((entry) => entry.id));
-  const requiredIds = new Set(requiredResourceIds);
+  const requiredIds = new Set([...requiredResourceIds, ...explicitResourceIds]);
   for (const entry of catalog.entries) {
     if (!requiredIds.has(entry.id) || selectedIds.has(entry.id)) continue;
     selectedEntries.push(entry);
@@ -114,6 +127,8 @@ export function buildDirectorContext({
   }
 
   const shortlistedCatalog = { version: 1, entries: selectedEntries };
+  const availableByType = countEntriesByType(catalog.entries);
+  const shortlistedByType = countEntriesByType(selectedEntries);
   return {
     version: DIRECTOR_CONTEXT_VERSION,
     catalog: shortlistedCatalog,
@@ -123,12 +138,24 @@ export function buildDirectorContext({
       queryTokens: [...queryTokens].sort(),
       resourceIds: selectedEntries.map((entry) => entry.id),
       resourceScores: scores,
+      explicitResourceIds: [...explicitResourceIds].sort(),
       templateIds: templateCandidates.map((template) => template.id),
       recommendedTemplateId: recommendedTemplate?.id ?? null,
       totalCatalogEntries: catalog.entries.length,
       shortlistedEntries: selectedEntries.length,
+      availableByType,
+      shortlistedByType,
+      unsupportedResourceTypes: Object.keys(availableByType)
+        .filter((type) => !Object.hasOwn(DEFAULT_RESOURCE_LIMITS, type))
+        .sort(),
     },
   };
+}
+
+function countEntriesByType(entries) {
+  const counts = {};
+  for (const entry of entries) counts[entry.type] = (counts[entry.type] || 0) + 1;
+  return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)));
 }
 
 export function compactResourceEntries(catalog) {
@@ -194,7 +221,9 @@ function tokenOverlapScore(queryTokens, searchable) {
 }
 
 function compareRanked(a, b) {
-  return b.score - a.score || a.index - b.index || String(a.entry?.id || a.template?.id).localeCompare(String(b.entry?.id || b.template?.id));
+  return b.score - a.score
+    || String(a.entry?.id || a.template?.id).localeCompare(String(b.entry?.id || b.template?.id))
+    || a.index - b.index;
 }
 
 function tokenize(value) {
@@ -208,7 +237,46 @@ function tokenize(value) {
 }
 
 function normalizeToken(value) {
-  return String(value).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  const token = String(value).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  if (token.length > 5 && token.endsWith('ciones')) return `${token.slice(0, -6)}cion`;
+  if (token.length > 5 && token.endsWith('es')) return token.slice(0, -2);
+  if (token.length > 4 && token.endsWith('s')) return token.slice(0, -1);
+  return token;
+}
+
+function expandQueryTokens(tokens) {
+  const expanded = new Set([...tokens].map(normalizeToken));
+  for (const group of QUERY_SYNONYM_GROUPS) {
+    const normalized = group.map(normalizeToken);
+    if (normalized.some((term) => expanded.has(term))) {
+      for (const term of normalized) expanded.add(term);
+    }
+  }
+  return expanded;
+}
+
+function findExplicitResourceIds(entries, prompt) {
+  const phrase = normalizePhrase(prompt);
+  return new Set(entries.filter((entry) => {
+    if (!Object.hasOwn(DEFAULT_RESOURCE_LIMITS, entry.type)) return false;
+    const id = normalizePhrase(entry.id);
+    const label = normalizePhrase(entry.label);
+    return (id.length >= 3 && containsPhrase(phrase, id))
+      || (label.length >= 3 && containsPhrase(phrase, label));
+  }).map((entry) => entry.id));
+}
+
+function normalizePhrase(value) {
+  return String(value)
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, ' ')
+    .trim();
+}
+
+function containsPhrase(haystack, needle) {
+  return ` ${haystack} `.includes(` ${needle} `);
 }
 
 function boundedInteger(value, min, max, field) {

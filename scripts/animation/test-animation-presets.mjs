@@ -39,11 +39,11 @@ function pass(name, detail = {}) {
 // 1. El catálogo interno completo expande a pistas pequeñas y deterministas.
 assert.deepEqual(Object.keys(ANIMATION_PRESETS).sort(),
   [
-    'arm-raise', 'blink', 'body-bounce', 'body-lean', 'emphasis-pulse',
+    'arm-raise', 'blink', 'body-bounce', 'body-lean', 'drift-horizontal', 'emphasis-pulse',
     'enter-bottom', 'enter-left', 'enter-right', 'exit-left', 'exit-right',
-    'exit-top', 'fade-in', 'fade-out', 'float', 'head-nod', 'head-tilt',
+    'exit-shrink', 'exit-top', 'fade-in', 'fade-out', 'float', 'gentle-bob', 'head-nod', 'head-tilt',
     'jump', 'left-arm-raise', 'left-elbow-bend', 'pop-in', 'right-elbow-bend',
-    'shake-horizontal', 'squash-stretch', 'wobble',
+    'scale-breathe', 'settle-down', 'shake-horizontal', 'squash-stretch', 'tilt-accent', 'wobble',
   ]);
 for (const [presetId, preset] of Object.entries(ANIMATION_PRESETS)) {
   const track = expandAnimationPreset(presetId, { baseValue: preset.parameterId === 'scale' ? 1 : 100 });
@@ -111,7 +111,7 @@ assert.ok(!listApplicablePresets([]).some((preset) => preset.id === 'arm-raise')
 assert.ok(listApplicablePresets(['armRaise']).some((preset) => preset.id === 'arm-raise'));
 assert.ok(listApplicablePresets(['headNod']).some((preset) => preset.id === 'head-nod'));
 assert.ok(!listApplicablePresets(['armRaise']).some((preset) => preset.id === 'head-nod'));
-assert.equal(listApplicablePresets([]).length, 16);
+assert.equal(listApplicablePresets([]).length, 22);
 pass('presets-articulados-solo-si-el-recurso-los-declara', { accepted: true });
 
 const jump = expandAnimationPreset('jump', { baseValue: 900, intensity: 'medium' });

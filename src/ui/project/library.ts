@@ -532,7 +532,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       const turn = scene.dialogue[0];
       if (turn) error = store.dispatch({ type: 'set-dialogue-turn', sceneId: scene.id, turnId: turn.id, voiceId: resource.id });
     }
-    const status = optional<HTMLElement>('#project-status');
+    const status = optional<HTMLElement>('#resource-library-status');
     if (status) {
       status.textContent = error || `${resource.label} aplicado a «${scene.title}».`;
       status.classList.toggle('error', Boolean(error));

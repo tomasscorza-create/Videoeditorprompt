@@ -25,8 +25,9 @@ const sources = [
   'src/ui/timeline-animation.ts',
   'src/ui/director/api.ts',
   'src/ui/director/progress-copy.ts',
-  'src/ui/director/flow-guidance.ts',
-  'src/ui/director/navigation.ts',
+  'src/ui/director/brief.ts',
+  'src/ui/director/flow-state.ts',
+  'src/ui/director/pending-edit.ts',
   'src/ui/notifications-queue.ts',
   'src/ui/director/quality-copy.ts',
   'src/ui/director/health-copy.ts',
@@ -65,6 +66,7 @@ for (const name of [
   'animation-evaluator.js',
   'video-template-page.js',
   'video-template-definition.js',
+  'project-fingerprint.js',
   'compositor-contract.js',
 ]) {
   copyFileSync(path.join(projectRoot, 'shared', name), path.join(outDir, 'shared', name));
@@ -127,10 +129,10 @@ function fakeVideo() {
 
 const geometryPath = path.join(outDir, 'src', 'ui', 'timeline-geometry.js');
 const apiPath = path.join(outDir, 'src', 'ui', 'director', 'api.js');
-const directorNavigationPath = path.join(outDir, 'src', 'ui', 'director', 'navigation.js');
+const directorFlowPath = path.join(outDir, 'src', 'ui', 'director', 'flow-state.js');
 assert.equal(existsSync(geometryPath), true, 'timeline-geometry.js no se compiló');
 assert.equal(existsSync(apiPath), true, 'director/api.js no se compiló');
-assert.equal(existsSync(directorNavigationPath), true, 'director/navigation.js no se compiló');
+assert.equal(existsSync(directorFlowPath), true, 'director/flow-state.js no se compiló');
 
 const workspace = await import(pathToFileURL(workspacePath).href);
 const rightPanel = await import(pathToFileURL(rightPanelPath).href);
@@ -143,8 +145,9 @@ const geometry = await import(pathToFileURL(geometryPath).href);
 const animation = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'timeline-animation.js')).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
 const directorProgress = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'progress-copy.js')).href);
-const directorFlow = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'flow-guidance.js')).href);
-const directorNavigation = await import(pathToFileURL(directorNavigationPath).href);
+const directorBrief = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'brief.js')).href);
+const directorFlow = await import(pathToFileURL(directorFlowPath).href);
+const pendingDirectorEdit = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'pending-edit.js')).href);
 const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'notifications-queue.js')).href);
 const qualityCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'quality-copy.js')).href);
 const healthCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'health-copy.js')).href);
@@ -236,19 +239,12 @@ check(
 }
 
 const appHtml = readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
-const projectPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'panel.ts'), 'utf8');
+const storyboardSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'storyboard.ts'), 'utf8');
 const directorPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'panel.ts'), 'utf8');
 const timelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'timeline.ts'), 'utf8');
 const editorWorkspaceSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'editor-workspace.ts'), 'utf8');
 const editingPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'editing-panel.ts'), 'utf8');
 const compositionSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'composition.ts'), 'utf8');
-check(
-  'el preview vivo consume cues medidos y dibuja el rig en vez de una miniatura',
-  compositionSource.includes('measuredVisualSceneFor(scene.id)')
-    && compositionSource.includes('evaluateScene({ version: 2 }')
-    && compositionSource.includes('rigSpritePlan(manifest')
-    && compositionSource.includes('drawRigPreview(image, sprites, render)'),
-);
 check(
   'el panel derecho ofrece Recursos y Edición como páginas hermanas',
   appHtml.includes('id="right-panel-resources-tab"')
@@ -452,6 +448,13 @@ check(
     && compositionSource.includes('animatingElement !== null && !previewing'),
 );
 check(
+  'el preview vivo consume cues medidos y dibuja el rig en vez de una miniatura',
+  compositionSource.includes('measuredVisualSceneFor(scene.id)')
+    && compositionSource.includes('evaluateScene({ version: 2 }')
+    && compositionSource.includes('rigSpritePlan(manifest')
+    && compositionSource.includes('drawRigPreview(image, sprites, render)'),
+);
+check(
   'el preview precarga el fondo y no vuelve a pedirlo en cada frame',
   compositionSource.includes('await loadBackgroundLayers(resource.backgroundManifest)')
     && compositionSource.includes('backgroundNodes(backgroundLayers.get(background.backgroundManifest)')
@@ -538,10 +541,9 @@ check(
 }
 check(
   'el Director ya no conserva una segunda implementación de edición manual',
-  !projectPanelSource.includes('function animationControls(')
-    && !projectPanelSource.includes('function keyframeCard(')
-    && projectPanelSource.includes("showRightPanelPage('editing')")
-    && projectPanelSource.includes('showEditingSubpage(page)'),
+  !existsSync(path.join(projectRoot, 'src', 'ui', 'project', 'panel.ts'))
+    && storyboardSource.includes("showRightPanelPage('editing')")
+    && storyboardSource.includes("selectProjectItem({ kind: 'scene'"),
 );
 check(
   'la timeline conserva acciones estructurales y comparte la duplicación de keyframes',
@@ -719,26 +721,30 @@ check(
 );
 check('el estado del Director incluye un indicador de actividad', appHtml.includes('class="director-activity"'));
 check(
-  'Estado actual no duplica las acciones estructurales de la timeline',
-  !projectPanelSource.includes("actionButton('Nueva escena'")
-    && !projectPanelSource.includes("actionButton('Duplicar'")
-    && !projectPanelSource.includes("actionButton('Eliminar',"),
+  'Base es una segunda capa de tres preguntas y no un resumen editable',
+  appHtml.includes('id="director-questions-form"')
+    && appHtml.includes('id="director-questions"')
+    && appHtml.includes('id="director-create-video"')
+    && directorPanelSource.includes("otherLabel.textContent = 'Otra respuesta'")
+    && directorPanelSource.includes("otherRadio.value = '__other__'")
+    && !appHtml.includes('id="director-storyboard"')
+    && !appHtml.includes('id="director-summary"'),
 );
 check(
-  'Escena edita el guion sin exponer personaje ni voz',
-  !projectPanelSource.includes('set-dialogue-speaker')
-    && !projectPanelSource.includes('voiceSelect')
-    && projectPanelSource.includes('proposal-dialogue-meta'),
+  'el Director no expone campos de edición manual duplicados',
+  !appHtml.includes('id="proposal-title"')
+    && !appHtml.includes('id="scene-inspector"')
+    && !directorPanelSource.includes("type: 'set-dialogue-turn'"),
 );
 check(
-  'la propuesta recorre todas las escenas en sus editores enfocados',
-  projectPanelSource.includes('project.scenes.map((scene, index)')
-    && projectPanelSource.includes('store.project().scenes.map((scene, index)'),
+  'el storyboard recorre todas las escenas como navegación compacta',
+  storyboardSource.includes('project.scenes.map((scene, index)')
+    && storyboardSource.includes("summary.textContent = scene.dialogue[0]?.text"),
 );
 check(
-  'la cabecera del Director usa y permite editar el título real del proyecto',
-  directorPanelSource.includes("proposalTitle.value = store?.project().title?.trim()")
-    && directorPanelSource.includes("store.dispatch({ type: 'set-project-title', title })"),
+  'el título no se duplica dentro del Director',
+  !appHtml.includes('class="proposal-project-title"')
+    && !directorPanelSource.includes("type: 'set-project-title'"),
 );
 
 check(
@@ -812,26 +818,41 @@ check(
     attempt: 1,
     segmentIndex: 2,
     segmentCount: 4,
-  }) === 'Generando la propuesta 1 de 1 · bloque 2 de 4 con Ollama…',
+  }) === 'Generando la propuesta 1 de 1 · bloque 2 de 4…',
 );
 
 check(
   'Exportar expone disponibilidad y evita repetir una exportación vigente',
   appHtml.includes('id="render-readiness"')
-    && directorPanelSource.includes("outputState === 'current'")
+    && directorPanelSource.includes("output === 'current'")
     && directorPanelSource.includes("label: 'MP4 actualizado'"),
 );
 check(
-  'el Director presenta el recorrido numerado y una siguiente acción',
-  appHtml.includes('id="director-next-step"')
-    && directorPanelSource.includes('director-step-number')
-    && directorPanelSource.includes('syncFlowGuidance'),
+  'el Director presenta Idea, Base y Video como fases, no pestañas',
+  appHtml.includes('data-director-phase="idea"')
+    && appHtml.includes('data-director-phase="base"')
+    && appHtml.includes('data-director-phase="video"')
+    && !appHtml.includes('director-page-tabs'),
 );
 check(
-  'Exportar enumera sus requisitos sin reemplazar la validación del motor',
+  'al enviar, el prompt sale del campo y aparece como mensaje no editable',
+  appHtml.includes('id="director-submitted-message"')
+    && appHtml.includes('id="director-submitted-text"')
+    && directorPanelSource.includes('submittedInstruction = instruction')
+    && directorPanelSource.includes("composer.hidden = phase !== 'idea' || busyMode === 'ai'")
+    && directorPanelSource.includes("submittedText.textContent = submittedInstruction ?? ''"),
+);
+check(
+  'las preguntas terminadas avanzan a Base sin crear todavía el proyecto',
+  directorPanelSource.includes("phase = 'base';")
+    && directorPanelSource.includes('questionSet = await createClarifyingQuestions')
+    && !appHtml.includes('id="director-last-request"'),
+);
+check(
+  'Video muestra solo bloqueos y conserva la validación del motor',
   appHtml.includes('id="render-requirements"')
-    && directorPanelSource.includes('describeRenderRequirements')
-    && directorPanelSource.includes('store?.validate()'),
+    && directorPanelSource.includes("state.kind === 'blocked'")
+    && directorPanelSource.includes('store.validate()'),
 );
 check(
   'la timeline distingue el render vigente del histórico abierto explícitamente',
@@ -840,99 +861,58 @@ check(
     && timelineSource.includes('el MP4 anterior quedó fuera del transporte'),
 );
 
-// ---- director/navigation.ts: recorrido inicial y modo de ajustes ----
-let directorState = directorNavigation.createDirectorNavigation(false);
-let directorPages = directorNavigation.describeDirectorPages(directorState);
-check('un proyecto vacío inicia en Idea', directorState.mode === 'creation' && directorState.page === 'command');
-check('Propuesta está deshabilitada antes de generar', directorPages.find((page) => page.page === 'project')?.enabled === false);
-directorState = directorNavigation.updateDirectorNavigation(directorState, { type: 'proposal-created' });
-check('generar abre la Propuesta sin salir del recorrido inicial', directorState.mode === 'creation' && directorState.page === 'project');
-directorState = directorNavigation.updateDirectorNavigation(directorState, { type: 'render-opened' });
-check('iniciar el render abre su subpágina', directorState.page === 'render');
-directorState = directorNavigation.updateDirectorNavigation(directorState, { type: 'render-completed' });
-directorPages = directorNavigation.describeDirectorPages(directorState);
-check('el primer render convierte el recorrido en edición', directorState.mode === 'editing' && directorState.page === 'render');
-check('la primera subpágina pasa a Ajustar con IA', directorPages.find((page) => page.page === 'command')?.label === 'Ajustar con IA');
-directorState = directorNavigation.updateDirectorNavigation(directorState, { type: 'ai-change-applied' });
-check('un ajuste aplicado abre Estado actual', directorState.mode === 'editing' && directorState.page === 'project');
-check('un proyecto abierto inicia directamente en ajustes', directorNavigation.createDirectorNavigation(true).mode === 'editing');
-const unavailableProjectState = directorNavigation.updateDirectorNavigation(
-  { mode: 'creation', page: 'project', projectAvailable: true },
-  { type: 'project-availability-changed', available: false },
-);
-check('si deja de haber contenido vuelve a Idea', unavailableProjectState.page === 'command');
-
-// ---- director/flow-guidance.ts: siguiente acción y requisitos de U1 ----
-const baseFlow = {
-  mode: 'editing',
-  page: 'command',
-  projectAvailable: true,
-  validationError: null,
-  workspaceMode: 'editor',
-  healthChecked: true,
-  directorReady: true,
-  renderReady: true,
-  outputState: 'missing',
-  busyMode: null,
-};
+// ---- Director guiado: estados y brief automático ----
+check('un proyecto vacío inicia en Idea', directorFlow.initialDirectorPhase(false) === 'idea');
+check('un proyecto existente inicia directamente en Video', directorFlow.initialDirectorPhase(true) === 'video');
 check(
-  'un proyecto válido sin MP4 orienta hacia Exportar',
-  directorFlow.describeDirectorFlow(baseFlow).action?.id === 'render',
+  'sin preguntas solo Idea está disponible',
+  directorFlow.canOpenDirectorPhase({ phase: 'idea', projectAvailable: false, questionsAvailable: false, busy: null }, 'idea')
+    && !directorFlow.canOpenDirectorPhase({ phase: 'idea', projectAvailable: false, questionsAvailable: false, busy: null }, 'base'),
 );
 check(
-  'los cambios posteriores al MP4 permiten seguir editando y exportar al terminar',
-  directorFlow.describeDirectorFlow({ ...baseFlow, outputState: 'stale' }).title === 'Exportá cuando termines',
+  'una tarea en curso inmoviliza la fase visible',
+  !directorFlow.canOpenDirectorPhase({ phase: 'base', projectAvailable: true, questionsAvailable: true, busy: 'ai' }, 'video'),
 );
 check(
-  'un MP4 vigente cierra el recorrido sin CTA redundante',
-  directorFlow.describeDirectorFlow({ ...baseFlow, outputState: 'current' }).action === null,
-);
-const invalidFlow = directorFlow.describeDirectorFlow({
-  ...baseFlow,
-  page: 'render',
-  validationError: 'La escena 1 necesita dos turnos.',
-});
-check(
-  'un proyecto inválido lleva a la revisión y conserva el error concreto',
-  invalidFlow.action?.id === 'project' && invalidFlow.detail.includes('dos turnos'),
-);
-check(
-  'el modo Creador ofrece volver directamente al Editor',
-  directorFlow.describeDirectorFlow({ ...baseFlow, workspaceMode: 'creator' }).action?.id === 'editor',
-);
-check(
-  'sin contenido y sin Ollama el primer paso abre el diagnóstico',
-  directorFlow.describeDirectorFlow({
-    ...baseFlow,
-    mode: 'creation',
-    projectAvailable: false,
-    directorReady: false,
-  }).action?.id === 'health',
+  'Idea integra duración, escenas y modelo IA sin duplicarlo en Configuración',
+  appHtml.includes('id="director-duration"')
+    && appHtml.includes('id="director-scenes"')
+    && appHtml.includes('id="director-model"')
+    && appHtml.includes('value="ollama:qwen3:8b"')
+    && appHtml.includes('value="openai:gpt-5.6-luna"')
+    && !appHtml.includes('id="director-provider-select"')
+    && !appHtml.includes('id="director-openai-model"')
+    && !appHtml.includes('id="director-provider-help"')
+    && !appHtml.includes('id="director-advanced"')
+    && !appHtml.includes('id="director-tone"')
+    && !appHtml.includes('id="director-richness"')
+    && !appHtml.includes('id="director-structure"')
+    && !appHtml.includes('id="director-think"')
+    && !appHtml.includes('id="director-best-of"')
+    && directorPanelSource.includes('{ think: false, bestOf: 1 }'),
 );
 check(
-  'la generación IA en curso reemplaza la orientación por un estado temporal',
-  directorFlow.describeDirectorFlow({ ...baseFlow, busyMode: 'ai' }).eyebrow === 'En curso',
-);
-const renderRequirements = directorFlow.describeRenderRequirements(baseFlow);
-check(
-  'un proyecto renderizable completa los cuatro requisitos',
-  renderRequirements.length === 4 && renderRequirements.every((requirement) => requirement.state === 'complete'),
+  'los valores automáticos no fijan decisiones editoriales',
+  JSON.stringify(directorBrief.buildDirectorConstraints({
+    duration: '', scenes: '',
+  })) === JSON.stringify({ planVersion: 2 }),
 );
 check(
-  'Piper pendiente no se presenta como fallo',
-  directorFlow.describeRenderRequirements({
-    ...baseFlow,
-    healthChecked: false,
-    renderReady: false,
-  }).find((requirement) => requirement.id === 'voice')?.state === 'pending',
+  'el brief conserva únicamente elecciones explícitas',
+  JSON.stringify(directorBrief.buildDirectorConstraints({
+    duration: '45', scenes: '3',
+  })) === JSON.stringify({
+    planVersion: 2, targetDurationSeconds: 45, sceneCount: 3,
+  }),
 );
-check(
-  'Piper ausente bloquea solo el requisito de voces',
-  directorFlow.describeRenderRequirements({
-    ...baseFlow,
-    renderReady: false,
-  }).filter((requirement) => requirement.state === 'blocked').map((requirement) => requirement.id).join(',') === 'voice',
-);
+{
+  const project = { id: 'p', title: 'Base', video: { width: 1080, height: 1920, fps: 30 }, scenes: [] };
+  const pending = pendingDirectorEdit.createPendingDirectorEdit(project, [{ type: 'set-project-title', title: 'Nueva' }], {
+    summary: 'Cambia el título.', changes: ['Cambiar el título.'], customizedTrackRemovalIndexes: [],
+  });
+  check('una propuesta pendiente reconoce su revisión base', pendingDirectorEdit.pendingEditIsCurrent(pending, structuredClone(project)));
+  check('una propuesta pendiente caduca al cambiar el proyecto', !pendingDirectorEdit.pendingEditIsCurrent(pending, { ...project, title: 'Otra' }));
+}
 
 // ---- editor-workspace.ts: máquina de estados modo/superficie/vigencia ----
 const video = fakeVideo();
@@ -1051,7 +1031,6 @@ check('cada transición notifica por evento', dispatched.length > 0);
   check('sin revisión de tiempo no se supone una medición ajena', workspace.measuredTimelineFor(['escena-1']) === null);
 }
 
-
 {
   workspace.setActiveEditorProject('proyecto-visual', 'visual-1', 'timing-visual-1');
   workspace.setProjectMeasurement({
@@ -1065,7 +1044,7 @@ check('cada transición notifica por evento', dispatched.length > 0);
     }],
     audioUrl: 'blob:preview-visual',
   });
-  check('la medicion vigente expone su runtime visual', workspace.measuredVisualSceneFor('escena-visual')?.runtime.audio.durationSeconds === 2);
+  check('la medición vigente expone su runtime visual', workspace.measuredVisualSceneFor('escena-visual')?.runtime.audio.durationSeconds === 2);
   workspace.syncActiveEditorProject('proyecto-visual', 'visual-2', 'timing-visual-2');
   check('el runtime visual caduca junto con los tiempos', workspace.measuredVisualSceneFor('escena-visual') === null);
 }
@@ -1517,32 +1496,8 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check('sin modelo conocido no se inventa identidad', down.modelIdentity === null);
 }
 
-// ---- edit-proposal.ts: explicación visible antes de aplicar una edición IA ----
+// ---- edit-proposal.ts: autorización humana y revisión inline ----
 {
-  const confirmation = editProposal.formatDirectorEditConfirmation({
-    summary: 'El Director propone 2 cambios.',
-    changes: [
-      'Aplicar «Aparecer» al personaje en la escena 1.',
-      'Cambiar el primer diálogo.',
-    ],
-    customizedTrackRemovalIndexes: [],
-  });
-  check('la propuesta explica cada cambio antes de pedir aprobación',
-    confirmation.includes('• Aplicar «Aparecer»')
-      && confirmation.includes('• Cambiar el primer diálogo.')
-      && confirmation.includes('El proyecto todavía no fue modificado.')
-      && confirmation.endsWith('¿Querés aplicar estos cambios?'));
-
-  const protectedExplanation = {
-    summary: 'El Director propone 2 cambios.',
-    changes: ['Cambiar un diálogo.', 'Quitar la escala personalizada.'],
-    customizedTrackRemovalIndexes: [1],
-  };
-  const protectedConfirmation = editProposal.formatCustomizedRemovalConfirmation(protectedExplanation);
-  check('la eliminación personalizada exige una advertencia específica',
-    protectedConfirmation.includes('• Quitar la escala personalizada.')
-      && !protectedConfirmation.includes('• Cambiar un diálogo.')
-      && protectedConfirmation.endsWith('¿Confirmás la eliminación personalizada?'));
   const authorized = editProposal.authorizeCustomizedRemovals([
     { type: 'set-dialogue-turn', sceneId: 's1', turnId: 't1', text: 'Nuevo' },
     { type: 'remove-animation', sceneId: 's1', elementId: 'e1', parameterId: 'scale' },
@@ -1551,6 +1506,35 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
     !Object.hasOwn(authorized[0], 'confirmCustomized')
       && authorized[1].confirmCustomized === true);
 }
+check(
+  'el proyecto se crea después de las tres respuestas sin iniciar un render obligatorio',
+  appHtml.includes('id="director-replacement"')
+    && directorPanelSource.includes('const personalization = collectAnswers(questionSet.questions)')
+    && directorPanelSource.includes('Proyecto creado. Preparando el preview con voces y tiempos reales')
+    && !directorPanelSource.slice(
+      directorPanelSource.indexOf('async function createPersonalizedVideo'),
+      directorPanelSource.indexOf('function renderQuestions'),
+    ).includes('startCurrentRender')
+    && directorPanelSource.includes("render.addEventListener('click', () => void startCurrentRender())")
+    && !directorPanelSource.includes('editProjectWithAi')
+    && !directorPanelSource.includes('window.confirm'),
+);
+check(
+  'Base eliminó el segundo prompt y los detalles de la antigua propuesta',
+  !appHtml.includes('director-quality-details')
+    && !appHtml.includes('director-decision-details')
+    && !appHtml.includes('director-variants-details')
+    && !appHtml.includes('director-resources-details')
+    && directorPanelSource.includes("composer.hidden = phase !== 'idea'"),
+);
+check(
+  'Video separa el preview de la exportación y conserva la descarga sin otro reproductor',
+  appHtml.includes('id="director-view-video"')
+    && appHtml.includes('id="director-download-video"')
+    && appHtml.includes('Podés revisar y editar el preview sin esperar un render')
+    && appHtml.includes('id="director-render" class="primary-button" type="button" disabled>Exportar MP4</button>')
+    && !appHtml.includes('video id="director-video-result"'),
+);
 
 // ---- command-labels.ts: qué cambió tras una edición IA (C3) y undo narrado (U1) ----
 {

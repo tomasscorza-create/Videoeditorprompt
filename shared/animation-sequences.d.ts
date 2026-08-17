@@ -19,6 +19,7 @@ export interface EffectSequence {
   label: string;
   description: string;
   tags: string[];
+  phase: 'opening' | 'development' | 'closing';
   compatibleAnchorKinds: Array<AnimationAnchor['kind']>;
   slots: EffectSequenceSlot[];
   actions: EffectSequenceAction[];

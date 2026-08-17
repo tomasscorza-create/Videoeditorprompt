@@ -1,4 +1,5 @@
 import { evaluateAnimationParams } from './animation-evaluator.js';
+import { subtitleCueAt } from './subtitle-cues.js';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -111,6 +112,9 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds, anima
   const duration = runtime.audio.durationSeconds;
   const time = clamp(timeSeconds, 0, duration);
   const activeTurn = dialogueData.turns.find((turn) => time >= turn.startSeconds && time < turn.endSeconds);
+  const activeSubtitle = activeTurn?.subtitleCues?.length
+    ? subtitleCueAt(activeTurn.subtitleCues, time - activeTurn.startSeconds)
+    : null;
   const animatedParams = animation ? evaluateAnimationParams(animation, time) : null;
   const elementParams = {};
   const characters = runtime.characters.map((characterRuntime) => {
@@ -179,7 +183,7 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds, anima
     background: evaluateBackground(runtime.backgroundAnimation, time, duration),
     activeSpeakerId: activeTurn?.speakerId ?? null,
     activeTurnId: activeTurn?.id ?? null,
-    subtitlePath: activeTurn?.subtitlePath ?? null,
+    subtitlePath: activeSubtitle?.subtitlePath ?? activeTurn?.subtitlePath ?? null,
     characters,
     // Solo con animación: agregar la clave siempre cambiaría el temporalHash de
     // todos los pilotos v2 sin que nada haya cambiado de verdad.

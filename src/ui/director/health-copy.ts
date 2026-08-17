@@ -27,30 +27,32 @@ export interface HealthSummary {
 
 export function summarizeHealth(health: LocalHealth): HealthSummary {
   const dependencies: DependencyView[] = [];
+  const director = health.director ?? health.ollama ?? { available: false, modelInstalled: false };
+  const providerName = health.director?.provider === 'openai' ? 'OpenAI' : 'Ollama';
 
-  if (!health.ollama.available) {
+  if (!director.available) {
     dependencies.push({
-      id: 'ollama',
-      name: 'Ollama',
+      id: health.director?.provider ?? 'ollama',
+      name: providerName,
       state: 'error',
-      detail: health.ollama.error?.message ?? 'El servicio de IA local no responde.',
-      action: health.ollama.error?.suggestedAction ?? 'Iniciá Ollama y volvé a comprobar.',
+      detail: director.error?.message ?? 'El proveedor de IA no responde.',
+      action: director.error?.suggestedAction ?? 'Revisá la configuración del proveedor y volvé a comprobar.',
     });
-  } else if (!health.ollama.modelInstalled) {
-    const model = health.ollama.model ?? 'el modelo del Director';
+  } else if (!director.modelInstalled) {
+    const model = director.model ?? 'el modelo del Director';
     dependencies.push({
-      id: 'ollama',
-      name: 'Ollama',
+      id: health.director?.provider ?? 'ollama',
+      name: providerName,
       state: 'error',
       detail: `El servicio responde, pero falta el modelo ${model}.`,
-      action: health.ollama.error?.suggestedAction ?? `Instalalo con: ollama pull ${model}`,
+      action: director.error?.suggestedAction ?? (providerName === 'Ollama' ? `Instalalo con: ollama pull ${model}` : 'Revisá el acceso de la clave a este modelo.'),
     });
   } else {
     dependencies.push({
-      id: 'ollama',
-      name: 'Ollama',
+      id: health.director?.provider ?? 'ollama',
+      name: providerName,
       state: 'ok',
-      detail: [health.ollama.model, health.ollama.version ? `versión ${health.ollama.version}` : null]
+      detail: [director.model, director.version ? `versión ${director.version}` : null]
         .filter(Boolean).join(' · ') || 'Disponible.',
       action: null,
     });
@@ -80,7 +82,8 @@ export function summarizeHealth(health: LocalHealth): HealthSummary {
 }
 
 function describeModelIdentity(health: LocalHealth): string | null {
-  if (!health.ollama.model) return null;
-  const digest = health.ollama.digest ? ` · ${health.ollama.digest.slice(0, 12)}` : '';
-  return `${health.ollama.model}${digest}`;
+  const director = health.director ?? health.ollama;
+  if (!director?.model) return null;
+  const digest = director.digest ? ` · ${director.digest.slice(0, 12)}` : '';
+  return `${director.model}${digest}`;
 }

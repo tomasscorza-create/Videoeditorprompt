@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { PipelineError } from '../stage1/errors.mjs';
-import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
+import { ensureDirectory, projectRoot } from '../stage1/common.mjs';
 import {
   getDirectorPlanSchema,
   listLayoutPresetIds,
@@ -29,6 +28,9 @@ import {
   qualityRepairFeedback,
 } from './plan-quality.mjs';
 import { analyzeCreativeRichness } from './richness-policy.mjs';
+import { formatPersonalizedPrompt } from './clarifying-questions.mjs';
+import { quarantineDirectorCache, readDirectorCache, writeDirectorCache } from './cache.mjs';
+import { aggregateProviderUsage, assertWithinTokenBudget } from './providers/usage.mjs';
 
 export { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL };
 const MAX_PROMPT_LENGTH = 2000;
@@ -36,19 +38,20 @@ const MAX_REPAIR_ATTEMPTS = 2;
 const DIRECTOR_TONES = new Set(['educational', 'ironic', 'serious', 'energetic', 'inspirational']);
 
 export async function createDirectorProposal(options) {
-  const prompt = validatePrompt(options.prompt);
+  const prompt = formatPersonalizedPrompt(validatePrompt(options.prompt), options.personalization);
   emitProgress(options, 'preparing_context');
   const assetsRoot = path.resolve(options.assetsRoot || path.join(projectRoot, 'public'));
   const catalog = options.catalog || loadAuthoringCatalog(assetsRoot);
-  const model = String(options.model || DEFAULT_DIRECTOR_MODEL);
-  const modelIdentity = normalizeModelIdentity(options.modelIdentity, model);
   // El proveedor concentra toda la especificidad de la IA (D1/D2). La clave de
   // caché incorpora su nombre para no mezclar resultados entre proveedores.
   const provider = resolveDirectorProvider(options.provider, {
     fetchImpl: options.fetchImpl,
-    baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
+    baseUrl: options.baseUrl,
     keepAlive: options.keepAlive,
+    apiKey: options.apiKey,
   });
+  const model = String(options.model || provider.defaultModel || DEFAULT_DIRECTOR_MODEL);
+  const modelIdentity = normalizeModelIdentity(options.modelIdentity, model);
   const temperature = numberOption(options.temperature, 0.35, 0, 1);
   const variant = integerOption(options.variant, 0, 0, 1_000_000);
   const bestOf = integerOption(options.bestOf, 1, 1, 3);
@@ -70,6 +73,16 @@ export async function createDirectorProposal(options) {
   });
   directorContext.summary.resolvedConstraints = structuredClone(constraints);
   const schema = buildOllamaPlanSchema(directorContext.catalog, constraints, directorContext.templates);
+  const promptCacheKey = `director-plan-${hashJson({
+    version: DIRECTOR_PIPELINE_VERSION,
+    provider: provider.name,
+    model,
+    schema,
+    context: directorContext.catalog,
+  }).slice(0, 40)}`;
+  const tokenBudget = provider.name === 'openai'
+    ? integerBudget(options.maxTotalTokens ?? process.env.LOCAL_VIDEO_OPENAI_MAX_PROPOSAL_TOKENS, 60_000)
+    : null;
   const cacheKey = hashJson({
     version: DIRECTOR_PIPELINE_VERSION,
     provider: provider.name,
@@ -82,36 +95,47 @@ export async function createDirectorProposal(options) {
     bestOf,
     judgeVersion: PLAN_JUDGE_VERSION,
     constraints,
-    catalog: hashJson(catalog),
+    catalog: hashJson(directorContext.catalog),
     contextVersion: DIRECTOR_CONTEXT_VERSION,
-    context: hashJson(directorContext.summary),
-    templates: hashJson(templates),
+    context: hashJson({
+      recommendedTemplateId: directorContext.summary.recommendedTemplateId,
+      catalog: directorContext.catalog,
+      templates: directorContext.templates,
+    }),
+    templates: hashJson(directorContext.templates),
     schema: hashJson(schema),
   });
   const cacheRoot = ensureDirectory(path.resolve(options.cacheRoot || path.join(projectRoot, '.local-video', 'director-cache')));
   const cachePath = path.join(cacheRoot, `${cacheKey}.json`);
-  if (options.useCache !== false && existsSync(cachePath)) {
-    emitProgress(options, 'cache');
-    const cached = readJson(cachePath);
-    const cachedPlan = cached.plan?.version === 2 ? canonicalizeDirectorPlanV2(cached.plan, catalog) : cached.plan;
-    const normalizeCachedPlan = cachedPlan?.version === 2 ? normalizeDirectorPlanV2 : normalizeDirectorPlan;
-    const normalized = normalizeCachedPlan(cachedPlan, catalog, {
-      assetsRoot,
-      promptHash: cacheKey,
-      resourceCatalog: options.resourceCatalog,
-    });
-    return {
-      ...cached,
-      plan: cachedPlan,
-      project: normalized.project,
-      semanticHash: normalized.semanticHash,
-      repairAttempts: cached.repairAttempts ?? 0,
-      selection: cached.selection ?? defaultSelection(),
-      context: cached.context ?? directorContext.summary,
-      cacheKey,
-      cacheHit: true,
-      cachePath,
-    };
+  if (options.useCache !== false) {
+    const cached = readDirectorCache(cachePath);
+    if (cached) {
+      try {
+        emitProgress(options, 'cache');
+        const cachedPlan = cached.plan?.version === 2 ? canonicalizeDirectorPlanV2(cached.plan, catalog) : cached.plan;
+        const normalizeCachedPlan = cachedPlan?.version === 2 ? normalizeDirectorPlanV2 : normalizeDirectorPlan;
+        const normalized = normalizeCachedPlan(cachedPlan, catalog, {
+          assetsRoot,
+          promptHash: cacheKey,
+          resourceCatalog: options.resourceCatalog,
+        });
+        return {
+          ...cached,
+          plan: cachedPlan,
+          project: normalized.project,
+          semanticHash: normalized.semanticHash,
+          repairAttempts: cached.repairAttempts ?? 0,
+          selection: cached.selection ?? defaultSelection(),
+          context: cached.context ?? directorContext.summary,
+          usage: aggregateProviderUsage([], { cacheHit: true, currentRequestCount: 0 }),
+          cacheKey,
+          cacheHit: true,
+          cachePath,
+        };
+      } catch {
+        quarantineDirectorCache(cachePath);
+      }
+    }
   }
 
   const timeoutMs = integerOption(options.timeoutMs, think ? 300_000 : 240_000, 1_000, 300_000);
@@ -119,7 +143,9 @@ export async function createDirectorProposal(options) {
   const generationStartedAt = Date.now();
   const candidates = [];
   const generationRuns = [];
+  const judgeUsages = [];
   for (let candidateIndex = 0; candidateIndex < bestOf; candidateIndex += 1) {
+    const consumed = aggregateProviderUsage(generationRuns.map((entry) => entry.usage)).totalTokens ?? 0;
     const candidate = await generateCandidate({
       provider,
       schema,
@@ -141,9 +167,12 @@ export async function createDirectorProposal(options) {
       onProgress: options.onProgress,
       candidateIndex: candidateIndex + 1,
       candidateCount: bestOf,
+      promptCacheKey,
+      tokenBudget: tokenBudget === null ? null : Math.max(1, tokenBudget - consumed),
     });
     candidates.push(candidate);
     generationRuns.push(candidate);
+    assertWithinTokenBudget(aggregateProviderUsage(generationRuns.map((entry) => entry.usage)), tokenBudget);
   }
 
   let selection = defaultSelection();
@@ -160,11 +189,21 @@ export async function createDirectorProposal(options) {
       signal: options.signal,
       timeoutMs,
       seed: seedFrom(hashJson({ cacheKey, judgeVersion: PLAN_JUDGE_VERSION })),
+      promptCacheKey: `${promptCacheKey}-judge`,
     });
+    judgeUsages.push(judged.usage);
+    assertWithinTokenBudget(aggregateProviderUsage([
+      ...generationRuns.map((entry) => entry.usage),
+      ...judgeUsages,
+    ]), tokenBudget);
     if (!judged.qualityFloorMet) {
       qualityEscalations += 1;
       emitProgress(options, 'repairing');
       const revisionIndex = judged.winnerIndex;
+      const consumedBeforeRevision = aggregateProviderUsage([
+        ...generationRuns.map((entry) => entry.usage),
+        ...judgeUsages,
+      ]).totalTokens ?? 0;
       const revisedCandidate = await generateCandidate({
         provider,
         schema,
@@ -187,9 +226,15 @@ export async function createDirectorProposal(options) {
         onProgress: options.onProgress,
         candidateIndex: revisionIndex + 1,
         candidateCount: bestOf,
+        promptCacheKey,
+        tokenBudget: tokenBudget === null ? null : Math.max(1, tokenBudget - consumedBeforeRevision),
       });
       candidates[revisionIndex] = revisedCandidate;
       generationRuns.push(revisedCandidate);
+      assertWithinTokenBudget(aggregateProviderUsage([
+        ...generationRuns.map((entry) => entry.usage),
+        ...judgeUsages,
+      ]), tokenBudget);
       emitProgress(options, 'comparing');
       judged = await judgeDirectorPlans({
         provider,
@@ -201,7 +246,13 @@ export async function createDirectorProposal(options) {
         signal: options.signal,
         timeoutMs,
         seed: seedFrom(hashJson({ cacheKey, judgeVersion: PLAN_JUDGE_VERSION, qualityEscalations })),
+        promptCacheKey: `${promptCacheKey}-judge`,
       });
+      judgeUsages.push(judged.usage);
+      assertWithinTokenBudget(aggregateProviderUsage([
+        ...generationRuns.map((entry) => entry.usage),
+        ...judgeUsages,
+      ]), tokenBudget);
       if (!judged.qualityFloorMet) {
         directorError(
           'DIRECTOR_QUALITY_FLOOR_NOT_MET',
@@ -218,11 +269,15 @@ export async function createDirectorProposal(options) {
       totals: judged.totals,
       qualityFloor: judged.qualityFloor,
       qualityFloorMet: judged.qualityFloorMet,
-      usage: judged.usage,
+      usage: aggregateProviderUsage(judgeUsages),
     };
   }
   const selected = candidates[selection.winnerIndex];
   const repairAttempts = generationRuns.reduce((total, candidate) => total + candidate.repairAttempts, 0);
+  const providerUsage = aggregateProviderUsage([
+    ...generationRuns.map((entry) => entry.usage),
+    ...judgeUsages,
+  ]);
 
   const resolvedContext = {
     ...directorContext.summary,
@@ -244,30 +299,35 @@ export async function createDirectorProposal(options) {
     selection,
     context: resolvedContext,
     usage: {
+      ...providerUsage,
       think,
       generationCount: generationRuns.length,
       qualityEscalations,
-      promptEvalCount: sumUsage(generationRuns, 'promptEvalCount'),
-      evalCount: sumUsage(generationRuns, 'evalCount'),
-      totalDurationNanoseconds: sumUsage(generationRuns, 'totalDurationNanoseconds'),
       elapsedMilliseconds: Date.now() - generationStartedAt,
       candidateElapsedMilliseconds: generationRuns.map((candidate) => candidate.elapsedMilliseconds),
+      judgeRequestCount: aggregateProviderUsage(judgeUsages).requestCount,
+      repairAttempts,
+      cacheHit: false,
+      currentRequestCount: providerUsage.requestCount,
     },
   };
   emitProgress(options, 'finalizing');
-  writeJson(cachePath, cached);
+  writeDirectorCache(cachePath, cached);
   return { ...cached, cacheKey, cacheHit: false, cachePath };
 }
 
 export async function inspectOllama(options = {}) {
   const provider = resolveDirectorProvider(options.provider, {
     fetchImpl: options.fetchImpl,
-    baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL,
+    baseUrl: options.baseUrl,
     keepAlive: options.keepAlive,
+    apiKey: options.apiKey,
   });
   const timeoutMs = integerOption(options.timeoutMs, 5000, 500, 30_000);
   return provider.inspect({ model: options.model, timeoutMs });
 }
+
+export const inspectDirectorProvider = inspectOllama;
 
 async function generateCandidate({
   provider,
@@ -291,13 +351,17 @@ async function generateCandidate({
   onProgress,
   candidateIndex,
   candidateCount,
+  promptCacheKey,
+  tokenBudget,
 }) {
   const startedAt = Date.now();
   let plan;
   let normalized;
   let usage = null;
+  const usageEntries = [];
   let repairAttempts = 0;
   let feedback = initialFeedback;
+  let previousOutputForRepair = null;
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
     onProgress?.({
       stage: 'generating',
@@ -305,14 +369,19 @@ async function generateCandidate({
       candidateCount,
       attempt: attempt + 1,
     });
+    const messages = [
+      { role: 'system', content: buildSystemPrompt(directorContext, constraints) },
+      { role: 'user', content: buildUserPrompt(prompt, variant, constraints, strategy, null) },
+      ...(previousOutputForRepair ? [
+        { role: 'assistant', content: `Salida anterior inválida, solo como referencia para corregirla:\n${previousOutputForRepair}` },
+      ] : []),
+      ...(feedback ? [{ role: 'user', content: `Corrección obligatoria: ${feedback}` }] : []),
+    ];
     const result = await generatePlanReliably({
       provider,
       schema,
       signal,
-      messages: [
-        { role: 'system', content: buildSystemPrompt(directorContext, constraints) },
-        { role: 'user', content: buildUserPrompt(prompt, variant, constraints, strategy, feedback) },
-      ],
+      messages,
       options: {
         model,
         temperature,
@@ -320,13 +389,18 @@ async function generateCandidate({
         seed: seedFrom(seedKey) + attempt,
         maxOutputTokens: 4000,
         timeoutMs,
+        promptCacheKey,
       },
       constraints,
+      tokenBudget,
       onProgress,
       candidateIndex,
       candidateCount,
       attempt: attempt + 1,
     });
+    usageEntries.push(result.usage);
+    usage = aggregateProviderUsage(usageEntries);
+    assertWithinTokenBudget(usage, tokenBudget);
     onProgress?.({
       stage: 'validating',
       candidateIndex,
@@ -349,6 +423,7 @@ async function generateCandidate({
       if (attempt === MAX_REPAIR_ATTEMPTS) throw invalidJson;
       repairAttempts += 1;
       feedback = 'devolvé solamente un objeto JSON que cumpla exactamente el esquema.';
+      previousOutputForRepair = compactRepairOutput(result.content);
       continue;
     }
     try {
@@ -365,12 +440,12 @@ async function generateCandidate({
       });
       const quality = analyzePlanQuality(plan, { prompt, constraints, project: normalized.project });
       if (!quality.passed) qualityError(quality);
-      usage = result.usage || null;
       break;
     } catch (error) {
       if (!isRepairableDirectorError(error) || attempt === MAX_REPAIR_ATTEMPTS) throw error;
       repairAttempts += 1;
       feedback = repairFeedback(error);
+      previousOutputForRepair = compactRepairOutput(plan, error);
     }
   }
   const quality = analyzePlanQuality(plan, { prompt, constraints, project: normalized?.project });
@@ -385,15 +460,14 @@ async function generateCandidate({
   };
 }
 
-async function generatePlanReliably({ provider, schema, signal, messages, options, constraints, onProgress, candidateIndex, candidateCount, attempt }) {
+async function generatePlanReliably({ provider, schema, signal, messages, options, constraints, tokenBudget, onProgress, candidateIndex, candidateCount, attempt }) {
   const sceneCount = constraints.planVersion === 2 ? Number(constraints.sceneCount || 0) : 0;
-  if (sceneCount <= 3) return provider.generatePlan({ schema, signal, messages, options });
-  const chunkSizes = [];
-  for (let remaining = sceneCount; remaining > 0;) {
-    const size = 1;
-    chunkSizes.push(size);
-    remaining -= size;
+  if (sceneCount <= 3) {
+    const result = await provider.generatePlan({ schema, signal, messages, options });
+    assertWithinTokenBudget(result.usage, tokenBudget);
+    return result;
   }
+  const chunkSizes = buildSceneChunkSizes(sceneCount);
   const plans = [];
   const usages = [];
   let firstScene = 1;
@@ -417,7 +491,7 @@ async function generatePlanReliably({ provider, schema, signal, messages, option
     }));
     const chunkMessages = messages.map((message, index) => index === messages.length - 1 ? {
       ...message,
-      content: `${message.content}\nSegmento obligatorio: generá solamente la escena ${firstScene} de un total de ${sceneCount}. ${segmentRole} Mantené continuidad con el tema, pero no escribas escenas adicionales. Evitá repetir modo, composición, receta y recurso visual de las escenas previas salvo que el contenido lo justifique.${previousScenes.length ? ` Continuidad ya escrita: ${JSON.stringify(previousScenes)}` : ''}`,
+      content: `${message.content}\nSegmento obligatorio: generá solamente las escenas ${firstScene} a ${lastScene} de un total de ${sceneCount}. ${segmentRole} Mantené continuidad con el tema, pero no escribas escenas adicionales. Evitá repetir modo, composición, receta y recurso visual de las escenas previas salvo que el contenido lo justifique.${previousScenes.length ? ` Continuidad ya escrita: ${JSON.stringify(previousScenes)}` : ''}`,
     } : message);
     const result = await provider.generatePlan({
       schema: chunkSchema,
@@ -427,7 +501,7 @@ async function generatePlanReliably({ provider, schema, signal, messages, option
         ...options,
         think: false,
         seed: options.seed + chunkIndex,
-        maxOutputTokens: Math.min(options.maxOutputTokens, 2600),
+        maxOutputTokens: Math.min(options.maxOutputTokens, 1400 + (chunkSize * 850)),
       },
     });
     let chunkPlan;
@@ -446,24 +520,24 @@ async function generatePlanReliably({ provider, schema, signal, messages, option
     }
     plans.push(chunkPlan);
     usages.push(result.usage || {});
+    assertWithinTokenBudget(aggregateProviderUsage(usages), tokenBudget);
     firstScene = lastScene + 1;
   }
   const combined = { ...plans[0], scenes: plans.flatMap((plan) => plan.scenes) };
   return {
     content: JSON.stringify(combined),
-    usage: {
-      promptEvalCount: sumNumeric(usages, 'promptEvalCount'),
-      evalCount: sumNumeric(usages, 'evalCount'),
-      totalDurationNanoseconds: sumNumeric(usages, 'totalDurationNanoseconds'),
+    usage: aggregateProviderUsage(usages, {
       segmented: true,
       segmentCount: chunkSizes.length,
-    },
+    }),
   };
 }
 
-function sumNumeric(entries, key) {
-  const values = entries.map((entry) => entry[key]).filter(Number.isFinite);
-  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+export function buildSceneChunkSizes(sceneCount) {
+  const segmentCount = Math.ceil(sceneCount / 3);
+  const baseSize = Math.floor(sceneCount / segmentCount);
+  const largerSegments = sceneCount % segmentCount;
+  return Array.from({ length: segmentCount }, (_unused, index) => baseSize + (index < largerSegments ? 1 : 0));
 }
 
 function defaultSelection() {
@@ -503,7 +577,10 @@ function analyzePlanQuality(plan, context) {
 }
 
 export function inferDirectorConstraints(prompt, constraints = {}) {
-  const result = { ...constraints };
+  // Primero interpreta el prompt. Las decisiones explícitas de la interfaz se
+  // aplican al final y por eso siempre ganan. `automatic` equivale a no fijar
+  // una decisión: permite que el prompt siga mandando.
+  const result = {};
   const normalized = String(prompt).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
   const numberWords = { una: 1, un: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8 };
   const sceneMatch = /\b(\d+|una?|dos|tres|cuatro|cinco|seis|siete|ocho)\s+escenas?\b/u.exec(normalized);
@@ -527,6 +604,10 @@ export function inferDirectorConstraints(prompt, constraints = {}) {
   if (/\b(?:dinamico|alto impacto|mucha energia)\b/u.test(normalized)) result.richnessProfile = 'dynamic';
   else if (/\b(?:variado|variedad)\b/u.test(normalized)) result.richnessProfile = 'varied';
   else if (/\b(?:simple|minimalista|sobrio)\b/u.test(normalized)) result.richnessProfile = 'simple';
+  for (const [key, value] of Object.entries(constraints)) {
+    if (value !== undefined && value !== null && value !== '' && value !== 'automatic') result[key] = value;
+  }
+  if (constraints.planVersion !== undefined) result.planVersion = constraints.planVersion;
   return result;
 }
 
@@ -603,7 +684,7 @@ function buildOllamaPlanV2Schema(catalog, constraints, templates) {
     type: 'string',
     enum: [...new Set(catalog.entries.filter((entry) => entry.type === 'background').flatMap((entry) => entry.capabilities.cameraPresets))],
   };
-  const recipes = loadCreativeRecipeCatalog();
+  const recipes = creativeCatalogForConstraints(constraints);
   schema.$defs.scene.properties.sceneRecipeId = { type: 'string', enum: recipes.sceneRecipes.map((entry) => entry.id) };
   schema.$defs.scene.properties.effectSequenceIds = {
     type: 'array', maxItems: 4, uniqueItems: true,
@@ -623,14 +704,14 @@ function buildOllamaPlanV2Schema(catalog, constraints, templates) {
 function buildSystemPrompt(directorContext, constraints = {}) {
   const entries = compactResourceEntries(directorContext.catalog);
   const templates = compactNarrativeTemplates(directorContext.templates);
-  const creativeCatalog = loadCreativeRecipeCatalog();
+  const creativeCatalog = creativeCatalogForConstraints(constraints);
   const creativeRecipes = creativeCatalog.sceneRecipes.map((recipe) => ({
     id: recipe.id, modes: recipe.compatibleModes, participants: recipe.participantRange,
     requires: recipe.requiredElementTypes, optional: recipe.optionalElementTypes,
     sequences: recipe.recommendedEffectSequenceIds,
   }));
   const effectSequences = creativeCatalog.effectSequences.map((sequence) => ({
-    id: sequence.id, anchors: sequence.compatibleAnchorKinds,
+    id: sequence.id, phase: sequence.phase, anchors: sequence.compatibleAnchorKinds,
     slots: sequence.slots.map((slot) => ({ id: slot.id, types: slot.elementTypes, parameters: slot.requiredParameters })),
     presets: sequence.actions.map((action) => action.presetId),
   }));
@@ -657,19 +738,16 @@ function buildSystemPrompt(directorContext, constraints = {}) {
     '',
     'EJEMPLOS DE GANCHO → CIERRE. Variá la apertura; no empieces con «¿Sabías que…?»:',
     '- educational: "Tu contraseña larga puede seguir siendo débil." → "La longitud ayuda, pero combinar palabras únicas ayuda más."',
-    '- educational: "Una planta no se marchita solo por falta de agua." → "Primero mirá luz, suelo y raíces; después regá."',
     '- ironic: "Dicen que la IA va a reemplazar a los programadores." → "Perfecto: ahora alguien debe explicarle por qué cayó producción."',
-    '- ironic: "Compré una agenda para organizar cada minuto." → "Mañana anoto cuándo voy a empezar a usarla."',
     '- serious: "Una copia de seguridad que nunca probaste todavía no es una copia." → "Restaurarla hoy evita descubrir el fallo durante una emergencia."',
-    '- serious: "Compartir un dato personal parece instantáneo; recuperarlo no." → "Antes de publicar, decidí si aceptarías que permanezca años."',
     '- energetic: "¡Treinta segundos alcanzan para destrabar tu mañana!" → "Elegí una tarea, cerrá distracciones y empezá ahora."',
-    '- energetic: "¡Tu idea no necesita otra semana de espera!" → "Hacé una versión pequeña, probala y mejorala en movimiento."',
     '- inspirational: "Todo proyecto grande alguna vez fue una primera prueba imperfecta." → "Construí hoy el paso que mañana te permita continuar."',
-    '- inspirational: "Compararte borra la distancia que ya recorriste." → "Medí tu avance contra tu punto de partida y seguí creciendo."',
     '',
     'REGLAS:',
     constraints.planVersion === 2 ? 'Usá estructura flexible por escena: voiceover, solo, dialogue o visual-with-voiceover. No agregues personajes si la idea funciona mejor narrada.' : null,
     constraints.planVersion === 2 ? 'Cada escena admite de cero a dos participantes y desde un turno. Elegí recetas, props, plantillas y secuencias solo por IDs permitidos.' : null,
+    constraints.planVersion === 2 ? 'Distribuí el movimiento durante toda la escena: combiná secuencias opening, development y closing cuando el perfil sea variado o dinámico. Priorizá secuencias exclusivas de prop si agregaste un prop.' : null,
+    constraints.planVersion === 2 ? 'Para fondos con parallax, elegí cámaras móviles variadas en perfiles varied o dynamic; reservá static para una pausa visual intencional.' : null,
     constraints.planVersion === 2 ? 'Usá durationWeight para repartir el objetivo: valores mayores reservan proporcionalmente más narración; no hagas todas las escenas iguales salvo que el contenido lo justifique.' : null,
     constraints.planVersion === 2 ? `Perfil de riqueza: ${constraints.richnessProfile || 'automatic'}. Preferencia estructural: ${constraints.structure || 'automatic'}.` : null,
     'Recibís una shortlist local, no el inventario completo. Usá solamente IDs presentes en esa shortlist.',
@@ -738,7 +816,42 @@ function repairFeedback(error) {
     DIRECTOR_GESTURE_TIMING_INVALID: 'ubicá gestureAtWord dentro de las palabras reales del turno.',
     DIRECTOR_SCENE_DIALOGUE_INVALID: 'usá solo narración en modos voiceover, un único hablante en solo y al menos un turno de cada participante en dialogue.',
   };
-  return messages[error?.code] || 'corregí el plan para que cumpla todas las restricciones indicadas.';
+  const instruction = messages[error?.code] || 'corregí el plan para que cumpla todas las restricciones indicadas.';
+  const detail = sanitizeRepairDetail(error?.technicalDetail);
+  return detail ? `${instruction} El validador señaló exactamente: ${detail}. Conservá el resto del plan válido.` : instruction;
+}
+
+function creativeCatalogForConstraints(constraints) {
+  const catalog = loadCreativeRecipeCatalog();
+  const requestedMode = constraints.structure === 'narration'
+    ? new Set(['voiceover', 'visual-with-voiceover'])
+    : constraints.structure === 'one-character'
+      ? new Set(['solo'])
+      : constraints.structure === 'dialogue' ? new Set(['dialogue']) : null;
+  if (!requestedMode) return catalog;
+  const sceneRecipes = catalog.sceneRecipes.filter((recipe) => recipe.compatibleModes.some((mode) => requestedMode.has(mode)));
+  const recommended = new Set(sceneRecipes.flatMap((recipe) => recipe.recommendedEffectSequenceIds));
+  const effectSequences = catalog.effectSequences.filter((sequence) => recommended.has(sequence.id));
+  return { ...catalog, sceneRecipes, effectSequences };
+}
+
+function compactRepairOutput(planOrContent, error = null) {
+  if (typeof planOrContent === 'string') return planOrContent.slice(0, 6000);
+  if (!planOrContent || typeof planOrContent !== 'object') return null;
+  const detail = String(error?.technicalDetail || '');
+  const sceneIndex = Number(/\/scenes\/(\d+)/u.exec(detail)?.[1]);
+  const value = Number.isInteger(sceneIndex) && Array.isArray(planOrContent.scenes)
+    ? { sceneIndex, scene: planOrContent.scenes[sceneIndex] }
+    : planOrContent;
+  return JSON.stringify(value).slice(0, 8000);
+}
+
+function sanitizeRepairDetail(value) {
+  return String(value || '')
+    .replace(/[\r\n\t]+/gu, ' ')
+    .replace(/\s{2,}/gu, ' ')
+    .trim()
+    .slice(0, 1200);
 }
 
 function isRepairableDirectorError(error) {
@@ -777,11 +890,6 @@ function judgeRepairFeedback(judged) {
     .map(([key]) => key)
     .join(', ');
   return `el juez detectó calidad insuficiente. Reescribí el plan completo mejorando especialmente: ${weakest}.`;
-}
-
-function sumUsage(candidates, key) {
-  const values = candidates.map((candidate) => candidate.usage?.[key]).filter(Number.isFinite);
-  return values.length ? values.reduce((total, value) => total + value, 0) : null;
 }
 
 function normalizeModelIdentity(value, model) {
@@ -864,6 +972,15 @@ function seedFrom(hash) {
 
 function hashJson(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function integerBudget(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const result = Number(value);
+  if (!Number.isInteger(result) || result < 5_000 || result > 5_000_000) {
+    directorError('DIRECTOR_OPTION_INVALID', 'El presupuesto OpenAI debe ser un entero entre 5000 y 5000000 tokens.');
+  }
+  return result;
 }
 
 function emitProgress(options, stage, detail = {}) {

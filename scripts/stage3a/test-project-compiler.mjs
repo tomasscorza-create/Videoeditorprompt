@@ -99,6 +99,16 @@ assert.ok(phase2Config.characters.every((character) => character.transform.idleP
 assert.ok(phase2Run.manifest.sourceHashes.some((item) => item.path === 'assets/audio/music/calm-loop-v1.wav'));
 results.push({ name: 'phase2-controls-compile-to-runtime-and-hashes', passed: true });
 
+const animatedBackgroundProject = structuredClone(source);
+animatedBackgroundProject.scenes[0].background.cameraPreset = 'push-in';
+const animatedBackgroundRun = compileCase('animated-background-push-in', animatedBackgroundProject);
+const animatedBackgroundContext = contextFor('animated-background-push-in', path.join(projectsRoot, 'animated-background-push-in.json'));
+const animatedBackgroundConfig = readJson(path.join(animatedBackgroundContext.jobRoot, animatedBackgroundRun.manifest.scenes[0].config));
+assert.deepEqual(animatedBackgroundConfig.backgroundAnimation.camera, {
+  fromX: -4, toX: 5, fromY: 8, toY: -8, fromZoom: 1, toZoom: 1.075,
+});
+results.push({ name: 'background-camera-presets-compile-to-parallax-runtime', passed: true });
+
 const mixedCatalogProject = structuredClone(source);
 mixedCatalogProject.scenes[0].elements[1].resourceId = 'tucan-gala-v1';
 const mixedCatalogRun = compileCase('mixed-character-catalogs', mixedCatalogProject);

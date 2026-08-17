@@ -4,7 +4,9 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
 import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
-import { applyProjectEditorCommand, createProjectEditor } from '../../shared/project-editor.js';
+import { applyProjectEditorCommandBatch, createProjectEditor } from '../../shared/project-editor.js';
+import { ANIMATION_PRESETS } from '../../shared/animation-presets.js';
+import { effectSequenceWindow } from '../../shared/animation-sequences.js';
 import { validateCreativeRecipeCatalog, loadCreativeRecipeCatalog } from './creative-contract.mjs';
 import { listLayoutPresetIds, getLayoutPreset } from './director-plan.mjs';
 import { expandEffectSequenceCommands } from './recipe-expander.mjs';
@@ -13,6 +15,7 @@ const schema = readJson(path.join(projectRoot, 'schema', 'ai-video-plan-v2.schem
 const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
 const MODES = new Set(['voiceover', 'solo', 'dialogue', 'visual-with-voiceover']);
 const NARRATIVE_TEMPLATE_IDS = new Set(readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'narrative-templates.json')).templates.map((entry) => entry.id));
+const DYNAMIC_CAMERA_PREFERENCE = Object.freeze(['push-in', 'drift-left', 'drift-right', 'rise', 'diagonal-glide', 'pull-back', 'slow-zoom', 'slow-pan']);
 
 export function getDirectorPlanV2Schema() { return structuredClone(schema); }
 
@@ -30,7 +33,7 @@ export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativ
   const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
   const validSequences = new Set(recipes.effectSequences.map((entry) => entry.id));
 
-  for (const scene of plan.scenes ?? []) {
+  for (const [sceneIndex, scene] of (plan.scenes ?? []).entries()) {
     scene.effectSequenceIds = (scene.effectSequenceIds ?? []).filter((id) => validSequences.has(id));
     scene.visualElements = (scene.visualElements ?? []).flatMap((visual) => {
       const resource = resources.get(visual.resourceId);
@@ -52,6 +55,13 @@ export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativ
       scene.backgroundResourceId = background.id;
       const cameras = background.capabilities?.cameraPresets ?? ['static'];
       if (!cameras.includes(scene.cameraPreset)) scene.cameraPreset = cameras[0];
+      const shouldMoveBackground = scene.cameraPreset === 'static'
+        && (plan.richnessProfile === 'dynamic'
+          || (plan.richnessProfile !== 'simple' && plan.scenes.length > 1 && sceneIndex % 2 === 0));
+      if (shouldMoveBackground) {
+        const moving = DYNAMIC_CAMERA_PREFERENCE.filter((presetId) => cameras.includes(presetId));
+        if (moving.length) scene.cameraPreset = moving[sceneIndex % moving.length];
+      }
     }
     if (!listLayoutPresetIds().includes(scene.layoutPreset)) scene.layoutPreset = listLayoutPresetIds()[0];
     if (scene.transitionPreset === 'cut') scene.transitionDurationSeconds = 0;
@@ -66,9 +76,39 @@ export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativ
     if (recipe) {
       scene.sceneRecipeId = recipe.id;
       scene.effectSequenceIds = scene.effectSequenceIds.filter((id) => recipe.recommendedEffectSequenceIds.includes(id));
+      scene.effectSequenceIds = completeSequenceCoverage(scene, recipe, recipes, plan.richnessProfile);
     }
   }
   return plan;
+}
+
+function completeSequenceCoverage(scene, recipe, recipes, richnessProfile) {
+  const selected = [...scene.effectSequenceIds];
+  if (richnessProfile === 'simple') return selected;
+  const desiredPhases = richnessProfile === 'dynamic'
+    ? ['opening', 'development', 'closing']
+    : ['opening', 'development'];
+  const byId = new Map(recipes.effectSequences.map((sequence) => [sequence.id, sequence]));
+  const selectedPhases = new Set(selected.map((id) => byId.get(id)?.phase).filter(Boolean));
+  for (const phase of desiredPhases) {
+    if (selected.length >= 4 || selectedPhases.has(phase)) continue;
+    const sequenceId = recipe.recommendedEffectSequenceIds.find((id) => {
+      const sequence = byId.get(id);
+      return sequence?.phase === phase && sequenceFitsPlannedElements(sequence, scene);
+    });
+    if (sequenceId && !selected.includes(sequenceId)) {
+      selected.push(sequenceId);
+      selectedPhases.add(phase);
+    }
+  }
+  return selected;
+}
+
+function sequenceFitsPlannedElements(sequence, scene) {
+  const counts = new Map();
+  if (scene.participants.length) counts.set('character', scene.participants.length);
+  for (const visual of scene.visualElements) counts.set(visual.type, (counts.get(visual.type) ?? 0) + 1);
+  return sequence.slots.every((slot) => slot.elementTypes.some((type) => (counts.get(type) ?? 0) > 0));
 }
 
 function canonicalParticipants(scene, characters, voices, resources) {
@@ -224,21 +264,35 @@ function materializeEffectSequences(project, plan, catalog, recipes) {
   let state = createProjectEditor(project, catalog);
   const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
   for (const [sceneIndex, plannedScene] of plan.scenes.entries()) {
-    const scene = state.project.scenes[sceneIndex];
-    for (const sequenceId of plannedScene.effectSequenceIds ?? []) {
+    const recipe = recipes.sceneRecipes.find((entry) => entry.id === plannedScene.sceneRecipeId);
+    const sequenceIds = plannedScene.effectSequenceIds ?? [];
+    const developmentCount = sequenceIds.filter((id) => recipes.effectSequences.find((entry) => entry.id === id)?.phase === 'development').length;
+    let developmentIndex = 0;
+    const elementUseCounts = new Map();
+    for (const sequenceId of sequenceIds) {
       const sequence = recipes.effectSequences.find((entry) => entry.id === sequenceId);
       if (!sequence) continue;
-      const bindings = resolveSequenceBindings(scene, sequence, resources);
+      const scene = state.project.scenes[sceneIndex];
+      const bindings = resolveSequenceBindings(scene, sequence, resources, {
+        preferredElementTypes: recipe?.requiredElementTypes ?? [],
+        elementUseCounts,
+      });
       if (bindings.length !== sequence.slots.length) continue;
-      const anchor = sequence.compatibleAnchorKinds.includes('scene')
-        ? { kind: 'scene', edge: 'start' }
-        : scene.dialogue.length && sequence.compatibleAnchorKinds.includes('turn')
-          ? { kind: 'turn', turnId: scene.dialogue[0].id, edge: 'start' }
-          : null;
-      if (!anchor) continue;
+      const placement = placeSequence(sequence, scene, developmentIndex, developmentCount);
+      if (sequence.phase === 'development') developmentIndex += 1;
+      if (!placement) continue;
       try {
-        const commands = expandEffectSequenceCommands({ sequenceId, anchor, intensity: 'medium', bindings }, state.project, catalog, { recipeCatalog: recipes });
-        for (const command of commands) state = applyProjectEditorCommand(state, command);
+        const commands = expandEffectSequenceCommands({
+          sequenceId,
+          anchor: placement.anchor,
+          offsetSeconds: placement.offsetSeconds,
+          intensity: 'medium',
+          bindings,
+        }, state.project, catalog, { recipeCatalog: recipes });
+        state = applyProjectEditorCommandBatch(state, commands);
+        for (const binding of bindings) {
+          elementUseCounts.set(binding.elementId, (elementUseCounts.get(binding.elementId) ?? 0) + 1);
+        }
       } catch (error) {
         if (!['DIRECTOR_TRACK_CUSTOMIZED', 'EDITOR_TRACK_CUSTOMIZED'].includes(error?.code)) throw error;
       }
@@ -247,12 +301,60 @@ function materializeEffectSequences(project, plan, catalog, recipes) {
   return state.project;
 }
 
-function resolveSequenceBindings(scene, sequence, resources) {
+function placeSequence(sequence, scene, developmentIndex, developmentCount) {
+  if (sequence.phase === 'closing') {
+    const anchor = sequence.compatibleAnchorKinds.includes('scene')
+      ? { kind: 'scene', edge: 'end' }
+      : scene.dialogue.length && sequence.compatibleAnchorKinds.includes('turn')
+        ? { kind: 'turn', turnId: scene.dialogue.at(-1).id, edge: 'end' }
+        : null;
+    if (!anchor) return null;
+    return { anchor, offsetSeconds: -effectSequenceWindow(sequence, 'medium').endOffsetSeconds };
+  }
+  if (sequence.phase === 'development' && scene.dialogue.length) {
+    const position = Math.min(
+      scene.dialogue.length - 1,
+      Math.floor(((developmentIndex + 1) * scene.dialogue.length) / (developmentCount + 1)),
+    );
+    const turn = scene.dialogue[position];
+    const words = wordCount(turn.text);
+    if (sequence.compatibleAnchorKinds.includes('word') && words >= 3) {
+      return { anchor: { kind: 'word', turnId: turn.id, wordIndex: Math.floor(words / 2) }, offsetSeconds: 0 };
+    }
+    if (sequence.compatibleAnchorKinds.includes('turn')) {
+      return { anchor: { kind: 'turn', turnId: turn.id, edge: 'start' }, offsetSeconds: 0 };
+    }
+  }
+  if (sequence.compatibleAnchorKinds.includes('scene')) {
+    return { anchor: { kind: 'scene', edge: 'start' }, offsetSeconds: 0 };
+  }
+  if (scene.dialogue.length && sequence.compatibleAnchorKinds.includes('turn')) {
+    return { anchor: { kind: 'turn', turnId: scene.dialogue[0].id, edge: 'start' }, offsetSeconds: 0 };
+  }
+  return null;
+}
+
+function resolveSequenceBindings(scene, sequence, resources, options = {}) {
+  const actionParameters = new Map(sequence.slots.map((slot) => [slot.id, new Set(slot.requiredParameters)]));
+  for (const action of sequence.actions) {
+    const parameterId = ANIMATION_PRESETS[action.presetId]?.parameterId;
+    if (parameterId) actionParameters.get(action.slotId)?.add(parameterId);
+  }
+  const preferredTypes = new Set(options.preferredElementTypes ?? []);
+  const useCounts = options.elementUseCounts ?? new Map();
   const candidates = sequence.slots.map((slot, index) => ({
     slot,
     index,
     elements: scene.elements.filter((element) => slot.elementTypes.includes(element.type)
-      && supportsParameters(element, resources.get(element.resourceId), slot.requiredParameters)),
+      && supportsParameters(element, resources.get(element.resourceId), [...actionParameters.get(slot.id)])
+      && !(element.tracks ?? []).some((track) => actionParameters.get(slot.id).has(track.parameterId)))
+      .sort((left, right) => {
+        const leftPreferred = preferredTypes.has(left.type) ? 0 : 1;
+        const rightPreferred = preferredTypes.has(right.type) ? 0 : 1;
+        return leftPreferred - rightPreferred
+          || (useCounts.get(left.id) ?? 0) - (useCounts.get(right.id) ?? 0)
+          || left.id.localeCompare(right.id);
+      }),
   })).sort((left, right) => left.elements.length - right.elements.length || left.index - right.index);
   const selected = new Map();
   const used = new Set();
@@ -290,8 +392,13 @@ function normalizeScene(scene, sceneIndex, sceneCount) {
     roleToElement.set(participant.roleId, id);
     return { id, type: 'character', resourceId: participant.characterResourceId, transform: transform(slot.x, slot.y, slot.scale, slot.zIndex), poseId: 'neutral', animationPreset: participant.animationPresetId };
   });
+  let propIndex = 0;
   scene.visualElements.forEach((visual, index) => {
-    if (visual.type === 'prop') elements.push({ id: `${sceneId}-prop-${index + 1}`, type: 'prop', resourceId: visual.resourceId, transform: transform(540, 820, 0.72, 40 + index) });
+    if (visual.type === 'prop') {
+      const placement = placeProp(scene.participants.length, propIndex, elements);
+      propIndex += 1;
+      elements.push({ id: `${sceneId}-prop-${index + 1}`, type: 'prop', resourceId: visual.resourceId, transform: transform(placement.x, placement.y, placement.scale, placement.zIndex) });
+    }
     else elements.push({ id: `${sceneId}-plantilla-${index + 1}`, type: 'template', templateId: visual.resourceId, values: { word: visual.word || 'IDEA' }, transform: transform(540, 780, 1, 40 + index) });
   });
   const participantByRole = new Map(scene.participants.map((entry) => [entry.roleId, entry]));
@@ -307,6 +414,29 @@ function normalizeScene(scene, sceneIndex, sceneCount) {
   };
   if (sceneIndex < sceneCount - 1) normalized.transitionToNext = { preset: scene.transitionPreset, durationSeconds: scene.transitionPreset === 'fade' ? scene.transitionDurationSeconds : 0 };
   return normalized;
+}
+
+function placeProp(characterCount, propIndex, elements) {
+  const noCharacter = [
+    { x: 540, y: 860, scale: 0.74 }, { x: 300, y: 620, scale: 0.58 },
+    { x: 780, y: 620, scale: 0.58 }, { x: 300, y: 1100, scale: 0.52 },
+    { x: 780, y: 1100, scale: 0.52 },
+  ];
+  const oneCharacter = [
+    { x: 820, y: 720, scale: 0.54 }, { x: 540, y: 470, scale: 0.48 },
+    { x: 870, y: 1080, scale: 0.44 }, { x: 190, y: 520, scale: 0.42 },
+  ];
+  const twoCharacters = [
+    { x: 540, y: 470, scale: 0.48 }, { x: 160, y: 610, scale: 0.4 },
+    { x: 920, y: 610, scale: 0.4 }, { x: 540, y: 270, scale: 0.36 },
+  ];
+  const placements = characterCount === 0 ? noCharacter : characterCount === 1 ? oneCharacter : twoCharacters;
+  const placement = { ...placements[propIndex % placements.length] };
+  if (characterCount === 1) {
+    const character = elements.find((element) => element.type === 'character');
+    if (character?.transform.x > 540) placement.x = 1080 - placement.x;
+  }
+  return { ...placement, zIndex: 10 + propIndex };
 }
 
 function transform(x, y, scale, zIndex) { return { x, y, anchorX: 0.5, anchorY: 0.5, scale, rotationDegrees: 0, opacity: 1, zIndex }; }

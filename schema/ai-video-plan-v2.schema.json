@@ -72,7 +72,7 @@
         "sceneRecipeId": { "$ref": "#/$defs/id" },
         "effectSequenceIds": { "type": "array", "maxItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
         "backgroundResourceId": { "$ref": "#/$defs/id" },
-        "cameraPreset": { "enum": ["static", "slow-pan", "slow-zoom"] },
+        "cameraPreset": { "enum": ["static", "slow-pan", "slow-zoom", "drift-left", "drift-right", "push-in", "pull-back", "rise", "diagonal-glide"] },
         "layoutPreset": { "$ref": "#/$defs/id" },
         "transitionPreset": { "enum": ["cut", "fade"] },
         "transitionDurationSeconds": { "type": "number", "minimum": 0, "maximum": 1 },

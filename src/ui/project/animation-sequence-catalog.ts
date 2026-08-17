@@ -31,10 +31,11 @@ export function parseAnimationSequenceCatalog(value: unknown): CreativeRecipeCat
 function parseSequence(value: unknown): EffectSequence {
   if (!isRecord(value) || !isId(value.id) || !isText(value.label) || !isText(value.description)
     || !Array.isArray(value.tags) || !value.tags.every(isText)
+    || !isPhase(value.phase)
     || !Array.isArray(value.compatibleAnchorKinds)
     || !value.compatibleAnchorKinds.every(isAnchorKind)
     || !Array.isArray(value.slots) || value.slots.length === 0
-    || !Array.isArray(value.actions) || value.actions.length < 2) {
+    || !Array.isArray(value.actions) || value.actions.length < 1) {
     throw new Error('Una animación coordinada del catálogo es inválida.');
   }
   const slots = value.slots.map(parseSlot);
@@ -46,10 +47,15 @@ function parseSequence(value: unknown): EffectSequence {
     label: value.label,
     description: value.description,
     tags: [...value.tags],
+    phase: value.phase,
     compatibleAnchorKinds: [...value.compatibleAnchorKinds],
     slots,
     actions,
   };
+}
+
+function isPhase(value: unknown): value is EffectSequence['phase'] {
+  return value === 'opening' || value === 'development' || value === 'closing';
 }
 
 function parseSlot(value: unknown): EffectSequenceSlot {

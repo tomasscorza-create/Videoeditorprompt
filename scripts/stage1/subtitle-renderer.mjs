@@ -3,7 +3,15 @@ import path from 'node:path';
 import { ensureDirectory, run, sha256 } from './common.mjs';
 
 export function renderSubtitle(context, video, text, style, fontPath) {
-  const subtitleKey = sha256(JSON.stringify({ text, fontSize: style.fontSize, bottomMargin: style.bottomMargin }));
+  if (/\r|\n/u.test(text)) throw new Error('Un subtítulo corto no puede contener saltos de línea.');
+  const subtitleKey = sha256(JSON.stringify({
+    contractVersion: 2,
+    text,
+    width: video.width,
+    height: video.height,
+    fontSize: style.fontSize,
+    bottomMargin: style.bottomMargin,
+  }));
   const subtitleRelative = path.posix.join('subtitle', `${subtitleKey}.png`);
   const subtitlePng = path.join(context.generatedRoot, ...subtitleRelative.split('/'));
   ensureDirectory(path.dirname(subtitlePng));
@@ -11,7 +19,9 @@ export function renderSubtitle(context, video, text, style, fontPath) {
   const subtitleText = path.join(subtitleTempRoot, 'subtitle.txt');
   writeFileSync(subtitleText, text, 'utf8');
   const ffmpegPath = (value) => value.replaceAll('\\', '/').replace(':', '\\:');
-  const boxHeight = 250;
+  // El fondo acompaña un solo renglón: altura de glifo más 52 px de aire
+  // arriba y abajo. También evita recortar estilos con fuentes grandes.
+  const boxHeight = Math.ceil(style.fontSize + 104);
   const y = video.height - style.bottomMargin - boxHeight;
   const filter = [
     `[0:v][1:v]overlay=x=70:y=${y}:format=auto[boxed]`,

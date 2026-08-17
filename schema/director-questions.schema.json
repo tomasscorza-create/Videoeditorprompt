@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "director-questions.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "questions"],
+  "properties": {
+    "version": { "const": 1 },
+    "questions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/choiceQuestion" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,31}$"
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 80 }
+      }
+    },
+    "choiceQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "prompt", "multiple", "options", "otherPlaceholder"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "const": "choice" },
+        "prompt": { "type": "string", "minLength": 5, "maxLength": 180 },
+        "multiple": { "const": false },
+        "options": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/option" }
+        },
+        "otherPlaceholder": { "type": "string", "minLength": 1, "maxLength": 120 }
+      }
+    }
+  }
+}

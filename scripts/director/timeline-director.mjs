@@ -13,7 +13,11 @@ export async function editTimelineWithDirector(options) {
   if (instruction.length < 3 || instruction.length > 1200) fail('TIMELINE_DIRECTOR_PROMPT_INVALID', 'La indicación debe tener entre 3 y 1200 caracteres.');
   const initial = createTimelineClipEditor(options.project);
   const schema = buildTimelineDirectorSchema(options.project);
-  const provider = resolveDirectorProvider(options.provider, { fetchImpl: options.fetchImpl, baseUrl: options.baseUrl || DEFAULT_OLLAMA_URL });
+  const provider = resolveDirectorProvider(options.provider, {
+    fetchImpl: options.fetchImpl,
+    baseUrl: options.baseUrl,
+    apiKey: options.apiKey,
+  });
   const result = await provider.generateCommands({
     schema, signal: options.signal,
     messages: [{
@@ -27,7 +31,7 @@ export async function editTimelineWithDirector(options) {
         `Montaje actual: ${JSON.stringify(summarizeTimeline(options.project))}`,
       ].join('\n'),
     }, { role: 'user', content: instruction }],
-    options: { model: options.model || DEFAULT_DIRECTOR_MODEL, temperature: 0.05, think: false, seed: 29, maxOutputTokens: 1400, timeoutMs: 240_000 },
+    options: { model: options.model || provider.defaultModel || DEFAULT_DIRECTOR_MODEL, temperature: 0.05, think: false, seed: 29, maxOutputTokens: 1400, timeoutMs: 240_000 },
   });
   let parsed;
   try { parsed = JSON.parse(result.content || ''); } catch { fail('TIMELINE_DIRECTOR_JSON_INVALID', 'El Director de Montaje no devolvió JSON válido.'); }

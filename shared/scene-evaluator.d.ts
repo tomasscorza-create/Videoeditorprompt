@@ -27,6 +27,7 @@ export interface DialogueSceneState {
   };
   activeSpeakerId: string | null;
   activeTurnId: string | null;
+  /** Ruta del fragmento corto activo, no necesariamente la ruta general del turno. */
   subtitlePath: string | null;
   characters: DialogueCharacterState[];
   /** Solo presente cuando se evalúa con animación resuelta (Fase 2). */

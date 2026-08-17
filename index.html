@@ -149,149 +149,115 @@
               </div>
             </header>
 
-            <div class="director-page-tabs tabs" data-variant="segmented" role="tablist" aria-label="Flujo del Director">
-              <button id="director-page-command-tab" class="tab is-active" data-director-page="command" type="button" role="tab" aria-selected="true" aria-controls="director-page-command">Idea</button>
-              <button id="director-page-project-tab" class="tab" data-director-page="project" type="button" role="tab" aria-selected="false" aria-controls="director-page-project" disabled>Propuesta</button>
-              <button id="director-page-render-tab" class="tab" data-director-page="render" type="button" role="tab" aria-selected="false" aria-controls="director-page-render">Exportar</button>
-            </div>
-
-            <section id="director-next-step" class="director-next-step" aria-label="Siguiente paso">
-              <div>
-                <span id="director-next-eyebrow" class="eyebrow">Comprobando</span>
-                <strong id="director-next-title">Preparando el recorrido</strong>
-              </div>
-              <p id="director-next-detail">Estamos revisando el proyecto y las herramientas locales.</p>
-              <button id="director-next-action" class="text-button" type="button" hidden>Continuar</button>
-            </section>
+            <ol class="director-flow" aria-label="Progreso de creación">
+              <li><button type="button" data-director-phase="idea"><span>1</span>Idea</button></li>
+              <li><button type="button" data-director-phase="base"><span>2</span>Base</button></li>
+              <li><button type="button" data-director-phase="video"><span>3</span>Video</button></li>
+            </ol>
 
             <div class="status-block director-global-status">
-              <span class="director-activity" aria-hidden="true"><span></span><span></span><span></span></span>
-              <p id="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
-              <button id="director-cancel" class="director-inline-cancel" type="button" disabled hidden>Cancelar</button>
+              <div id="director-submitted-message" class="director-submitted-message" hidden>
+                <span>Tu mensaje</span>
+                <p id="director-submitted-text"></p>
+              </div>
+              <div class="director-status-row">
+                <span class="director-activity" aria-hidden="true"><span></span><span></span><span></span></span>
+                <p id="director-status" role="status" aria-live="polite">Comprobando el servicio local…</p>
+                <button id="director-cancel" class="director-inline-cancel" type="button" disabled hidden>Cancelar</button>
+              </div>
             </div>
 
-            <div id="director-page-command" class="director-page" role="tabpanel" aria-labelledby="director-page-command-tab">
-              <label class="field" for="director-prompt">
-                <span id="director-prompt-label">Idea del video</span>
-                <textarea id="director-prompt" rows="4" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
-              </label>
+            <div class="director-content">
+              <section id="director-phase-base" class="director-phase director-base" aria-labelledby="director-base-title" hidden>
+                <header class="director-phase-heading">
+                  <div>
+                    <span class="eyebrow">Paso 2 de 3</span>
+                    <h2 id="director-base-title">Personalizá tu idea</h2>
+                  </div>
+                </header>
+                <p class="director-question-intro">La IA leyó tu idea. En cada pregunta elegí una de las tres opciones o escribí una respuesta diferente.</p>
+                <form id="director-questions-form" class="director-questions-form">
+                  <div id="director-questions" class="director-questions" aria-live="polite"></div>
+                </form>
+                <div id="director-replacement" class="director-inline-warning" hidden>
+                  <strong>Este video reemplazará el proyecto actual.</strong>
+                  <p>El proyecto no cambiará hasta que respondas y confirmes la creación.</p>
+                </div>
+                <div class="director-base-actions">
+                  <button id="director-questions-back" class="text-button" type="button">Volver a la idea</button>
+                  <button id="director-create-video" class="primary-button" type="submit" form="director-questions-form">Crear video</button>
+                </div>
+              </section>
 
-              <div id="director-constraints" class="director-constraints" aria-label="Parámetros editoriales">
-                <label class="field" for="director-tone">
-                  <span>Tono</span>
-                  <select id="director-tone">
-                    <option value="educational">Educativo</option>
-                    <option value="ironic">Irónico</option>
-                    <option value="serious">Serio</option>
-                    <option value="energetic">Enérgico</option>
-                    <option value="inspirational">Inspirador</option>
-                  </select>
-                </label>
-                <label class="field" for="director-duration">
-                  <span>Duración objetivo</span>
-                  <select id="director-duration">
-                    <option value="15">15 s</option>
-                    <option value="30" selected>30 s</option>
-                    <option value="45">45 s</option>
-                    <option value="60">60 s</option>
-                  </select>
-                </label>
-                <label class="field" for="director-scenes">
-                  <span>Escenas</span>
-                  <select id="director-scenes">
-                    <option value="1">1</option>
-                    <option value="2" selected>2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
-                  </select>
-                </label>
-                <label class="field" for="director-richness">
-                  <span>Riqueza</span>
-                  <select id="director-richness">
-                    <option value="automatic" selected>Automática</option>
-                    <option value="simple">Simple</option>
-                    <option value="varied">Variada</option>
-                    <option value="dynamic">Dinámica</option>
-                  </select>
-                </label>
-                <label class="field" for="director-structure">
-                  <span>Estructura</span>
-                  <select id="director-structure">
-                    <option value="automatic" selected>Automática</option>
-                    <option value="narration">Narración</option>
-                    <option value="one-character">Un personaje</option>
-                    <option value="dialogue">Diálogo</option>
-                  </select>
-                </label>
-              </div>
+              <section id="director-phase-idea" class="director-phase director-idea" aria-labelledby="director-prompt-label"></section>
 
-              <details class="director-advanced">
-                <summary>Calidad y variantes</summary>
-                <div class="director-quality-options">
-                  <label class="toggle-option" for="director-think">
-                    <input id="director-think" type="checkbox">
-                    <span>
-                      Razonamiento
-                      <small>Mejora decisiones; tarda más.</small>
-                    </span>
+              <section id="director-composer" class="director-composer" aria-label="Instrucción para el Director">
+                <label for="director-prompt">
+                  <span id="director-prompt-label">¿Qué video querés crear?</span>
+                  <textarea id="director-prompt" rows="5" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
+                </label>
+                <div id="director-quick-controls" class="director-quick-controls">
+                  <label for="director-duration"><span>Duración</span>
+                    <select id="director-duration">
+                      <option value="" selected>Auto</option>
+                      <option value="15">15 s</option>
+                      <option value="30">30 s</option>
+                      <option value="45">45 s</option>
+                      <option value="60">60 s</option>
+                    </select>
                   </label>
-                  <label class="field" for="director-best-of">
-                    <span>Propuestas</span>
-                    <select id="director-best-of">
-                      <option value="1" selected>1 · Rápida</option>
-                      <option value="2">2 · Comparar</option>
-                      <option value="3">3 · Más variedad</option>
+                  <label for="director-scenes"><span>Escenas</span>
+                    <select id="director-scenes">
+                      <option value="" selected>Auto</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                    </select>
+                  </label>
+                  <label class="director-model-control" for="director-model"><span>Modelo IA</span>
+                    <select id="director-model" aria-label="Modelo de inteligencia artificial">
+                      <optgroup label="Local">
+                        <option value="ollama:qwen3:8b">Qwen 3 8B · local</option>
+                      </optgroup>
+                      <optgroup label="OpenAI API">
+                        <option value="openai:gpt-5.6-luna">GPT-5.6 Luna · económico</option>
+                        <option value="openai:gpt-5.6-terra">GPT-5.6 Terra · equilibrado</option>
+                        <option value="openai:gpt-5.6-sol">GPT-5.6 Sol · máxima calidad</option>
+                      </optgroup>
                     </select>
                   </label>
                 </div>
-              </details>
-
-              <div class="action-row director-primary-action">
-                <button id="director-generate" class="primary-button" type="button">Crear propuesta</button>
-              </div>
-            </div>
-
-            <div id="director-page-project" class="director-page" role="tabpanel" aria-labelledby="director-page-project-tab" hidden>
-              <header class="director-project-header">
-                <span class="proposal-summary-copy">
-                  <span id="proposal-kind" class="eyebrow">Propuesta</span>
-                  <input id="proposal-title" class="proposal-project-title" type="text" maxlength="120" value="Revisar y ajustar" aria-label="Título del proyecto">
-                </span>
-              </header>
-              <section id="proposal-quality" class="proposal-quality" aria-label="Calidad de la propuesta" hidden></section>
-              <section class="project-editor" id="project-editor" aria-label="Proyecto editable del Director" hidden>
-                <div class="proposal-tabs tabs" data-variant="underline" role="tablist" aria-label="Secciones del proyecto">
-                  <button class="tab is-active" data-proposal-tab="scene" type="button" role="tab" aria-selected="true" aria-controls="scene-inspector">Escena</button>
-                  <button class="tab" data-proposal-tab="elements" type="button" role="tab" aria-selected="false" aria-controls="scene-inspector">Personajes</button>
-                  <button class="tab" data-proposal-tab="background" type="button" role="tab" aria-selected="false" aria-controls="scene-inspector">Fondo</button>
-                  <button class="tab" data-proposal-tab="transition" type="button" role="tab" aria-selected="false" aria-controls="scene-inspector">Transición</button>
-                </div>
-                <div class="scene-inspector" id="scene-inspector" role="tabpanel">
-                  <p id="project-status" class="project-status" role="status" aria-live="polite"></p>
-                </div>
+                <button id="director-generate" class="primary-button director-generate" type="button">Aceptar</button>
               </section>
-            </div>
 
-            <div id="director-page-render" class="director-page" role="tabpanel" aria-labelledby="director-page-render-tab" hidden>
-              <header class="section-header compact">
+              <section id="director-phase-video" class="director-phase director-video" aria-labelledby="render-title" hidden>
+                <header class="section-header compact">
                 <div>
-                  <span class="eyebrow">Exportar</span>
-                  <h2 id="render-title">MP4 final</h2>
+                    <span class="eyebrow">Video</span>
+                    <h2 id="render-title">Preview y MP4</h2>
                 </div>
-              </header>
-              <ul id="render-requirements" class="render-requirements" aria-label="Requisitos para exportar"></ul>
-              <p id="render-readiness" class="render-readiness" role="status" aria-live="polite">Comprobando si el proyecto está listo para exportar.</p>
-              <div class="action-row director-primary-action">
+                </header>
+                <p class="director-question-intro">Podés revisar y editar el preview sin esperar un render. El MP4 se genera solamente cuando elegís exportarlo.</p>
+                <ul id="render-requirements" class="render-requirements" aria-label="Bloqueos para crear el video"></ul>
+                <p id="render-readiness" class="render-readiness" role="status" aria-live="polite">Comprobando si el proyecto está listo.</p>
+                <details id="director-ai-usage" class="director-ai-usage" hidden>
+                  <summary>Detalles de la creación con IA</summary>
+                  <dl id="director-ai-usage-values"></dl>
+                </details>
                 <button id="director-render" class="primary-button" type="button" disabled>Exportar MP4</button>
-              </div>
-              <div class="render-progress" id="render-progress" hidden>
-                <div class="progress-track"><span id="render-progress-bar"></span></div>
-                <span id="render-progress-label">Preparando…</span>
-              </div>
+                <div class="render-progress" id="render-progress" hidden><span class="director-spinner" aria-hidden="true"></span><span id="render-progress-label">Preparando…</span></div>
+                <div id="director-video-result" class="director-video-result" hidden>
+                  <strong>MP4 listo</strong>
+                  <span id="director-video-result-meta"></span>
+                  <div><button id="director-view-video" class="secondary-button" type="button">Ver en el visor</button><a id="director-download-video" class="text-button" href="#" download>Descargar</a></div>
+                </div>
+                <button id="director-back-base" class="text-button" type="button">Crear otro video</button>
+              </section>
             </div>
           </section>
 

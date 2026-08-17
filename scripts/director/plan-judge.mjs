@@ -23,6 +23,7 @@ export async function judgeDirectorPlans({
   signal,
   timeoutMs,
   seed,
+  promptCacheKey,
 }) {
   if (!Array.isArray(plans) || plans.length < 2 || plans.length > 3) {
     judgeError('DIRECTOR_JUDGE_INPUT_INVALID', 'El juez necesita entre dos y tres planes candidatos.');
@@ -74,6 +75,7 @@ export async function judgeDirectorPlans({
       seed,
       maxOutputTokens: 900,
       timeoutMs,
+      promptCacheKey,
     },
   });
   const decision = parseJudgeDecision(result.content, plans.length);

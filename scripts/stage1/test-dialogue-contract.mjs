@@ -4,7 +4,7 @@ import { ensureDirectory, projectRoot, readJson, writeJson } from './common.mjs'
 import { createJobContext } from './job-context.mjs';
 import { loadAndValidateJobConfig, validateMeasuredDuration } from './validate-scene-config.mjs';
 import { evaluateScene } from '../../shared/scene-evaluator.js';
-import { wrapSubtitleText } from './subtitle-renderer.mjs';
+import { buildSubtitleCues, segmentSubtitleText } from '../../shared/subtitle-cues.js';
 
 const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
 const testRoot = path.join(projectRoot, '.local-video', 'tests', 'dialogue-contract', stamp);
@@ -120,7 +120,15 @@ const runtime = {
 };
 const dialogue = {
   turns: [
-    { id: 'a', speakerId: 'presentador', startSeconds: 0, endSeconds: 1, durationSeconds: 1, subtitlePath: 'a.png', gesture: 'point', mouthCues: [{ start: 0, end: 1, state: 'medium' }] },
+    {
+      id: 'a', speakerId: 'presentador', startSeconds: 0, endSeconds: 1, durationSeconds: 1,
+      subtitlePath: 'a-1.png',
+      subtitleCues: [
+        { text: 'Hola a todos', wordCount: 3, startSeconds: 0, endSeconds: 0.5, subtitlePath: 'a-1.png' },
+        { text: 'por aquí', wordCount: 2, startSeconds: 0.5, endSeconds: 1, subtitlePath: 'a-2.png' },
+      ],
+      gesture: 'point', mouthCues: [{ start: 0, end: 1, state: 'medium' }],
+    },
     { id: 'b', speakerId: 'invitado', startSeconds: 1.2, endSeconds: 2.2, durationSeconds: 1, subtitlePath: 'b.png', gesture: 'neutral', mouthCues: [{ start: 0, end: 1, state: 'open' }] },
   ],
 };
@@ -128,6 +136,7 @@ const firstTurn = evaluateScene(config, runtime, dialogue, 0.5);
 const pause = evaluateScene(config, runtime, dialogue, 1.1);
 const secondTurn = evaluateScene(config, runtime, dialogue, 1.5);
 assert.equal(firstTurn.activeSpeakerId, 'presentador');
+assert.equal(firstTurn.subtitlePath, 'a-2.png');
 assert.equal(firstTurn.characters.find((item) => item.id === 'presentador').mouth, 'medium');
 assert.equal(firstTurn.characters.find((item) => item.id === 'presentador').gesture, 'point');
 assert.equal(firstTurn.characters.find((item) => item.id === 'invitado').mouth, 'closed');
@@ -191,10 +200,25 @@ assert.notEqual(
 assert.deepEqual(duringGesture, repeatedFrame);
 results.push({ name: 'phase2-viseme-gesture-idle-layout-deterministic', passed: true });
 
-const wrapped = wrapSubtitleText('Sí, pero seguimos usando una sola computadora.');
-assert.ok(wrapped.includes('\n'));
-assert.ok(wrapped.split('\n').every((line) => line.length <= 38));
-results.push({ name: 'subtitle-wrap-bounded', passed: true });
+const subtitleSegments = segmentSubtitleText('Sí, pero seguimos usando una sola computadora potente.');
+assert.deepEqual(subtitleSegments, ['Sí, pero seguimos', 'usando una sola', 'computadora potente.']);
+assert.ok(subtitleSegments.every((segment) => !/[\r\n]/u.test(segment)));
+assert.ok(subtitleSegments.every((segment) => segment.split(/\s+/u).length >= 2 && segment.split(/\s+/u).length <= 3));
+const subtitleCues = buildSubtitleCues('uno dos tres cuatro cinco', 2.5);
+assert.deepEqual(subtitleCues.map((cue) => cue.text), ['uno dos tres', 'cuatro cinco']);
+assert.equal(subtitleCues[0].startSeconds, 0);
+assert.equal(subtitleCues[0].endSeconds, 1.5);
+assert.equal(subtitleCues[1].endSeconds, 2.5);
+for (let wordCount = 2; wordCount <= 30; wordCount += 1) {
+  const text = Array.from({ length: wordCount }, (_, index) => `p${index + 1}`).join(' ');
+  const segments = segmentSubtitleText(text);
+  assert.equal(segments.join(' '), text);
+  assert.ok(segments.every((segment) => {
+    const count = segment.split(/\s+/u).length;
+    return count === 2 || count === 3;
+  }), `segmentación inválida para ${wordCount} palabras`);
+}
+results.push({ name: 'short-subtitle-cues-single-line', passed: true });
 
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'dialogue-contract-latest.json'), summary);

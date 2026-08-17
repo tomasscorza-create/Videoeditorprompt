@@ -5,7 +5,7 @@ import { applyProjectEditorCommand, applyProjectEditorCommandBatch, createProjec
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import { loadCreativeRecipeCatalog } from './creative-contract.mjs';
 import { canonicalizeDirectorPlanV2, normalizeDirectorPlanV2, validateDirectorPlanV2 } from './director-plan-v2.mjs';
-import { buildOllamaPlanSchema, createDirectorProposal, inferDirectorConstraints } from './ollama-director.mjs';
+import { buildOllamaPlanSchema, buildSceneChunkSizes, createDirectorProposal, inferDirectorConstraints } from './ollama-director.mjs';
 import { expandEffectSequenceCommands } from './recipe-expander.mjs';
 import { analyzeCreativeRichness, resolveRichnessPolicy } from './richness-policy.mjs';
 import { buildTimelineDirectorSchema, editTimelineWithDirector } from './timeline-director.mjs';
@@ -76,6 +76,34 @@ await test('plan-v2-normaliza-cero-uno-dos-personajes-y-musica', () => {
   assert.equal(validateEditableProject(project, catalog), true);
 });
 
+await test('plan-dinamico-reparte-prop-entre-inicio-desarrollo-y-cierre-sin-tapar-personaje', () => {
+  const plan = basePlan();
+  plan.scenes = [plan.scenes[0]];
+  plan.scenes[0].mode = 'visual-with-voiceover';
+  plan.scenes[0].cameraPreset = 'push-in';
+  plan.scenes[0].participants = [{
+    roleId: 'guia', characterResourceId: 'mono-azul-v1',
+    voiceId: 'voz-elevenlabs-c8ff047a678d', animationPresetId: 'talk-calm',
+  }];
+  const canonical = canonicalizeDirectorPlanV2(plan, catalog, recipes);
+  assert.deepEqual(canonical.scenes[0].effectSequenceIds, [
+    'visual-reveal-v1', 'prop-mid-callout-v3', 'prop-close-v3',
+  ]);
+  const { project } = normalizeDirectorPlanV2(canonical, catalog, { recipes, projectId: 'gate-fases-prop-v3' });
+  const scene = project.scenes[0];
+  const character = scene.elements.find((element) => element.type === 'character');
+  const prop = scene.elements.find((element) => element.type === 'prop');
+  assert.ok(Math.abs(character.transform.x - prop.transform.x) >= 300);
+  assert.ok(prop.transform.zIndex < character.transform.zIndex);
+  assert.equal(scene.background.cameraPreset, 'push-in');
+  const byPreset = new Map(prop.tracks.map((track) => [track.source.presetId, track]));
+  assert.equal(byPreset.get('fade-in').keyframes[0].anchor.edge, 'start');
+  assert.equal(byPreset.get('drift-horizontal').keyframes[0].anchor.kind, 'word');
+  const closing = byPreset.get('tilt-accent');
+  assert.equal(closing.keyframes[0].anchor.edge, 'end');
+  assert.equal(closing.keyframes.at(-1).offsetSeconds, 0);
+});
+
 await test('schema-ollama-v2-ofrece-ocho-escenas-y-recetas-cerradas', () => {
   const schema = buildOllamaPlanSchema(catalog, { planVersion: 2, sceneCount: 8, richnessProfile: 'varied', structure: 'automatic' });
   assert.equal(schema.properties.version.const, 2);
@@ -83,6 +111,7 @@ await test('schema-ollama-v2-ofrece-ocho-escenas-y-recetas-cerradas', () => {
   assert.equal(schema.properties.scenes.maxItems, 8);
   assert.ok(JSON.stringify(schema).includes('voiceover-feature-v1'));
   assert.ok(JSON.stringify(schema).includes('participants'));
+  assert.ok(schema.$defs.scene.properties.cameraPreset.enum.includes('push-in'));
   const threeSceneSchema = buildOllamaPlanSchema(catalog, { planVersion: 2, sceneCount: 3, richnessProfile: 'dynamic', structure: 'automatic' });
   const validate = new Ajv2020({ allErrors: true, strict: true }).compile(threeSceneSchema);
   const validPlan = basePlan();
@@ -90,10 +119,21 @@ await test('schema-ollama-v2-ofrece-ocho-escenas-y-recetas-cerradas', () => {
   assert.equal(validate(validPlan), true, JSON.stringify(validate.errors));
 });
 
-await test('prompt-simple-infiere-parametros-editoriales-explicitos', () => {
+await test('restricciones-explicitas-ganan-sobre-el-prompt', () => {
   const inferred = inferDirectorConstraints(
     'Creá un video dinámico e inspirador de cinco escenas y 60 segundos, con diálogo entre dos personajes.',
     { planVersion: 2, tone: 'educational', targetDurationSeconds: 30, sceneCount: 2, richnessProfile: 'automatic', structure: 'automatic' },
+  );
+  assert.deepEqual(inferred, {
+    planVersion: 2, tone: 'educational', targetDurationSeconds: 30, sceneCount: 2,
+    richnessProfile: 'dynamic', structure: 'dialogue',
+  });
+});
+
+await test('prompt-completa-las-restricciones-automaticas', () => {
+  const inferred = inferDirectorConstraints(
+    'Creá un video dinámico e inspirador de cinco escenas y 60 segundos, con diálogo entre dos personajes.',
+    { planVersion: 2 },
   );
   assert.deepEqual(inferred, {
     planVersion: 2, tone: 'inspirational', targetDurationSeconds: 60, sceneCount: 5,
@@ -101,29 +141,39 @@ await test('prompt-simple-infiere-parametros-editoriales-explicitos', () => {
   });
 });
 
+await test('ocho-escenas-se-reparten-en-tres-bloques-equilibrados', () => {
+  assert.deepEqual(buildSceneChunkSizes(4), [2, 2]);
+  assert.deepEqual(buildSceneChunkSizes(8), [3, 3, 2]);
+});
+
 await test('planes-extensos-se-generan-en-segmentos-acotados', async () => {
   let calls = 0;
   const fetchImpl = async (_url, options) => {
     calls += 1;
     const request = JSON.parse(options.body);
-    assert.equal(request.format.properties.scenes.maxItems, 1);
+    assert.equal(request.format.properties.scenes.maxItems, 2);
     assert.equal(request.think, false);
     const chunk = basePlan();
     chunk.richnessProfile = 'simple';
     chunk.narrativeTemplateId = 'explain-stepwise-v1';
-    const source = chunk.scenes[(calls - 1) % 3];
-    chunk.scenes = [{ ...structuredClone(source), ...(calls === 4 ? { title: 'Cierre visual', purpose: 'Cerrar con una consecuencia aplicable.' } : {}) }];
+    chunk.scenes = calls === 1
+      ? structuredClone(chunk.scenes.slice(0, 2))
+      : [
+        structuredClone(chunk.scenes[2]),
+        { ...structuredClone(chunk.scenes[0]), title: 'Cierre visual', purpose: 'Cerrar con una consecuencia aplicable.' },
+      ];
     return new Response(JSON.stringify({ message: { content: JSON.stringify(chunk) } }), { status: 200, headers: { 'content-type': 'application/json' } });
   };
   const result = await createDirectorProposal({
     prompt: 'Explicá una idea útil en cuatro escenas.', catalog, fetchImpl, useCache: false,
     constraints: { planVersion: 2, tone: 'educational', targetDurationSeconds: 45, sceneCount: 4, richnessProfile: 'simple', structure: 'automatic' },
   });
-  assert.equal(calls, 4);
+  assert.equal(calls, 2);
   assert.equal(result.plan.scenes.length, 4);
   assert.equal(result.project.scenes.length, 4);
   assert.equal(result.context.resolvedConstraints.sceneCount, 4);
   assert.equal(result.usage.generationCount, 1);
+  assert.equal(result.usage.requestCount, 2);
 });
 
 await test('orquestador-ollama-crea-y-rehidrata-un-plan-v2', async () => {
@@ -143,6 +193,69 @@ await test('orquestador-ollama-crea-y-rehidrata-un-plan-v2', async () => {
   const cached = await createDirectorProposal(options);
   assert.equal(cached.cacheHit, true);
   assert.equal(cached.plan.version, 2);
+  const catalogWithUnrelatedSfx = structuredClone(catalog);
+  const existingSfx = catalogWithUnrelatedSfx.entries.find((entry) => entry.type === 'sfx');
+  if (existingSfx) catalogWithUnrelatedSfx.entries.push({ ...structuredClone(existingSfx), id: `${existingSfx.id}-no-usado` });
+  const cachedAfterUnrelatedResource = await createDirectorProposal({ ...options, catalog: catalogWithUnrelatedSfx });
+  assert.equal(cachedAfterUnrelatedResource.cacheHit, true);
+  assert.equal(cachedAfterUnrelatedResource.cacheKey, cached.cacheKey);
+});
+
+await test('openai-repara-con-el-detalle-y-la-escena-anterior', async () => {
+  const invalidPlan = basePlan();
+  invalidPlan.narrativeTemplateId = 'explain-stepwise-v1';
+  delete invalidPlan.scenes[1].title;
+  const validPlan = basePlan();
+  validPlan.narrativeTemplateId = 'explain-stepwise-v1';
+  const requests = [];
+  const result = await createDirectorProposal({
+    prompt: 'Explicá una idea de tres maneras.',
+    provider: 'openai',
+    apiKey: 'test-key',
+    catalog,
+    useCache: false,
+    constraints: { planVersion: 2, sceneCount: 3, targetDurationSeconds: 45, richnessProfile: 'dynamic', structure: 'automatic' },
+    fetchImpl: async (_url, options) => {
+      const body = JSON.parse(options.body);
+      requests.push(body);
+      const plan = requests.length === 1 ? invalidPlan : validPlan;
+      return new Response(JSON.stringify({ output_text: JSON.stringify(plan), usage: { input_tokens: 10, output_tokens: 20 } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  assert.equal(requests.length, 2);
+  assert.equal(result.repairAttempts, 1);
+  assert.equal(result.usage.requestCount, 2);
+  assert.equal(result.usage.inputTokens, 20);
+  assert.equal(result.usage.outputTokens, 40);
+  const repairInput = requests[1].input;
+  assert.ok(repairInput.some((message) => message.role === 'assistant' && message.content.includes('"sceneIndex":1')));
+  assert.ok(repairInput.some((message) => message.role === 'user'
+    && message.content.includes('/scenes/1')
+    && message.content.includes('title')));
+});
+
+await test('openai-respeta-el-presupuesto-configurado-de-tokens', async () => {
+  const validPlan = basePlan();
+  validPlan.narrativeTemplateId = 'explain-stepwise-v1';
+  await assert.rejects(
+    () => createDirectorProposal({
+      prompt: 'Explicá una idea de tres maneras.',
+      provider: 'openai',
+      apiKey: 'test-key',
+      catalog,
+      useCache: false,
+      maxTotalTokens: 5_000,
+      constraints: { planVersion: 2, sceneCount: 3, targetDurationSeconds: 45, richnessProfile: 'dynamic', structure: 'automatic' },
+      fetchImpl: async () => new Response(JSON.stringify({
+        output_text: JSON.stringify(validPlan),
+        usage: { input_tokens: 5_500, output_tokens: 200, total_tokens: 5_700 },
+      }), { status: 200, headers: { 'content-type': 'application/json' } }),
+    }),
+    (error) => error.code === 'DIRECTOR_TOKEN_BUDGET_EXCEEDED',
+  );
 });
 
 await test('plan-v2-rechaza-reparto-receta-y-hablante-incompatibles', () => {
