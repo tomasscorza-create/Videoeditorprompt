@@ -24,6 +24,8 @@ const sources = [
   'src/ui/timeline-geometry.ts',
   'src/ui/timeline-animation.ts',
   'src/ui/director/api.ts',
+  'src/ui/director/preconfiguration-manager.ts',
+  'src/ui/notifications.ts',
   'src/ui/director/progress-copy.ts',
   'src/ui/director/brief.ts',
   'src/ui/director/flow-state.ts',
@@ -130,9 +132,11 @@ function fakeVideo() {
 const geometryPath = path.join(outDir, 'src', 'ui', 'timeline-geometry.js');
 const apiPath = path.join(outDir, 'src', 'ui', 'director', 'api.js');
 const directorFlowPath = path.join(outDir, 'src', 'ui', 'director', 'flow-state.js');
+const preconfigurationManagerPath = path.join(outDir, 'src', 'ui', 'director', 'preconfiguration-manager.js');
 assert.equal(existsSync(geometryPath), true, 'timeline-geometry.js no se compiló');
 assert.equal(existsSync(apiPath), true, 'director/api.js no se compiló');
 assert.equal(existsSync(directorFlowPath), true, 'director/flow-state.js no se compiló');
+assert.equal(existsSync(preconfigurationManagerPath), true, 'director/preconfiguration-manager.js no se compiló');
 
 const workspace = await import(pathToFileURL(workspacePath).href);
 const rightPanel = await import(pathToFileURL(rightPanelPath).href);
@@ -147,6 +151,7 @@ const directorApi = await import(pathToFileURL(apiPath).href);
 const directorProgress = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'progress-copy.js')).href);
 const directorBrief = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'brief.js')).href);
 const directorFlow = await import(pathToFileURL(directorFlowPath).href);
+const preconfigurationManager = await import(pathToFileURL(preconfigurationManagerPath).href);
 const pendingDirectorEdit = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'pending-edit.js')).href);
 const notificationsQueue = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'notifications-queue.js')).href);
 const qualityCopy = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'quality-copy.js')).href);
@@ -165,6 +170,38 @@ const check = (label, condition) => {
   assert.equal(condition, true, label);
   passed += 1;
 };
+
+// ---- preconfiguration-manager.ts: autocompletado rápido y determinista ----
+{
+  const resources = [
+    { id: 'character-a', type: 'character', label: 'Analista', capabilities: { animationPresets: ['idle-calm', 'talk-calm'] } },
+    { id: 'character-b', type: 'character', label: 'Presentadora', capabilities: { animationPresets: ['idle-calm'] } },
+    { id: 'character-c', type: 'character', label: 'Robot', capabilities: { animationPresets: ['talk-calm'] } },
+    { id: 'voice-a', type: 'voice', label: 'Voz A' },
+    { id: 'voice-b', type: 'voice', label: 'Voz B' },
+    { id: 'voice-c', type: 'voice', label: 'Voz C' },
+    { id: 'background-a', type: 'background', label: 'Estudio' },
+    { id: 'background-b', type: 'background', label: 'Interior' },
+    { id: 'background-c', type: 'background', label: 'Noche' },
+  ];
+  const first = preconfigurationManager.buildDirectorPreconfigurationAutofill(resources, 0);
+  const repeated = preconfigurationManager.buildDirectorPreconfigurationAutofill(resources, 0);
+  const second = preconfigurationManager.buildDirectorPreconfigurationAutofill(resources, 1);
+  check('el autocompletado repite la misma propuesta con el mismo intento', JSON.stringify(first) === JSON.stringify(repeated));
+  check('rehacer produce otra combinación determinista', JSON.stringify(first) !== JSON.stringify(second));
+  check('la propuesta completa un diálogo con dos personajes', first.structurePreference === 'dialogue' && first.characterBindings.length === 2);
+  check('cada personaje automático recibe una voz distinta', new Set(first.characterBindings.map((binding) => binding.voiceResourceId)).size === 2);
+  check('el autocompletado prioriza variedad de fondos', first.backgroundStrategy === 'beat-variation' && first.preferredBackgroundResourceIds.length === 3);
+  check('el preset conversacional se prefiere cuando está disponible', first.characterBindings[0].animationPresetId === 'talk-calm');
+
+  const scarce = preconfigurationManager.buildDirectorPreconfigurationAutofill([
+    { id: 'character-only', type: 'character', label: 'Único', capabilities: { animationPresets: ['idle-calm'] } },
+    { id: 'voice-only', type: 'voice', label: 'Voz única' },
+    { id: 'background-only', type: 'background', label: 'Fondo único' },
+  ], 3);
+  check('un catálogo pequeño degrada a una configuración válida de un personaje', scarce.structurePreference === 'one-character' && scarce.characterBindings.length === 1);
+  check('un solo fondo usa locación única', scarce.backgroundStrategy === 'single-location' && scarce.preferredBackgroundResourceIds.length === 1);
+}
 
 // ---- rig-preview.ts: el lienzo usa las piezas reales, no una miniatura ----
 {

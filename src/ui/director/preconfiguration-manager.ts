@@ -16,11 +16,22 @@ interface ManagerOptions {
   onRecordsChanged: (records: DirectorPreconfigurationRecord[], selectedId?: string) => void;
 }
 
+export interface DirectorPreconfigurationAutofill {
+  name: string;
+  description: string;
+  structurePreference: 'one-character' | 'dialogue';
+  richnessProfile: 'varied' | 'dynamic';
+  characterBindings: DirectorPreconfigurationBinding[];
+  preferredBackgroundResourceIds: string[];
+  backgroundStrategy: 'single-location' | 'beat-variation';
+}
+
 export function initDirectorPreconfigurationManager(options: ManagerOptions): void {
   const dialog = buildDialog();
   document.body.append(dialog);
   const form = scoped<HTMLFormElement>(dialog, '.preconfiguration-form');
   const picker = scoped<HTMLSelectElement>(dialog, '.preconfiguration-picker');
+  const autofillButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-autofill');
   const createButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-new');
   const deleteButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-delete');
   const closeButtons = Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-close-preconfiguration]'));
@@ -35,6 +46,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
   let resources: DirectorAuthoringResource[] = [];
   let editingId: string | null = null;
   let editingRevision: number | undefined;
+  let autofillAttempt = 0;
 
   options.openButton.addEventListener('click', () => void open());
   closeButtons.forEach((button) => button.addEventListener('click', () => dialog.close()));
@@ -44,6 +56,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     renderEditor(record ?? null);
   });
   createButton.addEventListener('click', () => renderEditor(null));
+  autofillButton.addEventListener('click', applyAutofill);
   deleteButton.addEventListener('click', () => void removeCurrent());
   addBindingButton.addEventListener('click', () => {
     if (bindingList.children.length >= 8) return setStatus('Una configuración admite hasta ocho personajes.', true);
@@ -117,6 +130,8 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     picker.value = editingId ?? '__new__';
     deleteButton.disabled = !record;
     const value = record?.preconfiguration;
+    autofillAttempt = 0;
+    autofillButton.textContent = 'Autocompletar';
     field<HTMLInputElement>('name').value = value?.name ?? '';
     field<HTMLTextAreaElement>('description').value = value?.description ?? '';
     field<HTMLSelectElement>('structurePreference').value = value?.structurePreference ?? 'automatic';
@@ -134,6 +149,29 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     syncAddBindingState();
     syncBackgroundHint();
     field<HTMLInputElement>('name').focus({ preventScroll: true });
+  }
+
+  function applyAutofill(): void {
+    const draft = buildDirectorPreconfigurationAutofill(resources, autofillAttempt);
+    autofillAttempt += 1;
+    field<HTMLInputElement>('name').value = draft.name;
+    field<HTMLTextAreaElement>('description').value = draft.description;
+    field<HTMLSelectElement>('structurePreference').value = draft.structurePreference;
+    field<HTMLSelectElement>('richnessProfile').value = draft.richnessProfile;
+    narrator.value = '';
+    strategy.value = draft.backgroundStrategy;
+    field<HTMLInputElement>('preserveCharacterVoices').checked = true;
+    field<HTMLInputElement>('preserveNarratorVoice').checked = true;
+    field<HTMLInputElement>('preserveCastAcrossScenes').checked = true;
+    bindingList.replaceChildren(...draft.characterBindings.map(createBindingRow));
+    for (const input of backgrounds.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+      input.checked = draft.preferredBackgroundResourceIds.includes(input.value);
+    }
+    autofillButton.textContent = 'Rehacer autocompletado';
+    setStatus('Combinación completa. Podés guardarla, editar cualquier dato o generar otra.');
+    syncAddBindingState();
+    syncBackgroundHint();
+    saveButton.focus({ preventScroll: true });
   }
 
   function createBindingRow(binding?: DirectorPreconfigurationBinding): HTMLElement {
@@ -285,6 +323,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
   }
 
   function setBusy(busy: boolean): void {
+    autofillButton.disabled = busy;
     saveButton.disabled = busy;
     deleteButton.disabled = busy || !editingId;
     createButton.disabled = busy;
@@ -308,6 +347,10 @@ function buildDialog(): HTMLDialogElement {
         <button class="text-button" type="button" data-close-preconfiguration>Cerrar</button>
       </header>
       <p class="muted preconfiguration-intro">Guardá combinaciones de personajes, voces y fondos para reutilizarlas al crear un video.</p>
+      <div class="preconfiguration-autofill-panel">
+        <div><strong>Combinación rápida</strong><span>El sistema elige un reparto coherente, asigna voces distintas y combina fondos variados.</span></div>
+        <button class="primary-button preconfiguration-autofill" type="button">Autocompletar</button>
+      </div>
       <div class="preconfiguration-toolbar">
         <label class="field"><span>Configuración</span><select class="preconfiguration-picker"></select></label>
         <button class="secondary-button preconfiguration-new" type="button">Nueva</button>
@@ -346,6 +389,56 @@ function buildDialog(): HTMLDialogElement {
       </form>
     </div>`;
   return dialog;
+}
+
+export function buildDirectorPreconfigurationAutofill(
+  resources: DirectorAuthoringResource[],
+  attempt = 0,
+): DirectorPreconfigurationAutofill {
+  assertCatalogResources(resources);
+  const characters = sortedResources(resources, 'character')
+    .filter((character) => (character.capabilities?.animationPresets?.length ?? 0) > 0);
+  const voices = sortedResources(resources, 'voice');
+  const backgrounds = sortedResources(resources, 'background');
+  if (characters.length === 0) throw new Error('No hay personajes con animaciones disponibles para autocompletar.');
+  const safeAttempt = Math.max(0, Math.trunc(attempt));
+  const castSize = characters.length >= 2 && voices.length >= 2 ? 2 : 1;
+  const selectedCharacters = rotatedSelection(characters, safeAttempt, castSize);
+  const selectedVoices = rotatedSelection(voices, safeAttempt * 2 + 1, castSize);
+  const backgroundCount = Math.min(3, backgrounds.length);
+  const selectedBackgrounds = rotatedSelection(backgrounds, safeAttempt * 3, backgroundCount);
+  const roles = castSize === 2 ? ['presentador', 'analista'] : ['presentador'];
+  const characterBindings = selectedCharacters.map((character, index) => ({
+    roleId: roles[index]!,
+    characterResourceId: character.id,
+    voiceResourceId: selectedVoices[index]!.id,
+    animationPresetId: preferredAnimationPreset(character),
+  }));
+  const castLabel = selectedCharacters.map((resource) => resource.label).join(' + ');
+  const name = `${castSize === 2 ? 'Dúo' : 'Personaje'} automático ${safeAttempt + 1}: ${castLabel}`.slice(0, 100);
+  return {
+    name,
+    description: 'Selección automática editable con voces ligadas al reparto, continuidad entre escenas y variedad visual.',
+    structurePreference: castSize === 2 ? 'dialogue' : 'one-character',
+    richnessProfile: safeAttempt % 2 === 0 ? 'varied' : 'dynamic',
+    characterBindings,
+    preferredBackgroundResourceIds: selectedBackgrounds.map((resource) => resource.id),
+    backgroundStrategy: selectedBackgrounds.length >= 2 ? 'beat-variation' : 'single-location',
+  };
+}
+
+function sortedResources(resources: DirectorAuthoringResource[], type: string): DirectorAuthoringResource[] {
+  return resources.filter((resource) => resource.type === type)
+    .sort((left, right) => left.label.localeCompare(right.label, 'es'));
+}
+
+function rotatedSelection<T>(values: T[], offset: number, count: number): T[] {
+  return Array.from({ length: count }, (_, index) => values[(offset + index) % values.length]!);
+}
+
+function preferredAnimationPreset(character: DirectorAuthoringResource): string {
+  const presets = character.capabilities?.animationPresets ?? [];
+  return presets.includes('talk-calm') ? 'talk-calm' : presets[0]!;
 }
 
 function labeledInput(text: string, type: string, placeholder: string) {

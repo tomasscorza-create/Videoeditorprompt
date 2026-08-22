@@ -2473,6 +2473,19 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   overflow: auto;
 }
 .preconfiguration-intro { margin: -.35rem 0 0; }
+.preconfiguration-autofill-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .8rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+}
+.preconfiguration-autofill-panel > div { display: grid; gap: .15rem; }
+.preconfiguration-autofill-panel span { color: var(--muted); font-size: var(--fs-xs); }
+.preconfiguration-autofill-panel .primary-button { flex: none; }
 .preconfiguration-toolbar {
   display: grid;
   grid-template-columns: minmax(14rem, 1fr) auto auto;
@@ -2545,6 +2558,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 .director-preconfiguration-control > label { width: 100%; }
 @media (max-width: 760px) {
+  .preconfiguration-autofill-panel { align-items: stretch; flex-direction: column; }
   .preconfiguration-toolbar,
   .preconfiguration-grid.two-columns,
   .preconfiguration-backgrounds { grid-template-columns: 1fr; }
