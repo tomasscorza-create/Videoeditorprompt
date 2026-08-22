@@ -9,6 +9,7 @@ import { buildDirectorConstraints } from './brief.js';
 import { canOpenDirectorPhase, initialDirectorPhase, type DirectorPhase } from './flow-state.js';
 import { describeDirectorProgress } from './progress-copy.js';
 import { DIRECTOR_PROVIDER_CHANGE_EVENT, getDirectorProviderSettings } from './provider-settings.js';
+import { initDirectorPreconfigurationManager } from './preconfiguration-manager.js';
 import {
   cancelDirectorProposal,
   cancelRenderJob,
@@ -101,12 +102,17 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   preconfigurationSelect.setAttribute('aria-label', 'Configuración creativa guardada');
   const preconfigurationLabel = document.createElement('label');
   preconfigurationLabel.htmlFor = preconfigurationSelect.id;
-  preconfigurationLabel.className = 'director-model-control';
-  preconfigurationLabel.hidden = true;
   const preconfigurationLabelText = document.createElement('span');
   preconfigurationLabelText.textContent = 'Configuración guardada';
   preconfigurationLabel.append(preconfigurationLabelText, preconfigurationSelect);
-  quickControls.append(preconfigurationLabel);
+  const preconfigurationManage = document.createElement('button');
+  preconfigurationManage.type = 'button';
+  preconfigurationManage.className = 'text-button';
+  preconfigurationManage.textContent = 'Administrar';
+  const preconfigurationControl = document.createElement('div');
+  preconfigurationControl.className = 'director-preconfiguration-control';
+  preconfigurationControl.append(preconfigurationLabel, preconfigurationManage);
+  quickControls.append(preconfigurationControl);
 
   let store = initialStore;
   let phase: DirectorPhase = initialDirectorPhase(hasAuthoredContent(store));
@@ -134,6 +140,11 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   void refreshHealth();
   void refreshGallery(true);
   void refreshPreconfigurations();
+  initDirectorPreconfigurationManager({
+    openButton: preconfigurationManage,
+    selectedId: () => preconfigurationSelect.value || undefined,
+    onRecordsChanged: (nextRecords, selectedId) => applyPreconfigurationRecords(nextRecords, selectedId),
+  });
 
   const healthTimer = window.setInterval(() => void refreshHealth(), HEALTH_INTERVAL_MS);
   window.addEventListener('pagehide', () => window.clearInterval(healthTimer), { once: true });
@@ -319,20 +330,23 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   async function refreshPreconfigurations(): Promise<void> {
     const selectedId = preconfigurationSelect.value;
     try {
-      preconfigurations = await listDirectorPreconfigurations();
-      const options = [new Option('No usar una configuración guardada', '')];
-      for (const record of preconfigurations) {
-        const option = new Option(record.preconfiguration.name, record.preconfiguration.id);
-        option.title = record.preconfiguration.description || describePreconfiguration(record);
-        options.push(option);
-      }
-      preconfigurationSelect.replaceChildren(...options);
-      if (preconfigurations.some((record) => record.preconfiguration.id === selectedId)) preconfigurationSelect.value = selectedId;
-      preconfigurationLabel.hidden = preconfigurations.length === 0;
+      applyPreconfigurationRecords(await listDirectorPreconfigurations(), selectedId);
     } catch {
-      preconfigurations = [];
-      preconfigurationSelect.replaceChildren(new Option('No usar una configuración guardada', ''));
-      preconfigurationLabel.hidden = true;
+      applyPreconfigurationRecords([]);
+    }
+  }
+
+  function applyPreconfigurationRecords(records: DirectorPreconfigurationRecord[], selectedId?: string): void {
+    preconfigurations = records;
+    const options = [new Option('No usar una configuración guardada', '')];
+    for (const record of preconfigurations) {
+      const option = new Option(record.preconfiguration.name, record.preconfiguration.id);
+      option.title = record.preconfiguration.description || describePreconfiguration(record);
+      options.push(option);
+    }
+    preconfigurationSelect.replaceChildren(...options);
+    if (selectedId && preconfigurations.some((record) => record.preconfiguration.id === selectedId)) {
+      preconfigurationSelect.value = selectedId;
     }
   }
 

@@ -2463,6 +2463,94 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 .settings-group p { margin: .15rem 0 0; }
 .projects-modal .modal-content { width: min(44rem, calc(100vw - 2rem)); }
 .elevenlabs-voices-modal .modal-content { width: min(48rem, calc(100vw - 2rem)); }
+.preconfiguration-modal {
+  max-width: min(64rem, calc(100vw - 1rem));
+  background: var(--surface);
+}
+.preconfiguration-modal .modal-content {
+  width: min(64rem, calc(100vw - 2rem));
+  max-height: min(88dvh, 54rem);
+  overflow: auto;
+}
+.preconfiguration-intro { margin: -.35rem 0 0; }
+.preconfiguration-toolbar {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) auto auto;
+  align-items: end;
+  gap: .55rem;
+  padding-bottom: .8rem;
+  border-bottom: 1px solid var(--border);
+}
+.preconfiguration-form { display: grid; gap: 1rem; }
+.preconfiguration-section { display: grid; gap: .7rem; }
+.preconfiguration-section + .preconfiguration-section {
+  padding-top: .9rem;
+  border-top: 1px solid var(--border);
+}
+.preconfiguration-section h3 { margin: 0; font-size: var(--fs-md); }
+.preconfiguration-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.preconfiguration-section-heading p { margin: .12rem 0 0; color: var(--muted); font-size: var(--fs-xs); }
+.preconfiguration-grid { display: grid; gap: .65rem; }
+.preconfiguration-grid.two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.preconfiguration-grid .full-row { grid-column: 1 / -1; }
+.preconfiguration-bindings { display: grid; gap: .55rem; }
+.preconfiguration-binding {
+  display: grid;
+  grid-template-columns: minmax(8rem, .8fr) minmax(10rem, 1.2fr) minmax(10rem, 1.2fr) minmax(9rem, 1fr) auto;
+  align-items: end;
+  gap: .5rem;
+  padding: .65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.preconfiguration-remove-binding { align-self: center; color: var(--danger); }
+.preconfiguration-backgrounds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .4rem .65rem;
+}
+.preconfiguration-check,
+.preconfiguration-continuity label {
+  display: flex;
+  align-items: center;
+  gap: .48rem;
+  min-height: 2.2rem;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.preconfiguration-check {
+  padding: .38rem .55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.preconfiguration-check:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 58%, var(--border)); }
+.preconfiguration-continuity { display: grid; gap: .3rem; padding-top: .2rem; }
+.preconfiguration-continuity summary { color: var(--text); cursor: pointer; font-weight: 700; }
+.preconfiguration-status { min-height: 1.4rem; margin: 0; }
+.preconfiguration-status.error { color: var(--danger); }
+.preconfiguration-actions { display: flex; justify-content: flex-end; gap: .7rem; padding-top: .35rem; }
+.director-preconfiguration-control {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .35rem;
+}
+.director-preconfiguration-control > label { width: 100%; }
+@media (max-width: 760px) {
+  .preconfiguration-toolbar,
+  .preconfiguration-grid.two-columns,
+  .preconfiguration-backgrounds { grid-template-columns: 1fr; }
+  .preconfiguration-binding { grid-template-columns: 1fr 1fr; }
+  .preconfiguration-remove-binding { justify-self: start; }
+}
 .voice-import-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .75rem; }
 .elevenlabs-voices-list { display: grid; gap: .55rem; max-height: min(55vh, 34rem); overflow: auto; }
 .elevenlabs-voice-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .8rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface-2); }

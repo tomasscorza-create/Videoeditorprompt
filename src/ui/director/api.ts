@@ -308,6 +308,13 @@ export interface DirectorPreconfigurationSummary {
   cast: Array<DirectorPreconfigurationBinding & { animationPresetId: string }>;
 }
 
+export interface DirectorAuthoringResource {
+  id: string;
+  type: 'character' | 'voice' | 'background' | string;
+  label: string;
+  capabilities?: { animationPresets?: string[] };
+}
+
 export interface RegisteredResource {
   id: string;
   type: string;
@@ -417,6 +424,27 @@ export async function createClarifyingQuestions(
 export async function listDirectorPreconfigurations(): Promise<DirectorPreconfigurationRecord[]> {
   const response = await apiRequest<{ version: number; preconfigurations: DirectorPreconfigurationRecord[] }>('/api/director/preconfigurations');
   return response.preconfigurations;
+}
+
+export async function listDirectorAuthoringResources(): Promise<DirectorAuthoringResource[]> {
+  const response = await apiRequest<{ version: number; catalog: { entries?: DirectorAuthoringResource[] } }>('/api/library/catalog');
+  return Array.isArray(response.catalog?.entries) ? response.catalog.entries : [];
+}
+
+export async function saveDirectorPreconfiguration(
+  preconfiguration: DirectorPreconfiguration,
+  expectedRevision?: number,
+): Promise<DirectorPreconfigurationRecord & { created: boolean }> {
+  return apiRequest(`/api/director/preconfigurations/${encodeURIComponent(preconfiguration.id)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ preconfiguration, expectedRevision }),
+  });
+}
+
+export async function deleteDirectorPreconfiguration(id: string, expectedRevision?: number): Promise<void> {
+  const query = expectedRevision === undefined ? '' : `?expectedRevision=${encodeURIComponent(String(expectedRevision))}`;
+  await apiRequest(`/api/director/preconfigurations/${encodeURIComponent(id)}${query}`, { method: 'DELETE' });
 }
 
 export async function editProjectWithAi(
