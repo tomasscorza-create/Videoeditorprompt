@@ -38,6 +38,13 @@ export function createDirectorPreconfigurationStore(options = {}) {
     return entry ? publicRecord(entry) : null;
   }
 
+  async function resolve(id) {
+    const record = await get(id);
+    if (!record) return null;
+    validateDirectorPreconfiguration(record.preconfiguration, await resolveCatalog(catalogProvider));
+    return record;
+  }
+
   async function save(preconfiguration, expectedRevision) {
     return serializeMutation(async () => {
       validateDirectorPreconfiguration(preconfiguration, await resolveCatalog(catalogProvider));
@@ -96,7 +103,7 @@ export function createDirectorPreconfigurationStore(options = {}) {
     return result;
   }
 
-  return { storageRoot, storePath, list, get, save, remove };
+  return { storageRoot, storePath, list, get, resolve, save, remove };
 }
 
 export function validateDirectorPreconfiguration(preconfiguration, catalog) {
@@ -124,6 +131,9 @@ export function validateDirectorPreconfiguration(preconfiguration, catalog) {
     }
   }
   if (preconfiguration.narratorVoiceResourceId) assertResource(byId, preconfiguration.narratorVoiceResourceId, 'voice');
+  if (preconfiguration.characterBindings.length === 0 && !preconfiguration.narratorVoiceResourceId) {
+    fail('DIRECTOR_PRECONFIGURATION_INVALID', 'La preconfiguración necesita una voz narradora o al menos un vínculo personaje-voz.');
+  }
   for (const id of preconfiguration.preferredBackgroundResourceIds) assertResource(byId, id, 'background');
   if (preconfiguration.backgroundStrategy === 'single-location' && preconfiguration.preferredBackgroundResourceIds.length !== 1) {
     fail('DIRECTOR_PRECONFIGURATION_INVALID', 'La estrategia de locación única requiere exactamente un fondo.');

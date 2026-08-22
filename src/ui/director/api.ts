@@ -126,6 +126,7 @@ export interface DirectorContextSummary {
   shortlistedByType?: Record<string, number>;
   unsupportedResourceTypes?: string[];
   resolvedConstraints?: DirectorConstraints;
+  preconfiguration?: DirectorPreconfigurationSummary | null;
 }
 
 export interface RenderJob {
@@ -264,6 +265,49 @@ export interface DirectorPersonalizationAnswer {
   answer: string;
 }
 
+export interface DirectorPreconfigurationBinding {
+  roleId: string;
+  characterResourceId: string;
+  voiceResourceId: string;
+  animationPresetId?: string;
+}
+
+export interface DirectorPreconfiguration {
+  version: 1;
+  id: string;
+  name: string;
+  description?: string;
+  structurePreference?: 'automatic' | 'narration' | 'one-character' | 'dialogue';
+  richnessProfile?: 'simple' | 'varied' | 'dynamic';
+  characterBindings: DirectorPreconfigurationBinding[];
+  narratorVoiceResourceId?: string;
+  preferredBackgroundResourceIds: string[];
+  backgroundStrategy: 'single-location' | 'beat-variation';
+  continuity: {
+    preserveCharacterVoices: boolean;
+    preserveNarratorVoice: boolean;
+    preserveCastAcrossScenes: boolean;
+  };
+}
+
+export interface DirectorPreconfigurationRecord {
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  preconfiguration: DirectorPreconfiguration;
+}
+
+export interface DirectorPreconfigurationSummary {
+  id: string;
+  name: string;
+  structure: string;
+  richness: string;
+  backgroundStrategy: string;
+  backgrounds: string[];
+  narratorVoiceResourceId: string | null;
+  cast: Array<DirectorPreconfigurationBinding & { animationPresetId: string }>;
+}
+
 export interface RegisteredResource {
   id: string;
   type: string;
@@ -326,12 +370,13 @@ export async function createProposal(
   generation: DirectorGenerationOptions,
   personalization: DirectorPersonalizationAnswer[],
   signal?: AbortSignal,
+  preconfigurationId?: string,
 ): Promise<DirectorProposal> {
   const provider = getDirectorProviderSettings();
   return apiRequest<DirectorProposal>('/api/director/proposals', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, variant, constraints, personalization, ...generation, ...provider }),
+    body: JSON.stringify({ prompt, variant, constraints, personalization, preconfigurationId, ...generation, ...provider }),
     signal,
   });
 }
@@ -340,12 +385,13 @@ export async function createClarifyingQuestions(
   prompt: string,
   constraints: DirectorConstraints,
   signal?: AbortSignal,
+  preconfigurationId?: string,
 ): Promise<DirectorQuestionSet> {
   const provider = getDirectorProviderSettings();
   const response = await apiRequest<DirectorQuestionSet>('/api/director/questions', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, constraints, ...provider }),
+    body: JSON.stringify({ prompt, constraints, preconfigurationId, ...provider }),
     signal,
   });
   const validQuestions = response.questionContract === 2
@@ -366,6 +412,11 @@ export async function createClarifyingQuestions(
     );
   }
   return response;
+}
+
+export async function listDirectorPreconfigurations(): Promise<DirectorPreconfigurationRecord[]> {
+  const response = await apiRequest<{ version: number; preconfigurations: DirectorPreconfigurationRecord[] }>('/api/director/preconfigurations');
+  return response.preconfigurations;
 }
 
 export async function editProjectWithAi(

@@ -58,6 +58,8 @@ const store = createDirectorPreconfigurationStore({
   catalogProvider: () => catalog,
   now: () => '2026-08-22T12:00:00.000Z',
 });
+let receivedQuestionConstraints = null;
+let receivedProposalPreconfiguration = null;
 const app = await createLocalAppServer({
   port: 0,
   persistenceRuntime,
@@ -66,6 +68,35 @@ const app = await createLocalAppServer({
   manager,
   directorPreconfigurations: store,
   retentionOnStartup: false,
+  ollamaInspector: async () => ({ available: true, modelInstalled: true, model: 'test', version: 'test', digest: 'sha256:test' }),
+  questionDirector: async ({ constraints }) => {
+    receivedQuestionConstraints = constraints;
+    return {
+      questionContract: 2,
+      cacheHit: false,
+      model: 'test',
+      questions: Array.from({ length: 3 }, (_, index) => ({
+        id: `pregunta-${index}`,
+        kind: 'choice',
+        prompt: `Pregunta ${index}`,
+        multiple: false,
+        options: Array.from({ length: 3 }, (_unused, optionIndex) => ({ id: `opcion-${index}-${optionIndex}`, label: `Opción ${optionIndex}` })),
+        otherPlaceholder: 'Otra respuesta',
+      })),
+    };
+  },
+  director: async ({ preconfiguration: selected }) => {
+    receivedProposalPreconfiguration = selected;
+    return {
+      cacheHit: false,
+      model: 'test',
+      plan: { version: 2, title: 'Plan test', scenes: [] },
+      project: { version: 1, id: 'project-test', title: 'Proyecto test', scenes: [] },
+      budget: { totalWords: 0, maximumWords: 0 },
+      selection: { bestOf: 1, winnerIndex: 0, judgeVersion: null, scores: null },
+      context: { version: 2, resourceIds: [], totalCatalogEntries: 3, shortlistedEntries: 3 },
+    };
+  },
 });
 
 try {
@@ -97,6 +128,22 @@ try {
   assert.equal(getResponse.status, 200);
   assert.deepEqual((await getResponse.json()).preconfiguration, preconfiguration);
 
+  const questionsResponse = await request('/api/director/questions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'Una idea válida', constraints: { planVersion: 2 }, preconfigurationId: preconfiguration.id }),
+  });
+  assert.equal(questionsResponse.status, 200);
+  assert.deepEqual(receivedQuestionConstraints, { planVersion: 2, structure: 'one-character' });
+
+  const proposalResponse = await request('/api/director/proposals', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'Una idea válida', constraints: { planVersion: 2 }, preconfigurationId: preconfiguration.id }),
+  });
+  assert.equal(proposalResponse.status, 200);
+  assert.deepEqual(receivedProposalPreconfiguration, preconfiguration);
+
   const mismatchResponse = await request('/api/director/preconfigurations/otro-id', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
@@ -116,7 +163,14 @@ try {
   assert.equal((await deletedResponse.json()).removed, true);
   assert.equal((await request(`/api/director/preconfigurations/${preconfiguration.id}`)).status, 404);
 
-  process.stdout.write('API de preconfiguraciones del Director verificada (7 casos).\n');
+  const missingSelection = await request('/api/director/proposals', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt: 'Una idea válida', constraints: { planVersion: 2 }, preconfigurationId: preconfiguration.id }),
+  });
+  assert.equal(missingSelection.status, 404);
+
+  process.stdout.write('API de preconfiguraciones del Director verificada (10 casos).\n');
 } finally {
   await app.close().catch(() => {});
   await rm(temporary, { recursive: true, force: true });

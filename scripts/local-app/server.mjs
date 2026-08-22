@@ -8,6 +8,7 @@ import { editProjectWithDirector } from '../director/project-editor-director.mjs
 import { editTimelineWithDirector } from '../director/timeline-director.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { createDirectorPreconfigurationStore } from '../director/preconfiguration-store.mjs';
+import { applyPreconfigurationConstraints } from '../director/preconfiguration-director.mjs';
 import { listProviderNames } from '../director/providers/index.mjs';
 import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
@@ -88,6 +89,17 @@ export async function createLocalAppServer(options = {}) {
     storageRoot: options.directorPreconfigurationStorageRoot || path.join(root, '.local-video', 'director-preconfigurations'),
     catalogProvider: currentCatalog,
   });
+  const resolveDirectorPreconfiguration = async (id) => {
+    if (id === undefined || id === null || id === '') return null;
+    const record = await directorPreconfigurations.resolve(String(id));
+    if (!record) {
+      const error = new Error('La preconfiguración elegida ya no está disponible.');
+      error.code = 'DIRECTOR_PRECONFIGURATION_NOT_FOUND';
+      error.suggestedAction = 'Elegí otra preconfiguración o continuá sin usar una.';
+      throw error;
+    }
+    return record;
+  };
   const elevenLabs = options.elevenLabs || {
     inspect: (requestOptions = {}) => inspectElevenLabs({ ...requestOptions, environment: options.environment || process.env }),
     listVoices: (requestOptions = {}) => listElevenLabsVoices({ ...requestOptions, environment: options.environment || process.env }),
@@ -361,13 +373,14 @@ export async function createLocalAppServer(options = {}) {
           throw error;
         }
         const body = await readJsonBody(request);
+        const preconfiguration = await resolveDirectorPreconfiguration(body.preconfigurationId);
         directorController = new AbortController();
         updateDirectorStatus('running', 'checking_model');
         try {
           const modelInspection = await inspectDirectorIdentity(inspectProviderCached, body.provider, body.model);
           const result = await questionDirector({
             prompt: body.prompt,
-            constraints: body.constraints,
+            constraints: applyPreconfigurationConstraints(body.constraints, preconfiguration?.preconfiguration),
             provider: body.provider,
             model: body.model,
             modelIdentity: modelInspection,
@@ -398,6 +411,7 @@ export async function createLocalAppServer(options = {}) {
           throw error;
         }
         const body = await readJsonBody(request);
+        const preconfiguration = await resolveDirectorPreconfiguration(body.preconfigurationId);
         directorController = new AbortController();
         updateDirectorStatus('running', 'checking_model');
         let proposal;
@@ -411,6 +425,7 @@ export async function createLocalAppServer(options = {}) {
             think: body.think,
             bestOf: body.bestOf,
             personalization: body.personalization,
+            preconfiguration: preconfiguration?.preconfiguration,
             model: body.model,
             modelIdentity: modelInspection,
             assetsRoot,
@@ -661,7 +676,7 @@ export async function createLocalAppServer(options = {}) {
         'TIMELINE_PROJECT_REVISION_CONFLICT',
         'DIRECTOR_PRECONFIGURATION_REVISION_CONFLICT',
       ].includes(error?.code) ? 409
-        : ['PROJECT_NOT_FOUND', 'TIMELINE_PROJECT_NOT_FOUND'].includes(error?.code) ? 404
+        : ['PROJECT_NOT_FOUND', 'TIMELINE_PROJECT_NOT_FOUND', 'DIRECTOR_PRECONFIGURATION_NOT_FOUND'].includes(error?.code) ? 404
           : String(error?.code || '').includes('INVALID') || [
             'DIRECTOR_PROVIDER_UNKNOWN',
             'TIMELINE_EXPORT_EMPTY',

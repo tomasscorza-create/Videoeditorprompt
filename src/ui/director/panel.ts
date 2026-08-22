@@ -20,6 +20,7 @@ import {
   getDirectorStatus,
   getHealth,
   getRenderJob,
+  listDirectorPreconfigurations,
   listRenderJobs,
   startRender,
   type ApiError,
@@ -27,6 +28,7 @@ import {
   type DirectorPersonalizationAnswer,
   type DirectorQuestion,
   type DirectorQuestionSet,
+  type DirectorPreconfigurationRecord,
   type DirectorUsage,
   type RenderJob,
 } from './api.js';
@@ -38,6 +40,7 @@ const DIRECTOR_USAGE_STORAGE_KEY = 'local-video.director-usage.v1';
 interface IdeaDraft {
   prompt: string;
   constraints: DirectorConstraints;
+  preconfigurationId?: string;
 }
 
 type EditableProject = ReturnType<ProjectStore['project']>;
@@ -59,6 +62,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const prompt = required<HTMLTextAreaElement>('#director-prompt');
   const duration = required<HTMLSelectElement>('#director-duration');
   const scenes = required<HTMLSelectElement>('#director-scenes');
+  const quickControls = required<HTMLElement>('#director-quick-controls');
   const generate = required<HTMLButtonElement>('#director-generate');
   const status = required<HTMLElement>('#director-status');
   const statusBlock = status.closest<HTMLElement>('.director-global-status')!;
@@ -70,6 +74,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const phaseButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-director-phase]'));
   const questionsForm = required<HTMLFormElement>('#director-questions-form');
   const questionsRoot = required<HTMLElement>('#director-questions');
+  const questionIntro = required<HTMLElement>('.director-question-intro');
   const questionsBack = required<HTMLButtonElement>('#director-questions-back');
   const createVideo = required<HTMLButtonElement>('#director-create-video');
   const backBase = required<HTMLButtonElement>('#director-back-base');
@@ -91,6 +96,17 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const filesMenu = required<HTMLDetailsElement>('#files-menu');
   const renderIndicator = required<HTMLButtonElement>('#render-indicator');
   const renderIndicatorLabel = required<HTMLElement>('#render-indicator-label');
+  const preconfigurationSelect = document.createElement('select');
+  preconfigurationSelect.id = 'director-preconfiguration';
+  preconfigurationSelect.setAttribute('aria-label', 'Configuración creativa guardada');
+  const preconfigurationLabel = document.createElement('label');
+  preconfigurationLabel.htmlFor = preconfigurationSelect.id;
+  preconfigurationLabel.className = 'director-model-control';
+  preconfigurationLabel.hidden = true;
+  const preconfigurationLabelText = document.createElement('span');
+  preconfigurationLabelText.textContent = 'Configuración guardada';
+  preconfigurationLabel.append(preconfigurationLabelText, preconfigurationSelect);
+  quickControls.append(preconfigurationLabel);
 
   let store = initialStore;
   let phase: DirectorPhase = initialDirectorPhase(hasAuthoredContent(store));
@@ -107,6 +123,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   let submittedInstruction: string | null = null;
   let ideaDraft: IdeaDraft | null = null;
   let questionSet: DirectorQuestionSet | null = null;
+  let preconfigurations: DirectorPreconfigurationRecord[] = [];
   const subscribedStores = new WeakSet<ProjectStore>();
 
   root.hidden = false;
@@ -116,6 +133,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   syncUi();
   void refreshHealth();
   void refreshGallery(true);
+  void refreshPreconfigurations();
 
   const healthTimer = window.setInterval(() => void refreshHealth(), HEALTH_INTERVAL_MS);
   window.addEventListener('pagehide', () => window.clearInterval(healthTimer), { once: true });
@@ -201,8 +219,9 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     root.closest<HTMLElement>('.director-column')?.scrollTo({ top: 0, behavior: 'auto' });
     let succeeded = false;
     try {
-      questionSet = await createClarifyingQuestions(instruction, constraints, proposalController.signal);
-      ideaDraft = { prompt: instruction, constraints };
+      const preconfigurationId = preconfigurationSelect.value || undefined;
+      questionSet = await createClarifyingQuestions(instruction, constraints, proposalController.signal, preconfigurationId);
+      ideaDraft = { prompt: instruction, constraints, preconfigurationId };
       renderQuestions(questionSet.questions);
       phase = 'base';
       report('Respondé las tres preguntas para personalizar el video.', true);
@@ -239,6 +258,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         { think: false, bestOf: 1 },
         personalization,
         proposalController.signal,
+        ideaDraft.preconfigurationId,
       );
       if (store) {
         const error = store.replaceProject(result.project);
@@ -270,7 +290,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       questionSet = null;
       ideaDraft = null;
       prompt.value = '';
-      report('Proyecto creado. Preparando el preview con voces y tiempos reales…', true);
+      const appliedPreconfiguration = result.context.preconfiguration?.name;
+      report(appliedPreconfiguration
+        ? `Proyecto creado con «${appliedPreconfiguration}». Preparando el preview con voces y tiempos reales…`
+        : 'Proyecto creado. Preparando el preview con voces y tiempos reales…', true);
       submittedInstruction = null;
       setBusy(null);
       syncUi();
@@ -286,7 +309,31 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
 
   function renderQuestions(questions: readonly DirectorQuestion[]): void {
     questionsRoot.replaceChildren(...questions.map((question, index) => questionCard(question, index)));
+    const selected = preconfigurations.find((record) => record.preconfiguration.id === ideaDraft?.preconfigurationId)?.preconfiguration;
+    questionIntro.textContent = selected
+      ? `La IA leyó tu idea usando «${selected.name}». Respondé las tres preguntas para completar esa base.`
+      : 'La IA leyó tu idea. En cada pregunta elegí una de las tres opciones o escribí una respuesta diferente.';
     replacement.hidden = !hasAuthoredContent(store);
+  }
+
+  async function refreshPreconfigurations(): Promise<void> {
+    const selectedId = preconfigurationSelect.value;
+    try {
+      preconfigurations = await listDirectorPreconfigurations();
+      const options = [new Option('No usar una configuración guardada', '')];
+      for (const record of preconfigurations) {
+        const option = new Option(record.preconfiguration.name, record.preconfiguration.id);
+        option.title = record.preconfiguration.description || describePreconfiguration(record);
+        options.push(option);
+      }
+      preconfigurationSelect.replaceChildren(...options);
+      if (preconfigurations.some((record) => record.preconfiguration.id === selectedId)) preconfigurationSelect.value = selectedId;
+      preconfigurationLabel.hidden = preconfigurations.length === 0;
+    } catch {
+      preconfigurations = [];
+      preconfigurationSelect.replaceChildren(new Option('No usar una configuración guardada', ''));
+      preconfigurationLabel.hidden = true;
+    }
   }
 
   function collectAnswers(questions: readonly DirectorQuestion[]): DirectorPersonalizationAnswer[] | null {
@@ -838,6 +885,17 @@ function mergeDirectorUsage(...entries: Array<DirectorUsage | undefined>): Direc
 
 function formatTokenCount(value: number | null | undefined): string {
   return typeof value === 'number' && Number.isFinite(value) ? new Intl.NumberFormat('es-AR').format(value) : '—';
+}
+
+function describePreconfiguration(record: DirectorPreconfigurationRecord): string {
+  const value = record.preconfiguration;
+  const cast = value.characterBindings.length === 0
+    ? 'sin personajes'
+    : `${value.characterBindings.length} ${value.characterBindings.length === 1 ? 'personaje' : 'personajes'} con voz fija`;
+  const backgrounds = value.preferredBackgroundResourceIds.length === 1
+    ? 'un fondo preferido'
+    : `${value.preferredBackgroundResourceIds.length} fondos preferidos`;
+  return `${cast} · ${backgrounds}`;
 }
 
 function persistDirectorUsage(project: EditableProject, record: DirectorUsageRecord): void {

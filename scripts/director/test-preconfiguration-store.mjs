@@ -85,6 +85,7 @@ try {
     { ...base, characterBindings: [{ ...base.characterBindings[0], animationPresetId: 'fly' }, base.characterBindings[1]] },
     { ...base, preferredBackgroundResourceIds: ['fondo-a', 'fondo-b'] },
     { ...base, structurePreference: 'narration', narratorVoiceResourceId: undefined },
+    { ...base, structurePreference: 'automatic', characterBindings: [], narratorVoiceResourceId: undefined },
   ];
   for (const candidate of invalidCases) {
     await assert.rejects(() => store.save(candidate), (error) => [

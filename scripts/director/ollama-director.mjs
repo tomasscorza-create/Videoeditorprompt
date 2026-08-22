@@ -29,6 +29,14 @@ import {
 } from './plan-quality.mjs';
 import { analyzeCreativeRichness } from './richness-policy.mjs';
 import { analyzeDirectorContinuity, buildContinuityBible } from './continuity-bible.mjs';
+import {
+  applyPreconfigurationConstraints,
+  applyPreconfigurationToPlan,
+  constrainPlanSchemaWithPreconfiguration,
+  describeDirectorPreconfiguration,
+  preconfigurationResourceIds,
+  prepareDirectorPreconfiguration,
+} from './preconfiguration-director.mjs';
 import { formatPersonalizedPrompt } from './clarifying-questions.mjs';
 import { quarantineDirectorCache, readDirectorCache, writeDirectorCache } from './cache.mjs';
 import { aggregateProviderUsage, assertWithinTokenBudget } from './providers/usage.mjs';
@@ -62,7 +70,11 @@ export async function createDirectorProposal(options) {
   // Modo «calidad máxima» (C3): con think:true qwen3 razona antes de responder
   // (mejor plan, más lento en CPU). Default false. Forma parte de la clave de caché.
   const think = booleanOption(options.think, false);
-  const constraints = inferDirectorConstraints(prompt, validateDirectorConstraints(options.constraints));
+  const preconfiguration = prepareDirectorPreconfiguration(options.preconfiguration, catalog);
+  const constraints = applyPreconfigurationConstraints(
+    inferDirectorConstraints(prompt, validateDirectorConstraints(options.constraints)),
+    preconfiguration,
+  );
   const templates = options.templates || loadNarrativeTemplates(options.templatesPath);
   const directorContext = buildDirectorContext({
     prompt,
@@ -71,9 +83,14 @@ export async function createDirectorProposal(options) {
     templates,
     resourceLimits: options.resourceLimits,
     templateLimit: options.templateLimit,
+    requiredResourceIds: preconfigurationResourceIds(preconfiguration),
   });
   directorContext.summary.resolvedConstraints = structuredClone(constraints);
-  const schema = buildOllamaPlanSchema(directorContext.catalog, constraints, directorContext.templates);
+  directorContext.summary.preconfiguration = describeDirectorPreconfiguration(preconfiguration);
+  const schema = constrainPlanSchemaWithPreconfiguration(
+    buildOllamaPlanSchema(directorContext.catalog, constraints, directorContext.templates),
+    preconfiguration,
+  );
   const promptCacheKey = `director-plan-${hashJson({
     version: DIRECTOR_PIPELINE_VERSION,
     provider: provider.name,
@@ -113,7 +130,9 @@ export async function createDirectorProposal(options) {
     if (cached) {
       try {
         emitProgress(options, 'cache');
-        const cachedPlan = cached.plan?.version === 2 ? canonicalizeDirectorPlanV2(cached.plan, catalog) : cached.plan;
+        const cachedPlan = cached.plan?.version === 2
+          ? applyPreconfigurationToPlan(canonicalizeDirectorPlanV2(cached.plan, catalog), preconfiguration)
+          : cached.plan;
         const normalizeCachedPlan = cachedPlan?.version === 2 ? normalizeDirectorPlanV2 : normalizeDirectorPlan;
         const normalized = normalizeCachedPlan(cachedPlan, catalog, {
           assetsRoot,
@@ -170,6 +189,7 @@ export async function createDirectorProposal(options) {
       candidateCount: bestOf,
       promptCacheKey,
       tokenBudget: tokenBudget === null ? null : Math.max(1, tokenBudget - consumed),
+      preconfiguration,
     });
     candidates.push(candidate);
     generationRuns.push(candidate);
@@ -229,6 +249,7 @@ export async function createDirectorProposal(options) {
         candidateCount: bestOf,
         promptCacheKey,
         tokenBudget: tokenBudget === null ? null : Math.max(1, tokenBudget - consumedBeforeRevision),
+        preconfiguration,
       });
       candidates[revisionIndex] = revisedCandidate;
       generationRuns.push(revisedCandidate);
@@ -354,6 +375,7 @@ async function generateCandidate({
   candidateCount,
   promptCacheKey,
   tokenBudget,
+  preconfiguration,
 }) {
   const startedAt = Date.now();
   let plan;
@@ -371,7 +393,7 @@ async function generateCandidate({
       attempt: attempt + 1,
     });
     const messages = [
-      { role: 'system', content: buildSystemPrompt(directorContext, constraints) },
+      { role: 'system', content: buildSystemPrompt(directorContext, constraints, preconfiguration) },
       { role: 'user', content: buildUserPrompt(prompt, variant, constraints, strategy, null) },
       ...(previousOutputForRepair ? [
         { role: 'assistant', content: `Salida anterior inválida, solo como referencia para corregirla:\n${previousOutputForRepair}` },
@@ -428,7 +450,10 @@ async function generateCandidate({
       continue;
     }
     try {
-      if (plan.version === 2) plan = canonicalizeDirectorPlanV2(plan, catalog);
+      if (plan.version === 2) {
+        plan = canonicalizeDirectorPlanV2(plan, catalog);
+        plan = applyPreconfigurationToPlan(plan, preconfiguration);
+      }
       if (plan.narrativeTemplateId === undefined) {
         plan.narrativeTemplateId = directorContext.summary.recommendedTemplateId;
       } else if (!directorContext.templates.some((template) => template.id === plan.narrativeTemplateId)) {
@@ -731,7 +756,7 @@ function buildOllamaPlanV2Schema(catalog, constraints, templates) {
   return schema;
 }
 
-function buildSystemPrompt(directorContext, constraints = {}) {
+function buildSystemPrompt(directorContext, constraints = {}, preconfiguration = null) {
   const entries = compactResourceEntries(directorContext.catalog);
   const templates = compactNarrativeTemplates(directorContext.templates);
   const creativeCatalog = creativeCatalogForConstraints(constraints);
@@ -782,6 +807,7 @@ function buildSystemPrompt(directorContext, constraints = {}) {
     constraints.planVersion === 2 ? 'Para fondos con parallax, elegí cámaras móviles variadas en perfiles varied o dynamic; reservá static para una pausa visual intencional.' : null,
     constraints.planVersion === 2 ? 'Usá durationWeight para repartir el objetivo: valores mayores reservan proporcionalmente más narración; no hagas todas las escenas iguales salvo que el contenido lo justifique.' : null,
     constraints.planVersion === 2 ? `Perfil de riqueza: ${constraints.richnessProfile || 'automatic'}. Preferencia estructural: ${constraints.structure || 'automatic'}.` : null,
+    preconfiguration ? `PRECONFIGURACIÓN ELEGIDA POR EL USUARIO (obligatoria): ${JSON.stringify(describeDirectorPreconfiguration(preconfiguration))}. Conservá exactamente esos vínculos de rol, personaje y voz; usá únicamente sus fondos y su voz narradora cuando corresponda.` : null,
     'Recibís una shortlist local, no el inventario completo. Usá solamente IDs presentes en esa shortlist.',
     'Elegí la plantilla narrativa más adecuada entre las candidatas. La recomendada es un punto de partida, no una obligación.',
     'Usá sus beats como estructura semántica y combinalos con recursos compatibles; no copies literalmente sus ejemplos.',
