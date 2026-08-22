@@ -7,6 +7,7 @@ import { createClarifyingQuestions } from '../director/clarifying-questions.mjs'
 import { editProjectWithDirector } from '../director/project-editor-director.mjs';
 import { editTimelineWithDirector } from '../director/timeline-director.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
+import { createDirectorPreconfigurationStore } from '../director/preconfiguration-store.mjs';
 import { listProviderNames } from '../director/providers/index.mjs';
 import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
@@ -83,6 +84,10 @@ export async function createLocalAppServer(options = {}) {
     throw error;
   }
   const currentCatalog = () => library.catalog();
+  const directorPreconfigurations = options.directorPreconfigurations || createDirectorPreconfigurationStore({
+    storageRoot: options.directorPreconfigurationStorageRoot || path.join(root, '.local-video', 'director-preconfigurations'),
+    catalogProvider: currentCatalog,
+  });
   const elevenLabs = options.elevenLabs || {
     inspect: (requestOptions = {}) => inspectElevenLabs({ ...requestOptions, environment: options.environment || process.env }),
     listVoices: (requestOptions = {}) => listElevenLabsVoices({ ...requestOptions, environment: options.environment || process.env }),
@@ -287,6 +292,37 @@ export async function createLocalAppServer(options = {}) {
           },
         });
         sendJson(response, result.created ? 201 : 200, { version: 1, ...result });
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/director/preconfigurations') {
+        sendJson(response, 200, { version: 1, preconfigurations: await directorPreconfigurations.list() });
+        return;
+      }
+      const preconfigurationMatch = /^\/api\/director\/preconfigurations\/([a-zA-Z0-9][a-zA-Z0-9_-]{1,63})$/u.exec(url.pathname);
+      if (request.method === 'GET' && preconfigurationMatch) {
+        const record = await directorPreconfigurations.get(preconfigurationMatch[1]);
+        if (!record) return sendNotFound(response);
+        sendJson(response, 200, { version: 1, ...record });
+        return;
+      }
+      if (request.method === 'PUT' && preconfigurationMatch) {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        if (body?.preconfiguration?.id !== preconfigurationMatch[1]) {
+          const error = new Error('El identificador de la ruta no coincide con la preconfiguración.');
+          error.code = 'DIRECTOR_PRECONFIGURATION_INVALID';
+          throw error;
+        }
+        const saved = await directorPreconfigurations.save(body.preconfiguration, body.expectedRevision);
+        sendJson(response, saved.created ? 201 : 200, { version: 1, ...saved });
+        return;
+      }
+      if (request.method === 'DELETE' && preconfigurationMatch) {
+        const expectedRevisionValue = url.searchParams.get('expectedRevision');
+        const expectedRevision = expectedRevisionValue === null ? undefined : Number(expectedRevisionValue);
+        const removed = await directorPreconfigurations.remove(preconfigurationMatch[1], expectedRevision);
+        if (!removed) return sendNotFound(response);
+        sendJson(response, 200, { version: 1, removed: true, id: preconfigurationMatch[1] });
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/library/resources') {
@@ -623,6 +659,7 @@ export async function createLocalAppServer(options = {}) {
         'RENDER_JOB_CONFLICT',
         'RENDER_JOB_STATE_CONFLICT',
         'TIMELINE_PROJECT_REVISION_CONFLICT',
+        'DIRECTOR_PRECONFIGURATION_REVISION_CONFLICT',
       ].includes(error?.code) ? 409
         : ['PROJECT_NOT_FOUND', 'TIMELINE_PROJECT_NOT_FOUND'].includes(error?.code) ? 404
           : String(error?.code || '').includes('INVALID') || [

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-video.invalid/schema/director-preconfiguration-store.json",
+  "title": "Almacenamiento durable de preconfiguraciones del Director",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "entries"],
+  "properties": {
+    "version": { "const": 1 },
+    "entries": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revision", "createdAt", "updatedAt", "preconfiguration"],
+        "properties": {
+          "revision": { "type": "integer", "minimum": 1 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "preconfiguration": {
+            "$ref": "https://local-video.invalid/schema/director-preconfiguration.json"
+          }
+        }
+      }
+    }
+  }
+}
