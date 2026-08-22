@@ -141,3 +141,21 @@ apoyar el contenido sin romper reparto, continuidad o legibilidad.
 El gate reproducible es `npm run director:test-direction-quality`; sus fixtures
 cubren plantilla sobre diálogo, dos plantillas opacas y un hablante que desaparece
 durante la apertura.
+
+## Biblia de continuidad DQ2
+
+La versión 14 deriva una biblia global del plan y la vuelve a calcular de forma
+determinista. Cada `roleId` conserva su personaje y su voz; un personaje que
+reaparece mantiene también el mismo rol, dos personajes no comparten voz dentro
+del reparto y la voz narradora permanece estable durante el video.
+
+La canonicalización repara contradicciones frecuentes del modelo antes de validar.
+En perfiles `varied` o `dynamic` de tres o más escenas, si el modelo dejó un único
+fondo, conserva el fondo principal durante los primeros beats y adopta el segundo
+fondo rankeado para el beat final. No alterna fondos en cada plano. Los planes
+segmentados reciben la biblia acumulada —roles, personajes, voces, narrador y
+fondos— en lugar de solo títulos y la última línea.
+
+Este contrato es la base para futuras preconfiguraciones elegibles por el usuario,
+pero DQ2 todavía no agrega almacenamiento ni interfaz para administrarlas. Su gate
+es `npm run director:test-continuity`.

@@ -28,6 +28,7 @@ import {
   qualityRepairFeedback,
 } from './plan-quality.mjs';
 import { analyzeCreativeRichness } from './richness-policy.mjs';
+import { analyzeDirectorContinuity, buildContinuityBible } from './continuity-bible.mjs';
 import { formatPersonalizedPrompt } from './clarifying-questions.mjs';
 import { quarantineDirectorCache, readDirectorCache, writeDirectorCache } from './cache.mjs';
 import { aggregateProviderUsage, assertWithinTokenBudget } from './providers/usage.mjs';
@@ -438,7 +439,12 @@ async function generateCandidate({
         promptHash,
         resourceCatalog,
       });
-      const quality = analyzePlanQuality(plan, { prompt, constraints, project: normalized.project });
+      const quality = analyzePlanQuality(plan, {
+        prompt,
+        constraints,
+        project: normalized.project,
+        availableBackgroundCount: directorContext.catalog.entries.filter((entry) => entry.type === 'background').length,
+      });
       if (!quality.passed) qualityError(quality);
       break;
     } catch (error) {
@@ -448,7 +454,12 @@ async function generateCandidate({
       previousOutputForRepair = compactRepairOutput(plan, error);
     }
   }
-  const quality = analyzePlanQuality(plan, { prompt, constraints, project: normalized?.project });
+  const quality = analyzePlanQuality(plan, {
+    prompt,
+    constraints,
+    project: normalized?.project,
+    availableBackgroundCount: directorContext.catalog.entries.filter((entry) => entry.type === 'background').length,
+  });
   return {
     plan,
     normalized,
@@ -487,11 +498,19 @@ async function generatePlanReliably({ provider, schema, signal, messages, option
     const previousScenes = plans.flatMap((plan) => plan.scenes).map((scene) => ({
       title: scene.title,
       purpose: scene.purpose,
+      backgroundResourceId: scene.backgroundResourceId,
+      participants: (scene.participants ?? []).map((participant) => ({
+        roleId: participant.roleId,
+        characterResourceId: participant.characterResourceId,
+        voiceId: participant.voiceId,
+      })),
+      narratorVoiceIds: [...new Set((scene.speech ?? []).filter((turn) => turn.kind === 'voiceover').map((turn) => turn.voiceId))],
       lastLine: scene.speech?.at(-1)?.text ?? null,
     }));
+    const continuityBible = buildContinuityBible({ scenes: plans.flatMap((plan) => plan.scenes) });
     const chunkMessages = messages.map((message, index) => index === messages.length - 1 ? {
       ...message,
-      content: `${message.content}\nSegmento obligatorio: generá solamente las escenas ${firstScene} a ${lastScene} de un total de ${sceneCount}. ${segmentRole} Mantené continuidad con el tema, pero no escribas escenas adicionales. Evitá repetir modo, composición, receta y recurso visual de las escenas previas salvo que el contenido lo justifique.${previousScenes.length ? ` Continuidad ya escrita: ${JSON.stringify(previousScenes)}` : ''}`,
+      content: `${message.content}\nSegmento obligatorio: generá solamente las escenas ${firstScene} a ${lastScene} de un total de ${sceneCount}. ${segmentRole} Mantené continuidad con el tema, pero no escribas escenas adicionales. Reutilizá exactamente la misma voz y el mismo roleId cada vez que reaparezca un personaje. Evitá repetir modo, composición, receta y recurso visual de las escenas previas salvo que el contenido lo justifique.${previousScenes.length ? ` Biblia de continuidad: ${JSON.stringify(continuityBible)}. Continuidad ya escrita: ${JSON.stringify(previousScenes)}` : ''}`,
     } : message);
     const result = await provider.generatePlan({
       schema: chunkSchema,
@@ -557,6 +576,9 @@ function analyzePlanQuality(plan, context) {
   const quality = analyzeDirectorPlanQuality(plan, context);
   if (plan.version === 2) {
     quality.richness = analyzeCreativeRichness(plan, { ...context.constraints, prompt: context.prompt });
+    quality.continuity = analyzeDirectorContinuity(plan, {
+      availableBackgroundCount: context.availableBackgroundCount,
+    });
     if (context.project) {
       const materializedAnimatedScenes = context.project.scenes.filter((scene) => scene.elements.some((element) => (element.tracks ?? []).some((track) => track.source?.kind === 'preset'))).length;
       quality.richness.metrics.materializedAnimatedScenes = materializedAnimatedScenes;
@@ -570,6 +592,14 @@ function analyzePlanQuality(plan, context) {
         code: `CREATIVE_RICHNESS_${index + 1}`,
         penalty: 0,
         instruction,
+      })));
+    }
+    if (!quality.continuity.passed) {
+      quality.passed = false;
+      quality.issues.push(...quality.continuity.issues.map((issue) => ({
+        code: `CONTINUITY_${issue.code}`,
+        penalty: 0,
+        instruction: issue.message,
       })));
     }
   }
@@ -747,6 +777,7 @@ function buildSystemPrompt(directorContext, constraints = {}) {
     constraints.planVersion === 2 ? 'Usá estructura flexible por escena: voiceover, solo, dialogue o visual-with-voiceover. No agregues personajes si la idea funciona mejor narrada.' : null,
     constraints.planVersion === 2 ? 'Cada escena admite de cero a dos participantes y desde un turno. Elegí recetas, props, plantillas y secuencias solo por IDs permitidos.' : null,
     constraints.planVersion === 2 ? 'Una plantilla ocupa toda la pantalla: usala como único elemento visual, sin personajes, y solo con voz fuera de campo. Nunca superpongas dos plantillas.' : null,
+    constraints.planVersion === 2 ? 'La identidad es global: un roleId conserva siempre el mismo personaje y voz; un personaje no cambia de voz; la voz narradora permanece estable. En perfiles varied o dynamic de tres o más escenas, cambiá de fondo en un beat narrativo, no en cada plano.' : null,
     constraints.planVersion === 2 ? 'Distribuí el movimiento durante toda la escena: combiná secuencias opening, development y closing cuando el perfil sea variado o dinámico. Priorizá secuencias exclusivas de prop si agregaste un prop.' : null,
     constraints.planVersion === 2 ? 'Para fondos con parallax, elegí cámaras móviles variadas en perfiles varied o dynamic; reservá static para una pausa visual intencional.' : null,
     constraints.planVersion === 2 ? 'Usá durationWeight para repartir el objetivo: valores mayores reservan proporcionalmente más narración; no hagas todas las escenas iguales salvo que el contenido lo justifique.' : null,
@@ -813,6 +844,7 @@ function repairFeedback(error) {
     DIRECTOR_RESOURCE_UNSUPPORTED: 'elegí capacidades que el recurso seleccionado declare explícitamente.',
     DIRECTOR_RECIPE_INVALID: 'elegí una receta compatible con el modo, la cantidad de participantes y los tipos visuales presentes.',
     DIRECTOR_COMPOSITION_INVALID: 'separá personajes, carteles de pantalla completa y salidas visuales para que ningún hablante quede oculto antes de terminar.',
+    DIRECTOR_CONTINUITY_INVALID: 'mantené una asignación global estable entre rol, personaje y voz; conservá también una sola voz narradora.',
     DIRECTOR_CAST_INVALID: 'ajustá el reparto al modo: voiceover sin personajes, solo con uno, dialogue con dos distintos y visual-with-voiceover con cero a dos.',
     DIRECTOR_TRANSITION_INVALID: 'usá fundidos entre 0.15 y 1 segundo, o corte con duración cero.',
     DIRECTOR_GESTURE_TIMING_INVALID: 'ubicá gestureAtWord dentro de las palabras reales del turno.',

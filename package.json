@@ -95,6 +95,7 @@
     "director:test-questions": "node scripts/director/test-clarifying-questions.mjs",
     "director:test-flexible-v2": "node scripts/director/test-flexible-director-v2.mjs",
     "director:test-direction-quality": "node scripts/director/test-direction-quality.mjs",
+    "director:test-continuity": "node scripts/director/test-continuity-bible.mjs",
     "local:test-server": "node scripts/local-app/test-server.mjs",
     "local:test-library": "node scripts/local-app/test-resource-library.mjs",
     "local:test-projects": "node scripts/local-app/test-project-repository.mjs",

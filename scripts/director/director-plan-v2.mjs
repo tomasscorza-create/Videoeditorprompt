@@ -11,6 +11,7 @@ import { validateCreativeRecipeCatalog, loadCreativeRecipeCatalog } from './crea
 import { listLayoutPresetIds, getLayoutPreset } from './director-plan.mjs';
 import { expandEffectSequenceCommands } from './recipe-expander.mjs';
 import { analyzeDirectorComposition } from './direction-quality.mjs';
+import { analyzeDirectorContinuity } from './continuity-bible.mjs';
 
 const schema = readJson(path.join(projectRoot, 'schema', 'ai-video-plan-v2.schema.json'));
 const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
@@ -33,6 +34,7 @@ export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativ
   const visualResources = [...byType('prop'), ...byType('template')];
   const resources = new Map(catalog.entries.map((entry) => [entry.id, entry]));
   const validSequences = new Set(recipes.effectSequences.map((entry) => entry.id));
+  const continuity = createContinuityState();
 
   for (const [sceneIndex, scene] of (plan.scenes ?? []).entries()) {
     scene.effectSequenceIds = (scene.effectSequenceIds ?? []).filter((id) => validSequences.has(id));
@@ -42,12 +44,12 @@ export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativ
       return [{ ...visual, type: resource.type }];
     });
 
-    scene.participants = canonicalParticipants(scene, characters, voices, resources);
+    scene.participants = canonicalParticipants(scene, characters, voices, resources, continuity);
     if (scene.mode === 'dialogue' && (scene.speech?.length ?? 0) < 2) {
       scene.mode = 'solo';
       scene.participants = scene.participants.slice(0, 1);
     }
-    scene.speech = canonicalSpeech(scene, voices, resources);
+    scene.speech = canonicalSpeech(scene, voices, resources, continuity);
 
     const background = resources.get(scene.backgroundResourceId)?.type === 'background'
       ? resources.get(scene.backgroundResourceId)
@@ -80,6 +82,7 @@ export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativ
       scene.effectSequenceIds = completeSequenceCoverage(scene, recipe, recipes, plan.richnessProfile);
     }
   }
+  canonicalizeBackgroundContinuity(plan, backgrounds);
   return plan;
 }
 
@@ -112,37 +115,53 @@ function sequenceFitsPlannedElements(sequence, scene) {
   return sequence.slots.every((slot) => slot.elementTypes.some((type) => (counts.get(type) ?? 0) > 0));
 }
 
-function canonicalParticipants(scene, characters, voices, resources) {
+function canonicalParticipants(scene, characters, voices, resources, continuity) {
   const required = scene.mode === 'dialogue' ? 2 : scene.mode === 'solo' ? 1 : scene.mode === 'voiceover' ? 0 : Math.min(2, scene.participants?.length ?? 0);
   if (required === 0) return [];
   const selected = [];
   for (let index = 0; index < required; index += 1) {
     const proposed = scene.participants?.[index];
-    let character = resources.get(proposed?.characterResourceId);
+    const knownRole = continuity.roles.get(proposed?.roleId);
+    const knownCharacter = continuity.characters.get(proposed?.characterResourceId);
+    let character = resources.get(knownRole?.characterResourceId ?? knownCharacter?.characterResourceId ?? proposed?.characterResourceId);
     if (character?.type !== 'character' || selected.some((entry) => entry.characterResourceId === character.id)) {
       character = characters.find((entry) => !selected.some((selectedEntry) => selectedEntry.characterResourceId === entry.id)) ?? characters[0];
     }
-    const voice = resources.get(proposed?.voiceId)?.type === 'voice' ? resources.get(proposed.voiceId) : voices[index % voices.length];
+    const stableBinding = continuity.characters.get(character?.id)
+      ?? (knownRole?.characterResourceId === character?.id ? knownRole : null);
+    let voice = resources.get(stableBinding?.voiceId ?? proposed?.voiceId);
+    if (voice?.type !== 'voice' || (continuity.voices.has(voice.id) && continuity.voices.get(voice.id) !== character?.id)) {
+      voice = voices.find((entry) => !continuity.voices.has(entry.id) || continuity.voices.get(entry.id) === character?.id)
+        ?? voices[index % voices.length];
+    }
     if (!character || !voice) continue;
     const presets = character.capabilities?.animationPresets ?? ['idle-calm'];
-    selected.push({
-      roleId: proposed?.roleId && !selected.some((entry) => entry.roleId === proposed.roleId) ? proposed.roleId : `rol-${index + 1}`,
+    const roleId = stableBinding?.roleId
+      ?? (proposed?.roleId && !continuity.roles.has(proposed.roleId) ? proposed.roleId : nextRoleId(continuity, selected));
+    const participant = {
+      roleId,
       characterResourceId: character.id,
       voiceId: voice.id,
       animationPresetId: presets.includes(proposed?.animationPresetId) ? proposed.animationPresetId : presets[0],
-    });
+    };
+    selected.push(participant);
+    continuity.roles.set(roleId, participant);
+    continuity.characters.set(character.id, participant);
+    continuity.voices.set(voice.id, character.id);
   }
   return selected;
 }
 
-function canonicalSpeech(scene, voices, resources) {
+function canonicalSpeech(scene, voices, resources, continuity) {
   const speech = scene.speech ?? [];
   const voiceover = ['voiceover', 'visual-with-voiceover'].includes(scene.mode);
   const fallbackVoice = speech.map((turn) => resources.get(turn.voiceId)).find((entry) => entry?.type === 'voice') ?? voices[0];
   const turns = speech.map((turn, index) => {
     const common = { text: turn.text, ...(turn.pace ? { pace: turn.pace } : {}), gapAfterSeconds: turn.gapAfterSeconds ?? 0 };
     if (voiceover) {
-      const voice = resources.get(turn.voiceId)?.type === 'voice' ? resources.get(turn.voiceId) : fallbackVoice;
+      const proposedVoice = resources.get(turn.voiceId)?.type === 'voice' ? resources.get(turn.voiceId) : fallbackVoice;
+      continuity.narratorVoiceId ??= proposedVoice?.id;
+      const voice = resources.get(continuity.narratorVoiceId) ?? proposedVoice;
       return { kind: 'voiceover', voiceId: voice.id, ...common };
     }
     const participant = scene.participants[index % scene.participants.length];
@@ -157,6 +176,33 @@ function canonicalSpeech(scene, voices, resources) {
   });
   if (turns.length) turns.at(-1).gapAfterSeconds = 0;
   return turns;
+}
+
+function createContinuityState() {
+  return { roles: new Map(), characters: new Map(), voices: new Map(), narratorVoiceId: null };
+}
+
+function nextRoleId(continuity, selected) {
+  let index = 1;
+  while (continuity.roles.has(`rol-${index}`) || selected.some((entry) => entry.roleId === `rol-${index}`)) index += 1;
+  return `rol-${index}`;
+}
+
+function canonicalizeBackgroundContinuity(plan, backgrounds) {
+  if (!['varied', 'dynamic'].includes(plan.richnessProfile) || plan.scenes.length < 3) return;
+  const used = new Set(plan.scenes.map((scene) => scene.backgroundResourceId));
+  if (used.size > 1) return;
+  const anchorId = plan.scenes[0]?.backgroundResourceId;
+  const alternate = backgrounds.find((entry) => entry.id !== anchorId);
+  if (!alternate) return;
+  const changeAt = Math.max(1, Math.ceil(plan.scenes.length * 2 / 3));
+  for (const scene of plan.scenes.slice(changeAt)) {
+    scene.backgroundResourceId = alternate.id;
+    const cameras = alternate.capabilities?.cameraPresets ?? ['static'];
+    if (!cameras.includes(scene.cameraPreset)) {
+      scene.cameraPreset = DYNAMIC_CAMERA_PREFERENCE.find((presetId) => cameras.includes(presetId)) ?? cameras[0];
+    }
+  }
 }
 
 function findCompatibleRecipe(scene, recipes) {
@@ -236,6 +282,8 @@ export function validateDirectorPlanV2(plan, catalog, recipes = loadCreativeReci
   }
   const composition = analyzeDirectorComposition({ plan, recipes });
   if (!composition.passed) fail('DIRECTOR_COMPOSITION_INVALID', JSON.stringify(composition.issues));
+  const continuity = analyzeDirectorContinuity(plan);
+  if (!continuity.hardPassed) fail('DIRECTOR_CONTINUITY_INVALID', JSON.stringify(continuity.issues));
   const maximumWords = Math.max(40, Math.ceil(plan.targetDurationSeconds * 3.2));
   if (totalWords > maximumWords) fail('DIRECTOR_DURATION_BUDGET_EXCEEDED', `words=${totalWords}; maximum=${maximumWords}; targetSeconds=${plan.targetDurationSeconds}`);
   const totalWeight = plan.scenes.reduce((sum, scene) => sum + scene.durationWeight, 0);

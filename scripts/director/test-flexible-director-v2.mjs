@@ -48,8 +48,8 @@ function basePlan() {
         title: 'El contraste', purpose: 'Cerrar comparando dos miradas.', mode: 'dialogue', durationWeight: 1, sceneRecipeId: 'dialogue-contrast-v1', effectSequenceIds: ['speaker-focus-reaction-v1'],
         backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'slow-pan', layoutPreset: 'balanced', transitionPreset: 'cut', transitionDurationSeconds: 0,
         participants: [
-          { roleId: 'rol-a', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-elevenlabs-c8ff047a678d', animationPresetId: 'talk-calm' },
-          { roleId: 'rol-b', characterResourceId: 'el-peque-v1', voiceId: 'voz-elevenlabs-e029c0d67044', animationPresetId: 'talk-calm' },
+          { roleId: 'rol-a', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-elevenlabs-e029c0d67044', animationPresetId: 'talk-calm' },
+          { roleId: 'rol-b', characterResourceId: 'el-peque-v1', voiceId: 'voz-elevenlabs-ce6ff01ff0d4', animationPresetId: 'talk-calm' },
         ], visualElements: [],
         speech: [
           { kind: 'character', speakerRoleId: 'rol-a', text: 'La variedad mejora el ritmo y ayuda a sostener la atención.', gestureId: 'celebrate', gapAfterSeconds: 0.15 },
@@ -149,9 +149,11 @@ await test('ocho-escenas-se-reparten-en-tres-bloques-equilibrados', () => {
 
 await test('planes-extensos-se-generan-en-segmentos-acotados', async () => {
   let calls = 0;
+  const segmentPrompts = [];
   const fetchImpl = async (_url, options) => {
     calls += 1;
     const request = JSON.parse(options.body);
+    segmentPrompts.push(request.messages.at(-1).content);
     assert.equal(request.format.properties.scenes.maxItems, 2);
     assert.equal(request.think, false);
     const chunk = basePlan();
@@ -175,6 +177,9 @@ await test('planes-extensos-se-generan-en-segmentos-acotados', async () => {
   assert.equal(result.context.resolvedConstraints.sceneCount, 4);
   assert.equal(result.usage.generationCount, 1);
   assert.equal(result.usage.requestCount, 2);
+  assert.ok(segmentPrompts[1].includes('Biblia de continuidad:'));
+  assert.ok(segmentPrompts[1].includes('characterResourceId'));
+  assert.ok(segmentPrompts[1].includes('backgroundResourceId'));
 });
 
 await test('orquestador-ollama-crea-y-rehidrata-un-plan-v2', async () => {
@@ -310,6 +315,28 @@ await test('plan-v2-corrige-contradicciones-del-modelo-sin-reescribir-el-texto',
   assert.equal(repaired.scenes[0].speech[0].text, originalText);
   assert.equal(repaired.scenes[0].sceneRecipeId, 'voiceover-feature-v1');
   assert.doesNotThrow(() => validateDirectorPlanV2(repaired, catalog, recipes));
+});
+
+await test('plan-v2-construye-una-biblia-estable-y-varia-el-fondo-por-beat', () => {
+  const plan = basePlan();
+  plan.scenes[2].participants[0] = {
+    roleId: 'otra-guia', characterResourceId: 'mono-azul-v1',
+    voiceId: 'voz-elevenlabs-e029c0d67044', animationPresetId: 'talk-calm',
+  };
+  const repaired = canonicalizeDirectorPlanV2(plan, catalog, recipes);
+  assert.deepEqual(
+    repaired.scenes[2].participants[0],
+    repaired.scenes[1].participants[0],
+  );
+  assert.equal(new Set(repaired.scenes.map((scene) => scene.backgroundResourceId)).size, 2);
+  assert.doesNotThrow(() => validateDirectorPlanV2(repaired, catalog, recipes));
+
+  const broken = basePlan();
+  broken.scenes[2].participants[0].characterResourceId = 'mono-azul-v1';
+  assert.throws(
+    () => validateDirectorPlanV2(broken, catalog, recipes),
+    (error) => error.code === 'DIRECTOR_CONTINUITY_INVALID',
+  );
 });
 
 await test('politica-de-riqueza-es-determinista-y-auditable', () => {

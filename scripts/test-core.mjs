@@ -45,6 +45,7 @@ const commands = [
   'director:test-questions',
   'director:test-flexible-v2',
   'director:test-direction-quality',
+  'director:test-continuity',
   'local:test-library',
   'local:test-projects',
   'local:test-server',
