@@ -16,7 +16,8 @@
     { "$ref": "#/$defs/splitLinked" },
     { "$ref": "#/$defs/moveLinked" },
     { "$ref": "#/$defs/trimLinked" },
-    { "$ref": "#/$defs/deleteLinked" }
+    { "$ref": "#/$defs/deleteLinked" },
+    { "$ref": "#/$defs/unlinkGroup" }
   ],
   "$defs": {
     "id": {
@@ -170,6 +171,11 @@
       "type": "object", "additionalProperties": false,
       "required": ["type", "linkGroupId"],
       "properties": { "type": { "const": "delete-linked" }, "linkGroupId": { "$ref": "#/$defs/id" }, "ripple": { "type": "boolean" } }
+    },
+    "unlinkGroup": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "linkGroupId"],
+      "properties": { "type": { "const": "unlink-group" }, "linkGroupId": { "$ref": "#/$defs/id" } }
     }
   }
 }

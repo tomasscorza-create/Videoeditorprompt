@@ -10,6 +10,28 @@ import { projectFingerprint, projectTimingFingerprint } from '../../shared/proje
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'local-video-render-manager-'));
 const project = JSON.parse(readFileSync(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'), 'utf8'));
+const unifiedTimeline = {
+  version: 2,
+  id: 'timeline-unificada-prueba',
+  timebase: { ticksPerSecond: 48000, fps: 30, audioSampleRate: 48000 },
+  sources: [{
+    id: 'fuente-video-prueba',
+    kind: 'video',
+    durationTicks: 48000,
+    contentHash: 'a'.repeat(64),
+  }],
+  tracks: [{ id: 'video-base', kind: 'visual', order: 0 }],
+  clips: [{
+    id: 'clip-video-prueba',
+    kind: 'visual',
+    sourceId: 'fuente-video-prueba',
+    trackId: 'video-base',
+    timelineStartTick: 0,
+    sourceInTick: 0,
+    durationTicks: 48000,
+    enabled: true,
+  }],
+};
 let spawned = null;
 const spawnImpl = (executable, args, options) => {
   const child = new EventEmitter();
@@ -34,15 +56,18 @@ const manager = await createRenderJobManager({
   renderTimeoutMs: 5000,
 });
 
-const job = await manager.create(project);
+const job = await manager.create(project, unifiedTimeline);
 assert.equal(job.state, 'rendering');
 assert.equal(job.projectRevision, projectFingerprint(project));
+assert.equal(job.timelineRevision, projectFingerprint(unifiedTimeline));
 assert.equal(job.timingRevision, projectTimingFingerprint(project));
 assert.equal(manager.activeJobId, job.jobId);
 assert.equal(spawned.executable, process.execPath);
 assert.equal(spawned.options.shell, false);
 assert.equal(spawned.args.some((argument) => argument === `--job-id=${job.jobId}`), true);
 assert.equal(spawned.args.some((argument) => argument.startsWith('--project=')), true);
+assert.equal(spawned.args.some((argument) => argument.startsWith('--timeline=')), true);
+assert.equal(spawned.args.includes(`--timeline-media-dir=${path.join(projectRoot, '.local-video', 'timeline-v2', 'media')}`), true);
 assert.equal(spawned.args.includes('--verification-mode=interactive'), true);
 
 await assert.rejects(
@@ -192,7 +217,7 @@ await assert.rejects(
 );
 
 rmSync(root, { recursive: true, force: true });
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 41, failed: 0, jobId: job.jobId })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 44, failed: 0, jobId: job.jobId })}\n`);
 
 async function waitFor(predicate, timeoutMs = 3000) {
   const deadline = Date.now() + timeoutMs;

@@ -421,6 +421,20 @@ test('corte-y-movimiento-enlazados-conservan-sincronia-av', () => {
   assert.deepEqual(state.document.clips.filter((clip) => right.some((item) => item.id === clip.id)).map((clip) => clip.timelineStartTick), [160_000, 160_000]);
 });
 
+test('desvincular-convierte-av-en-clips-independientes-sin-moverlos', () => {
+  const document = fixture();
+  document.clips = [
+    { id: 'unlink-video-01', kind: 'visual', sourceId: 'video-source-01', trackId: 'visual-track-01', timelineStartTick: 80_000, sourceInTick: 16_000, durationTicks: 160_000, enabled: true, linkGroupId: 'unlink-av-01' },
+    { id: 'unlink-audio-01', kind: 'audio', sourceId: 'video-source-01', trackId: 'audio-track-01', timelineStartTick: 80_000, sourceInTick: 16_000, durationTicks: 160_000, enabled: true, linkGroupId: 'unlink-av-01' },
+  ];
+  const state = applyTimelineClipCommand(createTimelineClipEditor(document), { type: 'unlink-group', linkGroupId: 'unlink-av-01' });
+  assert.equal(state.document.clips.every((clip) => clip.linkGroupId === undefined), true);
+  assert.deepEqual(
+    state.document.clips.map((clip) => [clip.timelineStartTick, clip.sourceInTick, clip.durationTicks]),
+    [[80_000, 16_000, 160_000], [80_000, 16_000, 160_000]],
+  );
+});
+
 test('borrado-ripple-cierra-el-hueco-sin-tocar-la-fuente', () => {
   const document = fixture();
   document.clips[1].timelineStartTick = 160_000;

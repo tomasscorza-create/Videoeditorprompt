@@ -17,3 +17,8 @@ export function selectProjectItem(selection: ProjectSelection): void {
   current = selection;
   window.dispatchEvent(new CustomEvent<ProjectSelection>(PROJECT_SELECTION_EVENT, { detail: selection }));
 }
+
+export function clearProjectSelection(): void {
+  current = null;
+  window.dispatchEvent(new CustomEvent(PROJECT_SELECTION_EVENT, { detail: null }));
+}

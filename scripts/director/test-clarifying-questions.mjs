@@ -32,6 +32,9 @@ function ollamaResponse(value) {
 const fetchImpl = async (_url, options) => {
   const request = JSON.parse(options.body);
   assert.equal(request.format.properties.questions.minItems, 3);
+  assert.equal(request.format.properties.version.type, 'integer');
+  assert.equal(request.format.$defs.choiceQuestion.properties.kind.type, 'string');
+  assert.equal(request.format.$defs.choiceQuestion.properties.multiple.type, 'boolean');
   assert.match(request.messages[1].content, /inteligencia artificial/u);
   return ollamaResponse(sample);
 };
@@ -147,4 +150,4 @@ try {
   rmSync(cacheRoot, { recursive: true, force: true });
 }
 
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 27, failed: 0 })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 30, failed: 0 })}\n`);

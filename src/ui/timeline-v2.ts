@@ -1,5 +1,4 @@
 import {
-  TIMELINE_V2_TIMEBASE,
   applyTimelineClipCommand,
   applyTimelineClipCommandBatch,
   createTimelineClipEditor,
@@ -13,21 +12,27 @@ import {
   type TimelineDocumentV2,
   type TimelineTrackV2,
 } from '../../shared/timeline-clip-core.js';
-import { currentPreviewAudioUrl, editorWorkspace, EDITOR_WORKSPACE_EVENT } from './editor-workspace.js';
-import { optional } from './dom.js';
 import {
-  exportTimelineProject,
+  editorPlayhead,
+  editorWorkspace,
+  invalidateEditorOutput,
+  seekEditorPlayback,
+  setEditorPlayhead,
+  EDITOR_WORKSPACE_EVENT,
+} from './editor-workspace.js';
+import { optional } from './dom.js';
+import { clearProjectSelection, PROJECT_SELECTION_EVENT } from './project/selection.js';
+import { projectFingerprint } from '../../shared/project-fingerprint.js';
+import {
   directTimelineProject,
   importTimelineMedia,
-  importTimelineMeasurement,
-  importTimelineRender,
   listTimelineMedia,
   saveTimelineProject,
   type TimelineMediaEntry,
 } from './timeline-v2-api.js';
 
 const STORAGE_KEY = 'local-video.timeline-v2.project';
-const MODE_KEY = 'local-video.timeline-v2.active';
+export const UNIFIED_MEDIA_TIMELINE_EVENT = 'local-video:unified-media-timeline';
 const TICKS_PER_SECOND = 48_000;
 const FRAME_TICKS = 1_600;
 const MIN_PPS = 20;
@@ -40,7 +45,6 @@ const TRACK_LABELS: Record<string, string> = {
 };
 
 let initialized = false;
-let active = false;
 let state: TimelineClipEditorState = createTimelineClipEditor(blankDocument());
 let media = new Map<string, TimelineMediaEntry>();
 let selection = new Set<string>();
@@ -51,37 +55,54 @@ let rippleEnabled = false;
 let cutEnabled = false;
 let muted = false;
 let playing = false;
-let playbackStartedAt = 0;
-let playbackStartTick = 0;
-let animationFrame = 0;
 let saveTimer = 0;
 let revision: string | null = null;
-let exporting = false;
 const previewElements = new Map<string, HTMLMediaElement>();
 const handledEvents = new WeakSet<Event>();
 
 export function initTimelineV2(): void {
   if (initialized) return;
   initialized = true;
-  document.body.dataset.timelineEngine = 'clips-v2';
+  document.body.dataset.timelineEngine = 'unified';
+  document.body.classList.remove('timeline-v2-active');
   restoreLocal();
-  active = localStorage.getItem(MODE_KEY) !== 'false';
-  createPreviewSurface();
-  bindOwnButton('#timeline-v2-toggle', (event) => runOnce(event, () => setActive(!active)));
   bindOwnButton('#timeline-v2-import', (event) => runOnce(event, () => optional<HTMLInputElement>('#timeline-v2-file')?.click()));
-  bindOwnButton('#timeline-v2-add-render', (event) => runOnce(event, () => void addCurrentRender()));
   bindOwnButton('#timeline-v2-ripple', (event) => runOnce(event, () => { rippleEnabled = !rippleEnabled; render(); }));
+  bindOwnButton('#timeline-v2-unlink', (event) => runOnce(event, unlinkSelection));
   bindOwnButton('#timeline-v2-director', (event) => runOnce(event, () => void runTimelineDirector()));
-  bindOwnButton('#timeline-v2-export', (event) => runOnce(event, () => void exportProject()));
   optional<HTMLInputElement>('#timeline-v2-file')?.addEventListener('change', (event) => void importFiles((event.currentTarget as HTMLInputElement).files));
   document.addEventListener('click', captureToolbarClick, true);
   window.addEventListener('keydown', captureKeyboard, true);
-  window.addEventListener(EDITOR_WORKSPACE_EVENT, () => { if (active) renderToolbar(); });
+  window.addEventListener(EDITOR_WORKSPACE_EVENT, () => syncPreviewFromEditor());
+  window.addEventListener(PROJECT_SELECTION_EVENT, (event) => {
+    if (!(event as CustomEvent).detail || selection.size === 0) return;
+    selection.clear();
+    cutEnabled = false;
+    render();
+  });
   void listTimelineMedia().then((entries) => {
     media = new Map(entries.map((entry) => [entry.id, entry]));
+    migrateLegacyMeasurementClips(entries);
     render();
   }).catch((error) => setStatus(messageOf(error), true));
-  setActive(active);
+  render();
+}
+
+function migrateLegacyMeasurementClips(entries: TimelineMediaEntry[]): void {
+  const generatedMeasurements = new Set(entries
+    .filter((entry) => /^measure-.+-preview\.wav$/iu.test(entry.name))
+    .map((entry) => entry.id));
+  if (!state.document.clips.some((clip) => generatedMeasurements.has(clip.sourceId))) return;
+  const document = structuredClone(state.document);
+  document.clips = document.clips.filter((clip) => !generatedMeasurements.has(clip.sourceId));
+  const referenced = new Set(document.clips.map((clip) => clip.sourceId));
+  document.sources = document.sources.filter((source) => referenced.has(source.id));
+  state = createTimelineClipEditor(document);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(document));
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => void saveTimelineProject(document, revision)
+    .then((next) => { revision = next; setStatus('Timeline anterior migrada: las voces generadas ya no están duplicadas.'); })
+    .catch((error) => setStatus(`La migración quedó guardada localmente: ${messageOf(error)}`, true)), 0);
 }
 
 function blankDocument(): TimelineDocumentV2 {
@@ -109,55 +130,23 @@ function restoreLocal(): void {
   }
 }
 
-function setActive(value: boolean): void {
-  active = value;
-  localStorage.setItem(MODE_KEY, String(active));
-  document.body.classList.toggle('timeline-v2-active', active);
-  const toggle = optional<HTMLButtonElement>('#timeline-v2-toggle');
-  if (toggle) {
-    toggle.classList.toggle('is-active', active);
-    toggle.setAttribute('aria-pressed', String(active));
-    toggle.textContent = active ? 'Volver a autoría' : 'Montaje profesional';
-  }
-  const preview = optional<HTMLElement>('#timeline-v2-preview');
-  if (preview) preview.hidden = !active;
-  if (!active) {
-    pause();
-    window.dispatchEvent(new CustomEvent('local-video:editor-workspace'));
-    return;
-  }
-  render();
-}
-
 function captureToolbarClick(event: Event): void {
   const target = event.composedPath().find((candidate): candidate is HTMLButtonElement => candidate instanceof HTMLButtonElement) ?? null;
-  if (target?.id === 'timeline-v2-toggle') {
-    runOnce(event, () => setActive(!active));
-    return;
-  }
-  if (!active) return;
   if (!target || target.id === 'timeline-collapse' || target.id === 'timeline-shortcuts') return;
   const actions: Record<string, () => void> = {
     'timeline-v2-import': () => optional<HTMLInputElement>('#timeline-v2-file')?.click(),
-    'timeline-v2-add-render': () => void addCurrentRender(),
     'timeline-v2-ripple': () => { rippleEnabled = !rippleEnabled; render(); },
+    'timeline-v2-unlink': unlinkSelection,
     'timeline-v2-director': () => void runTimelineDirector(),
-    'timeline-v2-export': () => void exportProject(),
+  };
+  if (selection.size > 0) Object.assign(actions, {
     'timeline-undo': undo,
     'timeline-redo': redo,
-    'timeline-play': togglePlay,
-    'timeline-previous': () => jumpBoundary(-1),
-    'timeline-next': () => jumpBoundary(1),
-    'timeline-mute': () => { muted = !muted; syncPreview(); renderToolbar(); },
-    'timeline-snap': () => { snapEnabled = !snapEnabled; renderToolbar(); },
     'timeline-cut': () => { cutEnabled = !cutEnabled; renderToolbar(); },
     'timeline-duplicate': duplicateSelection,
     'timeline-split': splitSelection,
     'timeline-delete': deleteSelection,
-    'timeline-zoom-out': () => zoom(0.8),
-    'timeline-zoom-in': () => zoom(1.25),
-    'timeline-fit': fit,
-  };
+  });
   const action = actions[target.id];
   if (!action) return;
   runOnce(event, action);
@@ -183,15 +172,14 @@ function bindOwnButton(selector: string, listener: (event: MouseEvent) => void):
 }
 
 function captureKeyboard(event: KeyboardEvent): void {
-  if (!active || event.defaultPrevented || isTyping(event.target)) return;
+  if (selection.size === 0 || event.defaultPrevented || isTyping(event.target)) return;
   const key = event.key.toLowerCase();
   const action = event.ctrlKey || event.metaKey
     ? key === 'z' ? (event.shiftKey ? redo : undo) : key === 'y' ? redo : null
-    : key === ' ' ? togglePlay
-      : key === 'b' ? () => { cutEnabled = !cutEnabled; renderToolbar(); }
+    : key === 'b' ? () => { cutEnabled = !cutEnabled; renderToolbar(); }
         : key === 's' ? () => { snapEnabled = !snapEnabled; renderToolbar(); }
           : key === 'delete' || key === 'backspace' ? deleteSelection
-            : key === 'f' ? fit : null;
+            : null;
   if (!action) return;
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -199,51 +187,65 @@ function captureKeyboard(event: KeyboardEvent): void {
 }
 
 function render(): void {
-  if (!active) return;
-  const root = optional<HTMLElement>('#timeline-layer-stack');
-  if (!root) return;
-  const document = state.document;
-  const duration = Math.max(TICKS_PER_SECOND * 5, timelineDurationTicks(document));
-  const width = Math.max(720, duration / TICKS_PER_SECOND * pixelsPerSecond + 180);
-  root.hidden = false;
-  root.style.setProperty('--timeline-grid-size', `${pixelsPerSecond}px`);
-  root.replaceChildren(ruler(width, duration), ...document.tracks
-    .slice().sort((left, right) => left.order - right.order)
-    .map((track) => trackRow(track, width)));
-  root.append(playhead(width, duration));
   renderToolbar();
   renderInspector();
   rebuildPreview();
-  const summary = optional<HTMLElement>('#timeline-summary');
-  if (summary) summary.textContent = document.clips.length
-    ? `${document.clips.length} clip(s) · ${(timelineDurationTicks(document) / TICKS_PER_SECOND).toFixed(2)} s · cortes no destructivos; mover o recortar no vuelve a renderizar.`
-    : 'Montaje V2 vacío: importá un MP4, WAV/MP3 o agregá la última exportación del Director.';
+  window.dispatchEvent(new CustomEvent(UNIFIED_MEDIA_TIMELINE_EVENT));
 }
 
-function ruler(width: number, duration: number): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'timeline-v2-ruler';
-  row.style.width = `${width}px`;
-  row.addEventListener('pointerdown', (event) => seekFromPointer(event, row));
-  for (let tick = 0; tick <= duration; tick += TICKS_PER_SECOND) {
-    const mark = document.createElement('span');
-    mark.style.left = `${180 + tick / TICKS_PER_SECOND * pixelsPerSecond}px`;
-    mark.textContent = formatTime(tick);
-    row.append(mark);
-  }
-  return row;
+/**
+ * Adaptador visual único: el documento de clips conserva su contrato durable,
+ * pero sus pistas se pintan dentro de la misma superficie que la autoría.
+ */
+export function renderUnifiedMediaRows(width: number, pps: number): HTMLElement[] {
+  pixelsPerSecond = Math.max(MIN_PPS, Math.min(MAX_PPS, pps));
+  const divider = document.createElement('div');
+  divider.className = 'authoring-track-divider is-visual unified-media-divider';
+  const title = document.createElement('strong');
+  title.textContent = 'MEDIOS LIBRES';
+  const detail = document.createElement('span');
+  detail.textContent = 'Videos y audios independientes · mover, cortar, recortar o borrar sin depender de escenas';
+  divider.append(title, detail);
+  return [
+    divider,
+    ...state.document.tracks
+      .slice()
+      .sort((left, right) => left.order - right.order)
+      .map((track) => trackRow(track, width)),
+  ];
+}
+
+export function unifiedMediaDurationSeconds(): number {
+  return timelineDurationTicks(state.document) / TICKS_PER_SECOND;
+}
+
+export function unifiedMediaClipCount(): number {
+  return state.document.clips.length;
+}
+
+export function unifiedMediaDocument(): TimelineDocumentV2 {
+  return structuredClone(state.document);
+}
+
+export function unifiedMediaRevision(): string | null {
+  return state.document.clips.length ? projectFingerprint(state.document) : null;
+}
+
+export function applyUnifiedMediaToolbarState(): void {
+  renderToolbar();
 }
 
 function trackRow(track: TimelineTrackV2, width: number): HTMLElement {
   const row = document.createElement('div');
   row.className = `timeline-v2-track is-${track.kind}`;
   row.dataset.trackId = track.id;
-  row.style.width = `${width}px`;
+  row.style.width = `${Math.ceil(width)}px`;
   const label = document.createElement('div');
   label.className = 'timeline-v2-track-label';
   label.textContent = TRACK_LABELS[track.id] || track.id;
   const lane = document.createElement('div');
   lane.className = 'timeline-v2-lane';
+  lane.style.width = `${Math.ceil(width)}px`;
   lane.addEventListener('pointerdown', (event) => { if (event.target === lane) seekFromPointer(event, lane); });
   for (const clip of state.document.clips.filter((item) => item.trackId === track.id)) lane.append(clipNode(clip));
   row.append(label, lane);
@@ -275,12 +277,19 @@ function clipNode(clip: TimelineClipV2): HTMLElement {
       cutClip(clip, tick);
       return;
     }
+    clearProjectSelection();
     if (!(event.ctrlKey || event.metaKey)) selection.clear();
     if (selection.has(clip.id) && (event.ctrlKey || event.metaKey)) selection.delete(clip.id);
     else selection.add(clip.id);
     render();
   });
-  node.addEventListener('dblclick', () => { playheadTick = clip.timelineStartTick; syncPreview(true); renderPlayheadOnly(); });
+  node.addEventListener('dblclick', () => {
+    playheadTick = clip.timelineStartTick;
+    const seconds = playheadTick / TICKS_PER_SECOND;
+    setEditorPlayhead(seconds);
+    seekEditorPlayback(seconds);
+    syncPreview(true);
+  });
   node.addEventListener('pointerdown', (event) => startClipDrag(event, clip, node));
   return node;
 }
@@ -300,10 +309,14 @@ function startClipDrag(event: PointerEvent, clip: TimelineClipV2, node: HTMLElem
   event.stopPropagation();
   const originX = event.clientX;
   let lastDelta = 0;
+  let targetTrackId = clip.trackId;
   node.setPointerCapture(event.pointerId);
   node.classList.add('is-dragging');
   const move = (current: PointerEvent) => {
     lastDelta = ticksFromPixels(current.clientX - originX, clip.kind === 'visual' || linkedHasVisual(clip));
+    const candidate = document.elementFromPoint(current.clientX, current.clientY)?.closest<HTMLElement>('[data-track-id]')?.dataset.trackId;
+    const track = state.document.tracks.find((item) => item.id === candidate);
+    if (!clip.linkGroupId && track?.kind === clip.kind) targetTrackId = track.id;
     node.style.transform = `translateX(${lastDelta / TICKS_PER_SECOND * pixelsPerSecond}px)`;
   };
   const up = () => {
@@ -312,10 +325,10 @@ function startClipDrag(event: PointerEvent, clip: TimelineClipV2, node: HTMLElem
     node.removeEventListener('pointercancel', up);
     node.classList.remove('is-dragging');
     node.style.transform = '';
-    if (lastDelta === 0) return;
+    if (lastDelta === 0 && targetTrackId === clip.trackId) return;
     try {
       if (edge) trimClip(clip, edge, lastDelta);
-      else moveClip(clip, lastDelta);
+      else moveClip(clip, lastDelta, targetTrackId);
     } catch (error) {
       setStatus(messageOf(error), true);
       render();
@@ -326,10 +339,10 @@ function startClipDrag(event: PointerEvent, clip: TimelineClipV2, node: HTMLElem
   node.addEventListener('pointercancel', up);
 }
 
-function moveClip(clip: TimelineClipV2, delta: number): void {
+function moveClip(clip: TimelineClipV2, delta: number, trackId = clip.trackId): void {
   const next = snapTick(Math.max(0, clip.timelineStartTick + delta), clip.kind === 'visual' || linkedHasVisual(clip), clip);
   if (clip.linkGroupId) dispatch({ type: 'move-linked', linkGroupId: clip.linkGroupId, deltaTicks: next - clip.timelineStartTick });
-  else dispatch({ type: 'move-clip', clipId: clip.id, trackId: clip.trackId, timelineStartTick: next });
+  else dispatch({ type: 'move-clip', clipId: clip.id, trackId, timelineStartTick: next });
 }
 
 function trimClip(clip: TimelineClipV2, edge: 'start' | 'end', delta: number): void {
@@ -401,6 +414,13 @@ function deleteSelection(): void {
   render();
 }
 
+function unlinkSelection(): void {
+  const groups = new Set(selectedClips().map((clip) => clip.linkGroupId).filter((value): value is string => Boolean(value)));
+  if (groups.size === 0) return;
+  dispatchBatch([...groups].map((linkGroupId) => ({ type: 'unlink-group', linkGroupId })));
+  setStatus(`${groups.size} grupo(s) desvinculado(s). Cada clip ahora se mueve y recorta por separado.`);
+}
+
 function undo(): void { state = undoTimelineClip(state); selection.clear(); changed(); }
 function redo(): void { state = redoTimelineClip(state); selection.clear(); changed(); }
 
@@ -415,26 +435,27 @@ function dispatchBatch(commands: TimelineClipCommandV2[]): void {
 }
 
 async function runTimelineDirector(): Promise<void> {
-  if (state.document.clips.length === 0) { setStatus('Importá o agregá medios antes de pedir un montaje.', true); return; }
-  const instruction = window.prompt('¿Qué cambio querés hacer en el montaje?');
+  if (state.document.clips.length === 0) { setStatus('Importá o agregá medios libres antes de pedir cambios.', true); return; }
+  const instruction = window.prompt('¿Qué cambio querés hacer en la timeline?');
   if (!instruction?.trim()) return;
-  setStatus('El Director está preparando una propuesta de montaje…');
+  setStatus('El Director está preparando una propuesta para la timeline…');
   try {
     const result = await directTimelineProject(instruction.trim(), state.document);
     if (result.commands.length === 0) { setStatus('El Director no encontró cambios representables.'); return; }
-    if (!window.confirm(`${result.explanation}\n\n¿Aplicar ${result.commands.length} cambios como un solo paso de undo?`)) { setStatus('Propuesta de montaje cancelada.'); return; }
+    if (!window.confirm(`${result.explanation}\n\n¿Aplicar ${result.commands.length} cambios como un solo paso de undo?`)) { setStatus('Propuesta de timeline cancelada.'); return; }
     dispatchBatch(result.commands as TimelineClipCommandV2[]);
-    setStatus(`Director de montaje: ${result.explanation}`);
+    setStatus(`Director de timeline: ${result.explanation}`);
   } catch (error) {
     setStatus(messageOf(error), true);
   }
 }
 
 function changed(renderNow = true): void {
+  invalidateEditorOutput();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.document));
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => void saveTimelineProject(state.document, revision)
-    .then((next) => { revision = next; if (!exporting) setStatus('Montaje guardado.'); })
+    .then((next) => { revision = next; setStatus('Timeline guardada.'); })
     .catch((error) => { revision = null; setStatus(`Guardado local: ${messageOf(error)}`, true); }), 400);
   if (renderNow) render();
 }
@@ -450,26 +471,6 @@ async function importFiles(files: FileList | null): Promise<void> {
   } finally {
     const input = optional<HTMLInputElement>('#timeline-v2-file');
     if (input) input.value = '';
-  }
-}
-
-async function addCurrentRender(): Promise<void> {
-  const output = editorWorkspace().output;
-  const match = output && /\/api\/render-jobs\/([a-zA-Z0-9_-]{2,64})\/video/u.exec(output.url);
-  const measurementMatch = /\/api\/measurement-audio\/(measure-[a-zA-Z0-9_-]{1,56})/u.exec(currentPreviewAudioUrl() || '');
-  if (!match && !measurementMatch) return setStatus('Todavía no hay una exportación ni voces medidas para agregar.', true);
-  setStatus(match ? 'Separando la exportación en escenas editables…' : 'Vinculando las voces medidas sin sintetizarlas otra vez…');
-  try {
-    if (match) {
-      const ranges = output?.timeline?.scenes.map((scene) => ({ id: scene.id, startSeconds: scene.startSeconds, endSeconds: scene.endSeconds }));
-      addMedia(await importTimelineRender(match[1]), ranges);
-      setStatus(ranges?.length ? `${ranges.length} escenas agregadas como clips A/V separados y enlazados.` : 'Exportación agregada como video y audio enlazados.');
-    } else {
-      addMedia(await importTimelineMeasurement(measurementMatch![1]));
-      setStatus('Voces agregadas como una fuente WAV inmutable; los cortes no vuelven a llamar a ElevenLabs.');
-    }
-  } catch (error) {
-    setStatus(messageOf(error), true);
   }
 }
 
@@ -507,49 +508,7 @@ function addMedia(entry: TimelineMediaEntry, ranges?: Array<{ id: string; startS
   dispatchBatch(commands);
 }
 
-async function exportProject(): Promise<void> {
-  const button = optional<HTMLButtonElement>('#timeline-v2-export');
-  exporting = true;
-  if (button) button.disabled = true;
-  setStatus('Exportando solo los tramos que cambiaron…');
-  try {
-    const result = await exportTimelineProject(state.document);
-    const link = optional<HTMLAnchorElement>('#director-result-download');
-    if (link) {
-      link.hidden = false;
-      link.href = result.videoUrl;
-      link.download = result.downloadName;
-      link.textContent = 'Descargar montaje MP4';
-    }
-    setStatus(result.cacheHit
-      ? `Exportación lista desde caché (${result.durationSeconds.toFixed(2)} s).`
-      : `Exportación lista; ${result.reusedSegments} tramo(s) reutilizados.`);
-  } catch (error) {
-    setStatus(messageOf(error), true);
-  } finally {
-    exporting = false;
-    if (button) button.disabled = false;
-    renderToolbar();
-  }
-}
-
-function createPreviewSurface(): void {
-  const workspace = optional<HTMLElement>('#editor-workspace');
-  if (!workspace || optional('#timeline-v2-preview')) return;
-  const preview = document.createElement('div');
-  preview.id = 'timeline-v2-preview';
-  preview.className = 'vertical-stage timeline-v2-preview';
-  preview.hidden = true;
-  const empty = document.createElement('p');
-  empty.className = 'viewer-empty';
-  empty.textContent = 'Importá medios para previsualizar el montaje sin renderizar.';
-  preview.append(empty);
-  workspace.append(preview);
-}
-
 function rebuildPreview(): void {
-  const preview = optional<HTMLElement>('#timeline-v2-preview');
-  if (!preview) return;
   const currentIds = new Set(state.document.clips.filter((clip) => clip.enabled).map((clip) => clip.id));
   for (const [id, element] of previewElements) {
     if (currentIds.has(id)) continue;
@@ -566,13 +525,53 @@ function rebuildPreview(): void {
     if (element instanceof HTMLVideoElement) {
       element.muted = true;
       element.playsInline = true;
-      element.style.zIndex = String((state.document.tracks.find((track) => track.id === clip.trackId)?.order || 0) + 1);
+      element.className = 'unified-media-video';
+      element.style.zIndex = clip.trackId === 'video-track-02' ? '1800' : '0';
+    } else {
+      element.className = 'unified-media-audio';
     }
     previewElements.set(clip.id, element);
-    preview.append(element);
   }
-  preview.querySelector<HTMLElement>('.viewer-empty')?.toggleAttribute('hidden', previewElements.size > 0);
   syncPreview(true);
+}
+
+export interface UnifiedMediaPreviewNodes {
+  background: HTMLVideoElement[];
+  overlays: HTMLVideoElement[];
+  audio: HTMLAudioElement[];
+}
+
+/** Proyecta los clips libres activos sobre el mismo lienzo semántico. */
+export function unifiedMediaPreviewNodes(
+  seconds: number,
+  isPlaying: boolean,
+  isMuted: boolean,
+): UnifiedMediaPreviewNodes {
+  rebuildPreview();
+  playheadTick = Math.max(0, Math.round(seconds * TICKS_PER_SECOND));
+  playing = isPlaying;
+  muted = isMuted;
+  syncPreview();
+  const result: UnifiedMediaPreviewNodes = { background: [], overlays: [], audio: [] };
+  for (const clip of state.document.clips) {
+    const element = previewElements.get(clip.id);
+    if (!element || !clip.enabled) continue;
+    const activeNow = playheadTick >= clip.timelineStartTick && playheadTick < clip.timelineStartTick + clip.durationTicks;
+    if (!activeNow) continue;
+    if (element instanceof HTMLVideoElement) {
+      (clip.trackId === 'video-track-01' ? result.background : result.overlays).push(element);
+    } else result.audio.push(element as HTMLAudioElement);
+  }
+  return result;
+}
+
+function syncPreviewFromEditor(): void {
+  const workspace = editorWorkspace();
+  playheadTick = Math.max(0, Math.round(editorPlayhead() * TICKS_PER_SECOND));
+  playing = workspace.playing;
+  muted = workspace.muted;
+  syncPreview();
+  renderToolbar();
 }
 
 function syncPreview(forceSeek = false): void {
@@ -597,48 +596,12 @@ function syncPreview(forceSeek = false): void {
   }
 }
 
-function togglePlay(): void { if (playing) pause(); else play(); }
-
-function play(): void {
-  const duration = timelineDurationTicks(state.document);
-  if (!duration) return;
-  if (playheadTick >= duration) playheadTick = 0;
-  playing = true;
-  playbackStartTick = playheadTick;
-  playbackStartedAt = performance.now();
-  syncPreview(true);
-  const frame = (now: number) => {
-    if (!playing) return;
-    playheadTick = Math.min(duration, playbackStartTick + Math.round((now - playbackStartedAt) * 48));
-    syncPreview();
-    renderPlayheadOnly();
-    if (playheadTick >= duration) pause();
-    else animationFrame = requestAnimationFrame(frame);
-  };
-  animationFrame = requestAnimationFrame(frame);
-  renderToolbar();
-}
-
-function pause(): void {
-  playing = false;
-  cancelAnimationFrame(animationFrame);
-  for (const element of previewElements.values()) element.pause();
-  renderToolbar();
-}
-
-function jumpBoundary(direction: -1 | 1): void {
-  const boundaries = [...new Set(state.document.clips.flatMap((clip) => [clip.timelineStartTick, clip.timelineStartTick + clip.durationTicks]))].sort((a, b) => a - b);
-  const next = direction > 0 ? boundaries.find((tick) => tick > playheadTick) : [...boundaries].reverse().find((tick) => tick < playheadTick);
-  playheadTick = next ?? (direction > 0 ? timelineDurationTicks(state.document) : 0);
-  syncPreview(true);
-  renderPlayheadOnly();
-}
-
 function seekFromPointer(event: PointerEvent, element: HTMLElement): void {
-  pause();
   playheadTick = Math.max(0, pointerTick(event, element));
+  const seconds = playheadTick / TICKS_PER_SECOND;
+  setEditorPlayhead(seconds);
+  seekEditorPlayback(seconds);
   syncPreview(true);
-  renderPlayheadOnly();
 }
 
 function pointerTick(event: PointerEvent, element: HTMLElement): number {
@@ -647,52 +610,24 @@ function pointerTick(event: PointerEvent, element: HTMLElement): number {
   return Math.round(Math.max(0, event.clientX - rect.left - labelOffset) / pixelsPerSecond * TICKS_PER_SECOND);
 }
 
-function playhead(width: number, duration: number): HTMLElement {
-  const line = document.createElement('span');
-  line.id = 'timeline-v2-playhead';
-  line.className = 'timeline-v2-playhead';
-  line.style.left = `${180 + Math.min(playheadTick, duration) / TICKS_PER_SECOND * pixelsPerSecond}px`;
-  line.style.height = `${Math.max(1, state.document.tracks.length) * 44 + 28}px`;
-  line.style.maxWidth = `${width}px`;
-  return line;
-}
-
-function renderPlayheadOnly(): void {
-  const line = optional<HTMLElement>('#timeline-v2-playhead');
-  if (line) line.style.left = `${180 + playheadTick / TICKS_PER_SECOND * pixelsPerSecond}px`;
-  const output = optional<HTMLOutputElement>('#timeline-timecode');
-  if (output) output.textContent = `${formatTime(playheadTick)} / ${formatTime(timelineDurationTicks(state.document))}`;
-}
-
 function renderToolbar(): void {
   const clips = state.document.clips.length > 0;
-  setDisabled('#timeline-undo', state.past.length === 0);
-  setDisabled('#timeline-redo', state.future.length === 0);
-  setDisabled('#timeline-play', !clips);
-  setDisabled('#timeline-previous', !clips);
-  setDisabled('#timeline-next', !clips);
-  setDisabled('#timeline-mute', !clips);
-  setDisabled('#timeline-cut', !clips);
-  setDisabled('#timeline-snap', false);
-  setDisabled('#timeline-fit', !clips);
-  setDisabled('#timeline-zoom-out', false);
-  setDisabled('#timeline-zoom-in', false);
-  setDisabled('#timeline-duplicate', selection.size === 0);
-  setDisabled('#timeline-split', selection.size === 0);
-  setDisabled('#timeline-delete', selection.size === 0);
-  setDisabled('#timeline-v2-add-render', !editorWorkspace().output && !currentPreviewAudioUrl());
-  setDisabled('#timeline-v2-export', !clips || exporting);
-  togglePressed('#timeline-snap', snapEnabled);
-  togglePressed('#timeline-cut', cutEnabled);
-  togglePressed('#timeline-mute', muted);
+  setDisabled('#timeline-v2-unlink', !selectedClips().some((clip) => clip.linkGroupId));
   togglePressed('#timeline-v2-ripple', rippleEnabled);
-  const play = optional<HTMLButtonElement>('#timeline-play');
-  if (play) play.setAttribute('aria-label', playing ? 'Pausar' : 'Reproducir');
-  const mode = optional<HTMLButtonElement>('#timeline-mode');
-  if (mode) { mode.textContent = 'Clips V2'; mode.disabled = true; }
-  const measure = optional<HTMLElement>('#timeline-measure');
-  if (measure) measure.hidden = true;
-  renderPlayheadOnly();
+  if (selection.size > 0) {
+    setDisabled('#timeline-undo', state.past.length === 0);
+    setDisabled('#timeline-redo', state.future.length === 0);
+    setDisabled('#timeline-cut', !clips);
+    setDisabled('#timeline-duplicate', false);
+    setDisabled('#timeline-split', false);
+    setDisabled('#timeline-delete', false);
+    togglePressed('#timeline-snap', snapEnabled);
+    togglePressed('#timeline-cut', cutEnabled);
+    const duplicate = optional<HTMLButtonElement>('#timeline-duplicate');
+    if (duplicate) duplicate.textContent = 'Duplicar clip';
+    const split = optional<HTMLButtonElement>('#timeline-split');
+    if (split) split.textContent = 'Cortar clip';
+  }
 }
 
 function renderInspector(): void {
@@ -771,15 +706,6 @@ function nextId(prefix: string): string {
 function ticksFromPixels(pixels: number, visual: boolean): number {
   const raw = pixels / pixelsPerSecond * TICKS_PER_SECOND;
   return visual ? Math.round(raw / FRAME_TICKS) * FRAME_TICKS : Math.round(raw);
-}
-
-function zoom(factor: number): void { pixelsPerSecond = Math.max(MIN_PPS, Math.min(MAX_PPS, pixelsPerSecond * factor)); render(); }
-
-function fit(): void {
-  const root = optional<HTMLElement>('#timeline-layer-stack');
-  const duration = timelineDurationTicks(state.document) / TICKS_PER_SECOND;
-  if (root && duration > 0) pixelsPerSecond = Math.max(MIN_PPS, Math.min(MAX_PPS, (root.clientWidth - 200) / duration));
-  render();
 }
 
 function setStatus(message: string, error = false): void {

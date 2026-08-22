@@ -76,6 +76,25 @@ await test('plan-v2-normaliza-cero-uno-dos-personajes-y-musica', () => {
   assert.equal(validateEditableProject(project, catalog), true);
 });
 
+await test('plan-v2-ajusta-el-texto-al-limite-especifico-de-cada-plantilla', () => {
+  const plan = basePlan();
+  plan.scenes = [plan.scenes[0]];
+  plan.scenes[0].sceneRecipeId = 'keyword-pages-v1';
+  plan.scenes[0].visualElements = [{
+    roleId: 'cta',
+    type: 'template',
+    resourceId: 'procedural-cta-pulse-v1',
+    word: 'Elegí tu próximo paso',
+  }];
+  plan.scenes[0].effectSequenceIds = [];
+  const { project } = normalizeDirectorPlanV2(plan, catalog, {
+    recipes,
+    projectId: 'gate-template-word-limit-v2',
+  });
+  const template = project.scenes[0].elements.find((element) => element.type === 'template');
+  assert.equal(template.values.word, 'Elegí tu próximo');
+});
+
 await test('plan-dinamico-reparte-prop-entre-inicio-desarrollo-y-cierre-sin-tapar-personaje', () => {
   const plan = basePlan();
   plan.scenes = [plan.scenes[0]];

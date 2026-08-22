@@ -69,7 +69,8 @@ export type TimelineClipCommandV2 =
   | { type: 'split-linked'; linkGroupId: string; atTimelineTick: number; newClips: Array<{ clipId: string; newClipId: string }> }
   | { type: 'move-linked'; linkGroupId: string; deltaTicks: number }
   | { type: 'trim-linked'; linkGroupId: string; edge: 'start' | 'end'; toTimelineTick: number }
-  | { type: 'delete-linked'; linkGroupId: string; ripple?: boolean };
+  | { type: 'delete-linked'; linkGroupId: string; ripple?: boolean }
+  | { type: 'unlink-group'; linkGroupId: string };
 
 export interface TimelineClipEditorState {
   version: 1;

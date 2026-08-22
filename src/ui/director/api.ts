@@ -134,6 +134,7 @@ export interface RenderJob {
   jobId: string;
   projectId: string;
   projectRevision?: string;
+  timelineRevision?: string;
   timingRevision?: string;
   state: 'queued' | 'rendering' | 'completed' | 'failed' | 'cancelled';
   stage: string;
@@ -504,11 +505,11 @@ export async function measureProject(project: unknown): Promise<{
   });
 }
 
-export async function startRender(project: unknown): Promise<RenderJob> {
+export async function startRender(project: unknown, timeline?: unknown): Promise<RenderJob> {
   return apiRequest<RenderJob>('/api/render-jobs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ project }),
+    body: JSON.stringify({ project, ...(timeline ? { timeline } : {}) }),
   });
 }
 
@@ -573,10 +574,13 @@ export async function importBackgroundResource(file: File): Promise<{
   created: boolean;
   resource: RegisteredResource;
   image?: { width: number; height: number; mimeType: string; bytes: number };
+  media?: { kind: 'image' | 'video'; width: number; height: number; mimeType: string; bytes: number; durationSeconds?: number; fps?: number };
 }> {
   const lowerName = file.name.toLowerCase();
   const mimeType = file.type === 'image/png' || lowerName.endsWith('.png') ? 'image/png'
     : file.type === 'image/jpeg' || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') ? 'image/jpeg'
+      : file.type === 'image/gif' || lowerName.endsWith('.gif') ? 'image/gif'
+        : file.type === 'video/mp4' || lowerName.endsWith('.mp4') ? 'video/mp4'
       : file.type;
   return apiRequest('/api/library/backgrounds', {
     method: 'POST',

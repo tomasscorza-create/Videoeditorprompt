@@ -155,6 +155,20 @@ assert.deepEqual(templatedConfig.templates[0], {
 assert.equal(selectCompositorBackend({ characters: [], templates: templatedConfig.templates }), 'pixi');
 results.push({ name: 'template-elements-compile-and-force-the-pixi-compositor', passed: true });
 
+const overlongTemplate = structuredClone(templated);
+overlongTemplate.scenes[0].elements.at(-1).values.word = 'CONCEPTO MUY LARGO';
+const overlongTemplateRun = compileCase('template-word-normalized', overlongTemplate);
+const overlongTemplateContext = contextFor(
+  'template-word-normalized',
+  path.join(projectsRoot, 'template-word-normalized.json'),
+);
+const overlongTemplateConfig = readJson(path.join(
+  overlongTemplateContext.jobRoot,
+  overlongTemplateRun.manifest.scenes[0].config,
+));
+assert.equal(overlongTemplateConfig.templates[0].word, 'CONCEPTO MUY');
+results.push({ name: 'template-text-is-normalized-to-its-definition-before-runtime-validation', passed: true });
+
 const rotated = structuredClone(source);
 rotated.scenes[0].elements[0].transform.rotationDegrees = 12;
 const rotatedRun = compileCase('base-rotation-pixi', rotated);

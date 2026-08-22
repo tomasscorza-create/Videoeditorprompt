@@ -149,6 +149,18 @@
         }
       }
     },
+    "backgroundVideo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset", "poster", "durationSeconds", "fps", "loop"],
+      "properties": {
+        "asset": { "allOf": [{ "$ref": "#/$defs/assetPath" }, { "type": "string", "pattern": "\\.mp4$" }] },
+        "poster": { "allOf": [{ "$ref": "#/$defs/assetPath" }, { "type": "string", "pattern": "\\.(png|jpg|jpeg)$" }] },
+        "durationSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 120 },
+        "fps": { "const": 30 },
+        "loop": { "const": true }
+      }
+    },
     "characters": {
       "type": "array",
       "minItems": 0,

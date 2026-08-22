@@ -1,13 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local-video.invalid/schema/background-manifest-v1.json",
-  "title": "Manifest de fondo por capas",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["version", "id", "canvas", "layers", "provenance"],
-  "properties": {
-    "version": { "const": 1 },
-    "id": { "$ref": "#/$defs/id" },
+  "title": "Manifest de fondo estático o de video",
+  "oneOf": [
+    { "$ref": "#/$defs/layeredBackground" },
+    { "$ref": "#/$defs/videoBackground" }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
+    "assetPath": { "type": "string", "minLength": 1, "maxLength": 512 },
     "canvas": {
       "type": "object",
       "additionalProperties": false,
@@ -15,16 +16,6 @@
       "properties": {
         "width": { "const": 1080 },
         "height": { "const": 1920 }
-      }
-    },
-    "layers": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["far", "mid", "front"],
-      "properties": {
-        "far": { "$ref": "#/$defs/assetPath" },
-        "mid": { "$ref": "#/$defs/assetPath" },
-        "front": { "$ref": "#/$defs/assetPath" }
       }
     },
     "provenance": {
@@ -35,10 +26,50 @@
         "source": { "type": "string", "minLength": 1, "maxLength": 300 },
         "license": { "type": "string", "minLength": 1, "maxLength": 160 }
       }
+    },
+    "layeredBackground": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "id", "canvas", "layers", "provenance"],
+      "properties": {
+        "version": { "const": 1 },
+        "id": { "$ref": "#/$defs/id" },
+        "canvas": { "$ref": "#/$defs/canvas" },
+        "layers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["far", "mid", "front"],
+          "properties": {
+            "far": { "$ref": "#/$defs/assetPath" },
+            "mid": { "$ref": "#/$defs/assetPath" },
+            "front": { "$ref": "#/$defs/assetPath" }
+          }
+        },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "videoBackground": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "id", "canvas", "video", "provenance"],
+      "properties": {
+        "version": { "const": 2 },
+        "id": { "$ref": "#/$defs/id" },
+        "canvas": { "$ref": "#/$defs/canvas" },
+        "video": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["asset", "poster", "durationSeconds", "fps", "loop"],
+          "properties": {
+            "asset": { "allOf": [{ "$ref": "#/$defs/assetPath" }, { "type": "string", "pattern": "\\.mp4$" }] },
+            "poster": { "allOf": [{ "$ref": "#/$defs/assetPath" }, { "type": "string", "pattern": "\\.(png|jpg|jpeg)$" }] },
+            "durationSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 120 },
+            "fps": { "const": 30 },
+            "loop": { "const": true }
+          }
+        },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
     }
-  },
-  "$defs": {
-    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
-    "assetPath": { "type": "string", "minLength": 1, "maxLength": 512 }
   }
 }

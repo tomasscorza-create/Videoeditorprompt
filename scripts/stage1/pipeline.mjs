@@ -19,6 +19,7 @@ export async function runPipeline(context, options = {}) {
       report,
       emitCompleted: false,
       compositorBackend: options.compositorBackend,
+      backgroundTimeline: options.backgroundTimeline,
     });
     const second = verificationMode === 'full'
       ? await exportJob(context, {
@@ -26,6 +27,7 @@ export async function runPipeline(context, options = {}) {
         report,
         emitCompleted: false,
         compositorBackend: options.compositorBackend,
+        backgroundTimeline: options.backgroundTimeline,
       })
       : null;
     const verification = verificationMode === 'full' ? verifyJob(context) : verifyInteractiveJob(context);

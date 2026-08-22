@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "required": ["version", "questions"],
   "properties": {
-    "version": { "const": 1 },
+    "version": { "type": "integer", "const": 1 },
     "questions": {
       "type": "array",
       "minItems": 3,
@@ -33,9 +33,9 @@
       "required": ["id", "kind", "prompt", "multiple", "options", "otherPlaceholder"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "kind": { "const": "choice" },
+        "kind": { "type": "string", "const": "choice" },
         "prompt": { "type": "string", "minLength": 5, "maxLength": 180 },
-        "multiple": { "const": false },
+        "multiple": { "type": "boolean", "const": false },
         "options": {
           "type": "array",
           "minItems": 3,

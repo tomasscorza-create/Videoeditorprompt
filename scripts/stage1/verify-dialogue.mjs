@@ -95,6 +95,15 @@ export function verifyDialogueJob(context, config) {
       check(`Capa ${layer.id} 1080x1920`, stream.width === 1080 && stream.height === 1920, { width: stream.width, height: stream.height, pixFmt: stream.pix_fmt });
     }
   }
+  if (runtime.backgroundVideo) {
+    const probe = ffprobe(resolveAsset(context, runtime.backgroundVideo.asset, 'backgroundVideo/asset'));
+    const stream = probe.streams.find((item) => item.codec_type === 'video');
+    check('Fondo MP4 1080x1920 a 30 FPS', stream?.width === 1080 && stream?.height === 1920 && stream?.r_frame_rate === '30/1', {
+      width: stream?.width,
+      height: stream?.height,
+      fps: stream?.r_frame_rate,
+    });
+  }
 
   check('Planes temporales idénticos', plan1.temporalHash === plan2.temporalHash, plan1.temporalHash);
   check('Frames PNG idénticos', metrics1.frameContentHash === metrics2.frameContentHash, metrics1.frameContentHash);

@@ -171,6 +171,7 @@ export function prepareDialogueJob(context, config, report) {
     cacheKey: timelineKey,
     assets: context.resolvedAssets,
     backgroundAnimation: context.resolvedBackgroundAnimation,
+    ...(context.resolvedBackgroundVideo ? { backgroundVideo: context.resolvedBackgroundVideo } : {}),
     characters,
     ...(props.length ? { props } : {}),
     ...(templates.length ? { templates } : {}),

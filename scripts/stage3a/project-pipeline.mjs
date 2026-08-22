@@ -18,6 +18,7 @@ import { runPipeline } from '../stage1/pipeline.mjs';
 import { createProgressReporter } from '../stage1/progress.mjs';
 import { compileVideoProject } from './compile-video-project.mjs';
 import { createProjectCompilationContext } from './project-compilation-context.mjs';
+import { exportTimelineDocument, validateTimelineDocument } from '../../shared/timeline-clip-core.js';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateRenderedProjectSchema = ajv.compile(readJson(path.join(projectRoot, 'schema', 'rendered-project.schema.json')));
@@ -32,15 +33,16 @@ export async function runProjectPipeline(context) {
   const verificationMode = context.args?.['verification-mode'] === 'interactive' ? 'interactive' : 'full';
   const report = createProgressReporter(context);
   try {
+    const unifiedTimeline = loadUnifiedTimeline(context);
     const compiled = compileVideoProject(context, { report, emitCompleted: false });
-    const sceneRuns = await renderCompiledScenes(context, compiled.manifest, report, verificationMode);
+    const sceneRuns = await renderCompiledScenes(context, compiled.manifest, report, verificationMode, unifiedTimeline);
     const assemblyPlan = buildAssemblyPlan(sceneRuns.map((scene, index) => ({
       id: scene.id,
       renderDurationSeconds: scene.renderDurationSeconds,
       transitionToNext: compiled.manifest.scenes[index].transitionToNext,
     })));
     const runNumbers = verificationMode === 'full' ? [1, 2] : [1];
-    const outputs = runNumbers.map((runNumber) => assembleProjectRun(context, sceneRuns, assemblyPlan, runNumber, report));
+    const outputs = runNumbers.map((runNumber) => assembleProjectRun(context, sceneRuns, assemblyPlan, runNumber, report, unifiedTimeline));
     const verification = verifyProjectRender(context, compiled.manifest, sceneRuns, assemblyPlan, outputs, verificationMode);
     const manifest = {
       version: 2,
@@ -48,6 +50,7 @@ export async function runProjectPipeline(context) {
       projectId: compiled.manifest.projectId,
       compiledProject: 'compiled/compiled-project.json',
       compiledSemanticHash: compiled.manifest.semanticHash,
+      ...(unifiedTimeline ? { timelineSemanticHash: unifiedTimeline.hash } : {}),
       verificationMode,
       video: compiled.manifest.video,
       timeline: {
@@ -94,10 +97,70 @@ export async function runProjectPipeline(context) {
   }
 }
 
-async function renderCompiledScenes(context, compiledManifest, report, verificationMode) {
+function loadUnifiedTimeline(context) {
+  const timelineArgument = context.args?.timeline;
+  if (!timelineArgument) return null;
+  const timelineFile = path.resolve(String(timelineArgument));
+  if (!existsSync(timelineFile)) throw new PipelineError({
+    code: 'TIMELINE_PROJECT_NOT_FOUND', stage: 'preparing', message: 'No se encontró la timeline unificada del trabajo.',
+  });
+  const document = readJson(timelineFile);
+  validateTimelineDocument(document);
+  const mediaRoot = path.resolve(String(context.args?.['timeline-media-dir'] || ''));
+  const indexFile = path.join(mediaRoot, 'index.json');
+  if (!existsSync(indexFile)) throw new PipelineError({
+    code: 'TIMELINE_MEDIA_INDEX_INVALID', stage: 'preparing', message: 'No se encontró la biblioteca de medios libres.',
+  });
+  const index = readJson(indexFile);
+  const entries = new Map((index.entries || []).map((entry) => [entry.id, entry]));
+  const sources = new Map(document.sources.map((source) => [source.id, source]));
+  const clips = document.clips.filter((clip) => clip.enabled).map((clip) => {
+    const source = sources.get(clip.sourceId);
+    const entry = entries.get(clip.sourceId);
+    if (!source || !entry || source.contentHash !== entry.contentHash) throw new PipelineError({
+      code: 'TIMELINE_SOURCE_NOT_FOUND', stage: 'preparing', message: `No se pudo resolver el medio libre ${clip.sourceId}.`,
+    });
+    const file = path.resolve(mediaRoot, ...String(entry.relativePath).split('/'));
+    const relative = path.relative(mediaRoot, file);
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative) || !existsSync(file)) throw new PipelineError({
+      code: 'TIMELINE_MEDIA_PATH_INVALID', stage: 'preparing', message: `La ruta del medio ${clip.sourceId} no es segura.`,
+    });
+    return {
+      ...clip,
+      file,
+      contentHash: source.contentHash,
+      timelineStartSeconds: clip.timelineStartTick / 48_000,
+      sourceInSeconds: clip.sourceInTick / 48_000,
+      durationSeconds: clip.durationTicks / 48_000,
+    };
+  });
+  return { document, clips, hash: sha256(exportTimelineDocument(document)) };
+}
+
+function timelineBackgroundForScene(unifiedTimeline, sceneStartSeconds) {
+  if (!unifiedTimeline) return [];
+  return unifiedTimeline.clips
+    .filter((clip) => clip.kind === 'visual' && clip.trackId === 'video-track-01')
+    .filter((clip) => clip.timelineStartSeconds + clip.durationSeconds > sceneStartSeconds)
+    .map((clip) => {
+      const consumed = Math.max(0, sceneStartSeconds - clip.timelineStartSeconds);
+      return {
+        id: clip.id,
+        file: clip.file,
+        contentHash: clip.contentHash,
+        localStartSeconds: Math.max(0, clip.timelineStartSeconds - sceneStartSeconds),
+        sourceInSeconds: clip.sourceInSeconds + consumed,
+        durationSeconds: Math.max(0, clip.durationSeconds - consumed),
+      };
+    })
+    .filter((clip) => clip.durationSeconds > 0);
+}
+
+async function renderCompiledScenes(context, compiledManifest, report, verificationMode, unifiedTimeline = null) {
   const sceneWorkRoot = ensureDirectory(path.join(context.jobRoot, 'scene-work'));
   const sceneOutputRoot = ensureDirectory(path.join(context.jobRoot, 'scene-output'));
   const renderedScenes = [];
+  let sceneStartSeconds = 0;
   for (const [index, scene] of compiledManifest.scenes.entries()) {
     const sceneJobId = createSceneJobId(index, scene.id);
     const configPath = resolveWithin(context.jobRoot, scene.config, `configuración de ${scene.id}`);
@@ -110,9 +173,10 @@ async function renderCompiledScenes(context, compiledManifest, report, verificat
       'output-dir': sceneOutputRoot,
       'tts-root': context.ttsRoot,
     });
-    const cacheKey = sceneCacheKey(compiledManifest, scene, sceneJobId, verificationMode);
-    const cached = restoreCachedScene(context, sceneContext, cacheKey);
-    const result = cached || await runPipeline(sceneContext, { verificationMode });
+    const backgroundTimeline = timelineBackgroundForScene(unifiedTimeline, sceneStartSeconds);
+    const cacheKey = sceneCacheKey(compiledManifest, scene, sceneJobId, verificationMode, backgroundTimeline);
+    const cached = backgroundTimeline.length ? null : restoreCachedScene(context, sceneContext, cacheKey);
+    const result = cached || await runPipeline(sceneContext, { verificationMode, backgroundTimeline });
     if (cached) {
       report('preparing', {
         stage: 'reusing_scene',
@@ -157,6 +221,8 @@ async function renderCompiledScenes(context, compiledManifest, report, verificat
       turns: dialogue.turns,
       verificationPassed: result.verification.passed,
     });
+    const transition = compiledManifest.scenes[index].transitionToNext;
+    sceneStartSeconds += metrics.renderDurationSeconds - (transition?.preset === 'fade' ? transition.durationSeconds : 0);
   }
   return renderedScenes;
 }
@@ -166,7 +232,7 @@ async function renderCompiledScenes(context, compiledManifest, report, verificat
  * los recursos compilados, el identificador interno y el modo de verificación.
  * El número de versión invalida la caché cuando cambia el pipeline visual.
  */
-export function sceneCacheKey(compiledManifest, scene, sceneJobId, verificationMode) {
+export function sceneCacheKey(compiledManifest, scene, sceneJobId, verificationMode, backgroundTimeline = []) {
   return sha256(JSON.stringify({
     version: SCENE_CACHE_VERSION,
     sceneJobId,
@@ -175,6 +241,9 @@ export function sceneCacheKey(compiledManifest, scene, sceneJobId, verificationM
     configSha256: scene.configSha256,
     catalogSha256: compiledManifest.catalogSha256,
     sourceHashes: compiledManifest.sourceHashes,
+    backgroundTimeline: backgroundTimeline.map(({ id, contentHash, localStartSeconds, sourceInSeconds, durationSeconds }) => ({
+      id, contentHash, localStartSeconds, sourceInSeconds, durationSeconds,
+    })),
   }));
 }
 
@@ -391,15 +460,46 @@ export function buildRenderedTurnTimeline(turns, sceneStartSeconds, audioDuratio
   return renderedTurns;
 }
 
-function assembleProjectRun(context, sceneRuns, plan, runNumber, report) {
+function assembleProjectRun(context, sceneRuns, plan, runNumber, report, unifiedTimeline = null) {
   const renderId = `render-${runNumber}`;
   report('encoding', { stage: 'assembling_project', renderId, scenes: sceneRuns.length, durationSeconds: plan.durationSeconds });
   const inputs = sceneRuns.flatMap((scene) => ['-i', runNumber === 1 ? scene.render1File : scene.render2File]);
+  const filters = [...plan.filters];
+  let videoLabel = plan.videoLabel;
+  let audioLabel = plan.audioLabel;
+  let nextInput = sceneRuns.length;
+  const overlayClips = unifiedTimeline?.clips.filter((clip) => clip.kind === 'visual' && clip.trackId === 'video-track-02') ?? [];
+  for (const [index, clip] of overlayClips.entries()) {
+    const duration = Math.min(clip.durationSeconds, Math.max(0, plan.durationSeconds - clip.timelineStartSeconds));
+    if (duration <= 0) continue;
+    inputs.push('-ss', formatNumber(clip.sourceInSeconds), '-t', formatNumber(duration), '-i', clip.file);
+    const shifted = `freev${index}`;
+    const output = `freevout${index}`;
+    filters.push(`[${nextInput}:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,trim=duration=${formatNumber(duration)},setpts=PTS-STARTPTS+${formatNumber(clip.timelineStartSeconds)}/TB[${shifted}]`);
+    filters.push(`[${videoLabel}][${shifted}]overlay=0:0:eof_action=pass:shortest=0:format=auto[${output}]`);
+    videoLabel = output;
+    nextInput += 1;
+  }
+  const audioClips = unifiedTimeline?.clips.filter((clip) => clip.kind === 'audio') ?? [];
+  const freeAudioLabels = [];
+  for (const [index, clip] of audioClips.entries()) {
+    const duration = Math.min(clip.durationSeconds, Math.max(0, plan.durationSeconds - clip.timelineStartSeconds));
+    if (duration <= 0) continue;
+    inputs.push('-ss', formatNumber(clip.sourceInSeconds), '-t', formatNumber(duration), '-i', clip.file);
+    const label = `freea${index}`;
+    filters.push(`[${nextInput}:a]aresample=22050,aformat=sample_fmts=fltp:sample_rates=22050:channel_layouts=mono,atrim=duration=${formatNumber(duration)},adelay=${Math.round(clip.timelineStartSeconds * 1000)}:all=1[${label}]`);
+    freeAudioLabels.push(`[${label}]`);
+    nextInput += 1;
+  }
+  if (freeAudioLabels.length) {
+    filters.push(`[${audioLabel}]${freeAudioLabels.join('')}amix=inputs=${freeAudioLabels.length + 1}:duration=first:normalize=0[unifiedaudio]`);
+    audioLabel = 'unifiedaudio';
+  }
   const outputFile = path.join(context.resultRoot, `${renderId}.mp4`);
   run('ffmpeg', [
     '-hide_banner', '-loglevel', 'warning', '-y', ...inputs,
-    '-filter_complex_threads', '1', '-filter_complex', plan.filters.join(';'),
-    '-map', `[${plan.videoLabel}]`, '-map', `[${plan.audioLabel}]`,
+    '-filter_complex_threads', '1', '-filter_complex', filters.join(';'),
+    '-map', `[${videoLabel}]`, '-map', `[${audioLabel}]`,
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
     '-c:a', 'aac', '-b:a', '128k', '-ar', '22050', '-ac', '1',
     '-r', '30', '-t', formatNumber(plan.durationSeconds), '-map_metadata', '-1', '-movflags', '+faststart', outputFile,

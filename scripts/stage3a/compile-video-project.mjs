@@ -9,6 +9,8 @@ import { validateSceneConfig } from '../stage1/validate-scene-config.mjs';
 import { createProjectCompilationContext } from './project-compilation-context.mjs';
 import { loadAndValidateVideoProject, resolveAuthoringAsset } from './validate-video-project.mjs';
 import { ANIMATION_PARAMETERS } from '../../shared/animation-contract.js';
+import { parseVideoTemplateDefinition } from '../../shared/video-template-definition.js';
+import { normalizeTemplateWord } from '../../shared/video-template-evaluator.js';
 
 const MOUTH_DEFAULTS = Object.freeze({
   windowMs: 30,
@@ -224,31 +226,44 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     .map((element, sourceIndex) => ({ element, sourceIndex, resource: resources.get(element.templateId) }))
     .sort((left, right) => left.element.transform.zIndex - right.element.transform.zIndex
       || left.sourceIndex - right.sourceIndex)
-    .map(({ element, resource }) => ({
-      id: element.id,
-      definition: resource.templateRef.definition,
-      word: element.values.word,
-      transform: {
-        x: element.transform.x - project.video.width / 2,
-        y: element.transform.y - project.video.height / 2,
-        scale: element.transform.scale,
-        rotationDegrees: element.transform.rotationDegrees,
-        opacity: element.transform.opacity,
-        zIndex: element.transform.zIndex,
-      },
-      ...(element.visibility ? { visibility: cloneVisibility(element.visibility) } : {}),
-    }));
+    .map(({ element, resource }) => {
+      const definition = loadTemplateDefinition(resource, assetsRoot);
+      const field = definition.fields.find((candidate) => candidate.id === 'word');
+      return {
+        id: element.id,
+        definition: resource.templateRef.definition,
+        word: normalizeTemplateWord(element.values.word, definition.defaultValues.word, field.maxLength),
+        transform: {
+          x: element.transform.x - project.video.width / 2,
+          y: element.transform.y - project.video.height / 2,
+          scale: element.transform.scale,
+          rotationDegrees: element.transform.rotationDegrees,
+          opacity: element.transform.opacity,
+          zIndex: element.transform.zIndex,
+        },
+        ...(element.visibility ? { visibility: cloneVisibility(element.visibility) } : {}),
+      };
+    });
   const backgroundResource = resources.get(scene.background.resourceId);
   const manifestPath = resolveAuthoringAsset(assetsRoot, backgroundResource.backgroundManifest, `manifest de fondo ${backgroundResource.id}`);
   const backgroundManifest = readJson(manifestPath);
   const backgroundDirectory = path.posix.dirname(backgroundResource.backgroundManifest);
-  const backgroundLayers = ['far', 'mid', 'front'].map((id) => ({
-    id,
-    asset: path.posix.join(backgroundDirectory, backgroundManifest.layers[id]),
-    ...BACKGROUND_LAYER_PRESETS[id],
-  }));
-  const camera = CAMERA_PRESETS[scene.background.cameraPreset];
-  if (!camera) unsupportedScene(sceneIndex, `el preset de cámara ${scene.background.cameraPreset} no tiene compilación disponible`);
+  const backgroundLayers = backgroundManifest.version === 1
+    ? ['far', 'mid', 'front'].map((id) => ({
+      id,
+      asset: path.posix.join(backgroundDirectory, backgroundManifest.layers[id]),
+      ...BACKGROUND_LAYER_PRESETS[id],
+    }))
+    : null;
+  const backgroundVideo = backgroundManifest.version === 2 ? {
+    asset: path.posix.join(backgroundDirectory, backgroundManifest.video.asset),
+    poster: path.posix.join(backgroundDirectory, backgroundManifest.video.poster),
+    durationSeconds: backgroundManifest.video.durationSeconds,
+    fps: backgroundManifest.video.fps,
+    loop: backgroundManifest.video.loop,
+  } : null;
+  const camera = backgroundLayers ? CAMERA_PRESETS[scene.background.cameraPreset] : null;
+  if (backgroundLayers && !camera) unsupportedScene(sceneIndex, `el preset de cámara ${scene.background.cameraPreset} no tiene compilación disponible`);
 
   const sourceCharacters = scene.elements.filter((element) => element.type === 'character');
   const dialogue = scene.dialogue.map((turn) => {
@@ -288,11 +303,12 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     version: 2,
     video: project.video,
     assets: {
-      background: backgroundLayers[0].asset,
+      background: backgroundVideo?.poster ?? backgroundLayers[0].asset,
       ...(project.musicResourceId ? { music: resources.get(project.musicResourceId).asset } : {}),
     },
     ...(technicalCatalogs.size === 1 && !useDirectManifests ? { assetCatalog: [...technicalCatalogs][0] } : {}),
-    backgroundAnimation: { layers: backgroundLayers, camera },
+    ...(backgroundLayers ? { backgroundAnimation: { layers: backgroundLayers, camera } } : {}),
+    ...(backgroundVideo ? { backgroundVideo } : {}),
     characters,
     ...(props.length ? { props } : {}),
     ...(templates.length ? { templates } : {}),
@@ -425,6 +441,16 @@ function assertCompatibleCharacterTransform(element, sceneIndex) {
   if (transform.opacity !== 1) unsupportedScene(sceneIndex, `el personaje ${element.id} requiere opacidad 1`);
 }
 
+function loadTemplateDefinition(resource, assetsRoot) {
+  const definitionPath = resource.templateRef.definition;
+  const definitionFile = resolveAuthoringAsset(
+    assetsRoot,
+    definitionPath,
+    `definición de la plantilla ${resource.id}`,
+  );
+  return parseVideoTemplateDefinition(readJson(definitionFile), resource.id);
+}
+
 function unsupportedScene(sceneIndex, detail) {
   throw new PipelineError({
     code: 'PROJECT_SCENE_UNSUPPORTED',
@@ -456,6 +482,20 @@ function collectSourceHashes(project, resources, assetsRoot) {
   for (const scene of project.scenes) {
     const background = resources.get(scene.background.resourceId);
     paths.add(background.backgroundManifest);
+    const backgroundManifest = readJson(resolveAuthoringAsset(
+      assetsRoot,
+      background.backgroundManifest,
+      `manifest de fondo ${background.id}`,
+    ));
+    const backgroundDirectory = path.posix.dirname(background.backgroundManifest);
+    if (backgroundManifest.version === 1) {
+      for (const layer of Object.values(backgroundManifest.layers)) {
+        paths.add(path.posix.join(backgroundDirectory, layer));
+      }
+    } else {
+      paths.add(path.posix.join(backgroundDirectory, backgroundManifest.video.asset));
+      paths.add(path.posix.join(backgroundDirectory, backgroundManifest.video.poster));
+    }
     for (const element of scene.elements) {
       if (element.type === 'character') paths.add(resources.get(element.resourceId).characterRef.catalog);
       if (element.type === 'prop') paths.add(resources.get(element.resourceId).resourceRef.catalog);

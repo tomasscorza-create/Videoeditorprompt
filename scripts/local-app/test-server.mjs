@@ -28,8 +28,9 @@ const completedJob = {
 };
 const manager = {
   activeJobId: null,
-  create: (value) => {
+  create: (value, timeline) => {
     assert.equal(value.id, project.id);
+    assert.equal(timeline?.id, 'timeline-unificada-test');
     return { ...completedJob, state: 'queued' };
   },
   get: (id) => id === completedJob.jobId ? completedJob : null,
@@ -37,6 +38,7 @@ const manager = {
   cancel: (id) => id === completedJob.jobId ? { ...completedJob, state: 'cancelled' } : null,
   video: () => null,
 };
+const backgroundImports = [];
 const library = {
   catalogRelative: project.resourceCatalog,
   catalog: () => catalog,
@@ -53,8 +55,7 @@ const library = {
   }),
   importBackground: ({ bytes, mimeType, fileName }) => {
     assert.ok(bytes.length > 0);
-    assert.equal(mimeType, 'image/png');
-    assert.equal(fileName, 'fondo prueba.png');
+    backgroundImports.push({ mimeType, fileName });
     return {
       created: true,
       resource: { id: 'fondo-local-prueba', type: 'background', label: 'fondo prueba', origin: 'local' },
@@ -340,10 +341,24 @@ assert.equal((await backgroundResponse.json()).resource.type, 'background');
 
 const unsupportedBackgroundResponse = await request('/api/library/backgrounds', {
   method: 'POST',
-  headers: { 'content-type': 'image/gif' },
-  body: Buffer.from('GIF89a'),
+  headers: { 'content-type': 'application/octet-stream' },
+  body: Buffer.from('archivo'),
 });
 assert.equal(unsupportedBackgroundResponse.status, 400);
+
+const gifBackgroundResponse = await request('/api/library/backgrounds', {
+  method: 'POST',
+  headers: {
+    'content-type': 'image/gif',
+    'x-resource-file-name': encodeURIComponent('fondo animado.gif'),
+  },
+  body: Buffer.from('GIF89a'),
+});
+assert.equal(gifBackgroundResponse.status, 201);
+assert.deepEqual(backgroundImports, [
+  { mimeType: 'image/png', fileName: 'fondo prueba.png' },
+  { mimeType: 'image/gif', fileName: 'fondo animado.gif' },
+]);
 
 const characterResponse = await request('/api/library/characters', {
   method: 'POST',
@@ -492,7 +507,15 @@ assert.equal((await validationResponse.json()).valid, true);
 const renderResponse = await request('/api/render-jobs', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ project }),
+  body: JSON.stringify({
+    project,
+    timeline: {
+      version: 2,
+      id: 'timeline-unificada-test',
+      timebase: { ticksPerSecond: 48_000, fps: 30, audioSampleRate: 48_000 },
+      sources: [], tracks: [], clips: [],
+    },
+  }),
 });
 assert.equal(renderResponse.status, 202);
 

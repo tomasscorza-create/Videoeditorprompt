@@ -65,11 +65,17 @@ export function evaluateMotionCard(definition, seconds) {
 }
 
 export function normalizeTemplateWord(value, fallback = 'IDEA', maxLength = 24) {
+  const limit = Math.max(1, Math.floor(maxLength));
   const normalized = String(value ?? '')
     .replace(/\s+/gu, ' ')
-    .trim()
-    .slice(0, Math.max(1, maxLength));
-  return normalized || fallback;
+    .trim();
+  const fallbackValue = String(fallback ?? 'IDEA').replace(/\s+/gu, ' ').trim() || 'IDEA';
+  const source = normalized || fallbackValue;
+  if (source.length <= limit) return source;
+  const clipped = source.slice(0, limit).trimEnd();
+  if (/\s/u.test(source.charAt(limit))) return clipped;
+  const boundary = clipped.lastIndexOf(' ');
+  return boundary >= Math.ceil(limit * 0.4) ? clipped.slice(0, boundary) : clipped;
 }
 
 function positive(value, fallback) {

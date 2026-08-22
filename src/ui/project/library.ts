@@ -86,10 +86,11 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     try {
       const response = await fetch(`/${resource.backgroundManifest}`, { cache: 'no-store' });
       if (!response.ok) return;
-      const manifest = await response.json() as { layers?: { far?: string } };
-      if (!manifest.layers?.far) return;
+      const manifest = await response.json() as { layers?: { far?: string }; video?: { poster?: string } };
+      const preview = manifest.layers?.far ?? manifest.video?.poster;
+      if (!preview) return;
       const base = resource.backgroundManifest.slice(0, resource.backgroundManifest.lastIndexOf('/') + 1);
-      thumbnails.set(resource.id, `${base}${manifest.layers.far}`);
+      thumbnails.set(resource.id, `${base}${preview}`);
     } catch {
       // El recurso sigue disponible aunque su miniatura no pueda cargarse.
     }
@@ -191,16 +192,18 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     const file = registerFile.files?.[0];
     registerFile.value = '';
     if (!file) return;
-    if (!/\.(png|jpe?g)$/iu.test(file.name) && !['image/png', 'image/jpeg'].includes(file.type)) {
-      setLibraryStatus('Elegí un fondo en formato PNG o JPG.', true);
+    if (!/\.(png|jpe?g|gif|mp4)$/iu.test(file.name) && !['image/png', 'image/jpeg', 'image/gif', 'video/mp4'].includes(file.type)) {
+      setLibraryStatus('Elegí un fondo en formato PNG, JPG, GIF o MP4.', true);
       return;
     }
-    if (file.size > 12 * 1024 * 1024) {
-      setLibraryStatus('El fondo supera el límite de 12 MB.', true);
+    const animated = /\.(gif|mp4)$/iu.test(file.name) || ['image/gif', 'video/mp4'].includes(file.type);
+    const maximumBytes = animated ? 80 * 1024 * 1024 : 12 * 1024 * 1024;
+    if (file.size > maximumBytes) {
+      setLibraryStatus(`El fondo supera el límite de ${animated ? 80 : 12} MB.`, true);
       return;
     }
     registerButton!.disabled = true;
-    setLibraryStatus('Validando y registrando el recurso…', false);
+    setLibraryStatus(animated ? 'Convirtiendo el fondo animado a MP4 vertical…' : 'Validando y registrando el recurso…', false);
     try {
       const result = await importBackgroundResource(file);
       setLibraryStatus(

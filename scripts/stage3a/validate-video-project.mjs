@@ -146,9 +146,21 @@ export function validateResourceCatalogSemantics(catalog, assetsRoot) {
         message: 'Un manifest de fondo referenciado no cumple su contrato.',
       });
       const manifestDirectory = path.posix.dirname(entry.backgroundManifest);
-      for (const [name, layerPath] of Object.entries(manifest.layers)) {
-        assertPortableRelativePath(layerPath, `/backgroundManifest/layers/${name}`);
-        resolveAuthoringAsset(assetsRoot, path.posix.join(manifestDirectory, layerPath), `capa ${name} del fondo ${entry.id}`);
+      if (manifest.version === 1) {
+        for (const [name, layerPath] of Object.entries(manifest.layers)) {
+          assertPortableRelativePath(layerPath, `/backgroundManifest/layers/${name}`);
+          resolveAuthoringAsset(assetsRoot, path.posix.join(manifestDirectory, layerPath), `capa ${name} del fondo ${entry.id}`);
+        }
+      } else {
+        for (const name of ['asset', 'poster']) {
+          const mediaPath = manifest.video[name];
+          assertPortableRelativePath(mediaPath, `/backgroundManifest/video/${name}`);
+          resolveAuthoringAsset(
+            assetsRoot,
+            path.posix.join(manifestDirectory, mediaPath),
+            `${name === 'asset' ? 'video' : 'póster'} del fondo ${entry.id}`,
+          );
+        }
       }
     } else if (entry.type === 'template') {
       for (const name of ['thumbnail']) {

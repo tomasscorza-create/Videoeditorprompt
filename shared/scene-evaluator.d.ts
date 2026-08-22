@@ -25,6 +25,7 @@ export interface DialogueSceneState {
     camera: { x: number; y: number; zoom: number };
     layers: Array<{ id: string; x: number; y: number; scale: number }>;
   };
+  backgroundVideo?: { sourceFrameIndex: number; sourceSeconds: number };
   activeSpeakerId: string | null;
   activeTurnId: string | null;
   /** Ruta del fragmento corto activo, no necesariamente la ruta general del turno. */

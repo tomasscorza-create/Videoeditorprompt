@@ -74,6 +74,8 @@ export async function measureProject(context, options = {}) {
       // absolutas, cachés ni archivos de trabajo.
       visualRuntime: {
         audio: { durationSeconds: runtime.audio.durationSeconds },
+        ...(runtime.backgroundAnimation ? { backgroundAnimation: runtime.backgroundAnimation } : {}),
+        ...(runtime.backgroundVideo ? { backgroundVideo: runtime.backgroundVideo } : {}),
         characters: runtime.characters.map((character) => ({
           id: character.id,
           transform: character.transform,

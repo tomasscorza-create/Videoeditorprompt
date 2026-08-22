@@ -242,6 +242,7 @@ const appHtml = readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
 const storyboardSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'storyboard.ts'), 'utf8');
 const directorPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'director', 'panel.ts'), 'utf8');
 const timelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'timeline.ts'), 'utf8');
+const unifiedTimelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'timeline-v2.ts'), 'utf8');
 const editorWorkspaceSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'editor-workspace.ts'), 'utf8');
 const editingPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'editing-panel.ts'), 'utf8');
 const compositionSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'composition.ts'), 'utf8');
@@ -358,7 +359,8 @@ check(
     'el tiempo hace avanzar las páginas sin mover la palabra fuera del evaluador visual',
     next.sourceIndex === definition.sequence[1]
       && advanced.sourceIndex !== first.sourceIndex
-      && videoTemplateEvaluator.normalizeTemplateWord('  IMPACTO  ', 'IDEA', 24) === 'IMPACTO',
+      && videoTemplateEvaluator.normalizeTemplateWord('  IMPACTO  ', 'IDEA', 24) === 'IMPACTO'
+      && videoTemplateEvaluator.normalizeTemplateWord('Elegí tu próximo paso', 'ACTUÁ', 20) === 'Elegí tu próximo',
   );
 }
 check(
@@ -455,10 +457,17 @@ check(
     && compositionSource.includes('drawRigPreview(image, sprites, render)'),
 );
 check(
-  'el preview precarga el fondo y no vuelve a pedirlo en cada frame',
+  'el preview precarga fondos por capas o MP4 y sincroniza el video con el cabezal',
   compositionSource.includes('await loadBackgroundLayers(resource.backgroundManifest)')
-    && compositionSource.includes('backgroundNodes(backgroundLayers.get(background.backgroundManifest)')
+    && compositionSource.includes('backgroundLayers.get(background.backgroundManifest)')
+    && compositionSource.includes('backgroundVideoNodes.get(background.src)')
+    && compositionSource.includes('video.currentTime = sourceSeconds')
     && !compositionSource.includes('async function appendBackground('),
+);
+check(
+  'la biblioteca permite seleccionar PNG, JPG, GIF y MP4 como fondo',
+  appHtml.includes('.gif,.mp4')
+    && appHtml.includes('image/gif,video/mp4'),
 );
 check(
   'cada keyframe resuelto se dibuja como rombo en el clip de su elemento',
@@ -550,6 +559,26 @@ check(
   appHtml.includes('id="timeline-split"')
     && timelineSource.includes('splitSelectedTurn')
     && timelineSource.includes('duplicateKeyframeCommand({'),
+);
+check(
+  'autoría y medios libres se muestran en una sola timeline sin selector de motores',
+  appHtml.includes('Timeline unificada')
+    && !appHtml.includes('id="timeline-v2-toggle"')
+    && timelineSource.includes('renderUnifiedMediaRows(totalWidth, pixelsPerSecond)')
+    && unifiedTimelineSource.includes("document.body.dataset.timelineEngine = 'unified'")
+    && !unifiedTimelineSource.includes('function setActive('),
+);
+check(
+  'los medios libres comparten el cabezal y pueden desvincular audio y video',
+  unifiedTimelineSource.includes('setEditorPlayhead(seconds)')
+    && unifiedTimelineSource.includes("type: 'unlink-group'")
+    && appHtml.includes('id="timeline-v2-unlink"'),
+);
+check(
+  'un video libre de la pista base reemplaza solo el fondo en el visor semántico',
+  compositionSource.includes('unifiedMediaPreviewNodes(')
+    && compositionSource.includes('freeMedia.background.length === 0')
+    && compositionSource.includes('nodes.push(...freeMedia.overlays, ...freeMedia.audio)'),
 );
 check(
   'seleccionar un elemento no inserta filas informativas en la timeline',

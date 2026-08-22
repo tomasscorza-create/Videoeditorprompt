@@ -59,6 +59,28 @@ const repeated = evaluateScene(config, runtime, dialogue, 7.25).background;
 assert.deepEqual(repeated, evaluateScene(config, runtime, dialogue, 7.25).background);
 results.push({ name: 'same-time-same-background', passed: true });
 
+const videoState = evaluateScene(
+  { version: 2 },
+  {
+    audio: { durationSeconds: 10 },
+    backgroundVideo: { durationSeconds: 2, fps: 30, loop: true },
+    characters: [],
+  },
+  dialogue,
+  2.5,
+);
+assert.deepEqual(videoState.backgroundVideo, { sourceFrameIndex: 15, sourceSeconds: 0.5 });
+assert.deepEqual(
+  videoState.backgroundVideo,
+  evaluateScene(
+    { version: 2 },
+    { audio: { durationSeconds: 10 }, backgroundVideo: { durationSeconds: 2, fps: 30, loop: true }, characters: [] },
+    dialogue,
+    2.5,
+  ).backgroundVideo,
+);
+results.push({ name: 'video-background-loops-from-frame-index', passed: true });
+
 const summary = { version: 1, executedAt: new Date().toISOString(), passed: results.length, failed: 0, results };
 writeJson(path.join(projectRoot, '.local-video', 'test-results', 'background-animation-latest.json'), summary);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

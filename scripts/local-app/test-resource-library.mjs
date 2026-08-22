@@ -6,6 +6,8 @@ import path from 'node:path';
 import { projectRoot } from '../stage1/common.mjs';
 import { createDefaultCustomCharacterDesign } from '../../shared/character-design-presets.js';
 import { createResourceLibrary, defaultLibraryStorageRoot } from './resource-library.mjs';
+import { compileVideoProject } from '../stage3a/compile-video-project.mjs';
+import { createProjectCompilationContext } from '../stage3a/project-compilation-context.mjs';
 
 const root = mkdtempSync(path.join(tmpdir(), 'local-video-library-test-'));
 const assetsRoot = path.join(projectRoot, 'public');
@@ -161,6 +163,84 @@ try {
   assert.equal(normalizedBackground.image.width, 1080);
   assert.equal(normalizedBackground.image.height, 1920);
 
+  const videoFixture = path.join(root, 'fondo-animado.mp4');
+  const videoCreated = spawnSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', 'testsrc=size=180x320:rate=12', '-t', '0.8',
+    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', videoFixture,
+  ], { shell: false, windowsHide: true, timeout: 30_000 });
+  assert.equal(videoCreated.status, 0);
+  const importedVideo = await library.importBackground({
+    bytes: readFileSync(videoFixture),
+    mimeType: 'video/mp4',
+    fileName: 'Fondo en movimiento.mp4',
+  });
+  assert.equal(importedVideo.created, true);
+  assert.equal(importedVideo.media.kind, 'video');
+  assert.equal(importedVideo.media.mimeType, 'video/mp4');
+  assert.equal(importedVideo.resource.entry.capabilities.cameraPresets[0], 'static');
+  const videoManifest = JSON.parse(readFileSync(
+    path.join(assetsRoot, importedVideo.resource.entry.backgroundManifest),
+    'utf8',
+  ));
+  assert.equal(videoManifest.version, 2);
+  assert.equal(videoManifest.video.asset, 'background.mp4');
+  assert.equal(videoManifest.video.poster, 'poster.jpg');
+  assert.equal(videoManifest.video.fps, 30);
+  assert.equal(existsSync(path.join(
+    library.storageAssetsRoot,
+    'backgrounds',
+    importedVideo.resource.id,
+    'background.mp4',
+  )), true);
+  const videoProject = JSON.parse(readFileSync(path.join(
+    projectRoot,
+    'pilots',
+    'proyecto-compilable-01',
+    'project.json',
+  ), 'utf8'));
+  videoProject.id = 'proyecto-fondo-video-v1';
+  videoProject.resourceCatalog = library.catalogRelative;
+  videoProject.scenes[0].background = { resourceId: importedVideo.resource.id, cameraPreset: 'static' };
+  const videoProjectPath = path.join(root, 'video-background-project.json');
+  writeFileSync(videoProjectPath, `${JSON.stringify(videoProject, null, 2)}\n`);
+  const compilationContext = createProjectCompilationContext({
+    'job-id': 'compile-video-background-test',
+    project: videoProjectPath,
+    'assets-dir': assetsRoot,
+    'work-dir': path.join(root, 'compile-work'),
+    'output-dir': path.join(root, 'compile-output'),
+  });
+  const compiledVideoProject = compileVideoProject(compilationContext, { report: () => undefined });
+  const compiledVideoScene = JSON.parse(readFileSync(path.join(
+    compilationContext.jobRoot,
+    compiledVideoProject.manifest.scenes[0].config,
+  ), 'utf8'));
+  assert.equal(compiledVideoScene.backgroundVideo.asset.endsWith('/background.mp4'), true);
+  assert.equal(compiledVideoScene.backgroundVideo.poster.endsWith('/poster.jpg'), true);
+  assert.equal(compiledVideoScene.backgroundAnimation, undefined);
+
+  const gifFixture = path.join(root, 'fondo-animado.gif');
+  const gifCreated = spawnSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', 'color=c=0xc85a54:s=180x320:r=10', '-t', '0.6', gifFixture,
+  ], { shell: false, windowsHide: true, timeout: 30_000 });
+  assert.equal(gifCreated.status, 0);
+  const importedGif = await library.importBackground({
+    bytes: readFileSync(gifFixture),
+    mimeType: 'image/gif',
+    fileName: 'Fondo GIF.gif',
+  });
+  assert.equal(importedGif.created, true);
+  assert.equal(importedGif.media.kind, 'video');
+  assert.equal(importedGif.resource.entry.tags.includes('fondo-animado'), true);
+  const gifManifest = JSON.parse(readFileSync(
+    path.join(assetsRoot, importedGif.resource.entry.backgroundManifest),
+    'utf8',
+  ));
+  assert.equal(gifManifest.version, 2);
+  assert.equal(gifManifest.video.asset, 'background.mp4');
+
   const characterDesign = {
     version: 1,
     preset: 'mono-parametrico-v1',
@@ -232,10 +312,10 @@ try {
   legacyCharacterRecord.entry.capabilities.animationPresets = ['idle', 'dialogue'];
   writeFileSync(library.indexPath, JSON.stringify(registryBeforeUpgrade), 'utf8');
   const restored = await createResourceLibrary({ assetsRoot, storageRoot, publishRoot, builtinCatalog });
-  assert.equal((await restored.list()).length, builtinCount + 5);
+  assert.equal((await restored.list()).length, builtinCount + 7);
   assert.equal(restored.catalog().entries.at(-1).type, 'character');
-  assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 5);
-  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, builtinCount + 5);
+  assert.equal(JSON.parse(readFileSync(restored.indexPath, 'utf8')).entries.length, 7);
+  assert.equal(JSON.parse(readFileSync(restored.catalogPath, 'utf8')).entries.length, builtinCount + 7);
   assert.equal(existsSync(path.join(
     publishRoot,
     'backgrounds',
@@ -261,7 +341,7 @@ try {
     builtinCatalog,
     legacyIndexPath: restored.indexPath,
   });
-  assert.equal((await migrated.list()).length, builtinCount + 5);
+  assert.equal((await migrated.list()).length, builtinCount + 7);
   assert.equal(existsSync(migrated.indexPath), true);
   assert.equal(existsSync(path.join(
     migrated.storageAssetsRoot,

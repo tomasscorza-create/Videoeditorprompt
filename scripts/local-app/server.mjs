@@ -29,7 +29,7 @@ import { createTimelineExporter } from '../timeline/timeline-exporter.mjs';
 import { getElevenLabsVoice, inspectElevenLabs, listElevenLabsVoices, DEFAULT_ELEVENLABS_MODEL } from '../tts/elevenlabs-client.mjs';
 
 const MAX_BODY_BYTES = 1024 * 1024;
-const MAX_BACKGROUND_BODY_BYTES = 12 * 1024 * 1024;
+const MAX_BACKGROUND_BODY_BYTES = 80 * 1024 * 1024;
 const BODY_TIMEOUT_MS = 15_000;
 const ALLOWED_ORIGINS = new Set([
   'http://127.0.0.1:5173',
@@ -74,6 +74,7 @@ export async function createLocalAppServer(options = {}) {
     manager = options.manager || await createRenderJobManager({
       ...options,
       root,
+      timelineMediaRoot: path.join(path.resolve(options.timelineStorageRoot || path.join(root, '.local-video', 'timeline-v2')), 'media'),
       assetsRoot,
       catalogProvider: () => library.catalog(),
       repository: options.renderJobRepository || persistenceRuntime.renderJobs,
@@ -346,8 +347,8 @@ export async function createLocalAppServer(options = {}) {
       }
       if (request.method === 'POST' && url.pathname === '/api/library/backgrounds') {
         const mimeType = String(request.headers['content-type'] || '').split(';', 1)[0].trim().toLowerCase();
-        if (!['image/png', 'image/jpeg'].includes(mimeType)) {
-          const error = new Error('El fondo debe enviarse como PNG o JPG.');
+        if (!['image/png', 'image/jpeg', 'image/gif', 'video/mp4'].includes(mimeType)) {
+          const error = new Error('El fondo debe enviarse como PNG, JPG, GIF o MP4.');
           error.code = 'LIBRARY_BACKGROUND_FORMAT_INVALID';
           throw error;
         }
@@ -635,7 +636,7 @@ export async function createLocalAppServer(options = {}) {
       if (request.method === 'POST' && url.pathname === '/api/render-jobs') {
         assertJsonContentType(request);
         const body = await readJsonBody(request);
-        const job = await manager.create(body.project);
+        const job = await manager.create(body.project, body.timeline);
         sendJson(response, 202, job);
         return;
       }

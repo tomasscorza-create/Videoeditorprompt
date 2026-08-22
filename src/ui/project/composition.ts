@@ -40,6 +40,10 @@ import {
   type MeasuredScene,
 } from '../editor-workspace.js';
 import {
+  UNIFIED_MEDIA_TIMELINE_EVENT,
+  unifiedMediaPreviewNodes,
+} from '../timeline-v2.js';
+import {
   buildAnimationLanes,
   evaluateLanesAt,
   keyframeCommandsForValue,
@@ -70,6 +74,11 @@ let placementEventsBound = false;
 const visualBoundsCache = new Map<string, Promise<VisualBounds>>();
 const rigManifestCache = new Map<string, unknown>();
 const loadingRigManifests = new Set<string>();
+const backgroundVideoNodes = new Map<string, HTMLVideoElement>();
+
+type BackgroundPreview =
+  | { kind: 'layers'; paths: string[] }
+  | { kind: 'video'; src: string; poster: string; durationSeconds: number };
 
 interface VisualBounds {
   x: number;
@@ -102,7 +111,7 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   if (!canvas) return;
   activeStore = store;
   const assetEntries = new Map<string, AssetCatalogEntry>();
-  const backgroundLayers = new Map<string, string[]>();
+  const backgroundLayers = new Map<string, BackgroundPreview>();
   const catalogPaths = new Set(
     [...store.resources('character'), ...store.resources('prop')]
       .flatMap((resource) => resource.characterRef?.catalog
@@ -150,9 +159,15 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
       ? evaluateScene({ version: 2 }, measuredVisual.runtime, measuredVisual.dialogue, localSeconds) as EvaluatedDialogueFrame
       : null;
     const nodes: HTMLElement[] = [];
+    const freeMedia = unifiedMediaPreviewNodes(editorPlayhead(), workspace.playing, workspace.muted);
+    nodes.push(...freeMedia.background);
     const background = store.resources('background').find((entry) => entry.id === scene.background.resourceId);
-    if (background?.backgroundManifest) {
-      nodes.push(...backgroundNodes(backgroundLayers.get(background.backgroundManifest) ?? []));
+    if (freeMedia.background.length === 0 && background?.backgroundManifest) {
+      nodes.push(...backgroundNodes(
+        backgroundLayers.get(background.backgroundManifest),
+        localSeconds,
+        workspace.playing && previewing,
+      ));
     }
 
     const scope = animationScope(store, scene);
@@ -232,6 +247,7 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
     if (placement) nodes.push(placementHint(`Clic o soltar: colocar «${placement.label}»`));
     canvas.classList.toggle('is-animation-mode', animatingElement !== null && !previewing);
     if (animatingElement && !previewing) nodes.push(animationBanner(scope));
+    nodes.push(...freeMedia.overlays, ...freeMedia.audio);
     const subtitle = previewTiming ? liveSubtitle(scene, previewTiming, editorPlayhead()) : null;
     if (subtitle) nodes.push(subtitle);
     canvas.replaceChildren(...nodes);
@@ -248,6 +264,7 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
   // repinta el lienzo.
   window.addEventListener(EDITOR_PLAYBACK_EVENT, render);
   window.addEventListener(EDITOR_WORKSPACE_EVENT, render);
+  window.addEventListener(UNIFIED_MEDIA_TIMELINE_EVENT, render);
   render();
 }
 
@@ -997,22 +1014,61 @@ function requestRigManifest(manifestPath: string, rerender: () => void): unknown
   return null;
 }
 
-async function loadBackgroundLayers(manifestPath: string): Promise<string[]> {
+async function loadBackgroundLayers(manifestPath: string): Promise<BackgroundPreview> {
   try {
     const response = await fetch(`/${manifestPath}`, { cache: 'force-cache' });
     if (!response.ok) throw new Error(String(response.status));
-    const manifest = await response.json() as { layers?: Record<string, string> };
+    const manifest = await response.json() as {
+      version?: number;
+      layers?: Record<string, string>;
+      video?: { asset?: string; poster?: string; durationSeconds?: number };
+    };
     const base = manifestPath.slice(0, manifestPath.lastIndexOf('/') + 1);
-    return ['far', 'mid', 'front'].flatMap((key) => (
-      manifest.layers?.[key] ? [`/${base}${manifest.layers[key]}`] : []
-    ));
+    if (manifest.version === 2 && manifest.video?.asset && manifest.video.poster && manifest.video.durationSeconds) {
+      return {
+        kind: 'video',
+        src: `/${base}${manifest.video.asset}`,
+        poster: `/${base}${manifest.video.poster}`,
+        durationSeconds: manifest.video.durationSeconds,
+      };
+    }
+    return {
+      kind: 'layers',
+      paths: ['far', 'mid', 'front'].flatMap((key) => (
+        manifest.layers?.[key] ? [`/${base}${manifest.layers[key]}`] : []
+      )),
+    };
   } catch {
-    return [];
+    return { kind: 'layers', paths: [] };
   }
 }
 
-function backgroundNodes(paths: readonly string[]): HTMLElement[] {
-  return paths.map((src) => {
+function backgroundNodes(background: BackgroundPreview | undefined, seconds: number, playing: boolean): HTMLElement[] {
+  if (!background) return [];
+  if (background.kind === 'video') {
+    for (const [src, node] of backgroundVideoNodes) if (src !== background.src) node.pause();
+    let video = backgroundVideoNodes.get(background.src);
+    if (!video) {
+      video = document.createElement('video');
+      video.className = 'composition-layer';
+      video.src = background.src;
+      video.poster = background.poster;
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.setAttribute('aria-hidden', 'true');
+      backgroundVideoNodes.set(background.src, video);
+    }
+    const sourceSeconds = ((Math.max(0, seconds) % background.durationSeconds) + background.durationSeconds) % background.durationSeconds;
+    if (video.readyState >= 1 && (!playing || Math.abs(video.currentTime - sourceSeconds) > 0.08)) {
+      video.currentTime = sourceSeconds;
+    }
+    if (playing) void video.play().catch(() => {});
+    else video.pause();
+    return [video];
+  }
+  return background.paths.map((src) => {
     const image = document.createElement('img');
     image.className = 'composition-layer';
     image.src = src;

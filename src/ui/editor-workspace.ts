@@ -240,6 +240,14 @@ export function measuredTimelineFor(sceneIds: readonly string[]): MeasuredProjec
   return matchesScenes(timeline, sceneIds) ? timeline : null;
 }
 
+/** Un cambio de clips libres invalida el MP4, pero no los tiempos medidos de las voces. */
+export function invalidateEditorOutput(): void {
+  if (!output || output.stale) return;
+  output = { ...output, stale: true };
+  if (surface === 'playback') surface = 'canvas';
+  notify();
+}
+
 /** Runtime temporal portable de una escena medida y todavía vigente. */
 export function measuredVisualSceneFor(sceneId: string): MeasuredVisualScene | null {
   if (

@@ -109,12 +109,13 @@ const retried = await retryProvider.generatePlan({
 assert.equal(retryCalls, 2);
 assert.equal(retriedBody.prompt_cache_key, 'director-test-cache');
 assert.equal(retriedBody.text.format.strict, true);
+assert.equal(retriedBody.text.format.schema.properties.ok.type, 'boolean');
 assert.equal(retried.usage.inputTokens, 100);
 assert.equal(retried.usage.outputTokens, 20);
 assert.equal(retried.usage.cachedInputTokens, 40);
 assert.equal(retried.usage.cacheWriteTokens, 10);
 assert.equal(retried.usage.retryCount, 1);
 
-const checks = ollama.checks + openai.checks + 8;
+const checks = ollama.checks + openai.checks + 9;
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed: checks, failed: 0 })}\n`);

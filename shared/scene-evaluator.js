@@ -77,6 +77,7 @@ function evaluateLegacyScene(config, runtime, mouthCues, timeSeconds) {
   return {
     time,
     background: evaluateBackground(runtime.backgroundAnimation, time, duration),
+    ...(runtime.backgroundVideo ? { backgroundVideo: evaluateBackgroundVideo(runtime.backgroundVideo, time) } : {}),
     character: {
       x: character.fromX + (character.toX - character.fromX) * entry,
       y: character.baseY + Math.sin(phase) * character.bobAmplitude,
@@ -105,6 +106,16 @@ function evaluateBackground(backgroundAnimation, time, duration) {
       y: -y * layer.parallaxY,
       scale: layer.baseScale * zoom,
     })),
+  };
+}
+
+function evaluateBackgroundVideo(backgroundVideo, time) {
+  const fps = backgroundVideo.fps;
+  const sourceFrameCount = Math.max(1, Math.round(backgroundVideo.durationSeconds * fps));
+  const sourceFrameIndex = Math.floor(Math.max(0, time) * fps) % sourceFrameCount;
+  return {
+    sourceFrameIndex,
+    sourceSeconds: sourceFrameIndex / fps,
   };
 }
 
@@ -181,6 +192,7 @@ function evaluateDialogueScene(config, runtime, dialogueData, timeSeconds, anima
   return {
     time,
     background: evaluateBackground(runtime.backgroundAnimation, time, duration),
+    ...(runtime.backgroundVideo ? { backgroundVideo: evaluateBackgroundVideo(runtime.backgroundVideo, time) } : {}),
     activeSpeakerId: activeTurn?.speakerId ?? null,
     activeTurnId: activeTurn?.id ?? null,
     subtitlePath: activeSubtitle?.subtitlePath ?? activeTurn?.subtitlePath ?? null,

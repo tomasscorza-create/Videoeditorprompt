@@ -360,7 +360,7 @@
               <button id="resource-register" class="text-button" type="button">Agregar fondo</button>
               <button id="inspector-collapse" class="icon-button collapse-button" type="button" aria-label="Ocultar panel derecho" title="Ocultar panel"><svg class="icon" aria-hidden="true"><use href="#ui-icon-chevron-right"/></svg></button>
             </div>
-            <input id="resource-register-file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" hidden>
+            <input id="resource-register-file" type="file" accept=".png,.jpg,.jpeg,.gif,.mp4,image/png,image/jpeg,image/gif,video/mp4" hidden>
           </header>
 
           <section id="right-panel-resources" class="right-panel-page" role="tabpanel" aria-labelledby="right-panel-resources-tab">
@@ -530,16 +530,14 @@
         <header class="timeline-toolbar">
           <div class="timeline-title-block">
             <span class="eyebrow">Timeline</span>
-            <h2 id="timeline-title">Video y audio</h2>
+            <h2 id="timeline-title">Timeline unificada</h2>
           </div>
-          <div class="timeline-tool-group timeline-v2-actions" aria-label="Montaje profesional">
-            <button id="timeline-v2-toggle" class="timeline-tool" type="button" aria-pressed="true">Volver a autoría</button>
+          <div class="timeline-tool-group timeline-v2-actions" aria-label="Medios libres">
             <button id="timeline-v2-import" class="timeline-tool" type="button">Importar medios</button>
             <input id="timeline-v2-file" type="file" accept=".mp4,.mov,.webm,.wav,.mp3,.ogg,.m4a,video/mp4,video/webm,video/quicktime,audio/wav,audio/mpeg,audio/ogg,audio/mp4" multiple hidden>
-            <button id="timeline-v2-add-render" class="timeline-tool" type="button" disabled>Agregar salida / voces</button>
             <button id="timeline-v2-ripple" class="timeline-tool" type="button" aria-pressed="false" title="Al borrar, cerrar el hueco en la misma pista">Ripple</button>
-            <button id="timeline-v2-director" class="timeline-tool" type="button">Director de montaje</button>
-            <button id="timeline-v2-export" class="timeline-tool primary-compact" type="button" disabled>Exportar montaje</button>
+            <button id="timeline-v2-unlink" class="timeline-tool" type="button" disabled>Desvincular</button>
+            <button id="timeline-v2-director" class="timeline-tool" type="button">Director de timeline</button>
           </div>
           <div class="timeline-tool-group" aria-label="Historial">
             <button id="timeline-undo" class="timeline-tool" type="button" disabled title="Deshacer (Ctrl+Z)" aria-label="Deshacer"><svg class="icon" aria-hidden="true"><use href="#ui-icon-undo"/></svg></button>

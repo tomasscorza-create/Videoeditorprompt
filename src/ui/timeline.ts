@@ -65,6 +65,13 @@ import {
 import type { SceneTiming } from '../../shared/animation-evaluator.js';
 import type { ElementView } from './project/types.js';
 import { nextVisualZIndex } from './project/layers.js';
+import {
+  UNIFIED_MEDIA_TIMELINE_EVENT,
+  applyUnifiedMediaToolbarState,
+  renderUnifiedMediaRows,
+  unifiedMediaClipCount,
+  unifiedMediaDurationSeconds,
+} from './timeline-v2.js';
 
 const MIN_PIXELS_PER_SECOND = 20;
 const MAX_PIXELS_PER_SECOND = 220;
@@ -122,6 +129,7 @@ export function initTimelineShell(): void {
     updateToolbar();
     syncPlayheadFromMedia();
   });
+  window.addEventListener(UNIFIED_MEDIA_TIMELINE_EVENT, render);
   render();
 }
 
@@ -147,7 +155,6 @@ export function attachProjectTimeline(projectStore: ProjectStore): void {
 }
 
 export function updateTimelineTime(timeSeconds: number): void {
-  if (document.body.classList.contains('timeline-v2-active')) return;
   currentTime = clamp(timeSeconds, 0, activeDuration());
   // El lienzo previsualiza la animación en este instante, así que el cabezal se
   // publica en el estado del espacio de trabajo en vez de quedarse acá.
@@ -166,7 +173,6 @@ export function updateTimelineTime(timeSeconds: number): void {
 
 function render(): void {
   if (!initialized) return;
-  if (document.body.classList.contains('timeline-v2-active')) return;
   // Mientras se arrastra el cabezal no se reconstruye el árbol. Cada seek emite
   // EDITOR_WORKSPACE_EVENT, así que un repintado por pointermove reemplazaba el
   // propio <span> que el usuario tenía agarrado: el nodo quedaba huérfano y el
@@ -243,13 +249,15 @@ function renderProject(): void {
       : (outputState === 'stale' ? 'Cambios pendientes' : undefined),
   );
   renderLayerStack(project, positions, sceneWidths, measured);
-  setSummary(measured
+  const freeMedia = unifiedMediaClipCount();
+  const freeMediaLabel = freeMedia > 0 ? ` · ${freeMedia} medio(s) libre(s)` : '';
+  setSummary((measured
     ? outputState === 'current'
       ? `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · capas editables alineadas con la exportación actual.`
       : `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · Play usa su audio con los cambios visuales actuales.`
     : outputState === 'stale'
       ? `${project.scenes.length} escena(s) · cambios sin exportar · el MP4 anterior quedó fuera del transporte.`
-      : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`);
+      : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`) + freeMediaLabel);
 }
 
 function renderLayerStack(
@@ -267,14 +275,20 @@ function renderLayerStack(
     return;
   }
   root.style.setProperty('--timeline-grid-size', `${pixelsPerSecond}px`);
-  const totalWidth = Math.max(640, (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0));
+  const mediaDuration = unifiedMediaDurationSeconds();
+  const totalDuration = Math.max(measured?.durationSeconds ?? 0, mediaDuration);
+  const totalWidth = Math.max(
+    640,
+    (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0),
+    totalDuration * pixelsPerSecond,
+  );
   const output = currentEditorOutput();
   // La onda sale del audio liviano cuando existe; el MP4 queda como fallback
   // para proyectos históricos. Medir ya no obliga a exportar para ver la voz.
   const waveformUrl = currentPreviewAudioUrl() ?? output?.url ?? null;
   const waveform = measured && waveformUrl ? requestWaveform(waveformUrl, render) : null;
   const rows: HTMLElement[] = [
-    authoringRuler(project, positions, totalWidth, measured),
+    authoringRuler(project, positions, totalWidth, measured, totalDuration),
   ];
   if (project.scenes.length >= 2) {
     rows.push(transitionsRow(project, positions, sceneWidths, totalWidth, measured));
@@ -501,6 +515,7 @@ function renderLayerStack(
     }
   });
   if (voiceoverClips.length > 0) rows.push(authoringTrack('VO', 'Voz fuera de campo', totalWidth, voiceoverClips));
+  rows.push(...renderUnifiedMediaRows(totalWidth, pixelsPerSecond));
   const playhead = document.createElement('span');
   playhead.id = 'authoring-playhead';
   playhead.className = 'authoring-playhead';
@@ -803,6 +818,7 @@ function authoringRuler(
   positions: number[],
   width: number,
   measured: MeasuredProjectTimeline | null,
+  unifiedDurationSeconds: number,
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = 'authoring-track-row authoring-ruler-row';
@@ -812,14 +828,14 @@ function authoringRuler(
   const ruler = document.createElement('div');
   ruler.className = 'authoring-track-ruler';
   ruler.style.width = `${Math.ceil(width)}px`;
-  if (measured) {
+  if (measured || unifiedDurationSeconds > 0) {
     ruler.title = 'Clic para mover el cabezal de reproducción';
     ruler.addEventListener('click', (event) => {
       const bounds = ruler.getBoundingClientRect();
       seekTo(snapTime((event.clientX - bounds.left) / pixelsPerSecond));
     });
     // Subdivisiones de segundos/medios/cuartos según el zoom (solo con medición).
-    for (const tick of rulerTicks(measured.durationSeconds, pixelsPerSecond)) {
+    for (const tick of rulerTicks(unifiedDurationSeconds, pixelsPerSecond)) {
       const mark = document.createElement('span');
       mark.className = `ruler-tick ${tick.major ? 'is-major' : 'is-minor'}`;
       mark.style.left = `${tick.position}px`;
@@ -2298,7 +2314,6 @@ function fitTimeline(): void {
 }
 
 function handleShortcut(event: KeyboardEvent): void {
-  if (document.body.classList.contains('timeline-v2-active')) return;
   // El Creador de recursos no comparte las acciones del Editor: la barra ya
   // deshabilita ahí transporte, duplicar, dividir y eliminar, y el teclado tiene
   // que decir lo mismo. Sin esta guardia, `Supr` borraba una escena del proyecto
@@ -2385,7 +2400,6 @@ function handleShortcut(event: KeyboardEvent): void {
 }
 
 function updateToolbar(): void {
-  if (document.body.classList.contains('timeline-v2-active')) return;
   const hasProject = Boolean(store);
   const measured = isMeasured();
   const creator = editorWorkspace().mode === 'creator';
@@ -2594,6 +2608,7 @@ export function initTimelineModeExplanation(): void {
     }
   });
   renderTimelineModeExplanation(isMeasured());
+  applyUnifiedMediaToolbarState();
 }
 
 function setSummary(message: string): void {
@@ -2617,8 +2632,8 @@ function followPlayhead(): void {
 // el cabezal y la regla siguen siendo verdaderos mientras el audio no cambie.
 function activeDuration(): number {
   const measured = compatibleTimeline(store?.project().scenes ?? []);
-  if (measured) return measured.durationSeconds;
-  return currentEditorOutput() ? editorWorkspace().duration : 0;
+  const authoringDuration = measured?.durationSeconds ?? (currentEditorOutput() ? editorWorkspace().duration : 0);
+  return Math.max(authoringDuration, unifiedMediaDurationSeconds());
 }
 
 function isMeasured(): boolean {

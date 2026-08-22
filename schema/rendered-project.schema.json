@@ -11,6 +11,7 @@
     "projectId": { "$ref": "#/$defs/id" },
     "compiledProject": { "$ref": "#/$defs/portablePath" },
     "compiledSemanticHash": { "$ref": "#/$defs/hash" },
+    "timelineSemanticHash": { "$ref": "#/$defs/hash" },
     "video": {
       "type": "object",
       "additionalProperties": false,

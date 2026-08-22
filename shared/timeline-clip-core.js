@@ -57,6 +57,7 @@ const COMMAND_SHAPES = Object.freeze({
   'move-linked': { required: ['type', 'linkGroupId', 'deltaTicks'], allowed: ['type', 'linkGroupId', 'deltaTicks'] },
   'trim-linked': { required: ['type', 'linkGroupId', 'edge', 'toTimelineTick'], allowed: ['type', 'linkGroupId', 'edge', 'toTimelineTick'] },
   'delete-linked': { required: ['type', 'linkGroupId'], allowed: ['type', 'linkGroupId', 'ripple'] },
+  'unlink-group': { required: ['type', 'linkGroupId'], allowed: ['type', 'linkGroupId'] },
 });
 
 export class TimelineClipError extends Error {
@@ -254,7 +255,7 @@ function applyMutation(document, command) {
     document.clips.push(clip);
     return;
   }
-  if (['split-linked', 'move-linked', 'trim-linked', 'delete-linked'].includes(command.type)) {
+  if (['split-linked', 'move-linked', 'trim-linked', 'delete-linked', 'unlink-group'].includes(command.type)) {
     applyLinkedMutation(document, command);
     return;
   }
@@ -356,6 +357,10 @@ function applyLinkedMutation(document, command) {
   const duration = linked[0].durationTicks;
   if (!linked.every((clip) => clip.timelineStartTick === start && clip.durationTicks === duration)) {
     fail('TIMELINE_RANGE_INVALID', 'Los clips enlazados deben compartir inicio y duración.', '/command/linkGroupId');
+  }
+  if (command.type === 'unlink-group') {
+    for (const clip of linked) delete clip.linkGroupId;
+    return;
   }
   if (command.type === 'move-linked') {
     if (!Number.isSafeInteger(command.deltaTicks)) fail('TIMELINE_COMMAND_INVALID', 'deltaTicks debe ser un entero.', '/command/deltaTicks');

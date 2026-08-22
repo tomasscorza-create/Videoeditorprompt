@@ -28,6 +28,13 @@ export interface SceneRuntime {
     camera: Record<string, number>;
     layers: Array<{ id: string; asset: string; baseScale: number; parallaxX: number; parallaxY: number }>;
   } | null;
+  backgroundVideo?: {
+    asset: string;
+    poster: string;
+    durationSeconds: number;
+    fps: 30;
+    loop: true;
+  };
 }
 
 export interface DialogueData {

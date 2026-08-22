@@ -8,6 +8,7 @@ import { readResourceManifest } from '../stage2f/resource-manifest.mjs';
 import { readJson } from '../stage1/common.mjs';
 
 function backgroundSprites(video, runtime, evaluatedFrame) {
+  if (runtime.backgroundVideo) return [];
   if (!runtime.backgroundAnimation) {
     return [{
       id: 'background',

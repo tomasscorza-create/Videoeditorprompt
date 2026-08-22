@@ -1,4 +1,4 @@
-import { Application, Assets, Container, type Sprite, type Texture } from 'pixi.js';
+import { Application, Assets, Container, Texture, type Sprite } from 'pixi.js';
 import { evaluateScene, type DialogueSceneState } from '../../shared/scene-evaluator.js';
 import { fetchJson, fullSprite, wirePlayback } from './common.js';
 import type { DialogueData, PreviewHandle, PreviewStartOptions } from './types.js';
@@ -19,7 +19,21 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
   ui.stage.appendChild(app.canvas);
 
   const backgroundLayers: Array<{ id: string; sprite: Sprite }> = [];
-  if (runtime.backgroundAnimation) {
+  let backgroundVideo: HTMLVideoElement | null = null;
+  if (runtime.backgroundVideo) {
+    backgroundVideo = document.createElement('video');
+    backgroundVideo.src = assetUrl(runtime.backgroundVideo.asset);
+    backgroundVideo.muted = true;
+    backgroundVideo.loop = true;
+    backgroundVideo.playsInline = true;
+    backgroundVideo.preload = 'auto';
+    await new Promise<void>((resolve, reject) => {
+      backgroundVideo!.addEventListener('loadeddata', () => resolve(), { once: true });
+      backgroundVideo!.addEventListener('error', () => reject(new Error('No se pudo cargar el fondo animado.')), { once: true });
+      backgroundVideo!.load();
+    });
+    app.stage.addChild(fullSprite(Texture.from(backgroundVideo), config.video.width, config.video.height));
+  } else if (runtime.backgroundAnimation) {
     for (const layer of runtime.backgroundAnimation.layers) {
       const texture = await Assets.load<Texture>(assetUrl(layer.asset));
       const sprite = fullSprite(texture, config.video.width, config.video.height);
@@ -71,6 +85,13 @@ export async function startDialoguePreview(options: PreviewStartOptions): Promis
 
   function render(timeSeconds: number): void {
     const state = evaluateScene(config, runtime, dialogue, timeSeconds) as DialogueSceneState;
+    if (backgroundVideo && state.backgroundVideo) {
+      if (audio.paused || Math.abs(backgroundVideo.currentTime - state.backgroundVideo.sourceSeconds) > 0.08) {
+        backgroundVideo.currentTime = state.backgroundVideo.sourceSeconds;
+      }
+      if (audio.paused) backgroundVideo.pause();
+      else void backgroundVideo.play().catch(() => {});
+    }
     for (const visual of backgroundLayers) {
       const layerState = state.background?.layers.find((item) => item.id === visual.id);
       if (!layerState) continue;

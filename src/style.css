@@ -2741,8 +2741,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   .timeline-timecode { min-width: 7.8rem; }
   .timeline-mode { display: none; }
 }
-/* Montaje profesional V2: postproducción no destructiva, aislada del proyecto
-   de autoría. La regla y las posiciones usan el timebase común de 48 kHz. */
+/* Pistas de medios libres integradas en la timeline semántica. */
 .timeline-v2-actions { flex-wrap: nowrap; }
 .timeline-v2-actions .primary-compact {
   background: var(--accent, #2f8f62);
@@ -2756,31 +2755,11 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   font-size: var(--fs-2xs);
 }
 .timeline-v2-status.is-error { color: var(--danger, #c94b4b); }
-.timeline-v2-ruler,
 .timeline-v2-track {
   position: relative;
   min-width: 100%;
   display: grid;
-  grid-template-columns: 180px 1fr;
-}
-.timeline-v2-ruler {
-  height: 28px;
-  border-bottom: 1px solid var(--line-subtle);
-  cursor: text;
-}
-.timeline-v2-ruler > span {
-  position: absolute;
-  top: .4rem;
-  color: var(--text-muted);
-  font-size: var(--fs-2xs);
-  transform: translateX(-1px);
-}
-.timeline-v2-ruler > span::before {
-  content: '';
-  position: absolute;
-  top: 1rem;
-  height: 5px;
-  border-left: 1px solid var(--line-subtle);
+  grid-template-columns: var(--timeline-label-width) max-content;
 }
 .timeline-v2-track {
   height: 44px;
@@ -2804,6 +2783,16 @@ body.is-resizing { cursor: grabbing; user-select: none; }
   min-width: 540px;
   background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--timeline-grid-size) - 1px), color-mix(in srgb, var(--line-subtle) 55%, transparent) var(--timeline-grid-size));
 }
+.unified-media-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  background: transparent;
+}
+.unified-media-audio { display: none; }
 .timeline-v2-clip {
   position: absolute;
   inset-block: 4px;
@@ -2847,45 +2836,7 @@ body.is-resizing { cursor: grabbing; user-select: none; }
 }
 .timeline-v2-trim.is-start { left: 0; }
 .timeline-v2-trim.is-end { right: 0; }
-.timeline-v2-playhead {
-  position: absolute;
-  top: 0;
-  z-index: 12;
-  width: 2px;
-  pointer-events: none;
-  background: #e64d4d;
-  box-shadow: 0 0 0 1px color-mix(in srgb, #e64d4d 24%, transparent);
-}
-.timeline-v2-preview {
-  position: relative;
-  overflow: hidden;
-  background: #000;
-}
-.timeline-v2-preview > video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: transparent;
-}
-.timeline-v2-preview > audio { display: none; }
-body.timeline-v2-active #composition-view,
-body.timeline-v2-active #final-view { display: none !important; }
-body.timeline-v2-active #timeline-v2-preview[hidden] { display: none; }
-body.timeline-v2-active #timeline-v2-preview:not([hidden]) { display: block; }
 .timeline-v2-inspector h3 { overflow-wrap: anywhere; }
-body.timeline-v2-active .timeline-toolbar {
-  position: relative;
-  z-index: 20;
-  height: auto;
-  min-height: 2.65rem;
-  flex-wrap: wrap;
-}
-body.timeline-v2-active .timeline-layer-stack {
-  z-index: 1;
-  max-height: calc(100% - 7rem);
-}
 
 /* === Director IA guiado: Idea → Base → Video === */
 .director-panel {

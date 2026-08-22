@@ -33,6 +33,7 @@ import {
   type DirectorUsage,
   type RenderJob,
 } from './api.js';
+import { unifiedMediaDocument, unifiedMediaRevision } from '../timeline-v2.js';
 
 const POLL_INTERVAL_MS = 1000;
 const HEALTH_INTERVAL_MS = 15_000;
@@ -386,7 +387,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     setPhase('video');
     setBusy('render', 'Preparando el video…');
     try {
-      const job = await startRender(store.project());
+      const job = await startRender(store.project(), unifiedMediaDocument());
       currentJobId = job.jobId;
       persistLastJobId(job.jobId);
       reportJob(job);
@@ -703,7 +704,12 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     downloadVideo.href = job.result.videoUrl;
     downloadVideo.download = job.result.downloadName;
     const currentProject = store?.project();
-    const current = Boolean(currentProject && job.projectId === currentProject.id && job.projectRevision === projectFingerprint(currentProject));
+    const timelineRevision = unifiedMediaRevision();
+    const timelineCurrent = timelineRevision === null ? !job.timelineRevision : job.timelineRevision === timelineRevision;
+    const current = Boolean(currentProject
+      && job.projectId === currentProject.id
+      && job.projectRevision === projectFingerprint(currentProject)
+      && timelineCurrent);
     const timingRevision = currentProject && job.projectId === currentProject.id ? projectTimingFingerprint(currentProject) : null;
     const measuredTiming = job.timingRevision ?? (current ? timingRevision : null);
     showFinalVideo({

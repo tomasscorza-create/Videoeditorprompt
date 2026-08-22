@@ -246,9 +246,20 @@ function supportsStrictJsonSchema(value) {
 function prepareJsonSchema(value) {
   if (Array.isArray(value)) return value.map(prepareJsonSchema);
   if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.entries(value)
+  const prepared = Object.fromEntries(Object.entries(value)
     .filter(([key]) => !['$schema', '$id'].includes(key))
     .map(([key, child]) => [key, prepareJsonSchema(child)]));
+  if (!prepared.type && Object.hasOwn(prepared, 'const')) {
+    prepared.type = jsonSchemaTypeOf(prepared.const);
+  }
+  return prepared;
+}
+
+function jsonSchemaTypeOf(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'number') return Number.isInteger(value) ? 'integer' : 'number';
+  return typeof value;
 }
 
 function isRetryable(error) {

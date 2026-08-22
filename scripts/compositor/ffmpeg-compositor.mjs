@@ -114,7 +114,9 @@ export function composeFramesWithFfmpeg({
     inputs.push(resolveAsset(context, relativePath, name));
     return index;
   };
-  const backgroundIndex = runtime.backgroundAnimation ? null : addAsset(runtime.assets.background, 'background');
+  const backgroundIndex = runtime.backgroundAnimation || runtime.backgroundVideo
+    ? null
+    : addAsset(runtime.assets.background, 'background');
   const backgroundInputs = runtime.backgroundAnimation?.layers.map((layer) => ({
     layer,
     index: addAsset(layer.asset, `background/${layer.id}`),
@@ -160,7 +162,10 @@ export function composeFramesWithFfmpeg({
   }
 
   let sceneLabel;
-  if (runtime.backgroundAnimation) {
+  if (runtime.backgroundVideo) {
+    filters.push(`color=c=black@0.0:s=${config.video.width}x${config.video.height}:r=${fps}:d=${renderDuration},format=rgba[bgbase]`);
+    sceneLabel = 'bgbase';
+  } else if (runtime.backgroundAnimation) {
     filters.push(`color=c=#071022:s=${config.video.width}x${config.video.height}:r=${fps}:d=${renderDuration}[bgbase]`);
     sceneLabel = 'bgbase';
     for (const [index, background] of backgroundInputs.entries()) {

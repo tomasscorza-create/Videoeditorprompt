@@ -11,6 +11,7 @@ import { cleanupCompletedJob } from './retention.mjs';
 import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
 import { publishRenderArtifacts } from '../storage/artifact-storage.mjs';
 import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
+import { validateTimelineDocument } from '../../shared/timeline-clip-core.js';
 
 const JOB_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/;
 const MAX_IN_MEMORY_JOBS = 500;
@@ -22,6 +23,7 @@ export async function createRenderJobManager(options = {}) {
   const appInputRoot = ensureDirectory(path.resolve(options.appInputRoot || path.join(root, '.local-video', 'app-input')));
   const workRoot = path.resolve(options.workRoot || path.join(root, '.local-video', 'work'));
   const outputRoot = path.resolve(options.outputRoot || path.join(root, '.local-video', 'output'));
+  const timelineMediaRoot = path.resolve(options.timelineMediaRoot || path.join(root, '.local-video', 'timeline-v2', 'media'));
   const catalogProvider = options.catalogProvider
     || (() => options.catalog || loadAuthoringCatalog(assetsRoot));
   const pipelineScript = path.join(root, 'scripts', 'stage3a', 'project-pipeline.mjs');
@@ -35,7 +37,7 @@ export async function createRenderJobManager(options = {}) {
   let activeJobId = null;
   await recoverPersistedJobs();
 
-  async function create(project) {
+  async function create(project, timeline = null) {
     if (activeJobId) {
       throw new PipelineError({
         code: 'RENDER_BUSY',
@@ -46,15 +48,19 @@ export async function createRenderJobManager(options = {}) {
       });
     }
     validateVideoProjectDocument({ project, catalog: catalogProvider(), assetsRoot });
+    if (timeline !== null && timeline !== undefined) validateTimelineDocument(timeline);
     const jobId = createJobId();
     const inputDirectory = ensureDirectory(path.join(appInputRoot, jobId));
     const projectFile = path.join(inputDirectory, 'project.json');
     writeJson(projectFile, project);
+    const timelineFile = timeline?.clips?.length ? path.join(inputDirectory, 'timeline.json') : null;
+    if (timelineFile) writeJson(timelineFile, timeline);
     const job = {
       version: 1,
       jobId,
       projectId: project.id,
       projectRevision: projectFingerprint(project),
+      ...(timelineFile ? { timelineRevision: projectFingerprint(timeline), timelineFile } : {}),
       timingRevision: projectTimingFingerprint(project),
       state: 'queued',
       stage: 'queueing',
@@ -84,6 +90,10 @@ export async function createRenderJobManager(options = {}) {
       `--assets-dir=${assetsRoot}`,
       `--work-dir=${workRoot}`,
       `--output-dir=${outputRoot}`,
+      ...(job.timelineFile ? [
+        `--timeline=${job.timelineFile}`,
+        `--timeline-media-dir=${timelineMediaRoot}`,
+      ] : []),
       '--verification-mode=interactive',
     ];
     const child = spawnImpl(process.execPath, args, {
@@ -412,6 +422,7 @@ function publicJob(job) {
     jobId: job.jobId,
     projectId: job.projectId,
     ...(job.projectRevision ? { projectRevision: job.projectRevision } : {}),
+    ...(job.timelineRevision ? { timelineRevision: job.timelineRevision } : {}),
     ...(job.timingRevision ? { timingRevision: job.timingRevision } : {}),
     state: job.state,
     stage: job.stage,

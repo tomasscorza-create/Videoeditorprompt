@@ -3,10 +3,12 @@ import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import { PipelineError } from '../stage1/errors.mjs';
-import { validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
+import { resolveAuthoringAsset, validateVideoProjectDocument } from '../stage3a/validate-video-project.mjs';
 import { applyProjectEditorCommandBatch, createProjectEditor } from '../../shared/project-editor.js';
 import { ANIMATION_PRESETS } from '../../shared/animation-presets.js';
 import { effectSequenceWindow } from '../../shared/animation-sequences.js';
+import { parseVideoTemplateDefinition } from '../../shared/video-template-definition.js';
+import { normalizeTemplateWord } from '../../shared/video-template-evaluator.js';
 import { validateCreativeRecipeCatalog, loadCreativeRecipeCatalog } from './creative-contract.mjs';
 import { listLayoutPresetIds, getLayoutPreset } from './director-plan.mjs';
 import { expandEffectSequenceCommands } from './recipe-expander.mjs';
@@ -299,7 +301,9 @@ export function validateDirectorPlanV2(plan, catalog, recipes = loadCreativeReci
 export function normalizeDirectorPlanV2(plan, catalog, options = {}) {
   const recipes = options.recipes ?? loadCreativeRecipeCatalog();
   const budget = validateDirectorPlanV2(plan, catalog, recipes);
-  const semanticHash = hashJson({ plan, promptHash: options.promptHash ?? null, normalizerVersion: 2 });
+  const semanticHash = hashJson({ plan, promptHash: options.promptHash ?? null, normalizerVersion: 3 });
+  const assetsRoot = options.assetsRoot || path.join(projectRoot, 'public');
+  const templateDefinitions = loadTemplateDefinitions(catalog, assetsRoot);
   let project = {
     version: 1,
     id: safeId(options.projectId || `${slug(plan.title)}-${semanticHash.slice(0, 8)}`),
@@ -308,12 +312,17 @@ export function normalizeDirectorPlanV2(plan, catalog, options = {}) {
     seed: Number.parseInt(semanticHash.slice(0, 8), 16),
     resourceCatalog: options.resourceCatalog || 'assets/catalog/authoring-resources.json',
     ...(plan.musicResourceId ? { musicResourceId: plan.musicResourceId } : {}),
-    scenes: plan.scenes.map((scene, index) => normalizeScene(scene, index, plan.scenes.length)),
+    scenes: plan.scenes.map((scene, index) => normalizeScene(
+      scene,
+      index,
+      plan.scenes.length,
+      templateDefinitions,
+    )),
   };
   project = materializeEffectSequences(project, plan, catalog, recipes);
   const composition = analyzeDirectorComposition({ project });
   if (!composition.passed) fail('DIRECTOR_COMPOSITION_INVALID', JSON.stringify(composition.issues));
-  validateVideoProjectDocument({ project, catalog, assetsRoot: options.assetsRoot || path.join(projectRoot, 'public') });
+  validateVideoProjectDocument({ project, catalog, assetsRoot });
   return { project, semanticHash, budget };
 }
 
@@ -439,7 +448,20 @@ function supportsParameters(element, resource, parameterIds) {
   });
 }
 
-function normalizeScene(scene, sceneIndex, sceneCount) {
+function loadTemplateDefinitions(catalog, assetsRoot) {
+  return new Map(catalog.entries
+    .filter((entry) => entry.type === 'template')
+    .map((entry) => {
+      const definitionFile = resolveAuthoringAsset(
+        assetsRoot,
+        entry.templateRef.definition,
+        `definición de la plantilla ${entry.id}`,
+      );
+      return [entry.id, parseVideoTemplateDefinition(readJson(definitionFile), entry.id)];
+    }));
+}
+
+function normalizeScene(scene, sceneIndex, sceneCount, templateDefinitions) {
   const sceneId = `escena-${String(sceneIndex + 1).padStart(2, '0')}`;
   const layout = getLayoutPreset(scene.layoutPreset);
   const roleToElement = new Map();
@@ -456,7 +478,23 @@ function normalizeScene(scene, sceneIndex, sceneCount) {
       propIndex += 1;
       elements.push({ id: `${sceneId}-prop-${index + 1}`, type: 'prop', resourceId: visual.resourceId, transform: transform(placement.x, placement.y, placement.scale, placement.zIndex) });
     }
-    else elements.push({ id: `${sceneId}-plantilla-${index + 1}`, type: 'template', templateId: visual.resourceId, values: { word: visual.word || 'IDEA' }, transform: transform(540, 780, 1, 40 + index) });
+    else {
+      const definition = templateDefinitions.get(visual.resourceId);
+      const field = definition?.fields.find((candidate) => candidate.id === 'word');
+      elements.push({
+        id: `${sceneId}-plantilla-${index + 1}`,
+        type: 'template',
+        templateId: visual.resourceId,
+        values: {
+          word: normalizeTemplateWord(
+            visual.word,
+            definition?.defaultValues.word || 'IDEA',
+            field?.maxLength || 24,
+          ),
+        },
+        transform: transform(540, 780, 1, 40 + index),
+      });
+    }
   });
   const participantByRole = new Map(scene.participants.map((entry) => [entry.roleId, entry]));
   const normalized = {

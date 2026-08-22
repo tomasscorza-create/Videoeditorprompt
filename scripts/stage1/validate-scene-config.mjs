@@ -145,6 +145,9 @@ function resolveConfiguredAssets(config, context) {
 }
 
 function validateDialogueSemantics(config) {
+  if (config.backgroundAnimation && config.backgroundVideo) {
+    semanticError('/backgroundVideo', 'no puede coexistir con /backgroundAnimation');
+  }
   const characterIds = new Set();
   const elementIds = new Set();
   for (const [index, character] of config.characters.entries()) {
@@ -221,6 +224,13 @@ function resolveDialogueAssets(config, context) {
       return { ...layer };
     }),
   } : null;
+  context.resolvedBackgroundVideo = config.backgroundVideo ? (() => {
+    for (const name of ['asset', 'poster']) {
+      assertPortableRelativePath(config.backgroundVideo[name], `/backgroundVideo/${name}`);
+      resolveAsset(context, config.backgroundVideo[name], `backgroundVideo/${name}`);
+    }
+    return { ...config.backgroundVideo };
+  })() : null;
   context.characterRig = null;
   const catalog = config.assetCatalog ? resolveAssetCatalog(context, config.assetCatalog) : null;
   context.assetCatalog = catalog;
