@@ -25,13 +25,13 @@
       "compatibleModes": ["solo"],
       "participantRange": { "minimum": 1, "maximum": 1 },
       "requiredElementTypes": ["character"],
-      "optionalElementTypes": ["prop", "template"],
+      "optionalElementTypes": ["prop"],
       "beats": [
         { "id": "hook", "kind": "speech", "intent": "Abrir con una tensión o afirmación concreta.", "preferredDelivery": "character" },
         { "id": "explanation", "kind": "speech", "intent": "Desarrollar la idea con un ejemplo breve.", "preferredDelivery": "character" },
         { "id": "close", "kind": "speech", "intent": "Cerrar con una conclusión aplicable.", "preferredDelivery": "character" }
       ],
-      "recommendedEffectSequenceIds": ["entrance-emphasis-exit-v1", "character-explain-v3", "character-celebrate-v3", "final-emphasis-v3", "rise-and-settle-v2", "shake-and-pulse-v2"]
+      "recommendedEffectSequenceIds": ["character-explain-v3", "character-celebrate-v3", "final-emphasis-v3", "rise-and-settle-v2", "shake-and-pulse-v2"]
     },
     {
       "id": "dialogue-contrast-v1",
@@ -127,6 +127,7 @@
       "label": "Entrada, énfasis y salida",
       "description": "Coordina una entrada lateral, un énfasis central y una salida por opacidad.",
       "tags": ["entrada", "enfasis", "salida", "personaje"],
+      "directorAvailability": "legacy",
       "phase": "opening",
       "compatibleAnchorKinds": ["scene", "turn"],
       "slots": [

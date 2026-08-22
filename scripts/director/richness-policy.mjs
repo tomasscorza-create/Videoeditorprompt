@@ -1,14 +1,13 @@
-export const RICHNESS_POLICY_VERSION = 1;
+export const RICHNESS_POLICY_VERSION = 2;
 
 export function resolveRichnessPolicy(profile = 'automatic', context = {}) {
   const resolved = profile === 'automatic' ? automaticProfile(context) : profile;
-  const fixedStructure = context.structure && context.structure !== 'automatic';
   return {
     version: RICHNESS_POLICY_VERSION,
     requested: profile,
     resolved,
     rationale: profile !== 'automatic' ? 'El usuario eligió el perfil.' : automaticRationale(context, resolved),
-    minimumModes: resolved === 'simple' || fixedStructure ? 1 : 2,
+    minimumModes: 1,
     minimumVisualFamilies: resolved === 'simple' ? 0 : resolved === 'varied' ? 1 : 1,
     minimumAnimatedScenes: resolved === 'dynamic' ? Math.max(1, Math.ceil((context.sceneCount ?? 1) / 2)) : 0,
     maximumVisualElementsPerScene: resolved === 'simple' ? 1 : resolved === 'varied' ? 3 : 4,
@@ -29,11 +28,10 @@ export function analyzeCreativeRichness(plan, context = {}) {
   const durationWeights = plan.scenes.map((scene) => scene.durationWeight ?? 1);
   const repeatedModeRatio = plan.scenes.length ? Math.max(...[...modes].map((mode) => plan.scenes.filter((scene) => (scene.mode ?? 'dialogue') === mode).length)) / plan.scenes.length : 1;
   const issues = [];
-  if (plan.scenes.length > 1 && modes.size < Math.min(policy.minimumModes, plan.scenes.length)) issues.push('Falta variedad estructural entre escenas.');
   if (visualFamilies.size < policy.minimumVisualFamilies) issues.push('Falta una familia visual útil, como prop o plantilla.');
   if (animatedScenes < policy.minimumAnimatedScenes) issues.push('Faltan secuencias coordinadas en escenas dinámicas.');
   if (plan.scenes.some((scene) => (scene.visualElements ?? []).length > policy.maximumVisualElementsPerScene)) issues.push('Una escena supera la densidad visual del perfil.');
-  if (policy.resolved !== 'simple' && plan.scenes.length > 1 && layouts.size < 2) issues.push('Todas las escenas repiten la misma composición.');
+  if (policy.resolved !== 'simple' && plan.scenes.length > 2 && layouts.size < 2) issues.push('Todas las escenas repiten la misma composición.');
   if (policy.resolved !== 'simple' && resources.length > 1 && new Set(resources).size === 1) issues.push('Todos los apoyos visuales repiten el mismo recurso.');
   if (effectCount > plan.scenes.length * 3) issues.push('La densidad de movimiento puede competir con el contenido.');
   if (Math.max(...durationWeights) / Math.min(...durationWeights) > 6) issues.push('La distribución editorial entre escenas está demasiado desequilibrada.');

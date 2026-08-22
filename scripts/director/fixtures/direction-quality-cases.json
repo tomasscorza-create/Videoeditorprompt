@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "template-over-dialogue",
+      "expectedIssue": "FULL_FRAME_TEMPLATE_WITH_PARTICIPANTS",
+      "scene": {
+        "mode": "dialogue",
+        "sceneRecipeId": "dialogue-contrast-v1",
+        "participants": [{ "roleId": "a" }, { "roleId": "b" }],
+        "visualElements": [{ "type": "template", "resourceId": "template-a" }],
+        "speech": [{ "kind": "character" }]
+      }
+    },
+    {
+      "id": "two-full-frame-templates",
+      "expectedIssue": "MULTIPLE_FULL_FRAME_TEMPLATES",
+      "scene": {
+        "mode": "voiceover",
+        "sceneRecipeId": "keyword-pages-v1",
+        "participants": [],
+        "visualElements": [{ "type": "template", "resourceId": "template-a" }, { "type": "template", "resourceId": "template-b" }],
+        "speech": [{ "kind": "voiceover" }]
+      }
+    },
+    {
+      "id": "speaker-fades-during-opening",
+      "expectedIssue": "SPEAKER_HIDDEN_BEFORE_SCENE_END",
+      "projectScene": {
+        "dialogue": [{ "speakerElementId": "speaker-a" }],
+        "elements": [{
+          "id": "speaker-a",
+          "tracks": [{
+            "parameterId": "opacity",
+            "keyframes": [
+              { "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 1.6, "value": 1 },
+              { "anchor": { "kind": "scene", "edge": "start" }, "offsetSeconds": 2, "value": 0 }
+            ]
+          }]
+        }]
+      }
+    }
+  ]
+}

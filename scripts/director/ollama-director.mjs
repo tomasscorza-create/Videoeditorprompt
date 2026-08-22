@@ -746,6 +746,7 @@ function buildSystemPrompt(directorContext, constraints = {}) {
     'REGLAS:',
     constraints.planVersion === 2 ? 'Usá estructura flexible por escena: voiceover, solo, dialogue o visual-with-voiceover. No agregues personajes si la idea funciona mejor narrada.' : null,
     constraints.planVersion === 2 ? 'Cada escena admite de cero a dos participantes y desde un turno. Elegí recetas, props, plantillas y secuencias solo por IDs permitidos.' : null,
+    constraints.planVersion === 2 ? 'Una plantilla ocupa toda la pantalla: usala como único elemento visual, sin personajes, y solo con voz fuera de campo. Nunca superpongas dos plantillas.' : null,
     constraints.planVersion === 2 ? 'Distribuí el movimiento durante toda la escena: combiná secuencias opening, development y closing cuando el perfil sea variado o dinámico. Priorizá secuencias exclusivas de prop si agregaste un prop.' : null,
     constraints.planVersion === 2 ? 'Para fondos con parallax, elegí cámaras móviles variadas en perfiles varied o dynamic; reservá static para una pausa visual intencional.' : null,
     constraints.planVersion === 2 ? 'Usá durationWeight para repartir el objetivo: valores mayores reservan proporcionalmente más narración; no hagas todas las escenas iguales salvo que el contenido lo justifique.' : null,
@@ -811,6 +812,7 @@ function repairFeedback(error) {
     DIRECTOR_RESOURCE_INVALID: 'usá únicamente IDs de recursos incluidos en la shortlist y del tipo correcto.',
     DIRECTOR_RESOURCE_UNSUPPORTED: 'elegí capacidades que el recurso seleccionado declare explícitamente.',
     DIRECTOR_RECIPE_INVALID: 'elegí una receta compatible con el modo, la cantidad de participantes y los tipos visuales presentes.',
+    DIRECTOR_COMPOSITION_INVALID: 'separá personajes, carteles de pantalla completa y salidas visuales para que ningún hablante quede oculto antes de terminar.',
     DIRECTOR_CAST_INVALID: 'ajustá el reparto al modo: voiceover sin personajes, solo con uno, dialogue con dos distintos y visual-with-voiceover con cero a dos.',
     DIRECTOR_TRANSITION_INVALID: 'usá fundidos entre 0.15 y 1 segundo, o corte con duración cero.',
     DIRECTOR_GESTURE_TIMING_INVALID: 'ubicá gestureAtWord dentro de las palabras reales del turno.',
@@ -823,15 +825,16 @@ function repairFeedback(error) {
 
 function creativeCatalogForConstraints(constraints) {
   const catalog = loadCreativeRecipeCatalog();
+  const activeEffectSequences = catalog.effectSequences.filter((sequence) => sequence.directorAvailability !== 'legacy');
   const requestedMode = constraints.structure === 'narration'
     ? new Set(['voiceover', 'visual-with-voiceover'])
     : constraints.structure === 'one-character'
       ? new Set(['solo'])
       : constraints.structure === 'dialogue' ? new Set(['dialogue']) : null;
-  if (!requestedMode) return catalog;
+  if (!requestedMode) return { ...catalog, effectSequences: activeEffectSequences };
   const sceneRecipes = catalog.sceneRecipes.filter((recipe) => recipe.compatibleModes.some((mode) => requestedMode.has(mode)));
   const recommended = new Set(sceneRecipes.flatMap((recipe) => recipe.recommendedEffectSequenceIds));
-  const effectSequences = catalog.effectSequences.filter((sequence) => recommended.has(sequence.id));
+  const effectSequences = activeEffectSequences.filter((sequence) => recommended.has(sequence.id));
   return { ...catalog, sceneRecipes, effectSequences };
 }
 

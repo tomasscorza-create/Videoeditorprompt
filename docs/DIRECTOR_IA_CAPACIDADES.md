@@ -123,3 +123,21 @@ del proyecto real; IDs nuevos como patrón portable.
 - Cualquier cambio de schema/prompt/normalizador va con un bump de
   `DIRECTOR_PIPELINE_VERSION` (`scripts/director/version.mjs`), uno por lote, que
   invalida caché y `semanticHash` viejos de forma coherente.
+
+## Guardas de composición DQ0–DQ1
+
+La versión 13 agrega una auditoría determinista antes y después de normalizar el
+plan. Las plantillas vigentes se consideran composiciones opacas de pantalla
+completa: solo pueden ocupar una escena gráfica dedicada, sin personajes ni otros
+elementos visuales y con voz fuera de campo. También se rechaza cualquier pista
+generada que deje invisible a un personaje hablante antes del cierre de escena.
+
+La secuencia histórica `entrance-emphasis-exit-v1` sigue siendo legible para
+proyectos existentes, pero ya no se ofrece al Director ni al selector de nuevas
+animaciones. Las recetas validan tanto los tipos requeridos como los permitidos, y
+la riqueza creativa deja de forzar cambios de modo entre escenas: la variedad debe
+apoyar el contenido sin romper reparto, continuidad o legibilidad.
+
+El gate reproducible es `npm run director:test-direction-quality`; sus fixtures
+cubren plantilla sobre diálogo, dos plantillas opacas y un hablante que desaparece
+durante la apertura.

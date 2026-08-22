@@ -154,6 +154,7 @@
         "label": { "type": "string", "minLength": 1, "maxLength": 100 },
         "description": { "$ref": "#/$defs/shortText" },
         "tags": { "$ref": "#/$defs/tags" },
+        "directorAvailability": { "enum": ["active", "legacy"] },
         "phase": { "enum": ["opening", "development", "closing"] },
         "compatibleAnchorKinds": {
           "type": "array",

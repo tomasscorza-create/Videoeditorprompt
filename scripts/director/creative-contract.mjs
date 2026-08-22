@@ -121,6 +121,9 @@ export function validateCreativeRecipeCatalog(document) {
       if (!sequences.has(sequenceId)) {
         fail('CREATIVE_REFERENCE_INVALID', `${recipePath}/recommendedEffectSequenceIds`, sequenceId);
       }
+      if (sequences.get(sequenceId)?.directorAvailability === 'legacy') {
+        fail('CREATIVE_RECIPE_CATALOG_INVALID', `${recipePath}/recommendedEffectSequenceIds`, `${sequenceId} es solo histórica`);
+      }
     }
   }
 
@@ -268,6 +271,10 @@ export function validateCreativeSceneBlueprint(document, options = {}) {
   const presentTypes = new Set(roleEntries.map((entry) => entry.type));
   for (const type of recipe.requiredElementTypes) {
     if (!presentTypes.has(type)) fail('CREATIVE_RECIPE_INCOMPATIBLE', '/visualElements', `falta ${type}`);
+  }
+  const allowedTypes = new Set([...recipe.requiredElementTypes, ...recipe.optionalElementTypes]);
+  for (const type of presentTypes) {
+    if (!allowedTypes.has(type)) fail('CREATIVE_RECIPE_INCOMPATIBLE', '/visualElements', `${type} no está permitido`);
   }
 
   uniqueIds(document.effectSequences, '/effectSequences');

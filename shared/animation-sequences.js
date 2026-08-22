@@ -12,7 +12,8 @@ import {
 
 export function listApplicableEffectSequences(recipeCatalog, element, resource) {
   const sequences = Array.isArray(recipeCatalog?.effectSequences) ? recipeCatalog.effectSequences : [];
-  return sequences.filter((sequence) => sequence.slots.length === 1
+  return sequences.filter((sequence) => sequence.directorAvailability !== 'legacy'
+    && sequence.slots.length === 1
     && sequence.slots[0].elementTypes.includes(element.type)
     && sequence.slots[0].requiredParameters.every((parameterId) => (
       !ANIMATION_PARAMETERS[parameterId]?.requiresResourceSupport

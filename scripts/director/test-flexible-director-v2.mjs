@@ -39,7 +39,7 @@ function basePlan() {
         speech: [{ kind: 'voiceover', voiceId: 'voz-elevenlabs-ce6ff01ff0d4', text: 'Primero vemos el dato que cambia la pregunta y abre una forma concreta de entender el problema antes de buscar respuestas apresuradas.', gapAfterSeconds: 0 }],
       },
       {
-        title: 'La explicación', purpose: 'Explicar con una persona.', mode: 'solo', durationWeight: 1.3, sceneRecipeId: 'solo-explainer-v1', effectSequenceIds: ['entrance-emphasis-exit-v1'],
+        title: 'La explicación', purpose: 'Explicar con una persona.', mode: 'solo', durationWeight: 1.3, sceneRecipeId: 'solo-explainer-v1', effectSequenceIds: ['rise-and-settle-v2'],
         backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'static', layoutPreset: 'focus-a', transitionPreset: 'cut', transitionDurationSeconds: 0,
         participants: [{ roleId: 'guia', characterResourceId: 'mono-azul-v1', voiceId: 'voz-elevenlabs-c8ff047a678d', animationPresetId: 'talk-calm' }], visualElements: [],
         speech: [{ kind: 'character', speakerRoleId: 'guia', text: 'Una sola voz puede desarrollar la idea con claridad, presentar un ejemplo útil y llegar a una conclusión sin forzar un diálogo innecesario.', gestureId: 'point', gestureAtWord: 2, gapAfterSeconds: 0 }],
@@ -70,7 +70,7 @@ await test('plan-v2-normaliza-cero-uno-dos-personajes-y-musica', () => {
   assert.equal(project.scenes[0].dialogue[0].speakerType, 'voiceover');
   assert.equal(project.musicResourceId, 'musica-brillante-v1');
   assert.ok(project.scenes[0].elements[0].tracks?.some((track) => track.source.presetId === 'fade-in'));
-  assert.ok(project.scenes[1].elements[0].tracks?.some((track) => track.source.presetId === 'enter-left'));
+  assert.ok(project.scenes[1].elements[0].tracks?.some((track) => track.source.presetId === 'enter-bottom'));
   assert.ok(project.scenes[2].elements[0].tracks?.some((track) => track.source.presetId === 'emphasis-pulse'));
   assert.ok(project.scenes[2].elements[1].tracks?.some((track) => track.source.presetId === 'head-nod'));
   assert.equal(validateEditableProject(project, catalog), true);
@@ -112,6 +112,7 @@ await test('schema-ollama-v2-ofrece-ocho-escenas-y-recetas-cerradas', () => {
   assert.ok(JSON.stringify(schema).includes('voiceover-feature-v1'));
   assert.ok(JSON.stringify(schema).includes('participants'));
   assert.ok(schema.$defs.scene.properties.cameraPreset.enum.includes('push-in'));
+  assert.equal(schema.$defs.scene.properties.effectSequenceIds.items.enum.includes('entrance-emphasis-exit-v1'), false);
   const threeSceneSchema = buildOllamaPlanSchema(catalog, { planVersion: 2, sceneCount: 3, richnessProfile: 'dynamic', structure: 'automatic' });
   const validate = new Ajv2020({ allErrors: true, strict: true }).compile(threeSceneSchema);
   const validPlan = basePlan();
@@ -269,6 +270,24 @@ await test('plan-v2-rechaza-reparto-receta-y-hablante-incompatibles', () => {
   const wrongSequence = basePlan();
   wrongSequence.scenes[0].effectSequenceIds = ['secuencia-inventada'];
   assert.throws(() => validateDirectorPlanV2(wrongSequence, catalog, recipes), (error) => error.code === 'DIRECTOR_RECIPE_INVALID');
+});
+
+await test('plan-v2-rechaza-plantillas-que-tapan-personajes-y-salidas-tempranas', () => {
+  const coveredSpeaker = basePlan();
+  coveredSpeaker.scenes[1].visualElements = [{
+    roleId: 'cartel-opaco', type: 'template', resourceId: 'procedural-cta-pulse-v1', word: 'ATENCIÓN',
+  }];
+  assert.throws(
+    () => validateDirectorPlanV2(coveredSpeaker, catalog, recipes),
+    (error) => error.code === 'DIRECTOR_COMPOSITION_INVALID',
+  );
+
+  const earlyExit = basePlan();
+  earlyExit.scenes[1].effectSequenceIds = ['entrance-emphasis-exit-v1'];
+  assert.throws(
+    () => normalizeDirectorPlanV2(earlyExit, catalog, { recipes, projectId: 'gate-salida-temprana-v2' }),
+    (error) => error.code === 'DIRECTOR_COMPOSITION_INVALID',
+  );
 });
 
 await test('plan-v2-admite-omitir-secuencias-opcionales', () => {

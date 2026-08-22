@@ -10,6 +10,7 @@ import { effectSequenceWindow } from '../../shared/animation-sequences.js';
 import { validateCreativeRecipeCatalog, loadCreativeRecipeCatalog } from './creative-contract.mjs';
 import { listLayoutPresetIds, getLayoutPreset } from './director-plan.mjs';
 import { expandEffectSequenceCommands } from './recipe-expander.mjs';
+import { analyzeDirectorComposition } from './direction-quality.mjs';
 
 const schema = readJson(path.join(projectRoot, 'schema', 'ai-video-plan-v2.schema.json'));
 const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
@@ -161,10 +162,14 @@ function canonicalSpeech(scene, voices, resources) {
 function findCompatibleRecipe(scene, recipes) {
   const present = new Set(scene.visualElements.map((entry) => entry.type));
   if (scene.participants.length) present.add('character');
-  const compatible = (recipe) => recipe.compatibleModes.includes(scene.mode)
-    && scene.participants.length >= recipe.participantRange.minimum
-    && scene.participants.length <= recipe.participantRange.maximum
-    && recipe.requiredElementTypes.every((type) => present.has(type));
+  const compatible = (recipe) => {
+    const allowed = new Set([...recipe.requiredElementTypes, ...recipe.optionalElementTypes]);
+    return recipe.compatibleModes.includes(scene.mode)
+      && scene.participants.length >= recipe.participantRange.minimum
+      && scene.participants.length <= recipe.participantRange.maximum
+      && recipe.requiredElementTypes.every((type) => present.has(type))
+      && [...present].every((type) => allowed.has(type));
+  };
   return recipes.find((entry) => entry.id === scene.sceneRecipeId && compatible(entry)) ?? recipes.find(compatible);
 }
 
@@ -229,6 +234,8 @@ export function validateDirectorPlanV2(plan, catalog, recipes = loadCreativeReci
     if (scene.transitionPreset === 'cut' && scene.transitionDurationSeconds !== 0) fail('DIRECTOR_TRANSITION_INVALID', `${base}/transitionDurationSeconds`);
     if (scene.transitionPreset === 'fade' && (scene.transitionDurationSeconds < 0.15 || scene.transitionDurationSeconds > 1)) fail('DIRECTOR_TRANSITION_INVALID', `${base}/transitionDurationSeconds`);
   }
+  const composition = analyzeDirectorComposition({ plan, recipes });
+  if (!composition.passed) fail('DIRECTOR_COMPOSITION_INVALID', JSON.stringify(composition.issues));
   const maximumWords = Math.max(40, Math.ceil(plan.targetDurationSeconds * 3.2));
   if (totalWords > maximumWords) fail('DIRECTOR_DURATION_BUDGET_EXCEEDED', `words=${totalWords}; maximum=${maximumWords}; targetSeconds=${plan.targetDurationSeconds}`);
   const totalWeight = plan.scenes.reduce((sum, scene) => sum + scene.durationWeight, 0);
@@ -256,6 +263,8 @@ export function normalizeDirectorPlanV2(plan, catalog, options = {}) {
     scenes: plan.scenes.map((scene, index) => normalizeScene(scene, index, plan.scenes.length)),
   };
   project = materializeEffectSequences(project, plan, catalog, recipes);
+  const composition = analyzeDirectorComposition({ project });
+  if (!composition.passed) fail('DIRECTOR_COMPOSITION_INVALID', JSON.stringify(composition.issues));
   validateVideoProjectDocument({ project, catalog, assetsRoot: options.assetsRoot || path.join(projectRoot, 'public') });
   return { project, semanticHash, budget };
 }
