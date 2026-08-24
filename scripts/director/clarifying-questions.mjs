@@ -7,7 +7,7 @@ import { resolveDirectorProvider } from './providers/index.mjs';
 import { DEFAULT_DIRECTOR_MODEL } from './providers/ollama.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 import { quarantineDirectorCache, readDirectorCache, writeDirectorCache } from './cache.mjs';
-import { aggregateProviderUsage, assertWithinTokenBudget } from './providers/usage.mjs';
+import { aggregateProviderUsage, assertWithinTokenBudget, createDirectorUsageLedger, estimateDirectorInputTokens } from './providers/usage.mjs';
 
 const schema = readJson(path.join(projectRoot, 'schema', 'director-questions.schema.json'));
 const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
@@ -74,18 +74,26 @@ export async function createClarifyingQuestions(options) {
     ? integerBudget(options.maxTotalTokens ?? process.env.LOCAL_VIDEO_OPENAI_MAX_QUESTION_TOKENS, 5_000)
     : null;
   const usageEntries = [];
-  let result = await provider.generateQuestions({
+  const ledger = createDirectorUsageLedger({ maximumTokens: tokenBudget, limits: { questions: tokenBudget } });
+  const initialMessages = [
+    { role: 'system', content: systemMessage },
+    { role: 'user', content: JSON.stringify({ idea: prompt, preferenciasConfirmadas: constraints }) },
+  ];
+  const initialReservation = ledger.reserve('questions', { inputTokens: estimateDirectorInputTokens(initialMessages), maxOutputTokens: 900 });
+  let result;
+  try {
+    result = await provider.generateQuestions({
     schema,
     signal: options.signal,
-    messages: [
-      { role: 'system', content: systemMessage },
-      { role: 'user', content: JSON.stringify({ idea: prompt, preferenciasConfirmadas: constraints }) },
-    ],
+    messages: initialMessages,
     options: {
-      model, temperature: 0.25, seed: seedFrom(cacheKey), maxOutputTokens: 900,
+      model, temperature: 0.25, seed: seedFrom(cacheKey), maxOutputTokens: initialReservation.maxOutputTokens,
       think: false, timeoutMs: 180_000, promptCacheKey,
     },
-  });
+    });
+  } finally {
+    ledger.settle(initialReservation, result?.usage);
+  }
   usageEntries.push(result.usage);
   assertWithinTokenBudget(aggregateProviderUsage(usageEntries), tokenBudget);
   emitProgress(options, 'validating_questions');
@@ -98,25 +106,31 @@ export async function createClarifyingQuestions(options) {
     if (error?.code !== 'DIRECTOR_QUESTIONS_SCHEMA_INVALID') throw error;
     repairAttempts = 1;
     emitProgress(options, 'repairing_questions');
-    result = await provider.generateQuestions({
+    const repairMessages = [
+      { role: 'system', content: `${systemMessage}\nCorregí la respuesta anterior. Conservá su relación con la idea, pero cumplí exactamente el formato solicitado.` },
+      { role: 'user', content: JSON.stringify({ idea: prompt, respuestaAnterior: parsed, errores: error.technicalDetail ?? null }) },
+    ];
+    const repairReservation = ledger.reserve('questions', { inputTokens: estimateDirectorInputTokens(repairMessages), maxOutputTokens: 900 });
+    try {
+      result = await provider.generateQuestions({
       schema,
       signal: options.signal,
-      messages: [
-        { role: 'system', content: `${systemMessage}\nCorregí la respuesta anterior. Conservá su relación con la idea, pero cumplí exactamente el formato solicitado.` },
-        { role: 'user', content: JSON.stringify({ idea: prompt, respuestaAnterior: parsed, errores: error.technicalDetail ?? null }) },
-      ],
+      messages: repairMessages,
       options: {
-        model, temperature: 0.1, seed: seedFrom(cacheKey) + 1, maxOutputTokens: 900,
+        model, temperature: 0.1, seed: seedFrom(cacheKey) + 1, maxOutputTokens: repairReservation.maxOutputTokens,
         think: false, timeoutMs: 180_000, promptCacheKey,
       },
-    });
+      });
+    } finally {
+      ledger.settle(repairReservation, result?.usage);
+    }
     usageEntries.push(result.usage);
     assertWithinTokenBudget(aggregateProviderUsage(usageEntries), tokenBudget);
     emitProgress(options, 'validating_questions');
     parsed = parseQuestionsJson(result.content);
     canonical = canonicalizeQuestions(parsed);
   }
-  const usage = aggregateProviderUsage(usageEntries, { repairAttempts, cacheHit: false, currentRequestCount: usageEntries.length });
+  const usage = ledger.usage({ repairAttempts, cacheHit: false, currentRequestCount: usageEntries.length });
   writeDirectorCache(cachePath, { version: 2, payload: canonical, usage });
   return {
     version: 1,

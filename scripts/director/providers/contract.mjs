@@ -22,6 +22,7 @@ export async function assertDirectorProviderContract({
   schema,
   expectedCancelledCode = 'OLLAMA_CANCELLED',
   expectedDigest = 'sha256:modelo-x',
+  model = 'modelo-x',
 }) {
   const validate = new Ajv2020({ strict: false }).compile(schema);
   const baseCall = {
@@ -30,7 +31,7 @@ export async function assertDirectorProviderContract({
       { role: 'system', content: 'Instrucción de sistema de prueba.' },
       { role: 'user', content: 'Pedido de prueba.' },
     ],
-    options: { model: 'modelo-x', temperature: 0.1, seed: 1, maxOutputTokens: 128, think: false, timeoutMs: 5000 },
+    options: { model, temperature: 0.1, seed: 1, maxOutputTokens: 128, think: false, timeoutMs: 5000 },
   };
   let checks = 0;
 
@@ -48,10 +49,10 @@ export async function assertDirectorProviderContract({
     checks += 1;
   }
 
-  const health = await makeProvider('ok').inspect({ model: 'modelo-x' });
+  const health = await makeProvider('ok').inspect({ model });
   assert.equal(typeof health.available, 'boolean');
   assert.equal(typeof health.modelInstalled, 'boolean');
-  assert.equal(health.model, 'modelo-x');
+  assert.equal(health.model, model);
   assert.ok('version' in health, 'inspect() debe declarar version (puede ser null)');
   assert.equal(health.digest, expectedDigest);
   checks += 1;

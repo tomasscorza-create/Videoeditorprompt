@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { applyProjectEditorCommandBatch, createProjectEditor } from '../../shared/project-editor.js';
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import {
   editProjectWithDirector,
@@ -13,6 +14,14 @@ import {
 const project = readJson(path.join(projectRoot, 'pilots', 'proyecto-compilable-01', 'project.json'));
 const catalog = readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'authoring-resources.json'));
 const cacheRoot = mkdtempSync(path.join(tmpdir(), 'director-edit-'));
+const appliedProject = (proposal, source = project, authorizeCustomized = false) => applyProjectEditorCommandBatch(
+  createProjectEditor(source, catalog),
+  proposal.commands.map((command, index) => (
+    authorizeCustomized && proposal.explanation.customizedTrackRemovalIndexes.includes(index)
+      ? { ...command, confirmCustomized: true }
+      : command
+  )),
+).project;
 let calls = 0;
 const fetchImpl = async (_url, options) => {
   calls += 1;
@@ -47,11 +56,12 @@ try {
   assert.equal(first.status, 'proposed');
   assert.equal(first.explanation.summary, 'El Director propone 1 cambio.');
   assert.deepEqual(first.explanation.changes, ['Editar un diálogo en la escena 2.']);
-  assert.equal(first.project.scenes[1].dialogue[0].text, 'Texto actualizado por el Director.');
+  assert.equal(Object.hasOwn(first, 'project'), false);
+  assert.equal(appliedProject(first).scenes[1].dialogue[0].text, 'Texto actualizado por el Director.');
   assert.ok(first.context.shortlistedEntries <= first.context.totalCatalogEntries);
   assert.ok(first.context.resourceIds.includes('mono-azul-v1'));
   assert.ok(first.context.resourceIds.includes('voz-elevenlabs-c8ff047a678d'));
-  assert.deepEqual(firstProgress, ['preparing_context', 'generating', 'validating', 'applying']);
+  assert.deepEqual(firstProgress, ['preparing_context', 'generating', 'validating', 'validating_proposal']);
   const second = await editProjectWithDirector({
     instruction: 'Cambiá el primer texto de la escena 2.',
     project, catalog, cacheRoot, fetchImpl,
@@ -90,7 +100,7 @@ try {
   });
   assert.equal(selected.status, 'no-change');
   assert.ok(selectedPrompt.includes('turno-presentacion-01'));
-  assert.equal(selected.baseProjectRevision, selected.projectRevision);
+  assert.equal(typeof selected.baseProjectRevision, 'string');
 
   let invalidCacheCalls = 0;
   const invalidThenValidFetch = async () => {
@@ -110,7 +120,7 @@ try {
     cacheRoot,
     fetchImpl: invalidThenValidFetch,
   });
-  assert.equal(recovered.project.title, 'Título validado antes de cachear');
+  assert.equal(appliedProject(recovered).title, 'Título validado antes de cachear');
   assert.equal(invalidCacheCalls, 2);
   const recoveredCache = await editProjectWithDirector({
     instruction: 'Probá la validación previa a la caché.',
@@ -121,7 +131,7 @@ try {
   });
   assert.equal(invalidCacheCalls, 2);
   assert.equal(recoveredCache.cacheHit, true);
-  assert.equal(recoveredCache.project.title, 'Título validado antes de cachear');
+  assert.equal(appliedProject(recoveredCache).title, 'Título validado antes de cachear');
 
   // Helper: corre un lote de comandos fijos sin caché (aisla cada caso).
   const runEdit = (commands) => editProjectWithDirector({
@@ -137,11 +147,11 @@ try {
   const duplicated = await runEdit([
     { type: 'duplicate-scene', sceneId: 'escena-cierre', newSceneId: 'escena-cierre-b', title: 'Cierre alternativo' },
   ]);
-  assert.equal(duplicated.project.scenes.length, 3);
-  assert.equal(duplicated.project.scenes[2].id, 'escena-cierre-b');
-  assert.equal(duplicated.project.scenes[2].title, 'Cierre alternativo');
-  assert.ok(duplicated.project.scenes[1].transitionToNext, 'la escena intermedia recupera transición de salida');
-  assert.equal(Object.hasOwn(duplicated.project.scenes[2], 'transitionToNext'), false);
+  assert.equal(appliedProject(duplicated).scenes.length, 3);
+  assert.equal(appliedProject(duplicated).scenes[2].id, 'escena-cierre-b');
+  assert.equal(appliedProject(duplicated).scenes[2].title, 'Cierre alternativo');
+  assert.ok(appliedProject(duplicated).scenes[1].transitionToNext, 'la escena intermedia recupera transición de salida');
+  assert.equal(Object.hasOwn(appliedProject(duplicated).scenes[2], 'transitionToNext'), false);
 
   // B1: agregar un turno de diálogo a una escena existente.
   const added = await runEdit([{
@@ -149,28 +159,28 @@ try {
     speakerElementId: 'analista', text: 'Y este turno lo agregó el copiloto.', voiceId: 'voz-elevenlabs-e029c0d67044',
     gestureId: 'point', gapAfterSeconds: 0.2, afterTurnId: 'turno-presentacion-02',
   }]);
-  assert.equal(added.project.scenes[0].dialogue.length, 3);
-  assert.equal(added.project.scenes[0].dialogue[2].id, 'turno-presentacion-03');
+  assert.equal(appliedProject(added).scenes[0].dialogue.length, 3);
+  assert.equal(appliedProject(added).scenes[0].dialogue[2].id, 'turno-presentacion-03');
 
   // B1: borrar un turno de diálogo.
   const removed = await runEdit([{ type: 'delete-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01' }]);
-  assert.equal(removed.project.scenes[0].dialogue.length, 1);
-  assert.equal(removed.project.scenes[0].dialogue[0].id, 'turno-presentacion-02');
+  assert.equal(appliedProject(removed).scenes[0].dialogue.length, 1);
+  assert.equal(appliedProject(removed).scenes[0].dialogue[0].id, 'turno-presentacion-02');
 
   // B1: reordenar escenas invierte el orden y mantiene las transiciones coherentes.
   const reordered = await runEdit([{ type: 'reorder-scenes', sceneIds: ['escena-cierre', 'escena-presentacion'] }]);
-  assert.deepEqual(reordered.project.scenes.map((scene) => scene.id), ['escena-cierre', 'escena-presentacion']);
-  assert.equal(Object.hasOwn(reordered.project.scenes[1], 'transitionToNext'), false);
+  assert.deepEqual(appliedProject(reordered).scenes.map((scene) => scene.id), ['escena-cierre', 'escena-presentacion']);
+  assert.equal(Object.hasOwn(appliedProject(reordered).scenes[1], 'transitionToNext'), false);
 
   // B2: escala y profundidad en set-character-transform.
   const scaled = await runEdit([{ type: 'set-character-transform', sceneId: 'escena-presentacion', elementId: 'presentadora', scale: 0.9, zIndex: 25 }]);
-  assert.equal(scaled.project.scenes[0].elements[0].transform.scale, 0.9);
-  assert.equal(scaled.project.scenes[0].elements[0].transform.zIndex, 25);
+  assert.equal(appliedProject(scaled).scenes[0].elements[0].transform.scale, 0.9);
+  assert.equal(appliedProject(scaled).scenes[0].elements[0].transform.zIndex, 25);
 
   // B2: gesto y pausa en set-dialogue-turn.
   const gestured = await runEdit([{ type: 'set-dialogue-turn', sceneId: 'escena-presentacion', turnId: 'turno-presentacion-01', gestureId: 'neutral', gapAfterSeconds: 1.5 }]);
-  assert.equal(gestured.project.scenes[0].dialogue[0].gestureId, 'neutral');
-  assert.equal(gestured.project.scenes[0].dialogue[0].gapAfterSeconds, 1.5);
+  assert.equal(appliedProject(gestured).scenes[0].dialogue[0].gestureId, 'neutral');
+  assert.equal(appliedProject(gestured).scenes[0].dialogue[0].gapAfterSeconds, 1.5);
 
   const phase2Turn = await runEdit([{
     type: 'set-dialogue-turn',
@@ -181,10 +191,10 @@ try {
     pace: 'fast',
     layoutPreset: 'focus-a',
   }]);
-  assert.equal(phase2Turn.project.scenes[0].dialogue[0].gestureId, 'celebrate');
-  assert.equal(phase2Turn.project.scenes[0].dialogue[0].gestureAtWord, 2);
-  assert.equal(phase2Turn.project.scenes[0].dialogue[0].pace, 'fast');
-  assert.equal(phase2Turn.project.scenes[0].dialogue[0].layoutPreset, 'focus-a');
+  assert.equal(appliedProject(phase2Turn).scenes[0].dialogue[0].gestureId, 'celebrate');
+  assert.equal(appliedProject(phase2Turn).scenes[0].dialogue[0].gestureAtWord, 2);
+  assert.equal(appliedProject(phase2Turn).scenes[0].dialogue[0].pace, 'fast');
+  assert.equal(appliedProject(phase2Turn).scenes[0].dialogue[0].layoutPreset, 'focus-a');
 
   // Fase 6: el contexto enumera capacidades por elemento, pero una pista se
   // resume por parámetro/procedencia y nunca envía sus keyframes.
@@ -271,11 +281,11 @@ try {
   assert.equal(selectedApplySchema.properties.presetId.enum.includes('emphasis-pulse'), false,
     'un preset no puede reemplazar mediante IA una pista personalizada');
   assert.equal(
-    animationProposal.project.scenes[0].elements[0].tracks.some((track) => track.parameterId === 'armRaise'),
+    appliedProject(animationProposal, animatedProject).scenes[0].elements[0].tracks.some((track) => track.parameterId === 'armRaise'),
     true,
   );
   assert.equal(
-    animationProposal.project.scenes[0].elements[0].tracks.some((track) => track.parameterId === 'opacity'),
+    appliedProject(animationProposal, animatedProject).scenes[0].elements[0].tracks.some((track) => track.parameterId === 'opacity'),
     false,
   );
   assert.deepEqual(animationProposal.explanation.changes, [
@@ -312,9 +322,10 @@ try {
   assert.deepEqual(customizedRemoval.explanation.customizedTrackRemovalIndexes, [0]);
   assert.equal(Object.hasOwn(customizedRemoval.commands[0], 'confirmCustomized'), false);
   assert.equal(
-    customizedRemoval.project.scenes[0].elements[0].tracks.some((track) => track.parameterId === 'scale'),
-    false,
+    animatedProject.scenes[0].elements[0].tracks.some((track) => track.parameterId === 'scale'),
+    true,
   );
+  assert.equal(appliedProject(customizedRemoval, animatedProject, true).scenes[0].elements[0].tracks.some((track) => track.parameterId === 'scale'), false);
 
   await assert.rejects(() => editProjectWithDirector({
     instruction: 'Intentá confirmar sin permiso humano.',
@@ -343,7 +354,30 @@ try {
     (error) => error.code === 'EDITOR_TURN_NOT_FOUND',
   );
 
-  process.stdout.write(`${JSON.stringify({ version: 1, passed: 64, failed: 0 })}\n`);
+  // Las referencias de autoría se resuelven en orden dentro del lote. Los
+  // recursos siguen pasando por enums cerrados en el schema del Director.
+  const createdInBatch = await runEdit([
+    {
+      type: 'add-scene',
+      scene: { id: 'escena-nueva', title: 'Escena nueva', background: structuredClone(project.scenes[0].background), elements: [], dialogue: [] },
+    },
+    { type: 'add-character', sceneId: 'escena-nueva', elementId: 'presentador-nuevo', resourceId: 'mono-azul-v1', x: 540, y: 960, scale: 1, zIndex: 1 },
+    { type: 'add-dialogue-turn', sceneId: 'escena-nueva', turnId: 'turno-nuevo', speakerElementId: 'presentador-nuevo', text: 'Este turno usa el personaje recién creado.', voiceId: 'voz-elevenlabs-c8ff047a678d', gestureId: 'neutral', gapAfterSeconds: 0 },
+  ]);
+  const createdProject = appliedProject(createdInBatch);
+  assert.equal(createdProject.scenes.at(-1).elements[0].id, 'presentador-nuevo');
+  assert.equal(createdProject.scenes.at(-1).dialogue[0].speakerElementId, 'presentador-nuevo');
+  const duplicateAndRename = await runEdit([
+    { type: 'duplicate-scene', sceneId: 'escena-cierre', newSceneId: 'cierre-copia', title: 'Cierre copia' },
+    { type: 'set-scene-title', sceneId: 'cierre-copia', title: 'Cierre final' },
+  ]);
+  assert.equal(appliedProject(duplicateAndRename).scenes.at(-1).title, 'Cierre final');
+  await assert.rejects(
+    () => runEdit([{ type: 'set-scene-title', sceneId: 'todavia-no-creada', title: 'Inválida' }]),
+    (error) => error.code === 'EDITOR_SCENE_NOT_FOUND',
+  );
+
+  process.stdout.write(`${JSON.stringify({ version: 1, passed: 70, failed: 0 })}\n`);
 } finally {
   rmSync(cacheRoot, { recursive: true, force: true });
 }

@@ -10,6 +10,7 @@ import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './providers/ollama.m
 import { resolveDirectorProvider } from './providers/index.mjs';
 import { DIRECTOR_PIPELINE_VERSION } from './version.mjs';
 import { buildDirectorContext } from './director-context.mjs';
+import { createDirectorUsageLedger, estimateDirectorInputTokens } from './providers/usage.mjs';
 
 const MAX_REQUEST_LENGTH = 1200;
 const MAX_EDIT_COMMANDS = 24;
@@ -17,6 +18,15 @@ const MAX_EDIT_ATTEMPTS = 2;
 // Unificado con la propuesta (ai-video-plan): el texto de diálogo se limita a 300
 // caracteres en ambos caminos de IA (B2). El editor y el proyecto admiten hasta 500.
 const DIRECTOR_TEXT_MAX_LENGTH = 300;
+
+function integerBudget(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw directorEditError('DIRECTOR_TOKEN_BUDGET_INVALID', 'El tope operativo local debe ser un entero positivo.');
+  }
+  return parsed;
+}
 
 export async function editProjectWithDirector(options) {
   const startedAt = Date.now();
@@ -56,6 +66,10 @@ export async function editProjectWithDirector(options) {
   const cachePath = path.join(cacheRoot, `${cacheKey}.json`);
   let commands;
   let usage = null;
+  const tokenBudget = provider.name === 'openai'
+    ? integerBudget(options.maxTotalTokens ?? process.env.LOCAL_VIDEO_OPENAI_MAX_EDIT_TOKENS, 12_000)
+    : null;
+  const ledger = createDirectorUsageLedger({ maximumTokens: tokenBudget, limits: { edits: tokenBudget } });
   let cacheHit = false;
   if (options.useCache !== false && existsSync(cachePath)) {
     emitProgress(options, 'cache');
@@ -65,13 +79,10 @@ export async function editProjectWithDirector(options) {
     let feedback = null;
     for (let attempt = 1; attempt <= MAX_EDIT_ATTEMPTS; attempt += 1) {
       emitProgress(options, 'generating', { candidateIndex: 1, candidateCount: 1, attempt });
-      const result = await provider.generateCommands({
-        schema,
-        signal: options.signal,
-        messages: [
-          {
-            role: 'system',
-            content: [
+      const messages = [
+        {
+          role: 'system',
+          content: [
             'Sos el editor semántico de un video local.',
             'Convertí la petición en la menor cantidad de comandos del esquema.',
             'Podés editar textos, voces, gestos, pausas, transformaciones y profundidad;',
@@ -88,19 +99,29 @@ export async function editProjectWithDirector(options) {
             'Si la petición no se puede representar, devolvé commands vacío.',
             selection ? `Selección y alcance actuales: ${JSON.stringify(selection)}` : 'No hay una selección puntual activa.',
             `Proyecto actual: ${JSON.stringify(summarizeEditableProject(state.project, state.catalog))}`,
-            ].join('\n'),
-          },
-          { role: 'user', content: feedback ? `${instruction}\nCorrección obligatoria: ${feedback}` : instruction },
-        ],
-        options: { model, temperature: 0.1, seed: 16 + attempt, maxOutputTokens: 2200, think: false, timeoutMs: 240_000 },
-      });
+          ].join('\n'),
+        },
+        { role: 'user', content: feedback ? `${instruction}\nCorrección obligatoria: ${feedback}` : instruction },
+      ];
+      const reservation = ledger.reserve('edits', { inputTokens: estimateDirectorInputTokens(messages), maxOutputTokens: 2200 });
+      let result;
+      try {
+        result = await provider.generateCommands({
+        schema,
+        signal: options.signal,
+        messages,
+        options: { model, temperature: 0.1, seed: 16 + attempt, maxOutputTokens: reservation.maxOutputTokens, think: false, timeoutMs: 240_000 },
+        });
+      } finally {
+        ledger.settle(reservation, result?.usage);
+      }
       emitProgress(options, 'validating', { candidateIndex: 1, candidateCount: 1, attempt });
       try {
         const parsed = JSON.parse(result.content || '');
         if (!Array.isArray(parsed.commands) || parsed.commands.length > MAX_EDIT_COMMANDS) throw new Error('cantidad de comandos inválida');
         previewDirectorCommands(parsed.commands, state);
         commands = parsed.commands;
-        usage = result.usage || null;
+        usage = ledger.usage({ currentRequestCount: attempt });
         break;
       } catch (error) {
         if (attempt === MAX_EDIT_ATTEMPTS) {
@@ -116,30 +137,25 @@ export async function editProjectWithDirector(options) {
     throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA no puede confirmar por sí misma la eliminación de trabajo personalizado.');
   }
   const customizedTrackRemovalIndexes = findCustomizedTrackRemovalIndexes(commands, state.project);
-  emitProgress(options, 'applying');
-  let next = state;
-  for (const [index, command] of commands.entries()) {
-    const executable = customizedTrackRemovalIndexes.includes(index)
-      ? { ...command, confirmCustomized: true }
-      : command;
-    next = applyProjectEditorCommand(next, executable);
-  }
+  // La propuesta se valida contra el núcleo, pero nunca se devuelve ni se
+  // publica como proyecto aplicado. En particular, el servidor no agrega la
+  // autorización humana a los comandos que entrega al navegador.
+  emitProgress(options, 'validating_proposal');
+  previewDirectorCommands(commands, state, customizedTrackRemovalIndexes);
   const explanation = explainDirectorEdit(commands, state.project, customizedTrackRemovalIndexes);
-  if (!cacheHit) writeJson(cachePath, { version: 3, commands });
+  if (!cacheHit) writeJson(cachePath, { version: 4, commands });
   return {
-    version: 3,
+    version: 4,
     model,
     modelIdentity,
     cacheHit,
     commands,
     status: commands.length ? 'proposed' : 'no-change',
     explanation,
-    project: next.project,
     baseProjectRevision,
-    projectRevision: hashJson(next.project),
     context: directorContext.summary,
     usage: {
-      ...(usage || {}),
+      ...(usage || ledger.usage({ currentRequestCount: 0 })),
       promptEvalCount: usage?.promptEvalCount ?? null,
       evalCount: usage?.evalCount ?? null,
       totalDurationNanoseconds: usage?.totalDurationNanoseconds ?? null,
@@ -148,13 +164,16 @@ export async function editProjectWithDirector(options) {
   };
 }
 
-function previewDirectorCommands(commands, state) {
+function previewDirectorCommands(commands, state, knownCustomizedIndexes = null) {
   if (commands.some((command) => Object.hasOwn(command, 'confirmCustomized'))) {
     throw directorEditError('DIRECTOR_EDIT_COMMANDS_INVALID', 'La IA no puede confirmar por sí misma la eliminación de trabajo personalizado.');
   }
-  const customized = findCustomizedTrackRemovalIndexes(commands, state.project);
+  const customized = knownCustomizedIndexes || findCustomizedTrackRemovalIndexes(commands, state.project);
   let preview = state;
   for (const [index, command] of commands.entries()) {
+    // El estado es estrictamente efímero y se descarta. Es necesario para que
+    // la validación semántica pueda seguir validando un lote que incluya una
+    // eliminación personalizada; el comando propuesto nunca se modifica.
     preview = applyProjectEditorCommand(preview, customized.includes(index) ? { ...command, confirmCustomized: true } : command);
   }
   return preview;
@@ -199,61 +218,65 @@ function commandBatchSchema(project, catalog) {
     .flatMap((entry) => entry.capabilities.poses))];
   const layoutPresets = readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'layout-presets.json')).presets.map((preset) => preset.id);
   const id = (values) => ({ type: 'string', enum: values.length ? values : ['none'] });
+  // Los recursos siguen cerrados por enum. Solo las referencias de autoría
+  // pueden ser IDs portables: el preview secuencial de abajo decide si ya fue
+  // declarada por un comando anterior del mismo lote.
+  const referenceId = () => ({ type: 'string', pattern: '^[a-z][a-z0-9-]{1,63}$' });
   const command = {
     oneOf: [
       object(['type', 'title'], { type: { const: 'set-project-title' }, title: text(120) }),
       object(['type', 'resourceId'], { type: { const: 'set-project-music' }, resourceId: id(music) }),
       object(['type'], { type: { const: 'clear-project-music' } }),
-      object(['type', 'sceneId', 'title'], { type: { const: 'set-scene-title' }, sceneId: id(sceneIds), title: text(120) }),
+      object(['type', 'sceneId', 'title'], { type: { const: 'set-scene-title' }, sceneId: referenceId(), title: text(120) }),
       // set-dialogue-turn: cualquier combinación de texto, voz, gesto o pausa (B2).
       object(['type', 'sceneId', 'turnId'], {
-        type: { const: 'set-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds),
+        type: { const: 'set-dialogue-turn' }, sceneId: referenceId(), turnId: referenceId(),
         text: text(DIRECTOR_TEXT_MAX_LENGTH), voiceId: id(voices), gestureId: enumOf(gestures),
         gestureAtWord: { type: 'integer', minimum: 0, maximum: 99 },
         pace: { enum: ['slow', 'normal', 'fast'] },
         layoutPreset: enumOf(layoutPresets),
         gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 },
       }),
-      object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-character-resource' }, sceneId: id(sceneIds), elementId: id(elementIds), resourceId: id(characters) }),
-      object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-prop-resource' }, sceneId: id(sceneIds), elementId: id(allElementIds), resourceId: id(props) }),
-      object(['type', 'sceneId', 'elementId', 'word'], { type: { const: 'set-template-word' }, sceneId: id(sceneIds), elementId: id(allElementIds), word: text(40) }),
+      object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-character-resource' }, sceneId: referenceId(), elementId: referenceId(), resourceId: id(characters) }),
+      object(['type', 'sceneId', 'elementId', 'resourceId'], { type: { const: 'set-prop-resource' }, sceneId: referenceId(), elementId: referenceId(), resourceId: id(props) }),
+      object(['type', 'sceneId', 'elementId', 'word'], { type: { const: 'set-template-word' }, sceneId: referenceId(), elementId: referenceId(), word: text(40) }),
       object(['type', 'sceneId', 'elementId', 'animationPreset'], {
-        type: { const: 'set-character-animation' }, sceneId: id(sceneIds), elementId: id(elementIds),
+        type: { const: 'set-character-animation' }, sceneId: referenceId(), elementId: referenceId(),
         animationPreset: enumOf(animationPresets),
       }),
       object(['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], {
-        type: { const: 'add-character' }, sceneId: id(sceneIds), elementId: newId(), resourceId: id(characters),
+        type: { const: 'add-character' }, sceneId: referenceId(), elementId: newId(), resourceId: id(characters),
         x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
         scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
       }),
       object(['type', 'sceneId', 'elementId', 'resourceId', 'x', 'y', 'scale', 'zIndex'], {
-        type: { const: 'add-prop' }, sceneId: id(sceneIds), elementId: newId(), resourceId: id(props),
+        type: { const: 'add-prop' }, sceneId: referenceId(), elementId: newId(), resourceId: id(props),
         x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
         scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
       }),
       object(['type', 'sceneId', 'elementId', 'templateId', 'word', 'zIndex'], {
-        type: { const: 'add-template' }, sceneId: id(sceneIds), elementId: newId(), templateId: id(templates), word: text(40),
+        type: { const: 'add-template' }, sceneId: referenceId(), elementId: newId(), templateId: id(templates), word: text(40),
         zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
       }),
-      object(['type', 'sceneId', 'elementId'], { type: { const: 'delete-element' }, sceneId: id(sceneIds), elementId: id(allElementIds) }),
+      object(['type', 'sceneId', 'elementId'], { type: { const: 'delete-element' }, sceneId: referenceId(), elementId: referenceId() }),
       object(['type', 'sceneId', 'resourceId', 'cameraPreset'], {
-        type: { const: 'set-scene-background' }, sceneId: id(sceneIds), resourceId: id(backgrounds),
+        type: { const: 'set-scene-background' }, sceneId: referenceId(), resourceId: id(backgrounds),
         cameraPreset: enumOf(cameraPresets),
       }),
       // set-character-transform: posición, escala y/o profundidad (B2).
       object(['type', 'sceneId', 'elementId'], {
-        type: { const: 'set-character-transform' }, sceneId: id(sceneIds), elementId: id(elementIds),
+        type: { const: 'set-character-transform' }, sceneId: referenceId(), elementId: referenceId(),
         x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
         scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
       }),
       object(['type', 'sceneId', 'elementId'], {
-        type: { const: 'set-element-transform' }, sceneId: id(sceneIds), elementId: id(allElementIds),
+        type: { const: 'set-element-transform' }, sceneId: referenceId(), elementId: referenceId(),
         x: { type: 'number', minimum: -1080, maximum: 2160 }, y: { type: 'number', minimum: -1920, maximum: 3840 },
         scale: { type: 'number', exclusiveMinimum: 0, maximum: 10 }, rotationDegrees: { type: 'number', minimum: -360, maximum: 360 },
         opacity: { type: 'number', minimum: 0, maximum: 1 }, zIndex: { type: 'integer', minimum: -1000, maximum: 1000 },
       }),
       object(['type', 'sceneId', 'preset', 'durationSeconds'], {
-        type: { const: 'set-transition' }, sceneId: id(sceneIds), preset: { enum: ['cut', 'fade'] },
+        type: { const: 'set-transition' }, sceneId: referenceId(), preset: { enum: ['cut', 'fade'] },
         durationSeconds: { type: 'number', minimum: 0, maximum: 2 },
       }),
       // Comandos estructurales (B1).
@@ -274,29 +297,29 @@ function commandBatchSchema(project, catalog) {
         },
       }),
       object(['type', 'sceneId', 'newSceneId', 'title'], {
-        type: { const: 'duplicate-scene' }, sceneId: id(sceneIds), newSceneId: newId(), title: text(120),
+        type: { const: 'duplicate-scene' }, sceneId: referenceId(), newSceneId: newId(), title: text(120),
       }),
-      object(['type', 'sceneId'], { type: { const: 'delete-scene' }, sceneId: id(sceneIds) }),
+      object(['type', 'sceneId'], { type: { const: 'delete-scene' }, sceneId: referenceId() }),
       object(['type', 'sceneId', 'turnId', 'speakerElementId', 'text', 'voiceId', 'gestureId', 'gapAfterSeconds'], {
-        type: { const: 'add-dialogue-turn' }, sceneId: id(sceneIds), turnId: newId(), speakerElementId: id(elementIds),
+        type: { const: 'add-dialogue-turn' }, sceneId: referenceId(), turnId: newId(), speakerElementId: referenceId(),
         text: text(DIRECTOR_TEXT_MAX_LENGTH), voiceId: id(voices), gestureId: enumOf(gestures),
         gestureAtWord: { type: 'integer', minimum: 0, maximum: 99 },
         pace: { enum: ['slow', 'normal', 'fast'] },
         layoutPreset: enumOf(layoutPresets),
-        gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 }, afterTurnId: id(turnIds),
+        gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 }, afterTurnId: referenceId(),
       }),
       object(['type', 'sceneId', 'turnId', 'text', 'voiceId', 'gapAfterSeconds'], {
-        type: { const: 'add-voiceover-turn' }, sceneId: id(sceneIds), turnId: newId(), text: text(DIRECTOR_TEXT_MAX_LENGTH),
-        voiceId: id(voices), pace: { enum: ['slow', 'normal', 'fast'] }, gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 }, afterTurnId: id(turnIds),
+        type: { const: 'add-voiceover-turn' }, sceneId: referenceId(), turnId: newId(), text: text(DIRECTOR_TEXT_MAX_LENGTH),
+        voiceId: id(voices), pace: { enum: ['slow', 'normal', 'fast'] }, gapAfterSeconds: { type: 'number', minimum: 0, maximum: 2 }, afterTurnId: referenceId(),
       }),
-      object(['type', 'sceneId', 'turnId'], { type: { const: 'delete-dialogue-turn' }, sceneId: id(sceneIds), turnId: id(turnIds) }),
+      object(['type', 'sceneId', 'turnId'], { type: { const: 'delete-dialogue-turn' }, sceneId: referenceId(), turnId: referenceId() }),
       object(['type', 'sceneId', 'turnId', 'speakerElementId'], {
-        type: { const: 'set-dialogue-speaker' }, sceneId: id(sceneIds), turnId: id(turnIds), speakerElementId: id(elementIds),
+        type: { const: 'set-dialogue-speaker' }, sceneId: referenceId(), turnId: referenceId(), speakerElementId: referenceId(),
       }),
-      object(['type', 'sceneId', 'turnId'], { type: { const: 'set-dialogue-voiceover' }, sceneId: id(sceneIds), turnId: id(turnIds) }),
+      object(['type', 'sceneId', 'turnId'], { type: { const: 'set-dialogue-voiceover' }, sceneId: referenceId(), turnId: referenceId() }),
       object(['type', 'sceneIds'], {
         type: { const: 'reorder-scenes' },
-        sceneIds: { type: 'array', items: id(sceneIds), minItems: sceneIds.length || 1, maxItems: sceneIds.length || 1 },
+        sceneIds: { type: 'array', items: referenceId(), minItems: sceneIds.length || 1, maxItems: 8, uniqueItems: true },
       }),
       ...animationCommandSchemas(project, catalog),
     ],

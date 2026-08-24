@@ -3,6 +3,7 @@ import { normalizeProviderUsage } from './usage.mjs';
 
 export const DEFAULT_OPENAI_URL = 'https://api.openai.com/v1';
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.6-luna';
+export const OPENAI_DIRECTOR_MODEL_ALLOWLIST = Object.freeze(['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol']);
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_RETRY_BASE_MS = 400;
 
@@ -27,7 +28,7 @@ export function createOpenAIProvider(config = {}) {
   async function generate({ messages, schema, options = {}, signal }) {
     requireApiKey();
     const startedAt = Date.now();
-    const requestedModel = String(options.model || process.env.LOCAL_VIDEO_OPENAI_MODEL || DEFAULT_OPENAI_MODEL);
+    const requestedModel = assertAllowedOpenAIModel(options.model || process.env.LOCAL_VIDEO_OPENAI_MODEL || DEFAULT_OPENAI_MODEL);
     const apiSchema = prepareJsonSchema(schema);
     const requestBody = {
       model: requestedModel,
@@ -91,7 +92,7 @@ export function createOpenAIProvider(config = {}) {
     generateQuestions: generate,
     async inspect({ model, timeoutMs } = {}) {
       requireApiKey();
-      const requestedModel = String(model || process.env.LOCAL_VIDEO_OPENAI_MODEL || DEFAULT_OPENAI_MODEL);
+      const requestedModel = assertAllowedOpenAIModel(model || process.env.LOCAL_VIDEO_OPENAI_MODEL || DEFAULT_OPENAI_MODEL);
       const { data: result } = await requestJson(fetchImpl, `${baseUrl}/models/${encodeURIComponent(requestedModel)}`, {
         apiKey,
         timeoutMs: timeoutMs ?? 10_000,
@@ -107,6 +108,20 @@ export function createOpenAIProvider(config = {}) {
       };
     },
   };
+}
+
+export function assertAllowedOpenAIModel(value, environment = process.env) {
+  const model = String(value || '').trim();
+  const extra = String(environment.LOCAL_VIDEO_OPENAI_ADDITIONAL_MODELS || '')
+    .split(',').map((entry) => entry.trim()).filter(Boolean);
+  if (!OPENAI_DIRECTOR_MODEL_ALLOWLIST.includes(model) && !extra.includes(model)) {
+    providerError(
+      'OPENAI_MODEL_NOT_ALLOWED',
+      'El modelo elegido no está habilitado para el Director local.',
+      `model=${model || '(vacío)'}`,
+    );
+  }
+  return model;
 }
 
 function extractOutputText(response) {

@@ -56,7 +56,7 @@ function makeOpenAIFetch(behavior) {
         );
       });
     }
-    if (url.includes('/models/')) return jsonResponse({ id: 'modelo-x' });
+    if (url.includes('/models/')) return jsonResponse({ id: 'gpt-5.6-luna' });
     const body = JSON.parse(options.body);
     if (options.headers.authorization !== 'Bearer test-key') throw new Error('falta autenticación Bearer');
     if (body.text?.format?.type !== 'json_schema') throw new Error('falta Structured Output');
@@ -77,6 +77,7 @@ const openai = await assertDirectorProviderContract({
   schema,
   expectedCancelledCode: 'OPENAI_CANCELLED',
   expectedDigest: null,
+  model: 'gpt-5.6-luna',
 });
 
 let retryCalls = 0;
@@ -102,7 +103,7 @@ const retried = await retryProvider.generatePlan({
   schema,
   messages: [{ role: 'user', content: 'prueba' }],
   options: {
-    model: 'modelo-x', maxOutputTokens: 128, timeoutMs: 5_000,
+    model: 'gpt-5.6-luna', maxOutputTokens: 128, timeoutMs: 5_000,
     maxRetries: 2, retryBaseMs: 50, promptCacheKey: 'director-test-cache',
   },
 });
@@ -116,6 +117,17 @@ assert.equal(retried.usage.cachedInputTokens, 40);
 assert.equal(retried.usage.cacheWriteTokens, 10);
 assert.equal(retried.usage.retryCount, 1);
 
-const checks = ollama.checks + openai.checks + 9;
+let forbiddenFetches = 0;
+const lockedProvider = createOpenAIProvider({
+  apiKey: 'test-key',
+  fetchImpl: async () => { forbiddenFetches += 1; return jsonResponse({}); },
+});
+await assert.rejects(
+  () => lockedProvider.generatePlan({ schema, messages: [], options: { model: 'modelo-no-permitido', maxOutputTokens: 1 } }),
+  (error) => error.code === 'OPENAI_MODEL_NOT_ALLOWED',
+);
+assert.equal(forbiddenFetches, 0);
+
+const checks = ollama.checks + openai.checks + 11;
 
 process.stdout.write(`${JSON.stringify({ version: 1, passed: checks, failed: 0 })}\n`);

@@ -2,6 +2,7 @@ import { existsSync, lstatSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { isMain, projectRoot, readJson } from '../stage1/common.mjs';
 import { PipelineError, serializeError } from '../stage1/errors.mjs';
+import { cleanDirectorCaches } from '../director/cache.mjs';
 
 const JOB_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$/;
 const DISPOSABLE_NAMES = new Set(['frames', 'temp']);
@@ -141,6 +142,14 @@ export function cleanLocalVideo(options = {}) {
     now,
     maximumAgeDays,
   });
+  const directorCaches = ['director-cache', 'director-question-cache', 'director-edit-cache'].map((name) => cleanDirectorCaches({
+    root: resolveChild(localRoot, name),
+    apply,
+    now,
+    maximumAgeDays: Number(options.directorCacheMaximumAgeDays ?? 30),
+    maximumBytes: Number(options.directorCacheMaximumBytes ?? 512 * 1024 ** 2),
+    maximumEntries: Number(options.directorCacheMaximumEntries ?? 1_000),
+  }));
   return {
     version: 1,
     applied: apply,
@@ -153,12 +162,14 @@ export function cleanLocalVideo(options = {}) {
     bundles,
     orphanOutputs,
     orphanInputs,
+    directorCaches,
     reclaimedBytes: cleaned.reduce((sum, item) => sum + item.removedBytes, 0)
       + expired.reduce((sum, item) => sum + item.bytes, 0)
       + tests.reduce((sum, item) => sum + item.bytes, 0)
       + bundles.reduce((sum, item) => sum + item.bytes, 0)
       + orphanOutputs.reduce((sum, item) => sum + item.bytes, 0)
-      + orphanInputs.reduce((sum, item) => sum + item.bytes, 0),
+      + orphanInputs.reduce((sum, item) => sum + item.bytes, 0)
+      + directorCaches.flatMap((result) => result.removed).reduce((sum, item) => sum + item.bytes, 0),
   };
 }
 

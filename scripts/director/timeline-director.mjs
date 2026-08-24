@@ -4,6 +4,7 @@ import { applyTimelineClipCommandBatch, createTimelineClipEditor } from '../../s
 import { projectRoot, readJson } from '../stage1/common.mjs';
 import { DEFAULT_DIRECTOR_MODEL, DEFAULT_OLLAMA_URL } from './providers/ollama.mjs';
 import { resolveDirectorProvider } from './providers/index.mjs';
+import { createDirectorUsageLedger, estimateDirectorInputTokens } from './providers/usage.mjs';
 
 const commandDocument = readJson(path.join(projectRoot, 'schema', 'timeline-command-v2.schema.json'));
 const allowedRefs = ['splitClip', 'trimClip', 'moveClip', 'duplicateClip', 'deleteClip', 'setClipEnabled', 'splitLinked', 'moveLinked', 'trimLinked', 'deleteLinked'];
@@ -18,21 +19,31 @@ export async function editTimelineWithDirector(options) {
     baseUrl: options.baseUrl,
     apiKey: options.apiKey,
   });
-  const result = await provider.generateCommands({
+  const model = options.model || provider.defaultModel || DEFAULT_DIRECTOR_MODEL;
+  const messages = [{
+    role: 'system',
+    content: [
+      'Sos el Director de Montaje de un editor local no destructivo.',
+      'Convertí la indicación en la menor cantidad de comandos cerrados.',
+      'Trabajá en ticks enteros a 48000 por segundo y respetá clips A/V enlazados.',
+      'Podés cortar, recortar, mover, duplicar, activar y borrar con ripple.',
+      'No agregues fuentes, no exportes y no inventes IDs existentes. Respondé solo JSON.',
+      `Montaje actual: ${JSON.stringify(summarizeTimeline(options.project))}`,
+    ].join('\n'),
+  }, { role: 'user', content: instruction }];
+  const tokenBudget = provider.name === 'openai' ? integerBudget(options.maxTotalTokens ?? process.env.LOCAL_VIDEO_OPENAI_MAX_TIMELINE_TOKENS, 5_000) : null;
+  const ledger = createDirectorUsageLedger({ maximumTokens: tokenBudget, limits: { timeline: tokenBudget } });
+  const reservation = ledger.reserve('timeline', { inputTokens: estimateDirectorInputTokens(messages), maxOutputTokens: 1400 });
+  let result;
+  try {
+    result = await provider.generateCommands({
     schema, signal: options.signal,
-    messages: [{
-      role: 'system',
-      content: [
-        'Sos el Director de Montaje de un editor local no destructivo.',
-        'Convertí la indicación en la menor cantidad de comandos cerrados.',
-        'Trabajá en ticks enteros a 48000 por segundo y respetá clips A/V enlazados.',
-        'Podés cortar, recortar, mover, duplicar, activar y borrar con ripple.',
-        'No agregues fuentes, no exportes y no inventes IDs existentes. Respondé solo JSON.',
-        `Montaje actual: ${JSON.stringify(summarizeTimeline(options.project))}`,
-      ].join('\n'),
-    }, { role: 'user', content: instruction }],
-    options: { model: options.model || provider.defaultModel || DEFAULT_DIRECTOR_MODEL, temperature: 0.05, think: false, seed: 29, maxOutputTokens: 1400, timeoutMs: 240_000 },
-  });
+    messages,
+    options: { model, temperature: 0.05, think: false, seed: 29, maxOutputTokens: reservation.maxOutputTokens, timeoutMs: 240_000 },
+    });
+  } finally {
+    ledger.settle(reservation, result?.usage);
+  }
   let parsed;
   try { parsed = JSON.parse(result.content || ''); } catch { fail('TIMELINE_DIRECTOR_JSON_INVALID', 'El Director de Montaje no devolvió JSON válido.'); }
   const validateOutput = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
@@ -40,7 +51,7 @@ export async function editTimelineWithDirector(options) {
   const preview = applyTimelineClipCommandBatch(initial, parsed.commands);
   return {
     version: 1, commands: parsed.commands, project: preview.document,
-    explanation: explain(parsed.commands), usage: result.usage || null,
+    explanation: explain(parsed.commands), usage: ledger.usage({ currentRequestCount: 1 }),
   };
 }
 
@@ -73,3 +84,9 @@ export function summarizeTimeline(project) {
 function formatErrors(errors) { return (errors || []).slice(0, 12).map((entry) => `${entry.instancePath || '/'} ${entry.message}`).join('; '); }
 function explain(commands) { const counts = new Map(); for (const command of commands) counts.set(command.type, (counts.get(command.type) || 0) + 1); return [...counts].map(([type, count]) => `${type}: ${count}`).join(' · ') || 'Sin cambios'; }
 function fail(code, message) { const error = new Error(message); error.code = code; throw error; }
+function integerBudget(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) fail('TIMELINE_DIRECTOR_TOKEN_BUDGET_INVALID', 'El tope operativo local debe ser un entero positivo.');
+  return parsed;
+}
