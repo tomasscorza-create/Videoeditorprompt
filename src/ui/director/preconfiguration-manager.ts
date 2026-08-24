@@ -32,6 +32,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
   const picker = scoped<HTMLSelectElement>(dialog, '.preconfiguration-picker');
   const autofillButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-autofill');
   const createButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-new');
+  const duplicateButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-duplicate');
   const deleteButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-delete');
   const closeButtons = Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-close-preconfiguration]'));
   const addBindingButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-add-binding');
@@ -55,6 +56,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     if (confirmDiscard()) renderEditor(record ?? null); else picker.value = editingId ?? '__new__';
   });
   createButton.addEventListener('click', () => { if (confirmDiscard()) renderEditor(null); });
+  duplicateButton.addEventListener('click', () => duplicateCurrent());
   autofillButton.addEventListener('click', applyAutofill);
   deleteButton.addEventListener('click', () => void removeCurrent());
   addBindingButton.addEventListener('click', () => {
@@ -127,6 +129,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     editingRevision = record?.revision;
     picker.value = editingId ?? '__new__';
     deleteButton.disabled = !record;
+    duplicateButton.disabled = !record;
     const value = record?.preconfiguration;
     autofillAttempt = 0;
     autofillButton.textContent = 'Autocompletar';
@@ -220,6 +223,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
       renderPicker();
       picker.value = editingId;
       deleteButton.disabled = false;
+      duplicateButton.disabled = false;
       options.onRecordsChanged(records, editingId);
       dirty = false;
       setStatus(`«${saved.preconfiguration.name}» quedó guardada.`);
@@ -248,6 +252,21 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     } finally {
       setBusy(false);
     }
+  }
+
+  function duplicateCurrent(): void {
+    const record = records.find((candidate) => candidate.preconfiguration.id === editingId);
+    if (!record) return;
+    const source = record.preconfiguration;
+    const id = uniqueId(`${source.id}-copia`, records.map((candidate) => candidate.preconfiguration.id));
+    renderEditor({ ...record, revision: 0, preconfiguration: { ...source, id, name: `${source.name} (copia)`.slice(0, 100) } });
+    editingId = null;
+    editingRevision = undefined;
+    picker.value = '__new__';
+    deleteButton.disabled = true;
+    duplicateButton.disabled = true;
+    dirty = true;
+    setStatus('Variante creada. Ajustala y guardala como una nueva configuración.');
   }
 
   function readDocument(): DirectorPreconfiguration {
@@ -310,6 +329,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     autofillButton.disabled = busy;
     saveButton.disabled = busy;
     deleteButton.disabled = busy || !editingId;
+    duplicateButton.disabled = busy || !editingId;
     createButton.disabled = busy;
     addBindingButton.disabled = busy || bindingList.children.length >= 8;
   }
@@ -341,6 +361,7 @@ function buildDialog(): HTMLDialogElement {
       <div class="preconfiguration-toolbar">
         <label class="field"><span>Configuración</span><select class="preconfiguration-picker"></select></label>
         <button class="secondary-button preconfiguration-new" type="button">Nueva</button>
+        <button class="secondary-button preconfiguration-duplicate" type="button">Duplicar</button>
         <button class="text-button preconfiguration-delete" type="button">Eliminar</button>
       </div>
       <form class="preconfiguration-form">
