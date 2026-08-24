@@ -6,7 +6,7 @@ import { createDirectorPreconfigurationStore } from '../director/preconfiguratio
 import { createLocalAppServer } from './server.mjs';
 
 const catalog = {
-  version: 1,
+  version: 2,
   entries: [
     { id: 'personaje-api', type: 'character', label: 'Personaje API', capabilities: { animationPresets: ['idle-calm'] } },
     { id: 'voz-api', type: 'voice', label: 'Voz API' },
@@ -14,7 +14,7 @@ const catalog = {
   ],
 };
 const preconfiguration = {
-  version: 1,
+  version: 2,
   id: 'preset-api',
   name: 'Preset API',
   structurePreference: 'one-character',
@@ -24,13 +24,7 @@ const preconfiguration = {
     voiceResourceId: 'voz-api',
     animationPresetId: 'idle-calm',
   }],
-  preferredBackgroundResourceIds: ['fondo-api'],
-  backgroundStrategy: 'single-location',
-  continuity: {
-    preserveCharacterVoices: true,
-    preserveNarratorVoice: true,
-    preserveCastAcrossScenes: true,
-  },
+  backgroundResourceId: 'fondo-api',
 };
 
 const temporary = await mkdtemp(path.join(tmpdir(), 'director-preconfiguration-api-'));
@@ -111,7 +105,7 @@ try {
   });
 
   const createdResponse = await request(`/api/director/preconfigurations/${preconfiguration.id}`, {
-    method: 'PUT',
+    method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ preconfiguration }),
   });
@@ -134,18 +128,26 @@ try {
     body: JSON.stringify({ prompt: 'Una idea válida', constraints: { planVersion: 2 }, preconfigurationId: preconfiguration.id }),
   });
   assert.equal(questionsResponse.status, 200);
+  const questions = await questionsResponse.json();
+  assert.equal(questions.preconfigurationSnapshot.preconfigurationId, preconfiguration.id);
   assert.deepEqual(receivedQuestionConstraints, { planVersion: 2, structure: 'one-character' });
+
+  const changedResponse = await request(`/api/director/preconfigurations/${preconfiguration.id}`, {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ preconfiguration: { ...preconfiguration, name: 'Cambiado durante la creación' }, expectedRevision: 1 }),
+  });
+  assert.equal(changedResponse.status, 200);
 
   const proposalResponse = await request('/api/director/proposals', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt: 'Una idea válida', constraints: { planVersion: 2 }, preconfigurationId: preconfiguration.id }),
+    body: JSON.stringify({ prompt: 'Una idea válida', constraints: { planVersion: 2 }, preconfigurationId: preconfiguration.id, preconfigurationSnapshot: questions.preconfigurationSnapshot }),
   });
   assert.equal(proposalResponse.status, 200);
   assert.deepEqual(receivedProposalPreconfiguration, preconfiguration);
 
   const mismatchResponse = await request('/api/director/preconfigurations/otro-id', {
-    method: 'PUT',
+    method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ preconfiguration }),
   });
@@ -158,7 +160,7 @@ try {
   });
   assert.equal(conflictResponse.status, 409);
 
-  const deletedResponse = await request(`/api/director/preconfigurations/${preconfiguration.id}?expectedRevision=1`, { method: 'DELETE' });
+  const deletedResponse = await request(`/api/director/preconfigurations/${preconfiguration.id}?expectedRevision=2`, { method: 'DELETE' });
   assert.equal(deletedResponse.status, 200);
   assert.equal((await deletedResponse.json()).removed, true);
   assert.equal((await request(`/api/director/preconfigurations/${preconfiguration.id}`)).status, 404);

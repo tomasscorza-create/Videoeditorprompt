@@ -912,10 +912,7 @@ function describePreconfiguration(record: DirectorPreconfigurationRecord): strin
   const cast = value.characterBindings.length === 0
     ? 'sin personajes'
     : `${value.characterBindings.length} ${value.characterBindings.length === 1 ? 'personaje' : 'personajes'} con voz fija`;
-  const backgrounds = value.preferredBackgroundResourceIds.length === 1
-    ? 'un fondo preferido'
-    : `${value.preferredBackgroundResourceIds.length} fondos preferidos`;
-  return `${cast} · ${backgrounds}`;
+  return `${cast} · un fondo global`;
 }
 
 function persistDirectorUsage(project: EditableProject, record: DirectorUsageRecord): void {

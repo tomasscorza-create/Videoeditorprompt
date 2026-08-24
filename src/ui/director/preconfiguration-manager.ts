@@ -22,8 +22,7 @@ export interface DirectorPreconfigurationAutofill {
   structurePreference: 'one-character' | 'dialogue';
   richnessProfile: 'varied' | 'dynamic';
   characterBindings: DirectorPreconfigurationBinding[];
-  preferredBackgroundResourceIds: string[];
-  backgroundStrategy: 'single-location' | 'beat-variation';
+  backgroundResourceId: string;
 }
 
 export function initDirectorPreconfigurationManager(options: ManagerOptions): void {
@@ -39,7 +38,6 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
   const bindingList = scoped<HTMLElement>(dialog, '.preconfiguration-bindings');
   const backgrounds = scoped<HTMLElement>(dialog, '.preconfiguration-backgrounds');
   const narrator = scoped<HTMLSelectElement>(dialog, '[name="narratorVoiceResourceId"]');
-  const strategy = scoped<HTMLSelectElement>(dialog, '[name="backgroundStrategy"]');
   const status = scoped<HTMLElement>(dialog, '.preconfiguration-status');
   const saveButton = scoped<HTMLButtonElement>(dialog, '.preconfiguration-save');
   let records: DirectorPreconfigurationRecord[] = [];
@@ -47,15 +45,16 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
   let editingId: string | null = null;
   let editingRevision: number | undefined;
   let autofillAttempt = 0;
+  let dirty = false;
 
   options.openButton.addEventListener('click', () => void open());
-  closeButtons.forEach((button) => button.addEventListener('click', () => dialog.close()));
-  dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+  closeButtons.forEach((button) => button.addEventListener('click', () => { if (confirmDiscard()) dialog.close(); }));
+  dialog.addEventListener('click', (event) => { if (event.target === dialog && confirmDiscard()) dialog.close(); });
   picker.addEventListener('change', () => {
     const record = records.find((candidate) => candidate.preconfiguration.id === picker.value);
-    renderEditor(record ?? null);
+    if (confirmDiscard()) renderEditor(record ?? null); else picker.value = editingId ?? '__new__';
   });
-  createButton.addEventListener('click', () => renderEditor(null));
+  createButton.addEventListener('click', () => { if (confirmDiscard()) renderEditor(null); });
   autofillButton.addEventListener('click', applyAutofill);
   deleteButton.addEventListener('click', () => void removeCurrent());
   addBindingButton.addEventListener('click', () => {
@@ -63,7 +62,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     bindingList.append(createBindingRow());
     syncAddBindingState();
   });
-  strategy.addEventListener('change', syncBackgroundHint);
+  form.addEventListener('input', () => { dirty = true; });
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     void saveCurrent();
@@ -80,9 +79,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
       assertCatalogResources(resources);
       renderPicker();
       renderResourceOptions();
-      const selected = records.find((record) => record.preconfiguration.id === options.selectedId())
-        ?? records[0]
-        ?? null;
+      const selected = records.find((record) => record.preconfiguration.id === options.selectedId()) ?? null;
       dialog.showModal();
       renderEditor(selected);
     } catch (error) {
@@ -112,10 +109,11 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
       input.value = resource.id;
       input.addEventListener('change', () => {
         const checked = backgrounds.querySelectorAll<HTMLInputElement>('input:checked');
-        if (checked.length > 4) {
+        if (checked.length > 1) {
           input.checked = false;
-          setStatus('Elegí hasta cuatro fondos preferidos.', true);
-        } else syncBackgroundHint();
+          setStatus('Cada identidad creativa usa un único fondo global.', true);
+        }
+        dirty = true; syncBackgroundHint();
       });
       const text = document.createElement('span');
       text.textContent = resource.label;
@@ -137,15 +135,12 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     field<HTMLSelectElement>('structurePreference').value = value?.structurePreference ?? 'automatic';
     field<HTMLSelectElement>('richnessProfile').value = value?.richnessProfile ?? 'automatic';
     narrator.value = value?.narratorVoiceResourceId ?? '';
-    strategy.value = value?.backgroundStrategy ?? 'single-location';
-    field<HTMLInputElement>('preserveCharacterVoices').checked = value?.continuity.preserveCharacterVoices ?? true;
-    field<HTMLInputElement>('preserveNarratorVoice').checked = value?.continuity.preserveNarratorVoice ?? true;
-    field<HTMLInputElement>('preserveCastAcrossScenes').checked = value?.continuity.preserveCastAcrossScenes ?? true;
     bindingList.replaceChildren(...(value?.characterBindings ?? []).map(createBindingRow));
     for (const input of backgrounds.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
-      input.checked = value?.preferredBackgroundResourceIds.includes(input.value) ?? false;
+      input.checked = value?.backgroundResourceId === input.value;
     }
-    setStatus(record ? `Editando «${value!.name}».` : 'Creá una combinación reutilizable de reparto, voces y fondos.');
+    setStatus(record ? `Editando «${value!.name}».${record.health?.status === 'valid' ? '' : ' Necesita reparación antes de usarla.'}` : 'Creá una identidad creativa reutilizable de reparto, voces y fondo.');
+    dirty = false;
     syncAddBindingState();
     syncBackgroundHint();
     field<HTMLInputElement>('name').focus({ preventScroll: true });
@@ -159,18 +154,15 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     field<HTMLSelectElement>('structurePreference').value = draft.structurePreference;
     field<HTMLSelectElement>('richnessProfile').value = draft.richnessProfile;
     narrator.value = '';
-    strategy.value = draft.backgroundStrategy;
-    field<HTMLInputElement>('preserveCharacterVoices').checked = true;
-    field<HTMLInputElement>('preserveNarratorVoice').checked = true;
-    field<HTMLInputElement>('preserveCastAcrossScenes').checked = true;
     bindingList.replaceChildren(...draft.characterBindings.map(createBindingRow));
     for (const input of backgrounds.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
-      input.checked = draft.preferredBackgroundResourceIds.includes(input.value);
+      input.checked = draft.backgroundResourceId === input.value;
     }
     autofillButton.textContent = 'Rehacer autocompletado';
     setStatus('Combinación completa. Podés guardarla, editar cualquier dato o generar otra.');
     syncAddBindingState();
     syncBackgroundHint();
+    dirty = true;
     saveButton.focus({ preventScroll: true });
   }
 
@@ -229,6 +221,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
       picker.value = editingId;
       deleteButton.disabled = false;
       options.onRecordsChanged(records, editingId);
+      dirty = false;
       setStatus(`«${saved.preconfiguration.name}» quedó guardada.`);
       notify({ message: `Configuración «${saved.preconfiguration.name}» guardada.`, level: 'success' });
     } catch (error) {
@@ -246,8 +239,9 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
       await deleteDirectorPreconfiguration(record.preconfiguration.id, record.revision);
       records = await listDirectorPreconfigurations();
       renderPicker();
-      renderEditor(records[0] ?? null);
-      options.onRecordsChanged(records, records[0]?.preconfiguration.id);
+      const next = records.find((candidate) => candidate.preconfiguration.id === options.selectedId()) ?? null;
+      renderEditor(next);
+      options.onRecordsChanged(records, next?.preconfiguration.id);
       notify({ message: `Configuración «${record.preconfiguration.name}» eliminada.`, level: 'success' });
     } catch (error) {
       setStatus(errorMessage(error, 'No se pudo eliminar la configuración.'), true);
@@ -274,17 +268,15 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
     assertUnique(characterBindings.map((binding) => binding.voiceResourceId), 'Cada personaje necesita una voz diferente.');
     const narratorVoiceResourceId = narrator.value || undefined;
     if (characterBindings.length === 0 && !narratorVoiceResourceId) throw new Error('Agregá un personaje con voz o elegí una voz narradora.');
-    const preferredBackgroundResourceIds = Array.from(backgrounds.querySelectorAll<HTMLInputElement>('input:checked')).map((input) => input.value);
-    if (preferredBackgroundResourceIds.length === 0) throw new Error('Elegí al menos un fondo preferido.');
-    if (strategy.value === 'single-location' && preferredBackgroundResourceIds.length !== 1) throw new Error('Locación única requiere exactamente un fondo.');
-    if (strategy.value === 'beat-variation' && preferredBackgroundResourceIds.length < 2) throw new Error('Variación por momentos requiere al menos dos fondos.');
+    const backgroundResourceId = backgrounds.querySelector<HTMLInputElement>('input:checked')?.value;
+    if (!backgroundResourceId) throw new Error('Elegí un fondo global.');
     const structurePreference = field<HTMLSelectElement>('structurePreference').value as DirectorPreconfiguration['structurePreference'];
     if (structurePreference === 'dialogue' && characterBindings.length < 2) throw new Error('La estructura de diálogo requiere al menos dos personajes.');
     if (structurePreference === 'one-character' && characterBindings.length < 1) throw new Error('La estructura de un personaje requiere un vínculo personaje-voz.');
     if (structurePreference === 'narration' && !narratorVoiceResourceId) throw new Error('La narración requiere una voz narradora.');
     const richnessValue = field<HTMLSelectElement>('richnessProfile').value;
     return {
-      version: 1,
+      version: 2,
       id: editingId ?? uniqueId(slug(name), records.map((record) => record.preconfiguration.id)),
       name,
       ...(description ? { description } : {}),
@@ -292,13 +284,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
       ...(richnessValue === 'automatic' ? {} : { richnessProfile: richnessValue as DirectorPreconfiguration['richnessProfile'] }),
       characterBindings,
       ...(narratorVoiceResourceId ? { narratorVoiceResourceId } : {}),
-      preferredBackgroundResourceIds,
-      backgroundStrategy: strategy.value as DirectorPreconfiguration['backgroundStrategy'],
-      continuity: {
-        preserveCharacterVoices: field<HTMLInputElement>('preserveCharacterVoices').checked,
-        preserveNarratorVoice: field<HTMLInputElement>('preserveNarratorVoice').checked,
-        preserveCastAcrossScenes: field<HTMLInputElement>('preserveCastAcrossScenes').checked,
-      },
+      backgroundResourceId,
     };
   }
 
@@ -317,9 +303,7 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
   function syncBackgroundHint(): void {
     const count = backgrounds.querySelectorAll('input:checked').length;
     const hint = scoped<HTMLElement>(dialog, '.preconfiguration-background-hint');
-    hint.textContent = strategy.value === 'single-location'
-      ? `${count} seleccionado. Locación única usa exactamente uno.`
-      : `${count} seleccionados. La variación usa entre dos y cuatro.`;
+    hint.textContent = `${count} seleccionado. Se aplica a todo el video.`;
   }
 
   function setBusy(busy: boolean): void {
@@ -333,6 +317,9 @@ export function initDirectorPreconfigurationManager(options: ManagerOptions): vo
   function setStatus(message: string, error = false): void {
     status.textContent = message;
     status.classList.toggle('error', error);
+  }
+  function confirmDiscard(): boolean {
+    return !dirty || window.confirm('Hay cambios sin guardar. ¿Querés descartarlos?');
   }
 }
 
@@ -368,22 +355,16 @@ function buildDialog(): HTMLDialogElement {
           </div>
         </section>
         <section class="preconfiguration-section">
-          <div class="preconfiguration-section-heading"><div><h3>Personajes y voces</h3><p>La voz queda ligada al rol en todas las escenas.</p></div><button class="secondary-button preconfiguration-add-binding" type="button">Agregar personaje</button></div>
+          <div class="preconfiguration-section-heading"><div><h3>Personajes y voces</h3><p>La voz queda ligada al rol durante toda la secuencia.</p></div><button class="secondary-button preconfiguration-add-binding" type="button">Agregar personaje</button></div>
           <div class="preconfiguration-bindings"></div>
         </section>
         <section class="preconfiguration-section">
           <div class="preconfiguration-grid two-columns">
-            <label class="field"><span>Uso de fondos</span><select name="backgroundStrategy"><option value="single-location">Locación única</option><option value="beat-variation">Variar por momentos</option></select></label>
+            <div class="field"><span>Fondo global</span><small>Se mantiene durante toda la secuencia.</small></div>
             <p class="muted preconfiguration-background-hint"></p>
           </div>
           <div class="preconfiguration-backgrounds" aria-label="Fondos preferidos"></div>
         </section>
-        <details class="preconfiguration-continuity">
-          <summary>Reglas de continuidad</summary>
-          <label><input type="checkbox" name="preserveCharacterVoices" checked> Mantener la voz de cada personaje</label>
-          <label><input type="checkbox" name="preserveNarratorVoice" checked> Mantener la voz narradora</label>
-          <label><input type="checkbox" name="preserveCastAcrossScenes" checked> Mantener el reparto entre escenas</label>
-        </details>
         <p class="preconfiguration-status muted" role="status" aria-live="polite"></p>
         <footer class="preconfiguration-actions"><button class="text-button" type="button" data-close-preconfiguration>Cancelar</button><button class="primary-button preconfiguration-save" type="submit">Guardar configuración</button></footer>
       </form>
@@ -405,7 +386,7 @@ export function buildDirectorPreconfigurationAutofill(
   const castSize = characters.length >= 2 && voices.length >= 2 ? 2 : 1;
   const selectedCharacters = rotatedSelection(characters, safeAttempt, castSize);
   const selectedVoices = rotatedSelection(voices, safeAttempt * 2 + 1, castSize);
-  const backgroundCount = Math.min(3, backgrounds.length);
+  const backgroundCount = Math.min(1, backgrounds.length);
   const selectedBackgrounds = rotatedSelection(backgrounds, safeAttempt * 3, backgroundCount);
   const roles = castSize === 2 ? ['presentador', 'analista'] : ['presentador'];
   const characterBindings = selectedCharacters.map((character, index) => ({
@@ -418,12 +399,11 @@ export function buildDirectorPreconfigurationAutofill(
   const name = `${castSize === 2 ? 'Dúo' : 'Personaje'} automático ${safeAttempt + 1}: ${castLabel}`.slice(0, 100);
   return {
     name,
-    description: 'Selección automática editable con voces ligadas al reparto, continuidad entre escenas y variedad visual.',
+    description: 'Selección automática editable con voces ligadas al reparto y continuidad durante todo el video.',
     structurePreference: castSize === 2 ? 'dialogue' : 'one-character',
     richnessProfile: safeAttempt % 2 === 0 ? 'varied' : 'dynamic',
     characterBindings,
-    preferredBackgroundResourceIds: selectedBackgrounds.map((resource) => resource.id),
-    backgroundStrategy: selectedBackgrounds.length >= 2 ? 'beat-variation' : 'single-location',
+    backgroundResourceId: selectedBackgrounds[0]!.id,
   };
 }
 
@@ -469,7 +449,7 @@ function resourceOption(resource: DirectorAuthoringResource): HTMLOptionElement 
 }
 
 function assertCatalogResources(resources: DirectorAuthoringResource[]): void {
-  for (const type of ['character', 'voice', 'background']) {
+  for (const type of ['voice', 'background']) {
     if (!resources.some((resource) => resource.type === type)) throw new Error(`El catálogo no contiene recursos de tipo ${type}.`);
   }
 }

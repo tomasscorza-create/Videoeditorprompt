@@ -1,69 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://local-video.invalid/schema/director-preconfiguration.json",
-  "title": "Preconfiguración creativa durable del Director",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "version",
-    "id",
-    "name",
-    "characterBindings",
-    "preferredBackgroundResourceIds",
-    "backgroundStrategy",
-    "continuity"
-  ],
-  "properties": {
-    "version": { "const": 1 },
-    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
-    "name": { "type": "string", "minLength": 1, "maxLength": 100 },
-    "description": { "type": "string", "minLength": 1, "maxLength": 300 },
-    "structurePreference": {
-      "enum": ["automatic", "narration", "one-character", "dialogue"]
-    },
-    "richnessProfile": { "enum": ["simple", "varied", "dynamic"] },
-    "characterBindings": {
-      "type": "array",
-      "maxItems": 8,
-      "items": { "$ref": "#/$defs/characterBinding" }
-    },
-    "narratorVoiceResourceId": {
-      "type": "string",
-      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,127}$"
-    },
-    "preferredBackgroundResourceIds": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 4,
-      "uniqueItems": true,
-      "items": {
-        "type": "string",
-        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,127}$"
-      }
-    },
-    "backgroundStrategy": { "enum": ["single-location", "beat-variation"] },
-    "continuity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["preserveCharacterVoices", "preserveNarratorVoice", "preserveCastAcrossScenes"],
-      "properties": {
-        "preserveCharacterVoices": { "type": "boolean" },
-        "preserveNarratorVoice": { "type": "boolean" },
-        "preserveCastAcrossScenes": { "type": "boolean" }
-      }
-    }
-  },
+  "title": "Identidad creativa reutilizable del Director",
+  "oneOf": [{ "$ref": "#/$defs/v1" }, { "$ref": "#/$defs/v2" }],
   "$defs": {
-    "characterBinding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["roleId", "characterResourceId", "voiceResourceId"],
-      "properties": {
-        "roleId": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" },
-        "characterResourceId": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,127}$" },
-        "voiceResourceId": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,127}$" },
-        "animationPresetId": { "type": "string", "minLength": 1, "maxLength": 80 }
-      }
-    }
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,127}$" },
+    "binding": { "type": "object", "additionalProperties": false, "required": ["roleId", "characterResourceId", "voiceResourceId"], "properties": { "roleId": { "$ref": "#/$defs/id" }, "characterResourceId": { "$ref": "#/$defs/id" }, "voiceResourceId": { "$ref": "#/$defs/id" }, "animationPresetId": { "type": "string", "minLength": 1, "maxLength": 80 } } },
+    "common": { "type": "object", "properties": { "id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$" }, "name": { "type": "string", "minLength": 1, "maxLength": 100 }, "description": { "type": "string", "minLength": 1, "maxLength": 300 }, "structurePreference": { "enum": ["automatic", "narration", "one-character", "dialogue"] }, "richnessProfile": { "enum": ["simple", "varied", "dynamic"] }, "characterBindings": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/binding" } }, "narratorVoiceResourceId": { "$ref": "#/$defs/id" } } },
+    "v1": { "allOf": [{ "$ref": "#/$defs/common" }, { "type": "object", "additionalProperties": false, "required": ["version", "id", "name", "characterBindings", "preferredBackgroundResourceIds", "backgroundStrategy", "continuity"], "properties": { "version": { "const": 1 }, "id": true, "name": true, "description": true, "structurePreference": true, "richnessProfile": true, "characterBindings": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/binding" } }, "narratorVoiceResourceId": { "$ref": "#/$defs/id" }, "preferredBackgroundResourceIds": { "type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }, "backgroundStrategy": { "enum": ["single-location", "beat-variation"] }, "continuity": { "type": "object", "additionalProperties": false, "required": ["preserveCharacterVoices", "preserveNarratorVoice", "preserveCastAcrossScenes"], "properties": { "preserveCharacterVoices": { "type": "boolean" }, "preserveNarratorVoice": { "type": "boolean" }, "preserveCastAcrossScenes": { "type": "boolean" } } } } }] },
+    "v2": { "allOf": [{ "$ref": "#/$defs/common" }, { "type": "object", "additionalProperties": false, "required": ["version", "id", "name", "characterBindings", "backgroundResourceId"], "properties": { "version": { "const": 2 }, "id": true, "name": true, "description": true, "structurePreference": true, "richnessProfile": true, "characterBindings": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/binding" } }, "narratorVoiceResourceId": { "$ref": "#/$defs/id" }, "backgroundResourceId": { "$ref": "#/$defs/id" }, "tonePreference": { "enum": ["educational", "ironic", "serious", "energetic", "inspirational"] }, "preferredMusicResourceIds": { "type": "array", "maxItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }, "preferredPropResourceIds": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }, "preferredTemplateResourceIds": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }, "narrativeTemplatePreference": { "$ref": "#/$defs/id" }, "preferredSceneRecipeIds": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }, "preferredEffectSequenceIds": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }, "layoutPreference": { "$ref": "#/$defs/id" } } }] }
   }
 }

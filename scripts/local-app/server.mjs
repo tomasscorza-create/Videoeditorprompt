@@ -8,7 +8,7 @@ import { editProjectWithDirector } from '../director/project-editor-director.mjs
 import { editTimelineWithDirector } from '../director/timeline-director.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { createDirectorPreconfigurationStore } from '../director/preconfiguration-store.mjs';
-import { applyPreconfigurationConstraints } from '../director/preconfiguration-director.mjs';
+import { applyPreconfigurationConstraints, createPreconfigurationSnapshot } from '../director/preconfiguration-director.mjs';
 import { listProviderNames } from '../director/providers/index.mjs';
 import { isMain, projectRoot, resolveTtsRoot } from '../stage1/common.mjs';
 import { serializeError } from '../stage1/errors.mjs';
@@ -90,7 +90,16 @@ export async function createLocalAppServer(options = {}) {
     storageRoot: options.directorPreconfigurationStorageRoot || path.join(root, '.local-video', 'director-preconfigurations'),
     catalogProvider: currentCatalog,
   });
-  const resolveDirectorPreconfiguration = async (id) => {
+  const resolveDirectorPreconfiguration = async (id, snapshot) => {
+    if (snapshot?.preconfiguration) {
+      const frozen = createPreconfigurationSnapshot({ revision: snapshot.revision, preconfiguration: snapshot.preconfiguration });
+      if (!frozen || frozen.preconfigurationId !== snapshot.preconfigurationId || frozen.snapshotHash !== snapshot.snapshotHash || (id && frozen.preconfigurationId !== id)) {
+        const error = new Error('La instantánea de configuración no es válida.');
+        error.code = 'DIRECTOR_PRECONFIGURATION_INVALID';
+        throw error;
+      }
+      return { revision: frozen.revision, preconfiguration: frozen.preconfiguration, snapshot: frozen };
+    }
     if (id === undefined || id === null || id === '') return null;
     const record = await directorPreconfigurations.resolve(String(id));
     if (!record) {
@@ -99,7 +108,7 @@ export async function createLocalAppServer(options = {}) {
       error.suggestedAction = 'Elegí otra preconfiguración o continuá sin usar una.';
       throw error;
     }
-    return record;
+    return { ...record, snapshot: createPreconfigurationSnapshot(record) };
   };
   const elevenLabs = options.elevenLabs || {
     inspect: (requestOptions = {}) => inspectElevenLabs({ ...requestOptions, environment: options.environment || process.env }),
@@ -120,12 +129,11 @@ export async function createLocalAppServer(options = {}) {
   // ciclo de vida de jobs (producción). Si el manager viene inyectado (tests), no se
   // toca el `.local-video` real. La política existente respeta trabajos activos y MP4.
   if (ownsManager && options.retentionOnStartup !== false) {
-    runStartupRetention({ localRoot: options.localRoot || path.join(root, '.local-video') });
+    runStartupRetention({ localRoot });
   }
   const director = options.director || createDirectorProposal;
   const questionDirector = options.questionDirector || createClarifyingQuestions;
   const projectDirector = options.projectDirector || editProjectWithDirector;
-  const timelineDirector = options.timelineDirector || editTimelineWithDirector;
   const ollamaInspector = options.ollamaInspector || ((providerOptions = {}) => inspectDirectorProvider({
     ...providerOptions,
     provider: 'ollama',
@@ -318,6 +326,18 @@ export async function createLocalAppServer(options = {}) {
         sendJson(response, 200, { version: 1, ...record });
         return;
       }
+      if (request.method === 'POST' && preconfigurationMatch && !url.searchParams.get('action')) {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        if (body?.preconfiguration?.id !== preconfigurationMatch[1]) {
+          const error = new Error('El identificador de la ruta no coincide con la preconfiguración.');
+          error.code = 'DIRECTOR_PRECONFIGURATION_INVALID';
+          throw error;
+        }
+        const saved = await directorPreconfigurations.create(body.preconfiguration);
+        sendJson(response, 201, { version: 1, ...saved });
+        return;
+      }
       if (request.method === 'PUT' && preconfigurationMatch) {
         assertJsonContentType(request);
         const body = await readJsonBody(request);
@@ -326,8 +346,15 @@ export async function createLocalAppServer(options = {}) {
           error.code = 'DIRECTOR_PRECONFIGURATION_INVALID';
           throw error;
         }
-        const saved = await directorPreconfigurations.save(body.preconfiguration, body.expectedRevision);
-        sendJson(response, saved.created ? 201 : 200, { version: 1, ...saved });
+        const saved = await directorPreconfigurations.update(body.preconfiguration, body.expectedRevision);
+        sendJson(response, 200, { version: 1, ...saved });
+        return;
+      }
+      if (request.method === 'POST' && preconfigurationMatch && url.searchParams.get('action') === 'migrate') {
+        assertJsonContentType(request);
+        const body = await readJsonBody(request);
+        const saved = await directorPreconfigurations.migrate(preconfigurationMatch[1], body.expectedRevision);
+        sendJson(response, 200, { version: 1, ...saved });
         return;
       }
       if (request.method === 'DELETE' && preconfigurationMatch) {
@@ -374,7 +401,7 @@ export async function createLocalAppServer(options = {}) {
           throw error;
         }
         const body = await readJsonBody(request);
-        const preconfiguration = await resolveDirectorPreconfiguration(body.preconfigurationId);
+        const preconfiguration = await resolveDirectorPreconfiguration(body.preconfigurationId, body.preconfigurationSnapshot);
         directorController = new AbortController();
         updateDirectorStatus('running', 'checking_model');
         try {
@@ -395,7 +422,8 @@ export async function createLocalAppServer(options = {}) {
             model: result.model,
             questions: result.questions,
             usage: result.usage,
-            modelIdentity: result.modelIdentity,
+          modelIdentity: result.modelIdentity,
+          preconfigurationSnapshot: preconfiguration?.snapshot || null,
           });
         } finally {
           directorController = null;
@@ -412,7 +440,7 @@ export async function createLocalAppServer(options = {}) {
           throw error;
         }
         const body = await readJsonBody(request);
-        const preconfiguration = await resolveDirectorPreconfiguration(body.preconfigurationId);
+        const preconfiguration = await resolveDirectorPreconfiguration(body.preconfigurationId, body.preconfigurationSnapshot);
         directorController = new AbortController();
         updateDirectorStatus('running', 'checking_model');
         let proposal;
@@ -582,7 +610,7 @@ export async function createLocalAppServer(options = {}) {
       const timelineMediaMatch = /^\/api\/timeline\/media\/(media-[a-f0-9]{16})\/content$/u.exec(url.pathname);
       if (request.method === 'GET' && timelineMediaMatch) {
         const timeline = await timelineRuntime();
-        const media = timeline.media.open(timelineMediaMatch[1]);
+        const media = (timeline.media.openPreview || timeline.media.open)(timelineMediaMatch[1]);
         if (!media) return sendNotFound(response);
         await streamVideoResponse(request, response, media);
         return;

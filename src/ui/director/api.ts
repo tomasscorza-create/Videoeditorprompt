@@ -259,6 +259,7 @@ export interface DirectorQuestionSet {
   questions: [DirectorChoiceQuestion, DirectorChoiceQuestion, DirectorChoiceQuestion];
   modelIdentity?: { model: string; digest: string | null; runtimeVersion: string | null };
   usage?: DirectorUsage;
+  preconfigurationSnapshot?: DirectorPreconfigurationSnapshot | null;
 }
 
 export interface DirectorPersonalizationAnswer {
@@ -274,7 +275,7 @@ export interface DirectorPreconfigurationBinding {
 }
 
 export interface DirectorPreconfiguration {
-  version: 1;
+  version: 2;
   id: string;
   name: string;
   description?: string;
@@ -282,13 +283,15 @@ export interface DirectorPreconfiguration {
   richnessProfile?: 'simple' | 'varied' | 'dynamic';
   characterBindings: DirectorPreconfigurationBinding[];
   narratorVoiceResourceId?: string;
-  preferredBackgroundResourceIds: string[];
-  backgroundStrategy: 'single-location' | 'beat-variation';
-  continuity: {
-    preserveCharacterVoices: boolean;
-    preserveNarratorVoice: boolean;
-    preserveCastAcrossScenes: boolean;
-  };
+  backgroundResourceId: string;
+  tonePreference?: 'educational' | 'ironic' | 'serious' | 'energetic' | 'inspirational';
+}
+
+export interface DirectorPreconfigurationSnapshot {
+  preconfigurationId: string;
+  revision: number;
+  snapshotHash: string;
+  preconfiguration: DirectorPreconfiguration;
 }
 
 export interface DirectorPreconfigurationRecord {
@@ -296,6 +299,7 @@ export interface DirectorPreconfigurationRecord {
   createdAt: string;
   updatedAt: string;
   preconfiguration: DirectorPreconfiguration;
+  health?: { status: 'valid' | 'incomplete' | 'incompatible'; issues: string[] };
 }
 
 export interface DirectorPreconfigurationSummary {
@@ -379,12 +383,13 @@ export async function createProposal(
   personalization: DirectorPersonalizationAnswer[],
   signal?: AbortSignal,
   preconfigurationId?: string,
+  preconfigurationSnapshot?: DirectorPreconfigurationSnapshot | null,
 ): Promise<DirectorProposal> {
   const provider = getDirectorProviderSettings();
   return apiRequest<DirectorProposal>('/api/director/proposals', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, variant, constraints, personalization, preconfigurationId, ...generation, ...provider }),
+    body: JSON.stringify({ prompt, variant, constraints, personalization, preconfigurationId, preconfigurationSnapshot, ...generation, ...provider }),
     signal,
   });
 }
@@ -394,12 +399,13 @@ export async function createClarifyingQuestions(
   constraints: DirectorConstraints,
   signal?: AbortSignal,
   preconfigurationId?: string,
+  preconfigurationSnapshot?: DirectorPreconfigurationSnapshot | null,
 ): Promise<DirectorQuestionSet> {
   const provider = getDirectorProviderSettings();
   const response = await apiRequest<DirectorQuestionSet>('/api/director/questions', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, constraints, preconfigurationId, ...provider }),
+    body: JSON.stringify({ prompt, constraints, preconfigurationId, preconfigurationSnapshot, ...provider }),
     signal,
   });
   const validQuestions = response.questionContract === 2
@@ -437,7 +443,7 @@ export async function saveDirectorPreconfiguration(
   expectedRevision?: number,
 ): Promise<DirectorPreconfigurationRecord & { created: boolean }> {
   return apiRequest(`/api/director/preconfigurations/${encodeURIComponent(preconfiguration.id)}`, {
-    method: 'PUT',
+    method: expectedRevision === undefined ? 'POST' : 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ preconfiguration, expectedRevision }),
   });

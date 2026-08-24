@@ -107,6 +107,7 @@ export async function createDirectorProposal(options) {
     prompt,
     model,
     modelIdentity,
+    preconfigurationSnapshot: options.preconfigurationSnapshot || null,
     temperature,
     variant,
     think,
