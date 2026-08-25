@@ -13,9 +13,11 @@ import { initDirectorPreconfigurationManager } from './preconfiguration-manager.
 import {
   cancelDirectorProposal,
   cancelRenderJob,
+  clearDirectorCache,
   classifyApiError,
   createClarifyingQuestions,
   createProposal,
+  editProjectWithAi,
   formatApiError,
   formatApiTechnicalDetails,
   getDirectorStatus,
@@ -30,19 +32,24 @@ import {
   type DirectorQuestion,
   type DirectorQuestionSet,
   type DirectorPreconfigurationRecord,
+  type DirectorPreconfigurationSnapshot,
   type DirectorUsage,
   type RenderJob,
 } from './api.js';
-import { unifiedMediaDocument, unifiedMediaRevision } from '../timeline-v2.js';
+import { authorizeCustomizedRemovals, type DirectorEditExplanation } from './edit-proposal.js';
+import { createPendingDirectorEdit, pendingEditIsCurrent, type PendingDirectorEdit } from './pending-edit.js';
+import { timelineProjectReady, unifiedMediaDocument, unifiedMediaRevision } from '../timeline-v2.js';
 
 const POLL_INTERVAL_MS = 1000;
 const HEALTH_INTERVAL_MS = 15_000;
 const DIRECTOR_USAGE_STORAGE_KEY = 'local-video.director-usage.v1';
+const DIRECTOR_PRECONFIGURATION_SELECTION_KEY = 'local-video.director-preconfiguration-selection.v2';
 
 interface IdeaDraft {
   prompt: string;
   constraints: DirectorConstraints;
   preconfigurationId?: string;
+  preconfigurationSnapshot?: DirectorPreconfigurationSnapshot | null;
 }
 
 type EditableProject = ReturnType<ProjectStore['project']>;
@@ -55,6 +62,95 @@ interface DirectorUsageRecord {
   resources?: { selected: number; total: number; unsupportedTypes: string[] };
 }
 
+function bindSelectChevron(select: HTMLSelectElement): void {
+  const chevron = select.parentElement?.querySelector<SVGElement>('.director-select-chevron');
+  if (!chevron) return;
+  const control = select.parentElement;
+  const close = (): void => {
+    select.classList.remove('is-arrow-open');
+    select.removeAttribute('size');
+    chevron.classList.remove('is-open');
+    chevron.setAttribute('aria-expanded', 'false');
+  };
+  const toggle = (): void => {
+    if (select.classList.contains('is-arrow-open')) {
+      close();
+      return;
+    }
+    const optionCount = select.querySelectorAll('option').length;
+    select.size = Math.max(2, Math.min(optionCount, 6));
+    select.classList.add('is-arrow-open');
+    chevron.classList.add('is-open');
+    chevron.setAttribute('aria-expanded', 'true');
+  };
+  chevron.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  chevron.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggle();
+  });
+  chevron.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    toggle();
+  });
+  select.addEventListener('change', close);
+  select.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') close();
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (event.target instanceof Node && !control?.contains(event.target)) close();
+  });
+}
+
+function bindPromptResize(prompt: HTMLTextAreaElement, handle: HTMLElement): void {
+  let startY = 0;
+  let startHeight = 0;
+  let pointerId: number | null = null;
+
+  const limits = (): { min: number; max: number } => {
+    const style = getComputedStyle(prompt);
+    return {
+      min: Number.parseFloat(style.minHeight) || 120,
+      max: Number.parseFloat(style.maxHeight) || 420,
+    };
+  };
+  const applyHeight = (height: number): void => {
+    const { min, max } = limits();
+    prompt.style.height = `${Math.min(max, Math.max(min, height))}px`;
+  };
+  const finish = (): void => {
+    if (pointerId !== null && handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+    pointerId = null;
+    document.body.classList.remove('is-resizing-director-prompt');
+  };
+
+  handle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    pointerId = event.pointerId;
+    startY = event.clientY;
+    startHeight = prompt.getBoundingClientRect().height;
+    handle.setPointerCapture(event.pointerId);
+    document.body.classList.add('is-resizing-director-prompt');
+  });
+  handle.addEventListener('pointermove', (event) => {
+    if (pointerId !== event.pointerId) return;
+    applyHeight(startHeight + event.clientY - startY);
+  });
+  handle.addEventListener('pointerup', finish);
+  handle.addEventListener('pointercancel', finish);
+  handle.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    applyHeight(prompt.getBoundingClientRect().height + (event.key === 'ArrowDown' ? 16 : -16));
+  });
+}
+
 export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated: (store: ProjectStore) => void): void {
   const root = required<HTMLElement>('#director-panel');
   const idea = required<HTMLElement>('#director-phase-idea');
@@ -62,12 +158,14 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const video = required<HTMLElement>('#director-phase-video');
   const composer = required<HTMLElement>('#director-composer');
   const prompt = required<HTMLTextAreaElement>('#director-prompt');
+  const promptResize = required<HTMLElement>('#director-prompt-resize');
   const duration = required<HTMLSelectElement>('#director-duration');
-  const scenes = required<HTMLSelectElement>('#director-scenes');
+  const model = required<HTMLSelectElement>('#director-model');
   const quickControls = required<HTMLElement>('#director-quick-controls');
   const generate = required<HTMLButtonElement>('#director-generate');
   const status = required<HTMLElement>('#director-status');
   const statusBlock = status.closest<HTMLElement>('.director-global-status')!;
+  let technicalErrorDetails: HTMLDetailsElement | null = null;
   const submittedMessage = required<HTMLElement>('#director-submitted-message');
   const submittedText = required<HTMLElement>('#director-submitted-text');
   const cancel = required<HTMLButtonElement>('#director-cancel');
@@ -98,14 +196,66 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   const filesMenu = required<HTMLDetailsElement>('#files-menu');
   const renderIndicator = required<HTMLButtonElement>('#render-indicator');
   const renderIndicatorLabel = required<HTMLElement>('#render-indicator-label');
+  const contextualEdit = document.createElement('section');
+  contextualEdit.className = 'director-contextual-edit';
+  const contextualTitle = document.createElement('h3');
+  contextualTitle.textContent = 'Editar con el Director';
+  const contextualInstruction = document.createElement('textarea');
+  contextualInstruction.maxLength = 1200;
+  contextualInstruction.placeholder = 'Ejemplo: cambiá el cierre para que sea más directo.';
+  contextualInstruction.setAttribute('aria-label', 'Instrucción de edición contextual');
+  const contextualActions = document.createElement('div');
+  contextualActions.className = 'director-contextual-edit-actions';
+  const proposeEdit = document.createElement('button');
+  proposeEdit.type = 'button';
+  proposeEdit.className = 'secondary-button';
+  proposeEdit.textContent = 'Proponer cambios';
+  const acceptEdit = document.createElement('button');
+  acceptEdit.type = 'button';
+  acceptEdit.className = 'primary-button';
+  acceptEdit.textContent = 'Aceptar cambios';
+  const rejectEdit = document.createElement('button');
+  rejectEdit.type = 'button';
+  rejectEdit.className = 'text-button';
+  rejectEdit.textContent = 'Rechazar';
+  const clearCache = document.createElement('button');
+  clearCache.type = 'button';
+  clearCache.className = 'text-button';
+  clearCache.textContent = 'Borrar caché del Director';
+  const proposalSummary = document.createElement('div');
+  proposalSummary.className = 'director-edit-proposal';
+  proposalSummary.hidden = true;
+  contextualActions.append(proposeEdit, acceptEdit, rejectEdit, clearCache);
+  contextualEdit.append(contextualTitle, contextualInstruction, contextualActions, proposalSummary);
+  video.insertBefore(contextualEdit, render);
   const preconfigurationSelect = document.createElement('select');
   preconfigurationSelect.id = 'director-preconfiguration';
   preconfigurationSelect.setAttribute('aria-label', 'Configuración creativa guardada');
   const preconfigurationLabel = document.createElement('label');
   preconfigurationLabel.htmlFor = preconfigurationSelect.id;
+  preconfigurationLabel.className = 'director-setting-row';
+  const preconfigurationIdentity = document.createElement('span');
+  preconfigurationIdentity.className = 'director-setting-identity';
+  const preconfigurationIcon = document.createElement('span');
+  preconfigurationIcon.className = 'director-setting-icon';
+  preconfigurationIcon.setAttribute('aria-hidden', 'true');
+  preconfigurationIcon.innerHTML = '<svg class="icon"><use href="#ui-icon-sliders"/></svg>';
   const preconfigurationLabelText = document.createElement('span');
   preconfigurationLabelText.textContent = 'Configuración guardada';
-  preconfigurationLabel.append(preconfigurationLabelText, preconfigurationSelect);
+  preconfigurationIdentity.append(preconfigurationIcon, preconfigurationLabelText);
+  const preconfigurationValue = document.createElement('span');
+  preconfigurationValue.className = 'director-setting-control';
+  const preconfigurationChevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  preconfigurationChevron.setAttribute('class', 'icon director-select-chevron');
+  preconfigurationChevron.setAttribute('role', 'button');
+  preconfigurationChevron.setAttribute('tabindex', '0');
+  preconfigurationChevron.setAttribute('aria-label', 'Abrir o cerrar opciones de configuración guardada');
+  preconfigurationChevron.setAttribute('aria-expanded', 'false');
+  const preconfigurationChevronUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  preconfigurationChevronUse.setAttribute('href', '#ui-icon-chevron-down');
+  preconfigurationChevron.append(preconfigurationChevronUse);
+  preconfigurationValue.append(preconfigurationSelect, preconfigurationChevron);
+  preconfigurationLabel.append(preconfigurationIdentity, preconfigurationValue);
   const preconfigurationManage = document.createElement('button');
   preconfigurationManage.type = 'button';
   preconfigurationManage.className = 'text-button';
@@ -114,6 +264,17 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   preconfigurationControl.className = 'director-preconfiguration-control';
   preconfigurationControl.append(preconfigurationLabel, preconfigurationManage);
   quickControls.append(preconfigurationControl);
+
+  bindSelectChevron(duration);
+  bindSelectChevron(model);
+  bindSelectChevron(preconfigurationSelect);
+  preconfigurationSelect.addEventListener('change', () => {
+    try {
+      if (preconfigurationSelect.value) localStorage.setItem(DIRECTOR_PRECONFIGURATION_SELECTION_KEY, preconfigurationSelect.value);
+      else localStorage.removeItem(DIRECTOR_PRECONFIGURATION_SELECTION_KEY);
+    } catch { /* La selección es una comodidad local, no estado de autoría. */ }
+  });
+  bindPromptResize(prompt, promptResize);
 
   let store = initialStore;
   let phase: DirectorPhase = initialDirectorPhase(hasAuthoredContent(store));
@@ -131,6 +292,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   let ideaDraft: IdeaDraft | null = null;
   let questionSet: DirectorQuestionSet | null = null;
   let preconfigurations: DirectorPreconfigurationRecord[] = [];
+  let pendingDirectorEdit: PendingDirectorEdit | null = null;
   const subscribedStores = new WeakSet<ProjectStore>();
 
   root.hidden = false;
@@ -192,6 +354,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     root.scrollIntoView({ block: 'nearest' });
   });
   render.addEventListener('click', () => void startCurrentRender());
+  proposeEdit.addEventListener('click', () => void requestContextualEdit());
+  acceptEdit.addEventListener('click', () => acceptContextualEdit());
+  rejectEdit.addEventListener('click', rejectContextualEdit);
+  clearCache.addEventListener('click', () => void clearContextualCache());
   viewVideo.addEventListener('click', () => {
     if (latestCompletedJob) showCompleted(latestCompletedJob, true, true);
   });
@@ -217,7 +383,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
       prompt.focus();
       return;
     }
-    const constraints = buildDirectorConstraints({ duration: duration.value, scenes: scenes.value });
+    const constraints = buildDirectorConstraints({ duration: duration.value, scenes: '' });
     if (getDirectorProviderSettings().provider === 'openai' && (constraints.sceneCount ?? 0) > 3) {
       const blocks = Math.ceil((constraints.sceneCount ?? 0) / 3);
       notify({
@@ -233,7 +399,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     try {
       const preconfigurationId = preconfigurationSelect.value || undefined;
       questionSet = await createClarifyingQuestions(instruction, constraints, proposalController.signal, preconfigurationId);
-      ideaDraft = { prompt: instruction, constraints, preconfigurationId };
+      ideaDraft = { prompt: instruction, constraints, preconfigurationId, preconfigurationSnapshot: questionSet.preconfigurationSnapshot };
       renderQuestions(questionSet.questions);
       phase = 'base';
       report('Respondé las tres preguntas para personalizar el video.', true);
@@ -263,14 +429,19 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     try {
       const questionUsage = questionSet.usage;
       const questionsFromCache = questionSet.cacheHit;
+      // Una regeneración debe ser una alternativa real. Reservamos la variante
+      // antes de llamar al Director, incluso si esta propuesta termina fallando.
+      const proposalVariant = variant;
+      variant += 1;
       const result = await createProposal(
         ideaDraft.prompt,
-        variant,
+        proposalVariant,
         ideaDraft.constraints,
         { think: false, bestOf: 1 },
         personalization,
         proposalController.signal,
         ideaDraft.preconfigurationId,
+        ideaDraft.preconfigurationSnapshot,
       );
       if (store) {
         const error = store.replaceProject(result.project);
@@ -280,7 +451,6 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
         onStoreCreated(store);
         subscribeToStore(store);
       }
-      variant += 1;
       const creationUsage = mergeDirectorUsage(questionUsage, result.usage);
       const resourceSummary = {
         selected: result.context.shortlistedEntries,
@@ -323,7 +493,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     questionsRoot.replaceChildren(...questions.map((question, index) => questionCard(question, index)));
     const selected = preconfigurations.find((record) => record.preconfiguration.id === ideaDraft?.preconfigurationId)?.preconfiguration;
     questionIntro.textContent = selected
-      ? `La IA leyó tu idea usando «${selected.name}». Respondé las tres preguntas para completar esa base.`
+      ? `Las preguntas respetan la estructura y riqueza de «${selected.name}». El reparto, voces y fondo se aplicarán al crear el video.`
       : 'La IA leyó tu idea. En cada pregunta elegí una de las tres opciones o escribí una respuesta diferente.';
     replacement.hidden = !hasAuthoredContent(store);
   }
@@ -343,11 +513,17 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     for (const record of preconfigurations) {
       const option = new Option(record.preconfiguration.name, record.preconfiguration.id);
       option.title = record.preconfiguration.description || describePreconfiguration(record);
+      if (record.health && record.health.status !== 'valid') {
+        option.disabled = true;
+        option.textContent = `${record.preconfiguration.name} · necesita reparación`;
+      }
       options.push(option);
     }
     preconfigurationSelect.replaceChildren(...options);
-    if (selectedId && preconfigurations.some((record) => record.preconfiguration.id === selectedId)) {
-      preconfigurationSelect.value = selectedId;
+    const remembered = (() => { try { return localStorage.getItem(DIRECTOR_PRECONFIGURATION_SELECTION_KEY) || undefined; } catch { return undefined; } })();
+    const requested = selectedId || remembered;
+    if (requested && preconfigurations.some((record) => record.preconfiguration.id === requested && record.health?.status !== 'incomplete' && record.health?.status !== 'incompatible')) {
+      preconfigurationSelect.value = requested;
     }
   }
 
@@ -387,6 +563,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     setPhase('video');
     setBusy('render', 'Preparando el video…');
     try {
+      await timelineProjectReady();
       const job = await startRender(store.project(), unifiedMediaDocument());
       currentJobId = job.jobId;
       persistLastJobId(job.jobId);
@@ -467,6 +644,107 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     cancel.hidden = busyMode === null;
     cancel.disabled = busyMode === 'ai' ? proposalController === null : busyMode === 'render' ? currentJobId === null : true;
     syncRenderState();
+    renderContextualEdit();
+  }
+
+  async function requestContextualEdit(): Promise<void> {
+    if (!store) return;
+    const instruction = contextualInstruction.value.trim();
+    if (instruction.length < 3) {
+      report('Escribí una instrucción de edición de al menos tres caracteres.');
+      contextualInstruction.focus();
+      return;
+    }
+    proposalController = new AbortController();
+    setBusy('ai', 'El Director está preparando una propuesta de edición…');
+    try {
+      const result = await editProjectWithAi(instruction, store.project(), null, proposalController.signal);
+      pendingDirectorEdit = createPendingDirectorEdit(store.project(), result.commands, result.explanation as DirectorEditExplanation);
+      report(result.commands.length ? 'Revisá la propuesta antes de aplicarla.' : 'El Director no propuso cambios para esta instrucción.', true);
+    } catch (error) {
+      reportError(error);
+    } finally {
+      proposalController = null;
+      if (busyMode === 'ai') setBusy(null);
+      syncUi();
+    }
+  }
+
+  function rejectContextualEdit(): void {
+    if (!pendingDirectorEdit) return;
+    pendingDirectorEdit = null;
+    report('La propuesta fue rechazada. El proyecto no cambió.', true);
+    syncUi();
+  }
+
+  async function clearContextualCache(): Promise<void> {
+    clearCache.disabled = true;
+    try {
+      const result = await clearDirectorCache();
+      report(result.removed ? `Se borraron ${result.removed} entradas de caché del Director.` : 'La caché del Director ya estaba vacía.', true);
+    } catch (error) {
+      reportError(error);
+    } finally {
+      clearCache.disabled = false;
+    }
+  }
+
+  function acceptContextualEdit(): void {
+    if (!store || !pendingDirectorEdit) return;
+    if (!pendingEditIsCurrent(pendingDirectorEdit, store.project())) {
+      pendingDirectorEdit = null;
+      report('La propuesta venció porque el proyecto cambió. Pedí una nueva propuesta.', false);
+      syncUi();
+      return;
+    }
+    const needsCustomizedConfirmation = pendingDirectorEdit.explanation.customizedTrackRemovalIndexes.length > 0;
+    if (needsCustomizedConfirmation && !pendingDirectorEdit.customizedRemovalConfirmed) {
+      const accepted = window.confirm('Esta propuesta elimina animaciones personalizadas. ¿Confirmás esa eliminación además de aceptar el lote?');
+      if (!accepted) return;
+      pendingDirectorEdit = { ...pendingDirectorEdit, customizedRemovalConfirmed: true };
+    }
+    const commands = pendingDirectorEdit.customizedRemovalConfirmed
+      ? authorizeCustomizedRemovals(pendingDirectorEdit.commands, pendingDirectorEdit.explanation.customizedTrackRemovalIndexes)
+      : pendingDirectorEdit.commands;
+    const error = store.dispatchBatch(commands);
+    if (error) {
+      report(`No se pudo aplicar la propuesta: ${error}`);
+      return;
+    }
+    pendingDirectorEdit = null;
+    contextualInstruction.value = '';
+    report('Cambios aplicados. Podés deshacerlos en un único paso.', true);
+    syncUi();
+  }
+
+  function renderContextualEdit(): void {
+    const current = Boolean(store && pendingDirectorEdit && pendingEditIsCurrent(pendingDirectorEdit, store.project()));
+    contextualEdit.hidden = !store || phase !== 'video';
+    proposeEdit.disabled = busyMode !== null || !store;
+    clearCache.disabled = busyMode !== null;
+    acceptEdit.hidden = !current;
+    rejectEdit.hidden = !pendingDirectorEdit;
+    acceptEdit.disabled = !current || busyMode !== null;
+    proposalSummary.hidden = !pendingDirectorEdit;
+    if (!pendingDirectorEdit) {
+      proposalSummary.replaceChildren();
+      return;
+    }
+    const title = document.createElement('strong');
+    title.textContent = current ? pendingDirectorEdit.explanation.summary : 'Propuesta vencida';
+    const details = document.createElement('ul');
+    for (const change of pendingDirectorEdit.explanation.changes) {
+      const item = document.createElement('li');
+      item.textContent = change;
+      details.append(item);
+    }
+    if (!current) {
+      const expired = document.createElement('p');
+      expired.textContent = 'El proyecto cambió mientras esperabas. Esta propuesta no se puede aplicar.';
+      proposalSummary.replaceChildren(title, expired);
+    } else {
+      proposalSummary.replaceChildren(title, details);
+    }
   }
 
   function renderAiUsage(
@@ -611,7 +889,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     const name = document.createElement('strong');
     name.textContent = job.projectId;
     const detail = document.createElement('span');
-    detail.textContent = job.result ? `${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(1)} s` : humanStage(job.stage);
+    detail.textContent = job.result ? `Secuencia continua · ${job.result.durationSeconds.toFixed(1)} s` : humanStage(job.stage);
     copy.append(name, detail);
     card.append(icon, copy);
     card.addEventListener('click', () => {
@@ -665,10 +943,10 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     if (job.state === 'completed' && job.result) {
       latestCompletedJob = job;
       const current = showCompleted(job, true);
-      const message = current ? `MP4 listo · ${job.result.scenes} escena(s) · ${job.result.durationSeconds.toFixed(1)} s.` : 'El MP4 corresponde a una versión anterior.';
+      const message = current ? `MP4 listo · secuencia continua · ${job.result.durationSeconds.toFixed(1)} s.` : 'El MP4 corresponde a una versión anterior.';
       progressRoot.hidden = true;
       videoResult.hidden = false;
-      videoResultMeta.textContent = `${job.result.scenes} escena${job.result.scenes === 1 ? '' : 's'} · ${job.result.durationSeconds.toFixed(1)} s`;
+      videoResultMeta.textContent = `Secuencia continua · ${job.result.durationSeconds.toFixed(1)} s`;
       downloadVideo.href = job.result.videoUrl;
       downloadVideo.download = job.result.downloadName;
       report(message, true);
@@ -700,7 +978,7 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     if (!job.result) return false;
     latestCompletedJob = job;
     videoResult.hidden = false;
-    videoResultMeta.textContent = `${job.result.scenes} escena${job.result.scenes === 1 ? '' : 's'} · ${job.result.durationSeconds.toFixed(1)} s`;
+    videoResultMeta.textContent = `Secuencia continua · ${job.result.durationSeconds.toFixed(1)} s`;
     downloadVideo.href = job.result.videoUrl;
     downloadVideo.download = job.result.downloadName;
     const currentProject = store?.project();
@@ -776,6 +1054,8 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
   }
 
   function report(message: string, ok = false): void {
+    technicalErrorDetails?.remove();
+    technicalErrorDetails = null;
     statusBlock.hidden = false;
     status.textContent = message;
     status.classList.toggle('error', !ok);
@@ -787,6 +1067,17 @@ export function initDirectorUi(initialStore: ProjectStore | null, onStoreCreated
     const message = detail ? formatApiError(detail) : error instanceof Error ? error.message : String(error);
     const kind = detail ? classifyApiError(detail) : 'error';
     report(message, kind === 'cancelled' || kind === 'busy');
+    const technical = detail ? formatApiTechnicalDetails(detail) : null;
+    if (technical) {
+      technicalErrorDetails = document.createElement('details');
+      technicalErrorDetails.className = 'director-error-details';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Detalles técnicos';
+      const content = document.createElement('pre');
+      content.textContent = technical;
+      technicalErrorDetails.append(summary, content);
+      statusBlock.append(technicalErrorDetails);
+    }
     notify({
       message,
       level: kind === 'cancelled' || kind === 'busy' ? 'info' : 'error',
@@ -869,9 +1160,9 @@ function questionCard(question: DirectorQuestion, index: number): HTMLElement {
 function humanStage(stage: string): string {
   return ({
     queueing: 'En cola', starting_pipeline: 'Iniciando el motor', compiling_project: 'Preparando el proyecto',
-    rendering_scene: 'Preparando una escena', reusing_scene: 'Reutilizando una escena', generating_voice: 'Creando las voces',
+    rendering_scene: 'Preparando el contenido', reusing_scene: 'Reutilizando contenido', generating_voice: 'Creando las voces',
     analyzing_audio: 'Midiendo el audio', rendering_frames: 'Dibujando el video', encoding: 'Codificando el MP4',
-    assembling_project: 'Uniendo las escenas', verifying_project: 'Verificando el resultado',
+    assembling_project: 'Cerrando la secuencia', verifying_project: 'Verificando el resultado',
   } as Record<string, string>)[stage] ?? stage.replaceAll('_', ' ');
 }
 
@@ -879,7 +1170,7 @@ function describeSceneProgress(progress: Record<string, unknown> | null): string
   if (!progress) return null;
   const index = Number(progress.sceneIndex ?? progress.currentScene ?? 0);
   const count = Number(progress.sceneCount ?? progress.totalScenes ?? 0);
-  return index > 0 && count > 0 ? `Escena ${index} de ${count}` : null;
+  return index > 0 && count > 0 ? 'Procesando la secuencia' : null;
 }
 
 function mergeDirectorUsage(...entries: Array<DirectorUsage | undefined>): DirectorUsage {

@@ -464,9 +464,7 @@ export async function editProjectWithAi(
   model: string;
   cacheHit: boolean;
   commands: Array<Record<string, unknown>>;
-  project: unknown;
   baseProjectRevision: string;
-  projectRevision: string;
   context: DirectorContextSummary;
   status?: 'proposed' | 'no-change';
   explanation: {
@@ -489,6 +487,10 @@ export async function editProjectWithAi(
     body: JSON.stringify({ instruction, project, selection, ...provider }),
     signal,
   });
+}
+
+export async function clearDirectorCache(): Promise<{ version: number; removed: number }> {
+  return apiRequest('/api/director/cache/clear', { method: 'POST' });
 }
 
 /**
@@ -673,5 +675,5 @@ function formatUnsupportedSceneDetail(value: string | undefined): string | null 
   const safe = value.replace(/[\u0000-\u001f\u007f]+/gu, ' ').trim().slice(0, 300);
   const match = /^\/scenes\/(\d+)\s+(.+)$/u.exec(safe);
   if (!match) return null;
-  return `Escena ${Number(match[1]) + 1}: ${match[2]}`;
+  return `Contenido: ${match[2]}`;
 }

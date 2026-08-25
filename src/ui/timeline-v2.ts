@@ -18,6 +18,7 @@ import {
   invalidateEditorOutput,
   seekEditorPlayback,
   setEditorPlayhead,
+  setExternalEditorMediaDuration,
   EDITOR_WORKSPACE_EVENT,
 } from './editor-workspace.js';
 import { optional } from './dom.js';
@@ -25,14 +26,19 @@ import { clearProjectSelection, PROJECT_SELECTION_EVENT } from './project/select
 import { projectFingerprint } from '../../shared/project-fingerprint.js';
 import {
   directTimelineProject,
-  importTimelineMedia,
+  getTimelineProject,
   listTimelineMedia,
   saveTimelineProject,
+  uploadTimelineMedia,
   type TimelineMediaEntry,
 } from './timeline-v2-api.js';
+import { planTimelineMediaInsertion } from './timeline-media-placement.js';
 
-const STORAGE_KEY = 'local-video.timeline-v2.project';
+const LEGACY_STORAGE_KEY = 'local-video.timeline-v2.project';
+const STORAGE_PREFIX = 'local-video.timeline-v2.project.';
+const MIGRATION_KEY = 'local-video.timeline-v2.migrated-project';
 export const UNIFIED_MEDIA_TIMELINE_EVENT = 'local-video:unified-media-timeline';
+export const TIMELINE_MEDIA_LIBRARY_EVENT = 'local-video:timeline-media-library';
 const TICKS_PER_SECOND = 48_000;
 const FRAME_TICKS = 1_600;
 const MIN_PPS = 20;
@@ -45,7 +51,7 @@ const TRACK_LABELS: Record<string, string> = {
 };
 
 let initialized = false;
-let state: TimelineClipEditorState = createTimelineClipEditor(blankDocument());
+let state: TimelineClipEditorState = createTimelineClipEditor(blankDocument('timeline-unattached'));
 let media = new Map<string, TimelineMediaEntry>();
 let selection = new Set<string>();
 let playheadTick = 0;
@@ -56,8 +62,13 @@ let cutEnabled = false;
 let muted = false;
 let playing = false;
 let saveTimer = 0;
+let saveQueue: Promise<void> = Promise.resolve();
 let revision: string | null = null;
+let activeProjectId: string | null = null;
+let readyPromise: Promise<void> = Promise.resolve();
 const previewElements = new Map<string, HTMLMediaElement>();
+const activePreviewIds = new Set<string>();
+const previewPlayRequests = new Set<string>();
 const handledEvents = new WeakSet<Event>();
 
 export function initTimelineV2(): void {
@@ -65,12 +76,9 @@ export function initTimelineV2(): void {
   initialized = true;
   document.body.dataset.timelineEngine = 'unified';
   document.body.classList.remove('timeline-v2-active');
-  restoreLocal();
-  bindOwnButton('#timeline-v2-import', (event) => runOnce(event, () => optional<HTMLInputElement>('#timeline-v2-file')?.click()));
   bindOwnButton('#timeline-v2-ripple', (event) => runOnce(event, () => { rippleEnabled = !rippleEnabled; render(); }));
   bindOwnButton('#timeline-v2-unlink', (event) => runOnce(event, unlinkSelection));
   bindOwnButton('#timeline-v2-director', (event) => runOnce(event, () => void runTimelineDirector()));
-  optional<HTMLInputElement>('#timeline-v2-file')?.addEventListener('change', (event) => void importFiles((event.currentTarget as HTMLInputElement).files));
   document.addEventListener('click', captureToolbarClick, true);
   window.addEventListener('keydown', captureKeyboard, true);
   window.addEventListener(EDITOR_WORKSPACE_EVENT, () => syncPreviewFromEditor());
@@ -83,6 +91,7 @@ export function initTimelineV2(): void {
   void listTimelineMedia().then((entries) => {
     media = new Map(entries.map((entry) => [entry.id, entry]));
     migrateLegacyMeasurementClips(entries);
+    window.dispatchEvent(new CustomEvent(TIMELINE_MEDIA_LIBRARY_EVENT));
     render();
   }).catch((error) => setStatus(messageOf(error), true));
   render();
@@ -98,17 +107,17 @@ function migrateLegacyMeasurementClips(entries: TimelineMediaEntry[]): void {
   const referenced = new Set(document.clips.map((clip) => clip.sourceId));
   document.sources = document.sources.filter((source) => referenced.has(source.id));
   state = createTimelineClipEditor(document);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(document));
+  if (activeProjectId) persistLocal(document);
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => void saveTimelineProject(document, revision)
     .then((next) => { revision = next; setStatus('Timeline anterior migrada: las voces generadas ya no están duplicadas.'); })
     .catch((error) => setStatus(`La migración quedó guardada localmente: ${messageOf(error)}`, true)), 0);
 }
 
-function blankDocument(): TimelineDocumentV2 {
+function blankDocument(id: string): TimelineDocumentV2 {
   return {
     version: 2,
-    id: `montaje-${Date.now().toString(36)}`,
+    id,
     timebase: { ticksPerSecond: 48_000, fps: 30, audioSampleRate: 48_000 },
     sources: [],
     tracks: [
@@ -121,20 +130,82 @@ function blankDocument(): TimelineDocumentV2 {
   };
 }
 
-function restoreLocal(): void {
+export function attachTimelineProject(projectId: string): Promise<void> {
+  activeProjectId = projectId;
+  setExternalEditorMediaDuration(0);
+  selection.clear();
+  revision = null;
+  window.clearTimeout(saveTimer);
+  readyPromise = loadTimelineProject(projectId);
+  return readyPromise;
+}
+
+export function timelineProjectReady(): Promise<void> {
+  return readyPromise;
+}
+
+async function loadTimelineProject(projectId: string): Promise<void> {
+  setStatus('Abriendo los archivos del proyecto…');
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as TimelineDocumentV2 | null;
-    if (value?.version === 2) state = createTimelineClipEditor(value);
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
+    const stored = await getTimelineProject(projectId);
+    if (activeProjectId !== projectId) return;
+    if (stored) {
+      state = createTimelineClipEditor(stored.project);
+      revision = stored.revision;
+    } else {
+      const local = readLocalDocument(projectId) ?? readLegacyDocument(projectId) ?? blankDocument(projectId);
+      state = createTimelineClipEditor({ ...local, id: projectId });
+      revision = await saveTimelineProject(state.document);
+    }
+    persistLocal(state.document);
+    setStatus(state.document.clips.length ? 'Archivos del proyecto listos.' : 'Podés importar videos o audios desde Archivos.');
+  } catch (error) {
+    if (activeProjectId !== projectId) return;
+    const local = readLocalDocument(projectId);
+    state = createTimelineClipEditor(local ?? blankDocument(projectId));
+    revision = null;
+    setStatus(`Se abrió la copia local: ${messageOf(error)}`, true);
   }
+  migrateLegacyMeasurementClips([...media.values()]);
+  publishMediaDuration();
+  render();
+  window.dispatchEvent(new CustomEvent(TIMELINE_MEDIA_LIBRARY_EVENT));
+}
+
+function readLocalDocument(projectId: string): TimelineDocumentV2 | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(localStorageKey(projectId)) || 'null') as TimelineDocumentV2 | null;
+    return value?.version === 2 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function readLegacyDocument(projectId: string): TimelineDocumentV2 | null {
+  try {
+    if (localStorage.getItem(MIGRATION_KEY)) return null;
+    const value = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || 'null') as TimelineDocumentV2 | null;
+    if (value?.version !== 2 || value.clips.length === 0) return null;
+    localStorage.setItem(MIGRATION_KEY, projectId);
+    return { ...value, id: projectId };
+  } catch {
+    return null;
+  }
+}
+
+function localStorageKey(projectId: string): string {
+  return `${STORAGE_PREFIX}${projectId}`;
+}
+
+function persistLocal(document: TimelineDocumentV2): void {
+  if (!activeProjectId || document.id !== activeProjectId) return;
+  localStorage.setItem(localStorageKey(activeProjectId), JSON.stringify(document));
 }
 
 function captureToolbarClick(event: Event): void {
   const target = event.composedPath().find((candidate): candidate is HTMLButtonElement => candidate instanceof HTMLButtonElement) ?? null;
   if (!target || target.id === 'timeline-collapse' || target.id === 'timeline-shortcuts') return;
   const actions: Record<string, () => void> = {
-    'timeline-v2-import': () => optional<HTMLInputElement>('#timeline-v2-file')?.click(),
     'timeline-v2-ripple': () => { rippleEnabled = !rippleEnabled; render(); },
     'timeline-v2-unlink': unlinkSelection,
     'timeline-v2-director': () => void runTimelineDirector(),
@@ -204,7 +275,7 @@ export function renderUnifiedMediaRows(width: number, pps: number): HTMLElement[
   const title = document.createElement('strong');
   title.textContent = 'MEDIOS LIBRES';
   const detail = document.createElement('span');
-  detail.textContent = 'Videos y audios independientes · mover, cortar, recortar o borrar sin depender de escenas';
+  detail.textContent = 'Videos y audios independientes · mover, cortar, recortar o borrar dentro de la secuencia';
   divider.append(title, detail);
   return [
     divider,
@@ -452,69 +523,106 @@ async function runTimelineDirector(): Promise<void> {
 
 function changed(renderNow = true): void {
   invalidateEditorOutput();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.document));
+  publishMediaDuration();
+  let localFailed = false;
+  try {
+    persistLocal(state.document);
+  } catch {
+    localFailed = true;
+  }
   window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => void saveTimelineProject(state.document, revision)
-    .then((next) => { revision = next; setStatus('Timeline guardada.'); })
-    .catch((error) => { revision = null; setStatus(`Guardado local: ${messageOf(error)}`, true); }), 400);
+  const document = structuredClone(state.document);
+  const baseRevision = revision;
+  saveTimer = window.setTimeout(() => {
+    saveQueue = saveQueue.then(async () => {
+      const expectedRevision = state.document.id === document.id ? revision : baseRevision;
+      const next = await saveTimelineProject(document, expectedRevision);
+      if (state.document.id === document.id) revision = next;
+      setStatus(localFailed ? 'Timeline guardada en el servicio local.' : 'Timeline guardada.');
+    }).catch((error) => {
+      setStatus(`${localFailed ? 'No se pudo guardar' : 'Guardado local'}: ${messageOf(error)}`, true);
+    });
+  }, 400);
   if (renderNow) render();
 }
 
-async function importFiles(files: FileList | null): Promise<void> {
-  if (!files?.length) return;
-  setStatus('Importando y midiendo con FFprobe…');
-  try {
-    for (const file of [...files]) addMedia(await importTimelineMedia(file));
-    setStatus(`${files.length} medio(s) listos; no se renderizó ningún cuadro.`);
-  } catch (error) {
-    setStatus(messageOf(error), true);
-  } finally {
-    const input = optional<HTMLInputElement>('#timeline-v2-file');
-    if (input) input.value = '';
-  }
+function publishMediaDuration(): void {
+  setExternalEditorMediaDuration(unifiedMediaDurationSeconds());
 }
 
-function addMedia(entry: TimelineMediaEntry, ranges?: Array<{ id: string; startSeconds: number; endSeconds: number }>): void {
-  media.set(entry.id, entry);
-  const commands: TimelineClipCommandV2[] = [];
-  if (!state.document.sources.some((source) => source.id === entry.id)) commands.push({
-    type: 'add-source',
-    source: { id: entry.id, kind: entry.kind, durationTicks: entry.durationTicks, contentHash: entry.contentHash },
-  });
-  let start = timelineDurationTicks(state.document);
-  if (entry.hasVideo) {
-    const sourceRanges = ranges?.length ? ranges : [{ id: 'medio', startSeconds: 0, endSeconds: entry.durationTicks / TICKS_PER_SECOND }];
-    for (const range of sourceRanges) {
-      const sourceInTick = Math.max(0, Math.round(range.startSeconds * 30) * FRAME_TICKS);
-      const sourceEndTick = Math.min(entry.durationTicks, Math.max(sourceInTick + FRAME_TICKS, Math.round(range.endSeconds * 30) * FRAME_TICKS));
-      const durationTicks = sourceEndTick - sourceInTick;
-      const label = range.id.replace(/[^a-zA-Z0-9_-]+/gu, '-');
-      const group = entry.hasAudio ? nextId(`link-${label}`) : undefined;
-      commands.push({ type: 'add-clip', clip: {
-        id: nextId(`video-${label}`), kind: 'visual', sourceId: entry.id, trackId: 'video-track-01',
-        timelineStartTick: start, sourceInTick, durationTicks, enabled: true,
-        ...(group ? { linkGroupId: group } : {}),
-      } });
-      if (entry.hasAudio) commands.push({ type: 'add-clip', clip: {
-        id: nextId(`audio-${label}`), kind: 'audio', sourceId: entry.id, trackId: 'audio-track-01',
-        timelineStartTick: start, sourceInTick, durationTicks, enabled: true, linkGroupId: group!,
-      } });
-      start += durationTicks;
+export interface TimelineMediaImportOutcome {
+  fileName: string;
+  entry?: TimelineMediaEntry;
+  created?: boolean;
+  error?: string;
+}
+
+export async function importMediaFiles(files: FileList | readonly File[] | null): Promise<TimelineMediaImportOutcome[]> {
+  if (!files?.length) return [];
+  if (!activeProjectId) throw new Error('Abrí un proyecto antes de importar archivos.');
+  await timelineProjectReady();
+  setStatus('Importando y midiendo con FFprobe…');
+  const outcomes: TimelineMediaImportOutcome[] = [];
+  const imported: TimelineMediaEntry[] = [];
+  for (const file of [...files]) {
+    try {
+      const result = await uploadTimelineMedia(file);
+      media.set(result.entry.id, result.entry);
+      imported.push(result.entry);
+      outcomes.push({ fileName: file.name, entry: result.entry, created: result.created });
+    } catch (error) {
+      outcomes.push({ fileName: file.name, error: messageOf(error) });
     }
-  } else commands.push({ type: 'add-clip', clip: {
-    id: nextId('audio-clip'), kind: 'audio', sourceId: entry.id, trackId: 'audio-track-01',
-    timelineStartTick: start, sourceInTick: 0, durationTicks: entry.durationTicks, enabled: true,
-  } });
-  dispatchBatch(commands);
+  }
+  if (imported.length) insertMediaEntries(imported);
+  window.dispatchEvent(new CustomEvent(TIMELINE_MEDIA_LIBRARY_EVENT, { detail: { outcomes } }));
+  const failed = outcomes.filter((outcome) => outcome.error).length;
+  setStatus(
+    failed
+      ? `${imported.length} archivo(s) listos y ${failed} con error. Revisá Archivos.`
+      : `${imported.length} archivo(s) listos en la timeline; no se renderizó ningún cuadro.`,
+    failed > 0,
+  );
+  const input = optional<HTMLInputElement>('#timeline-v2-file');
+  if (input) input.value = '';
+  return outcomes;
+}
+
+export async function addExistingTimelineMedia(mediaId: string): Promise<void> {
+  await timelineProjectReady();
+  const entry = media.get(mediaId);
+  if (!entry) throw new Error('El archivo ya no está disponible en la biblioteca local.');
+  insertMediaEntries([entry]);
+  setStatus(`«${entry.name}» se agregó al final de la timeline.`);
+}
+
+export function timelineMediaEntries(): TimelineMediaEntry[] {
+  return [...media.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export function timelineMediaUsage(mediaId: string): number {
+  return state.document.clips.filter((clip) => clip.sourceId === mediaId).length;
+}
+
+function insertMediaEntries(entries: TimelineMediaEntry[]): void {
+  const plan = planTimelineMediaInsertion(state.document, entries);
+  if (!plan.commands.length) return;
+  dispatchBatch(plan.commands);
+  selection = new Set(plan.clipIds);
+  render();
 }
 
 function rebuildPreview(): void {
   const currentIds = new Set(state.document.clips.filter((clip) => clip.enabled).map((clip) => clip.id));
+  let changed = false;
   for (const [id, element] of previewElements) {
     if (currentIds.has(id)) continue;
     element.pause();
     element.remove();
     previewElements.delete(id);
+    activePreviewIds.delete(id);
+    previewPlayRequests.delete(id);
+    changed = true;
   }
   for (const clip of state.document.clips.filter((item) => item.enabled)) {
     if (previewElements.has(clip.id)) continue;
@@ -531,8 +639,9 @@ function rebuildPreview(): void {
       element.className = 'unified-media-audio';
     }
     previewElements.set(clip.id, element);
+    changed = true;
   }
-  syncPreview(true);
+  if (changed) syncPreview(true);
 }
 
 export interface UnifiedMediaPreviewNodes {
@@ -575,10 +684,13 @@ function syncPreviewFromEditor(): void {
 }
 
 function syncPreview(forceSeek = false): void {
+  const nextActiveIds = new Set<string>();
   for (const [clipId, element] of previewElements) {
     const clip = state.document.clips.find((item) => item.id === clipId);
     if (!clip) continue;
     const activeNow = playheadTick >= clip.timelineStartTick && playheadTick < clip.timelineStartTick + clip.durationTicks;
+    const becameActive = activeNow && !activePreviewIds.has(clipId);
+    if (activeNow) nextActiveIds.add(clipId);
     const target = (clip.sourceInTick + playheadTick - clip.timelineStartTick) / TICKS_PER_SECOND;
     if (element instanceof HTMLVideoElement) {
       element.hidden = !activeNow;
@@ -588,12 +700,19 @@ function syncPreview(forceSeek = false): void {
       element.pause();
       continue;
     }
-    if (forceSeek || Math.abs(element.currentTime - target) > 0.08) {
+    const drift = Math.abs(element.currentTime - target);
+    const driftLimit = playing ? 0.35 : 0.04;
+    if (forceSeek || becameActive || drift > driftLimit) {
       try { element.currentTime = Math.max(0, target); } catch { /* metadata todavía no disponible */ }
     }
-    if (playing && element.paused) void element.play().catch(() => {});
+    if (playing && element.paused && !previewPlayRequests.has(clipId)) {
+      previewPlayRequests.add(clipId);
+      void element.play().catch(() => {}).finally(() => previewPlayRequests.delete(clipId));
+    }
     if (!playing && !element.paused) element.pause();
   }
+  activePreviewIds.clear();
+  for (const id of nextActiveIds) activePreviewIds.add(id);
 }
 
 function seekFromPointer(event: PointerEvent, element: HTMLElement): void {

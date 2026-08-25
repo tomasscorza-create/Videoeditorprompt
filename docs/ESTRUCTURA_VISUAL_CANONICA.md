@@ -81,7 +81,7 @@ Es el punto de entrada y comando del flujo creativo.
 ### Responsabilidades
 
 - Escribir instrucciones para el Director IA.
-- Inferir por omisión tono, duración, escenas y estructura; exponerlos solo como dirección opcional.
+- Inferir por omisión tono, duración, particiones internas y estructura; las particiones no se exponen como control.
 - Generar, cancelar o replantear bases de proyecto.
 - Organizar el recorrido guiado en tres fases: `Idea`, `Base` y `Video`.
 - Resumir el proyecto como storyboard y llevar la edición detallada al panel derecho.
@@ -92,18 +92,18 @@ Es el punto de entrada y comando del flujo creativo.
 ### Comportamiento esperado
 
 - Cambiar de proyecto actualiza el visor, el inspector y la timeline.
-- `Idea` comienza por un prompt dominante. Solo duración y formato acompañan a la vista, ambos en automático; tono, escenas, riqueza y exploración viven en `Más dirección`.
+- `Idea` comienza por un prompt dominante. Duración y modelo acompañan a la vista; tono, riqueza y exploración viven en `Más dirección`.
 - Los valores automáticos no fijan restricciones. El prompt completa esas decisiones y cualquier elección explícita del usuario prevalece.
 - Solo una fase está visible a la vez. `Base` se habilita cuando la IA termina de preparar las preguntas y `Video` cuando existe un proyecto; un proyecto existente abre directamente en `Video`.
-- `Idea` contiene el prompt y tres decisiones iniciales compactas: duración, escenas y modelo IA. El botón principal dice `Aceptar` porque todavía no crea el proyecto.
+- `Idea` contiene el prompt y dos decisiones iniciales compactas: duración y modelo IA. El botón principal dice `Aceptar` porque todavía no crea el proyecto.
 - `Base` muestra exactamente tres preguntas contextuales generadas por el mismo proveedor/modelo. Cada pregunta contiene tres opciones prearmadas y un campo `Otra respuesta` para escribir una alternativa. No contiene storyboard, resumen del proyecto ni otro prompt global.
 - Al confirmar las tres respuestas, el Director crea el proyecto de forma atómica y pasa a `Video`. La medición liviana prepara voces, tiempos y preview en segundo plano, pero no inicia la exportación del MP4. Si existe un proyecto anterior, el aviso de reemplazo se muestra en `Base` y aquel se conserva hasta que la nueva creación termina correctamente.
 - Eliminar animación manual o personalizada requiere una confirmación inline específica. El flujo normal no usa diálogos nativos del navegador.
 - `Replantear idea` solicita confirmación inline antes de reemplazar una base existente; el proyecto vigente no cambia mientras se espera ni mientras se genera.
 - Calidad, recursos considerados, plantilla y variantes se revelan progresivamente después del storyboard.
-- `Video` permite revisar el preview sin esperar un render y ofrece la exportación del MP4 como acción explícita. Oculta los requisitos completos y muestra solo bloqueos accionables. Durante una exportación informa la etapa humana y la escena disponible en los datos reales, sin inventar porcentajes.
+- `Video` permite revisar el preview sin esperar un render y ofrece la exportación del MP4 como acción explícita. Oculta los requisitos completos y muestra solo bloqueos accionables. Durante una exportación informa la etapa humana y el momento disponible en los datos reales, sin inventar porcentajes.
 - IA y render comparten un único control contextual de cancelación porque solo uno puede estar activo.
-- El Director no duplica el título, los diálogos, las propiedades, las acciones estructurales ni el ordenamiento de escenas: esas responsabilidades permanecen en cabecera, Edición y timeline.
+- El Director no duplica el título, los diálogos, las propiedades, las acciones estructurales ni el ordenamiento de momentos: esas responsabilidades permanecen en cabecera, Edición y timeline.
 - La base prioriza decisiones creativas; no muestra descargas técnicas ni explicaciones internas del pipeline.
 - La biblioteca persistente de videos terminados pertenece a `Archivos > Videos creados` en el encabezado, no al panel del Director.
 - Su scroll es independiente.
@@ -148,7 +148,7 @@ Debe recibir el mayor espacio del área principal. Los paneles laterales sirven 
 - Exponer composición, preview y MP4 como modos paralelos.
 - Presentar una exportación histórica como si correspondiera con certeza a la revisión actual.
 
-## 4. Panel derecho — Edición, ajustes y recursos
+## 4. Panel derecho — Recursos, Edición y Archivos
 
 ### Propósito
 
@@ -156,17 +156,19 @@ Es el área contextual para modificar lo seleccionado y elegir materiales o trat
 
 ### Responsabilidades actuales y futuras compatibles
 
-- Propiedades del proyecto y escena.
+- Propiedades del proyecto y momento interno.
 - Edición de diálogo, voz, gesto y pausa.
 - Fondo, cámara, personajes y transforms compatibles.
 - Biblioteca de personajes, fondos, voces e imágenes.
+- Biblioteca de videos y audios importados, con picker y zona de arrastre.
 - Filtros, ajustes visuales y presets cuando el motor los soporte.
 - Información de licencia y procedencia.
 - Validación y exportación del proyecto.
 
 ### Organización
 
-- Puede usar pestañas de alto nivel como `Editar`, `Recursos`, `Ajustes` o `Filtros`.
+- Sus tres páginas de alto nivel vigentes son `Recursos`, `Edición` y `Archivos`.
+- `Archivos` agrega cada importación al final de la timeline activa y permite reutilizar una fuente ya deduplicada con `Agregar`.
 - Dentro de cada pestaña debe usar acordeones o grupos contextuales.
 - Debe priorizar la selección activa; no mostrar todos los controles posibles al mismo tiempo.
 - Su scroll es independiente.
@@ -187,7 +189,7 @@ Representar y controlar la estructura audiovisual del trabajo.
 
 - Regla temporal, timecode y playhead.
 - Pistas de video, audio, diálogo y futuras pistas compatibles.
-- Clips de escenas, turnos y transiciones.
+- Un fondo global, una barra continua por personaje, prop o efecto, y los turnos de voz sobre el mismo tiempo.
 - Selección y navegación temporal.
 - Reproducción, pausa, mute, zoom, ajuste al ancho y snap.
 - Undo/redo y atajos relacionados con edición temporal.
@@ -198,6 +200,8 @@ Representar y controlar la estructura audiovisual del trabajo.
 
 - Ocupa todo el ancho inferior, debajo de los tres paneles principales.
 - Es una timeline audiovisual, no una galería de tarjetas ni un resumen textual.
+- El video se percibe como una sola secuencia. Las divisiones internas no crean marcas, clips, carriles, huecos ni controles visibles.
+- Los enlaces técnicos se resuelven automáticamente y no son una decisión expuesta en la interfaz.
 - Debe permanecer visible en el flujo de edición de escritorio.
 - Puede aumentar de altura, plegarse parcialmente o ganar pistas, pero no desaparecer como concepto.
 
@@ -224,7 +228,7 @@ Director / selección izquierda
 ```
 
 - Seleccionar un trabajo a la izquierda carga el contexto de las demás áreas.
-- Seleccionar una escena o turno en la timeline actualiza el visor y el inspector.
+- Seleccionar un momento o turno en la timeline actualiza el visor y el inspector.
 - Editar en el panel derecho actualiza composición y clips relacionados.
 - Reproducir o hacer seek mantiene sincronizados visor, timecode y playhead sin cambiar de timeline.
 - Una exportación compatible aporta tiempos reales a las mismas capas editables.

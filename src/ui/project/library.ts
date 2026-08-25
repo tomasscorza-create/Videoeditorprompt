@@ -371,7 +371,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
     place.type = 'button';
     place.className = 'resource-card-action';
     place.textContent = 'Agregar al video';
-    place.title = `Agregar ${template.label} a la escena actual`;
+    place.title = `Agregar ${template.label} en la posición actual`;
     place.addEventListener('click', () => {
       beginTemplatePlacement(template.id, template.label, templateDefaultWords.get(template.id));
     });
@@ -390,7 +390,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       ? `Escuchar ${resource.label}`
       : resource.type === 'character' || resource.type === 'prop'
       ? `Colocar ${resource.label} en el visor`
-      : `Aplicar ${resource.label} a la escena seleccionada`;
+      : `Aplicar ${resource.label} en la posición actual`;
     const thumbnail = resource.characterRef
       ? thumbnails.get(resource.characterRef.entryId)
       : resource.type === 'prop' ? resource.thumbnail
@@ -500,7 +500,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
       button.type = 'button';
       button.className = 'animation-preset';
       button.textContent = preset.label;
-      button.title = `Aplicar «${preset.label}» al inicio de la escena`;
+      button.title = `Aplicar «${preset.label}» al inicio disponible`;
       button.addEventListener('click', () => {
         const error = store.dispatch({
           type: 'apply-animation-preset',
@@ -511,7 +511,7 @@ export async function initResourceLibrary(store: ProjectStore): Promise<void> {
           intensity: 'medium',
         });
         setLibraryStatus(
-          error || `«${preset.label}» aplicado a ${resource.label} al inicio de la escena.`,
+          error || `«${preset.label}» aplicado a ${resource.label} al inicio disponible.`,
           Boolean(error),
         );
       });

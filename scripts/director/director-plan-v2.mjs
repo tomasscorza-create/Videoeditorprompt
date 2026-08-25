@@ -20,6 +20,7 @@ const validateSchema = new Ajv2020({ allErrors: true, strict: true }).compile(sc
 const MODES = new Set(['voiceover', 'solo', 'dialogue', 'visual-with-voiceover']);
 const NARRATIVE_TEMPLATE_IDS = new Set(readJson(path.join(projectRoot, 'public', 'assets', 'catalog', 'narrative-templates.json')).templates.map((entry) => entry.id));
 const DYNAMIC_CAMERA_PREFERENCE = Object.freeze(['push-in', 'drift-left', 'drift-right', 'rise', 'diagonal-glide', 'pull-back', 'slow-zoom', 'slow-pan']);
+export const CONTINUOUS_LINK_SECONDS = 0.35;
 
 export function getDirectorPlanV2Schema() { return structuredClone(schema); }
 
@@ -69,8 +70,11 @@ export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativ
       }
     }
     if (!listLayoutPresetIds().includes(scene.layoutPreset)) scene.layoutPreset = listLayoutPresetIds()[0];
-    if (scene.transitionPreset === 'cut') scene.transitionDurationSeconds = 0;
-    else scene.transitionDurationSeconds = Math.min(1, Math.max(0.15, scene.transitionDurationSeconds ?? 0.3));
+    // Los bloques siguen aislando render y caché, pero los videos nuevos se
+    // presentan como una única secuencia. Un enlace breve oculta el reinicio
+    // técnico entre bloques sin cambiar el contrato durable ni el evaluador.
+    scene.transitionPreset = 'fade';
+    scene.transitionDurationSeconds = CONTINUOUS_LINK_SECONDS;
 
     let recipe = findCompatibleRecipe(scene, recipes.sceneRecipes);
     if (!recipe && ['voiceover', 'visual-with-voiceover'].includes(scene.mode) && visualResources.length) {
@@ -84,7 +88,7 @@ export function canonicalizeDirectorPlanV2(input, catalog, recipes = loadCreativ
       scene.effectSequenceIds = completeSequenceCoverage(scene, recipe, recipes, plan.richnessProfile);
     }
   }
-  canonicalizeBackgroundContinuity(plan, backgrounds);
+  canonicalizeContinuousPresentation(plan, backgrounds);
   return plan;
 }
 
@@ -190,20 +194,18 @@ function nextRoleId(continuity, selected) {
   return `rol-${index}`;
 }
 
-function canonicalizeBackgroundContinuity(plan, backgrounds) {
-  if (!['varied', 'dynamic'].includes(plan.richnessProfile) || plan.scenes.length < 3) return;
-  const used = new Set(plan.scenes.map((scene) => scene.backgroundResourceId));
-  if (used.size > 1) return;
-  const anchorId = plan.scenes[0]?.backgroundResourceId;
-  const alternate = backgrounds.find((entry) => entry.id !== anchorId);
-  if (!alternate) return;
-  const changeAt = Math.max(1, Math.ceil(plan.scenes.length * 2 / 3));
-  for (const scene of plan.scenes.slice(changeAt)) {
-    scene.backgroundResourceId = alternate.id;
-    const cameras = alternate.capabilities?.cameraPresets ?? ['static'];
-    if (!cameras.includes(scene.cameraPreset)) {
-      scene.cameraPreset = DYNAMIC_CAMERA_PREFERENCE.find((presetId) => cameras.includes(presetId)) ?? cameras[0];
-    }
+function canonicalizeContinuousPresentation(plan, backgrounds) {
+  const first = plan.scenes[0];
+  if (!first) return;
+  const background = backgrounds.find((entry) => entry.id === first.backgroundResourceId) ?? backgrounds[0];
+  const cameras = background?.capabilities?.cameraPresets ?? ['static'];
+  const cameraPreset = cameras.includes('static') ? 'static' : cameras[0];
+  for (const scene of plan.scenes) {
+    if (background) scene.backgroundResourceId = background.id;
+    scene.cameraPreset = cameraPreset;
+    scene.layoutPreset = first.layoutPreset;
+    scene.transitionPreset = 'fade';
+    scene.transitionDurationSeconds = CONTINUOUS_LINK_SECONDS;
   }
 }
 

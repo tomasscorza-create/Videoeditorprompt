@@ -40,7 +40,7 @@ broken.scenes[2].speech[0].voiceId = 'otra-voz';
 broken.scenes.forEach((scene) => { scene.backgroundResourceId = 'fondo-a'; });
 const brokenReport = analyzeDirectorContinuity(broken);
 assert.equal(brokenReport.passed, false);
-for (const code of ['CHARACTER_VOICE_CHANGED', 'VOICE_SHARED_BY_CHARACTERS', 'NARRATOR_VOICE_CHANGED', 'BACKGROUND_MONOTONY']) {
+for (const code of ['CHARACTER_VOICE_CHANGED', 'VOICE_SHARED_BY_CHARACTERS', 'NARRATOR_VOICE_CHANGED']) {
   assert.ok(brokenReport.issues.some((issue) => issue.code === code), code);
 }
 assert.equal(brokenReport.hardPassed, false);

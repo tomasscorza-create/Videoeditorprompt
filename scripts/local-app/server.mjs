@@ -5,7 +5,6 @@ import path from 'node:path';
 import { createDirectorProposal, inspectDirectorProvider } from '../director/ollama-director.mjs';
 import { createClarifyingQuestions } from '../director/clarifying-questions.mjs';
 import { editProjectWithDirector } from '../director/project-editor-director.mjs';
-import { editTimelineWithDirector } from '../director/timeline-director.mjs';
 import { loadAuthoringCatalog } from '../director/director-plan.mjs';
 import { createDirectorPreconfigurationStore } from '../director/preconfiguration-store.mjs';
 import { applyPreconfigurationConstraints, createPreconfigurationSnapshot } from '../director/preconfiguration-director.mjs';
@@ -21,6 +20,7 @@ import {
 } from './resource-library.mjs';
 import { createProjectRepository } from './project-repository.mjs';
 import { runStartupRetention } from './retention.mjs';
+import { cleanDirectorCaches } from '../director/cache.mjs';
 import { createFileRenderJobRepository } from '../storage/file-render-job-repository.mjs';
 import { createPersistenceRuntime } from '../storage/persistence-runtime.mjs';
 import { createTimelineMediaLibrary } from '../timeline/media-library.mjs';
@@ -43,6 +43,7 @@ export async function createLocalAppServer(options = {}) {
   const port = Number(options.port ?? 4174);
   const sessionToken = String(options.sessionToken || randomBytes(32).toString('hex'));
   const root = path.resolve(options.root || projectRoot);
+  const localRoot = path.resolve(options.localRoot || path.join(root, '.local-video'));
   const assetsRoot = path.resolve(options.assetsRoot || path.join(root, 'public'));
   const ownsPersistenceRuntime = !options.persistenceRuntime;
   const persistenceRuntime = options.persistenceRuntime || await createPersistenceRuntime({
@@ -455,6 +456,7 @@ export async function createLocalAppServer(options = {}) {
             bestOf: body.bestOf,
             personalization: body.personalization,
             preconfiguration: preconfiguration?.preconfiguration,
+            preconfigurationSnapshot: preconfiguration?.snapshot || null,
             model: body.model,
             modelIdentity: modelInspection,
             assetsRoot,
@@ -543,31 +545,16 @@ export async function createLocalAppServer(options = {}) {
         sendJson(response, 200, { version: 1, ...measurement });
         return;
       }
+      if (request.method === 'POST' && url.pathname === '/api/director/cache/clear') {
+        const removed = ['director-cache', 'director-question-cache', 'director-edit-cache'].map((name) => cleanDirectorCaches({
+          root: path.join(localRoot, name), apply: true, maximumAgeDays: 0, maximumBytes: 0, maximumEntries: 0,
+        }));
+        sendJson(response, 200, { version: 1, removed: removed.reduce((total, result) => total + result.removed.length, 0) });
+        return;
+      }
       if (request.method === 'GET' && url.pathname === '/api/tts/elevenlabs') {
         const [diagnostic, voices] = await Promise.all([elevenLabs.inspect(), elevenLabs.listVoices()]);
         sendJson(response, 200, { version: 1, diagnostic, voices });
-        return;
-      }
-      if (request.method === 'POST' && url.pathname === '/api/timeline/director') {
-        assertJsonContentType(request);
-        if (directorController) {
-          const error = new Error('El Director ya está procesando otra petición.');
-          error.code = 'DIRECTOR_BUSY';
-          throw error;
-        }
-        const body = await readJsonBody(request);
-        directorController = new AbortController();
-        updateDirectorStatus('running', 'directing_timeline');
-        try {
-          const result = await timelineDirector({
-            instruction: body.instruction, project: body.project, provider: body.provider,
-            model: body.model, signal: directorController.signal,
-          });
-          sendJson(response, 200, result);
-        } finally {
-          directorController = null;
-          updateDirectorStatus('idle', 'idle');
-        }
         return;
       }
       if (request.method === 'GET' && url.pathname === '/api/timeline/media') {
@@ -704,6 +691,7 @@ export async function createLocalAppServer(options = {}) {
         'RENDER_JOB_STATE_CONFLICT',
         'TIMELINE_PROJECT_REVISION_CONFLICT',
         'DIRECTOR_PRECONFIGURATION_REVISION_CONFLICT',
+        'DIRECTOR_PRECONFIGURATION_ALREADY_EXISTS',
       ].includes(error?.code) ? 409
         : ['PROJECT_NOT_FOUND', 'TIMELINE_PROJECT_NOT_FOUND', 'DIRECTOR_PRECONFIGURATION_NOT_FOUND'].includes(error?.code) ? 404
           : String(error?.code || '').includes('INVALID') || [

@@ -268,7 +268,7 @@ function describeKeyframe(
     anchorLabel: describeAnchor(keyframe.anchor),
     valueLabel: formatParameterValue(parameterId, keyframe.value),
     timeLabel: status === 'out-of-scene'
-      ? 'fuera de la escena'
+      ? 'fuera del tramo disponible'
       : status === 'review'
         ? 'requiere revisión'
         : sceneFrameIndex === null || seconds === null

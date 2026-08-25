@@ -23,6 +23,7 @@ const sources = [
   'src/ui/project/store.ts',
   'src/ui/timeline-geometry.ts',
   'src/ui/timeline-animation.ts',
+  'src/ui/timeline-media-placement.ts',
   'src/ui/director/api.ts',
   'src/ui/director/preconfiguration-manager.ts',
   'src/ui/notifications.ts',
@@ -130,10 +131,12 @@ function fakeVideo() {
 }
 
 const geometryPath = path.join(outDir, 'src', 'ui', 'timeline-geometry.js');
+const mediaPlacementPath = path.join(outDir, 'src', 'ui', 'timeline-media-placement.js');
 const apiPath = path.join(outDir, 'src', 'ui', 'director', 'api.js');
 const directorFlowPath = path.join(outDir, 'src', 'ui', 'director', 'flow-state.js');
 const preconfigurationManagerPath = path.join(outDir, 'src', 'ui', 'director', 'preconfiguration-manager.js');
 assert.equal(existsSync(geometryPath), true, 'timeline-geometry.js no se compiló');
+assert.equal(existsSync(mediaPlacementPath), true, 'timeline-media-placement.js no se compiló');
 assert.equal(existsSync(apiPath), true, 'director/api.js no se compiló');
 assert.equal(existsSync(directorFlowPath), true, 'director/flow-state.js no se compiló');
 assert.equal(existsSync(preconfigurationManagerPath), true, 'director/preconfiguration-manager.js no se compiló');
@@ -146,6 +149,7 @@ const rigPreview = await import(pathToFileURL(rigPreviewPath).href);
 const layers = await import(pathToFileURL(layersPath).href);
 const storeModule = await import(pathToFileURL(storePath).href);
 const geometry = await import(pathToFileURL(geometryPath).href);
+const mediaPlacement = await import(pathToFileURL(mediaPlacementPath).href);
 const animation = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'timeline-animation.js')).href);
 const directorApi = await import(pathToFileURL(apiPath).href);
 const directorProgress = await import(pathToFileURL(path.join(outDir, 'src', 'ui', 'director', 'progress-copy.js')).href);
@@ -171,6 +175,45 @@ const check = (label, condition) => {
   passed += 1;
 };
 
+// ---- timeline-media-placement.ts: un solo plan para picker, drop y reutilización ----
+{
+  const document = {
+    version: 2,
+    id: 'proyecto-medios-01',
+    timebase: { ticksPerSecond: 48_000, fps: 30, audioSampleRate: 48_000 },
+    sources: [],
+    tracks: [
+      { id: 'video-track-01', kind: 'visual', order: 0 },
+      { id: 'video-track-02', kind: 'visual', order: 1 },
+      { id: 'audio-track-01', kind: 'audio', order: 2 },
+      { id: 'audio-track-02', kind: 'audio', order: 3 },
+    ],
+    clips: [],
+  };
+  const video = {
+    id: 'media-aaaaaaaaaaaaaaaa', contentHash: 'a'.repeat(64), kind: 'video',
+    name: 'Video prueba.mp4', durationTicks: 49_200, hasVideo: true, hasAudio: true,
+  };
+  const audio = {
+    id: 'media-bbbbbbbbbbbbbbbb', contentHash: 'b'.repeat(64), kind: 'audio',
+    name: 'Voz prueba.wav', durationTicks: 24_001, hasVideo: false, hasAudio: true,
+  };
+  const plan = mediaPlacement.planTimelineMediaInsertion(document, [video, audio]);
+  const clips = plan.commands.filter((command) => command.type === 'add-clip').map((command) => command.clip);
+  check('un video con audio crea clips A/V enlazados', clips.length === 3
+    && clips[0].linkGroupId === clips[1].linkGroupId
+    && clips[0].timelineStartTick === clips[1].timelineStartTick);
+  check('los archivos de un mismo drop se agregan consecutivamente', clips[2].timelineStartTick === 48_000
+    && plan.endTick === 72_001);
+  check('el video se cuantiza a frames y el audio conserva precisión de muestra', clips[0].durationTicks === 48_000
+    && clips[2].durationTicks === 24_001);
+  const withSource = structuredClone(document);
+  withSource.sources.push({ id: video.id, kind: 'video', durationTicks: video.durationTicks, contentHash: video.contentHash });
+  const repeated = mediaPlacement.planTimelineMediaInsertion(withSource, [video]);
+  check('reimportar reutiliza la fuente y crea otra instancia', repeated.commands.every((command) => command.type !== 'add-source')
+    && repeated.clipIds.length === 2);
+}
+
 // ---- preconfiguration-manager.ts: autocompletado rápido y determinista ----
 {
   const resources = [
@@ -191,7 +234,7 @@ const check = (label, condition) => {
   check('rehacer produce otra combinación determinista', JSON.stringify(first) !== JSON.stringify(second));
   check('la propuesta completa un diálogo con dos personajes', first.structurePreference === 'dialogue' && first.characterBindings.length === 2);
   check('cada personaje automático recibe una voz distinta', new Set(first.characterBindings.map((binding) => binding.voiceResourceId)).size === 2);
-  check('el autocompletado prioriza variedad de fondos', first.backgroundStrategy === 'beat-variation' && first.preferredBackgroundResourceIds.length === 3);
+  check('el autocompletado conserva un fondo global', typeof first.backgroundResourceId === 'string' && first.backgroundResourceId.length > 0);
   check('el preset conversacional se prefiere cuando está disponible', first.characterBindings[0].animationPresetId === 'talk-calm');
 
   const scarce = preconfigurationManager.buildDirectorPreconfigurationAutofill([
@@ -200,7 +243,7 @@ const check = (label, condition) => {
     { id: 'background-only', type: 'background', label: 'Fondo único' },
   ], 3);
   check('un catálogo pequeño degrada a una configuración válida de un personaje', scarce.structurePreference === 'one-character' && scarce.characterBindings.length === 1);
-  check('un solo fondo usa locación única', scarce.backgroundStrategy === 'single-location' && scarce.preferredBackgroundResourceIds.length === 1);
+  check('un solo fondo queda fijado como fondo global', scarce.backgroundResourceId === 'background-only');
 }
 
 // ---- rig-preview.ts: el lienzo usa las piezas reales, no una miniatura ----
@@ -283,18 +326,54 @@ const unifiedTimelineSource = readFileSync(path.join(projectRoot, 'src', 'ui', '
 const editorWorkspaceSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'editor-workspace.ts'), 'utf8');
 const editingPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'editing-panel.ts'), 'utf8');
 const compositionSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'composition.ts'), 'utf8');
+const mediaFilesPanelSource = readFileSync(path.join(projectRoot, 'src', 'ui', 'project', 'media-files-panel.ts'), 'utf8');
 check(
-  'el panel derecho ofrece Recursos y Edición como páginas hermanas',
+  'el panel derecho ofrece Recursos, Edición y Archivos como páginas hermanas',
   appHtml.includes('id="right-panel-resources-tab"')
     && appHtml.includes('id="right-panel-editing-tab"')
+    && appHtml.includes('id="right-panel-files-tab"')
     && appHtml.includes('id="right-panel-resources"')
-    && appHtml.includes('id="right-panel-editing"'),
+    && appHtml.includes('id="right-panel-editing"')
+    && appHtml.includes('id="right-panel-files"'),
 );
 check(
   'la cabecera elimina Catálogo local y conserva Recursos',
   !appHtml.includes('Catálogo local')
     && appHtml.includes('data-right-panel-page="resources"')
-    && appHtml.includes('data-right-panel-page="editing"'),
+    && appHtml.includes('data-right-panel-page="editing"')
+    && appHtml.includes('data-right-panel-page="files"'),
+);
+check(
+  'Archivos ofrece picker múltiple, dropzone y biblioteca reutilizable',
+  appHtml.includes('id="timeline-v2-file"')
+    && appHtml.includes('accept=".mp4,.mov,.webm,.wav,.mp3,.ogg,.m4a,video/mp4,video/webm,video/quicktime,audio/wav,audio/mpeg,audio/ogg,audio/mp4"')
+    && appHtml.includes('multiple hidden')
+    && appHtml.includes('id="media-files-dropzone"')
+    && mediaFilesPanelSource.includes("addEventListener('drop'")
+    && mediaFilesPanelSource.includes('event.dataTransfer?.files')
+    && mediaFilesPanelSource.includes('importMediaFiles(files)')
+    && mediaFilesPanelSource.includes('addExistingTimelineMedia(entry.id)'),
+);
+check(
+  'la timeline se adjunta al proyecto durable antes de renderizar',
+  unifiedTimelineSource.includes('attachTimelineProject(projectId')
+    && unifiedTimelineSource.includes('getTimelineProject(projectId)')
+    && directorPanelSource.includes('await timelineProjectReady()'),
+);
+check(
+  'los medios libres habilitan un reloj de reproducción sin exigir MP4 vigente',
+  editorWorkspaceSource.includes('setExternalEditorMediaDuration')
+    && editorWorkspaceSource.includes('externalMediaDurationSeconds')
+    && editorWorkspaceSource.includes('canvasPreviewDuration() > 0')
+    && unifiedTimelineSource.includes('setExternalEditorMediaDuration(unifiedMediaDurationSeconds())')
+    && timelineSource.includes('hasExactTimelineTime()'),
+);
+check(
+  'el preview libre no fuerza un seek ni repite play en cada frame',
+  unifiedTimelineSource.includes('if (changed) syncPreview(true)')
+    && unifiedTimelineSource.includes('const driftLimit = playing ? 0.35 : 0.04')
+    && unifiedTimelineSource.includes('previewPlayRequests.has(clipId)')
+    && unifiedTimelineSource.includes('becameActive'),
 );
 check(
   'Recursos incorpora Plantillas sin reemplazar las categorías existentes',
@@ -431,11 +510,11 @@ check(
   }) === 'tracks',
 );
 check(
-  'una escena reparte propiedades, fondo y transición sin scroll acumulado',
+  'el video ofrece ajustes generales y un fondo global sin exponer enlaces internos',
   editingPanel.editingSubpages({
     kind: 'scene',
     sceneId: 'scene-1',
-  }).map((page) => page.label).join('|') === 'General|Fondo|Transición',
+  }).map((page) => page.label).join('|') === 'General|Fondo',
 );
 check(
   'un diálogo separa el texto de su interpretación',
@@ -509,7 +588,7 @@ check(
 check(
   'cada keyframe resuelto se dibuja como rombo en el clip de su elemento',
   timelineSource.includes('function appendElementKeyframes(')
-    && timelineSource.includes('(keyframe.seconds - measured.startSeconds) * pixelsPerSecond')
+    && timelineSource.includes('(keyframe.seconds - clipStartSeconds) * pixelsPerSecond')
     && timelineSource.includes("marker.className = 'timeline-keyframe-marker'")
     && timelineSource.includes("kind: 'keyframe',"),
 );
@@ -599,7 +678,7 @@ check(
 );
 check(
   'autoría y medios libres se muestran en una sola timeline sin selector de motores',
-  appHtml.includes('Timeline unificada')
+  appHtml.includes('Secuencia continua')
     && !appHtml.includes('id="timeline-v2-toggle"')
     && timelineSource.includes('renderUnifiedMediaRows(totalWidth, pixelsPerSecond)')
     && unifiedTimelineSource.includes("document.body.dataset.timelineEngine = 'unified'")
@@ -701,9 +780,9 @@ check(
     && timelineSource.includes("snap.classList.toggle('is-active', snapEnabled && !snap.disabled)"),
 );
 check(
-  'anterior y siguiente navegan escenas y se apagan en los extremos',
-  appHtml.includes('aria-label="Escena anterior"')
-    && appHtml.includes('aria-label="Escena siguiente"')
+  'anterior y siguiente navegan puntos internos sin nombrar particiones',
+  appHtml.includes('aria-label="Punto anterior"')
+    && appHtml.includes('aria-label="Punto siguiente"')
     && !appHtml.includes('aria-label="Clip anterior"')
     && timelineSource.includes('previous.disabled = !hasNavigation || !canGoBack')
     && timelineSource.includes('next.disabled = !hasNavigation || !canGoForward'),
@@ -717,7 +796,7 @@ check(
   timelineSource.includes("button.disabled = state.mode === 'creator' || !editorCanPlay()"),
 );
 check(
-  'B corta el diálogo bajo el cabezal y dividir la escena queda en Ctrl+B',
+  'B corta el diálogo bajo el cabezal y dividir el momento queda en Ctrl+B',
   timelineSource.includes("event.code === 'KeyB'")
     && timelineSource.includes('cutAtPlayhead();')
     && timelineSource.includes("if (key === 'b' && !creator)")
@@ -726,7 +805,7 @@ check(
 );
 check(
   'ningún corte falla en silencio: siempre explica qué falta',
-  timelineSource.includes("message: 'Seleccioná un diálogo para dividir la escena antes de él.'")
+  timelineSource.includes("message: 'Seleccioná un diálogo para dividir antes de él.'")
     && timelineSource.includes('tiene que quedar al menos un turno hablado de cada lado')
     && timelineSource.includes('Poné el cabezal sobre un diálogo para cortarlo.'),
 );
@@ -743,12 +822,23 @@ check(
     && editingPanelSource.includes("type: 'add-voiceover-turn'"),
 );
 check(
-  'la timeline representa narración y crea escenas como borradores vacíos',
+  'la timeline representa narración y crea momentos como borradores vacíos',
   timelineSource.includes("authoringTrack('VO', 'Voz fuera de campo'")
     && timelineSource.includes("type: 'add-voiceover-turn'")
     && timelineSource.includes("type: 'add-scene'")
     && timelineSource.includes('elements: [],')
     && timelineSource.includes('dialogue: [],'),
+);
+check(
+  'la timeline presenta capas continuas sin exponer particiones internas',
+  appHtml.includes('<h2 id="timeline-title">Secuencia continua</h2>')
+    && appHtml.includes('aria-label="Capas de la secuencia continua"')
+    && timelineSource.includes("groupElementsByResource(project, 'character')")
+    && timelineSource.includes('continuousElementClip(group, authoredWidth, measured')
+    && timelineSource.includes("authoringTrack('BG', 'Fondo', totalWidth, [backgroundClip])")
+    && !timelineSource.includes('continuousSequenceRow(project')
+    && !timelineSource.includes("mark.className = 'ruler-moment'")
+    && !appHtml.includes('id="director-scenes"'),
 );
 check(
   'los comandos cerrados incluyen alta y conversión de voz fuera de campo',
@@ -814,13 +904,13 @@ check(
 );
 
 check(
-  'explica la escena y la capacidad no soportada sin índice técnico',
+  'explica la capacidad no soportada sin exponer el índice técnico',
   directorApi.formatApiError({
     code: 'PROJECT_SCENE_UNSUPPORTED',
     message: 'Una escena no es compatible.',
     technicalDetail: '/scenes/1 el personaje protagonista usa pose inicial point',
     suggestedAction: 'Corrija la escena.',
-  }).includes('Escena 2: el personaje protagonista usa pose inicial point'),
+  }).includes('Contenido: el personaje protagonista usa pose inicial point'),
 );
 check(
   'no muestra detalles técnicos arbitrarios de otros errores',
@@ -940,9 +1030,9 @@ check(
   !directorFlow.canOpenDirectorPhase({ phase: 'base', projectAvailable: true, questionsAvailable: true, busy: 'ai' }, 'video'),
 );
 check(
-  'Idea integra duración, escenas y modelo IA sin duplicarlo en Configuración',
+  'Idea integra duración y modelo IA sin exponer particiones técnicas',
   appHtml.includes('id="director-duration"')
-    && appHtml.includes('id="director-scenes"')
+    && !appHtml.includes('id="director-scenes"')
     && appHtml.includes('id="director-model"')
     && appHtml.includes('value="ollama:qwen3:8b"')
     && appHtml.includes('value="openai:gpt-5.6-luna"')
@@ -956,6 +1046,40 @@ check(
     && !appHtml.includes('id="director-think"')
     && !appHtml.includes('id="director-best-of"')
     && directorPanelSource.includes('{ think: false, bestOf: 1 }'),
+);
+check(
+  'Idea conserva sus controles reales dentro del nuevo sistema visual',
+  appHtml.includes('class="director-setting-row" for="director-duration"')
+    && appHtml.includes('class="director-setting-row director-model-control"')
+    && appHtml.includes('id="ui-icon-clock"')
+    && appHtml.includes('id="ui-icon-sparkles"')
+    && directorPanelSource.includes("preconfigurationLabel.className = 'director-setting-row'")
+    && directorPanelSource.includes("preconfigurationIcon.innerHTML = '<svg class=\"icon\"><use href=\"#ui-icon-sliders\"/></svg>'"),
+);
+check(
+  'el rediseño del Director usa los tokens y medidas principales de la especificación',
+  readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('--director-primary: #295db5;')
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('height: 180px;')
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('min-height: 120px;')
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('max-height: 420px;')
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('min-height: 48px;')
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('min-height: 44px;')
+    && readFileSync(path.join(projectRoot, 'src', 'style.css'), 'utf8').includes('@container (max-width: 380px)'),
+);
+check(
+  'las flechas visuales alternan las listas sin duplicar sus opciones',
+  directorPanelSource.includes('bindSelectChevron(duration)')
+    && directorPanelSource.includes('bindSelectChevron(model)')
+    && directorPanelSource.includes('bindSelectChevron(preconfigurationSelect)')
+    && directorPanelSource.includes("select.classList.contains('is-arrow-open')")
+    && directorPanelSource.includes("select.removeAttribute('size')"),
+);
+check(
+  'el prompt usa un tirador propio con arrastre acotado y teclado',
+  appHtml.includes('id="director-prompt-resize"')
+    && directorPanelSource.includes('bindPromptResize(prompt, promptResize)')
+    && directorPanelSource.includes("handle.setPointerCapture(event.pointerId)")
+    && directorPanelSource.includes("event.key !== 'ArrowUp' && event.key !== 'ArrowDown'"),
 );
 check(
   'los valores automáticos no fijan decisiones editoriales',
@@ -1352,7 +1476,7 @@ check('un turno muy corto respeta el ancho mínimo', geometry.turnClipRect(0, 0.
   check(
     'una pista fuera de escena cuenta el aviso y lo explica sin confundirlo con la voz',
     outsideLane.reviewCount === 1
-      && outsideLane.keyframes.find((keyframe) => keyframe.status === 'out-of-scene')?.timeLabel === 'fuera de la escena',
+      && outsideLane.keyframes.find((keyframe) => keyframe.status === 'out-of-scene')?.timeLabel === 'fuera del tramo disponible',
   );
 
   check('el desplazamiento del arrastre se ajusta al frame', animation.offsetForSeconds(2, 2.04, 30) === 0.0333);
@@ -1582,8 +1706,22 @@ check(
       directorPanelSource.indexOf('function renderQuestions'),
     ).includes('startCurrentRender')
     && directorPanelSource.includes("render.addEventListener('click', () => void startCurrentRender())")
-    && !directorPanelSource.includes('editProjectWithAi')
-    && !directorPanelSource.includes('window.confirm'),
+    && directorPanelSource.includes('editProjectWithAi')
+    && directorPanelSource.includes('createPendingDirectorEdit')
+    && directorPanelSource.includes('authorizeCustomizedRemovals')
+    && directorPanelSource.includes('pendingEditIsCurrent')
+    && directorPanelSource.includes('window.confirm'),
+);
+check(
+  'cada regeneración reserva una variante nueva aunque la anterior falle',
+  directorPanelSource.includes('const proposalVariant = variant;')
+    && directorPanelSource.includes('variant += 1;')
+    && directorPanelSource.includes('        proposalVariant,'),
+);
+check(
+  'los fallos del Director conservan el detalle técnico bajo demanda',
+  directorPanelSource.includes("summary.textContent = 'Detalles técnicos'")
+    && directorPanelSource.includes('formatApiTechnicalDetails(detail)'),
 );
 check(
   'Base eliminó el segundo prompt y los detalles de la antigua propuesta',
@@ -1606,32 +1744,32 @@ check(
 {
   const { describeCommand, describeCommands, summarizeCommands } = commandLabels;
   const context = { sceneIds: ['s1', 's2', 's3'] };
-  check('un comando conocido se narra en lenguaje de usuario', describeCommand({ type: 'add-scene' }) === 'Agregó una escena');
+  check('un comando conocido se narra en lenguaje de usuario', describeCommand({ type: 'add-scene' }) === 'Agregó contenido');
   check(
-    'el id de escena se traduce a su número',
-    describeCommand({ type: 'set-dialogue-turn', sceneId: 's2' }, context) === 'Cambió un diálogo de la escena 2',
+    'el id interno no se expone al usuario',
+    describeCommand({ type: 'set-dialogue-turn', sceneId: 's2' }, context) === 'Cambió un diálogo del contenido',
   );
   check(
-    'sin contexto la escena no se inventa',
-    describeCommand({ type: 'set-dialogue-turn', sceneId: 's2' }) === 'Cambió un diálogo de una escena',
+    'sin contexto la partición interna no se inventa',
+    describeCommand({ type: 'set-dialogue-turn', sceneId: 's2' }) === 'Cambió un diálogo del contenido',
   );
   check(
     'las ediciones de animación se narran con el parámetro en lenguaje de usuario',
     describeCommand({ type: 'set-keyframe', sceneId: 's2', parameterId: 'position.x' }, context)
-      === 'Ajustó un keyframe de la posición horizontal en la escena 2'
+      === 'Ajustó un keyframe de la posición horizontal en el contenido'
       && describeCommand({ type: 'delete-track', sceneId: 's1', parameterId: 'armRaise' }, context)
-        === 'Quitó la animación del brazo derecho en la escena 1'
+        === 'Quitó la animación del brazo derecho en el contenido'
       && describeCommand({ type: 'remove-animation', sceneId: 's1', parameterId: 'opacity' }, context)
-        === 'Quitó la animación de la opacidad en la escena 1',
+        === 'Quitó la animación de la opacidad en el contenido',
   );
   check(
     'aplicar un preset dice cuál, para que el usuario sepa qué deshace',
     describeCommand({ type: 'apply-animation-preset', sceneId: 's1', presetId: 'enter-left' }, context)
-      === 'Aplicó «enter-left» a un personaje de la escena 1',
+      === 'Aplicó «enter-left» a un personaje del contenido',
   );
   check(
-    'una escena ajena al proyecto no se numera',
-    describeCommand({ type: 'delete-scene', sceneId: 'otra' }, context) === 'Eliminó una escena',
+    'una partición ajena al proyecto no se expone',
+    describeCommand({ type: 'delete-scene', sceneId: 'otra' }, context) === 'Eliminó el contenido',
   );
   check('un comando no mapeado degrada a texto legible, no a texto falso', describeCommand({ type: 'nuevo-comando' }) === 'Aplicó nuevo comando');
   check('un comando sin tipo no rompe', describeCommand({}) === 'Aplicó un cambio');
@@ -1644,7 +1782,7 @@ check(
     ],
     context,
   );
-  check('los cambios repetidos se agrupan con su cuenta', repeated[0] === 'Cambió un diálogo de la escena 1 (×2)');
+  check('los cambios repetidos se agrupan con su cuenta', repeated[0] === 'Cambió un diálogo del contenido (×2)');
   check('los cambios distintos se listan aparte', repeated.length === 2);
 
   const many = describeCommands(
@@ -1652,12 +1790,12 @@ check(
     context,
     2,
   );
-  check('una lista larga se recorta con un resumen del resto', many.length === 3 && many[2].includes('más'));
+  check('los cambios internos equivalentes se agrupan sin exponer sus particiones', many.length === 2);
 
   check('sin comandos se dice que no hubo cambios', summarizeCommands([]).includes('no encontró cambios'));
   check(
     'el resumen une los cambios en una línea',
-    summarizeCommands([{ type: 'add-scene' }, { type: 'reorder-scenes' }], context) === 'Agregó una escena · Reordenó las escenas',
+    summarizeCommands([{ type: 'add-scene' }, { type: 'reorder-scenes' }], context) === 'Agregó contenido · Reordenó el contenido',
   );
 }
 
@@ -1737,13 +1875,13 @@ check(
   check('sin ediciones no hay nada que deshacer', base.pendingUndoLabel() === null);
   const scene = base.project().scenes[0];
   base.dispatch({ type: 'set-scene-title', sceneId: scene.id, title: 'Otro nombre' });
-  check('tras editar se sabe qué se desharía', base.pendingUndoLabel() === 'Renombró la escena 1');
+  check('tras editar se sabe qué se desharía', base.pendingUndoLabel() === 'Renombró el contenido');
   check('todavía no hay nada que rehacer', base.pendingRedoLabel() === null);
   base.undo();
-  check('al deshacer, la etiqueta pasa al lado de rehacer', base.pendingRedoLabel() === 'Renombró la escena 1');
+  check('al deshacer, la etiqueta pasa al lado de rehacer', base.pendingRedoLabel() === 'Renombró el contenido');
   check('sin más historial no se inventa una etiqueta de deshacer', base.pendingUndoLabel() === null);
   base.redo();
-  check('al rehacer, la etiqueta vuelve al lado de deshacer', base.pendingUndoLabel() === 'Renombró la escena 1');
+  check('al rehacer, la etiqueta vuelve al lado de deshacer', base.pendingUndoLabel() === 'Renombró el contenido');
   base.dispatch({ type: 'set-scene-title', sceneId: scene.id, title: 'Tercero' });
   check('una edición nueva descarta la pila de rehacer', base.pendingRedoLabel() === null);
 
@@ -1756,7 +1894,7 @@ check(
   check('el lote del Director ocupa un solo paso de historial', base.getState().past.length === historyBeforeBatch + 1);
   check('el lote lleva una sola etiqueta que resume sus comandos',
     base.pendingUndoLabel()?.includes('Cambió el título del proyecto') === true
-      && base.pendingUndoLabel()?.includes('Renombró la escena 1') === true);
+      && base.pendingUndoLabel()?.includes('Renombró el contenido') === true);
   base.undo();
   check('un solo undo revierte el lote completo', JSON.stringify(base.project()) === JSON.stringify(beforeBatch));
 }

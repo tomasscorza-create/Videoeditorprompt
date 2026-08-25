@@ -18,7 +18,7 @@ const EXAMPLES = [
 
 const STEPS: Array<{ title: string; detail: string }> = [
   { title: 'Escribí tu idea', detail: 'Contale al Director, en el panel izquierdo, de qué querés que trate el video.' },
-  { title: 'Revisá la base', detail: 'El Director arma un storyboard; desde ahí podés pedir ajustes o abrir la edición contextual.' },
+  { title: 'Revisá la base', detail: 'El Director arma una secuencia continua; desde ahí podés pedir ajustes o abrir la edición contextual.' },
   { title: 'Creá el video', detail: 'Generá o actualizá el MP4 cuando la base esté lista.' },
 ];
 

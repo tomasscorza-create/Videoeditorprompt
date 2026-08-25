@@ -31,7 +31,6 @@ export function analyzeCreativeRichness(plan, context = {}) {
   if (visualFamilies.size < policy.minimumVisualFamilies) issues.push('Falta una familia visual útil, como prop o plantilla.');
   if (animatedScenes < policy.minimumAnimatedScenes) issues.push('Faltan secuencias coordinadas en escenas dinámicas.');
   if (plan.scenes.some((scene) => (scene.visualElements ?? []).length > policy.maximumVisualElementsPerScene)) issues.push('Una escena supera la densidad visual del perfil.');
-  if (policy.resolved !== 'simple' && plan.scenes.length > 2 && layouts.size < 2) issues.push('Todas las escenas repiten la misma composición.');
   if (policy.resolved !== 'simple' && resources.length > 1 && new Set(resources).size === 1) issues.push('Todos los apoyos visuales repiten el mismo recurso.');
   if (effectCount > plan.scenes.length * 3) issues.push('La densidad de movimiento puede competir con el contenido.');
   if (Math.max(...durationWeights) / Math.min(...durationWeights) > 6) issues.push('La distribución editorial entre escenas está demasiado desequilibrada.');

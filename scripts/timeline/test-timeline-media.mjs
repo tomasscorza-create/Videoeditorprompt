@@ -28,6 +28,18 @@ assert.equal(duplicateImport.created, false);
 assert.equal(duplicateImport.entry.id, firstImport.entry.id);
 assert.equal(media.list().length, 1);
 
+const movFile = path.join(root, 'source-incompatible.mov');
+run('ffmpeg', [
+  '-hide_banner', '-loglevel', 'error', '-y',
+  '-f', 'lavfi', '-i', 'color=c=green:s=180x320:r=30:d=0.4',
+  '-f', 'lavfi', '-i', 'sine=frequency=330:sample_rate=48000:duration=0.4',
+  '-shortest', '-c:v', 'mjpeg', '-q:v', '4', '-c:a', 'pcm_s16le', movFile,
+], { stage: 'timeline_test_proxy_source' });
+const incompatible = await media.importFile(movFile, { fileName: 'Cámara.mov', mimeType: 'video/quicktime' });
+const preview = media.openPreview(incompatible.entry.id);
+assert.equal(preview.mimeType, 'video/mp4');
+assert.equal(ffprobe(preview.file).streams.find((stream) => stream.codec_type === 'video')?.codec_name, 'h264');
+
 const durationTicks = firstImport.entry.durationTicks;
 const project = {
   version: 2,
@@ -53,6 +65,7 @@ const repository = await createTimelineProjectRepository({ storageRoot: path.joi
 const stored = repository.save(project);
 assert.equal(stored.created, true);
 assert.equal(repository.get(project.id).revision, stored.revision);
+assert.throws(() => repository.save({ ...project, clips: [] }), (error) => error.code === 'TIMELINE_PROJECT_REVISION_CONFLICT');
 assert.throws(() => repository.save({ ...project, clips: [] }, 'f'.repeat(64)), (error) => error.code === 'TIMELINE_PROJECT_REVISION_CONFLICT');
 
 const plan = createTimelineExportPlan(project, media.list(), { width: 180, height: 320 });
@@ -63,6 +76,18 @@ moved.clips.forEach((clip) => { clip.timelineStartTick = clip.kind === 'visual' 
 const movedPlan = createTimelineExportPlan(moved, media.list(), { width: 180, height: 320 });
 assert.deepEqual(movedPlan.clips.map((clip) => clip.segmentKey), plan.clips.map((clip) => clip.segmentKey));
 assert.notEqual(movedPlan.projectKey, plan.projectKey);
+const disabledTail = structuredClone(project);
+disabledTail.clips.push({
+  id: 'disabled-tail', kind: 'visual', sourceId: firstImport.entry.id, trackId: 'video-track-01',
+  timelineStartTick: durationTicks, sourceInTick: 0, durationTicks, enabled: false,
+});
+assert.equal(createTimelineExportPlan(disabledTail, media.list(), { width: 180, height: 320 }).durationTicks, durationTicks);
+const allDisabled = structuredClone(project);
+allDisabled.clips.forEach((clip) => { clip.enabled = false; });
+assert.throws(
+  () => createTimelineExportPlan(allDisabled, media.list(), { width: 180, height: 320 }),
+  (error) => error.code === 'TIMELINE_EXPORT_EMPTY',
+);
 
 const exporter = await createTimelineExporter({ mediaLibrary: media, storageRoot: path.join(root, 'exports'), width: 180, height: 320 });
 const exported = exporter.exportProject(project);
@@ -72,4 +97,4 @@ const cached = exporter.exportProject(project);
 assert.equal(cached.cacheHit, true);
 assert.equal(cached.reusedSegments, 2);
 
-process.stdout.write(`${JSON.stringify({ version: 1, passed: 14, failed: 0, mediaId: firstImport.entry.id, exportId: exported.exportId })}\n`);
+process.stdout.write(`${JSON.stringify({ version: 1, passed: 19, failed: 0, mediaId: firstImport.entry.id, exportId: exported.exportId })}\n`);

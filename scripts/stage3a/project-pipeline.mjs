@@ -36,11 +36,12 @@ export async function runProjectPipeline(context) {
     const unifiedTimeline = loadUnifiedTimeline(context);
     const compiled = compileVideoProject(context, { report, emitCompleted: false });
     const sceneRuns = await renderCompiledScenes(context, compiled.manifest, report, verificationMode, unifiedTimeline);
-    const assemblyPlan = buildAssemblyPlan(sceneRuns.map((scene, index) => ({
+    const semanticAssemblyPlan = buildAssemblyPlan(sceneRuns.map((scene, index) => ({
       id: scene.id,
       renderDurationSeconds: scene.renderDurationSeconds,
       transitionToNext: compiled.manifest.scenes[index].transitionToNext,
     })));
+    const assemblyPlan = extendAssemblyPlan(semanticAssemblyPlan, unifiedTimeline);
     const runNumbers = verificationMode === 'full' ? [1, 2] : [1];
     const outputs = runNumbers.map((runNumber) => assembleProjectRun(context, sceneRuns, assemblyPlan, runNumber, report, unifiedTimeline));
     const verification = verifyProjectRender(context, compiled.manifest, sceneRuns, assemblyPlan, outputs, verificationMode);
@@ -95,6 +96,29 @@ export async function runProjectPipeline(context) {
     report('failed', serializeError(error, 'project_pipeline'));
     throw error;
   }
+}
+
+export function extendAssemblyPlan(plan, unifiedTimeline) {
+  const mediaDuration = unifiedTimeline?.clips.reduce(
+    (maximum, clip) => Math.max(maximum, clip.timelineStartSeconds + clip.durationSeconds),
+    0,
+  ) ?? 0;
+  const durationSeconds = roundSeconds(Math.max(plan.durationSeconds, mediaDuration));
+  if (durationSeconds <= plan.durationSeconds) return plan;
+  const extra = roundSeconds(durationSeconds - plan.durationSeconds);
+  const filters = [...plan.filters];
+  const videoLabel = 'semanticpadvideo';
+  const audioLabel = 'semanticpadaudio';
+  filters.push(`[${plan.videoLabel}]tpad=stop_mode=clone:stop_duration=${formatNumber(extra)}[${videoLabel}]`);
+  filters.push(`[${plan.audioLabel}]apad=pad_dur=${formatNumber(extra)}[${audioLabel}]`);
+  return {
+    ...plan,
+    filters,
+    videoLabel,
+    audioLabel,
+    semanticDurationSeconds: plan.durationSeconds,
+    durationSeconds,
+  };
 }
 
 function loadUnifiedTimeline(context) {
@@ -533,7 +557,7 @@ function verifyProjectRender(context, compiledManifest, sceneRuns, plan, outputs
   check('Escenas verificadas individualmente', sceneRuns.every((scene) => scene.verificationPassed > 0), sceneRuns.map((scene) => scene.verificationPassed));
   check('Duraciones medidas presentes', sceneRuns.every((scene) => scene.audioDurationSeconds > 0 && scene.renderDurationSeconds >= scene.audioDurationSeconds), sceneRuns.map((scene) => ({ audio: scene.audioDurationSeconds, render: scene.renderDurationSeconds })));
   check('Turnos medidos presentes', sceneRuns.every((scene) => Array.isArray(scene.turns) && scene.turns.length >= 1), sceneRuns.map((scene) => scene.turns?.length));
-  check('Timeline termina en la duración calculada', Math.abs(plan.scenes.at(-1).endSeconds - plan.durationSeconds) < 1e-8, plan);
+  check('Timeline semántica no supera la duración final', plan.scenes.at(-1).endSeconds <= plan.durationSeconds + 1e-8, plan);
   for (const output of outputs) {
     const video = output.probe.streams.find((stream) => stream.codec_type === 'video');
     const audio = output.probe.streams.find((stream) => stream.codec_type === 'audio');

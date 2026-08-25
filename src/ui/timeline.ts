@@ -42,8 +42,6 @@ import {
   pauseLabel,
   rulerTicks,
   snapSeconds,
-  transitionGlyph,
-  transitionLabel,
   turnClipRect,
 } from './timeline-geometry.js';
 import {
@@ -161,7 +159,7 @@ export function updateTimelineTime(timeSeconds: number): void {
   setEditorPlayhead(currentTime);
   const authoringPlayhead = optional<HTMLElement>('#authoring-playhead');
   if (authoringPlayhead) {
-    authoringPlayhead.hidden = !isMeasured();
+    authoringPlayhead.hidden = !hasExactTimelineTime();
     authoringPlayhead.style.left = `calc(var(--timeline-label-width) + ${currentTime * pixelsPerSecond}px)`;
     authoringPlayhead.setAttribute('aria-valuenow', currentTime.toFixed(3));
     authoringPlayhead.setAttribute('aria-valuemax', activeDuration().toFixed(3));
@@ -210,7 +208,7 @@ function renderCreatorTimeline(): void {
     message.innerHTML = '<strong>Creador de recursos</strong><span>La timeline pertenece al Editor de video y se conserva sin cambios mientras diseñás.</span>';
     root.replaceChildren(message);
   }
-  setSummary('Volvé al Editor para seleccionar escenas, reproducir y editar la timeline.');
+  setSummary('Volvé al Editor para reproducir y editar la secuencia del video.');
 }
 
 function renderProject(): void {
@@ -219,7 +217,7 @@ function renderProject(): void {
   optional<HTMLElement>('.professional-timeline')?.classList.remove('is-creator');
   if (!project) {
     setTimelineMode(false);
-    setSummary('Abrí un proyecto para ver sus escenas y diálogos.');
+    setSummary('Abrí un proyecto para ver su secuencia, capas y diálogos.');
     renderLayerStack(null, [], []);
     return;
   }
@@ -236,7 +234,7 @@ function renderProject(): void {
     let cursor = 0;
     for (const width of sceneWidths) {
       positions.push(cursor);
-      cursor += width + 4;
+      cursor += width;
     }
   }
   // Medir y reproducir son dos cosas distintas: los tiempos del último render
@@ -253,11 +251,11 @@ function renderProject(): void {
   const freeMediaLabel = freeMedia > 0 ? ` · ${freeMedia} medio(s) libre(s)` : '';
   setSummary((measured
     ? outputState === 'current'
-      ? `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · capas editables alineadas con la exportación actual.`
-      : `${project.scenes.length} escena(s) · ${measured.durationSeconds.toFixed(2)} s medidos · Play usa su audio con los cambios visuales actuales.`
+      ? `1 secuencia continua · ${measured.durationSeconds.toFixed(2)} s medidos · capas alineadas con la exportación actual.`
+      : `1 secuencia continua · ${measured.durationSeconds.toFixed(2)} s medidos · Play usa su audio con los cambios visuales actuales.`
     : outputState === 'stale'
-      ? `${project.scenes.length} escena(s) · cambios sin exportar · el MP4 anterior quedó fuera del transporte.`
-      : `${project.scenes.length} escena(s) · visual arriba, audio abajo · estructura editorial sin tiempos inventados.`) + freeMediaLabel);
+      ? '1 secuencia continua · cambios sin exportar · el MP4 anterior quedó fuera del transporte.'
+      : '1 secuencia continua · visual arriba, audio abajo · estructura editorial sin tiempos inventados.') + freeMediaLabel);
 }
 
 function renderLayerStack(
@@ -287,138 +285,36 @@ function renderLayerStack(
   // para proyectos históricos. Medir ya no obliga a exportar para ver la voz.
   const waveformUrl = currentPreviewAudioUrl() ?? output?.url ?? null;
   const waveform = measured && waveformUrl ? requestWaveform(waveformUrl, render) : null;
-  const rows: HTMLElement[] = [
-    authoringRuler(project, positions, totalWidth, measured, totalDuration),
-  ];
-  if (project.scenes.length >= 2) {
-    rows.push(transitionsRow(project, positions, sceneWidths, totalWidth, measured));
-  }
+  const rows: HTMLElement[] = [authoringRuler(totalWidth, measured, totalDuration)];
   rows.push(trackDivider('VISUAL', 'Capas que forman la imagen'));
-  const backgroundClips = project.scenes.map((scene, index) => {
-    const duration = measured?.scenes[index] ? measured.scenes[index].endSeconds - measured.scenes[index].startSeconds : null;
-    const clip = authoringClip(
-      scene.title,
-      `${scene.background.resourceId} · ${duration === null ? 'escena completa · sin medir' : `${duration.toFixed(2)} s`}`,
-      positions[index],
-      sceneWidths[index],
-      'background',
-    );
-    bindSceneClip(clip, scene.id, measured?.scenes[index]?.startSeconds ?? 0);
-    if (measured && output) {
-      attachFilmstripCanvas(clip, measured.scenes[index].startSeconds, measured.scenes[index].endSeconds);
-    }
-    return clip;
-  });
-  rows.push(authoringTrack('BG', 'Fondos', totalWidth, [...backgroundClips, ...sceneInsertButtons(project, positions, sceneWidths)]));
-  const maximumCharacters = Math.max(1, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'character').length));
-  for (let slot = 0; slot < maximumCharacters; slot += 1) {
-    const clips = project.scenes.flatMap((scene, sceneIndex) => {
-      const element = scene.elements.filter((candidate) => candidate.type === 'character')[slot];
-      if (!element) return [];
-      const clip = authoringClip(
-        element.resourceId ?? element.id,
-        elementClipDetail(element),
-        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).left || positions[sceneIndex],
-        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).width || sceneWidths[sceneIndex],
-        'character',
-        isElementSelected(element.id),
-      );
-      // El estado «requiere revisión» se descubre sin tener el elemento
-      // seleccionado: la insignia vive en la fila, no solo en el inspector.
-      const pending = countAnchorsRequiringReview(element.id, element.tracks ?? [], sceneAnimationReference(scene.dialogue));
-      if (pending > 0) clip.append(reviewBadge(pending));
-      appendElementKeyframes(clip, scene, element, measured?.scenes[sceneIndex] ?? null);
-      // C2: el clip declara a qué elemento apunta para poder espejar la
-      // selección y el hover con el lienzo.
-      clip.dataset.scene = scene.id;
-      clip.dataset.element = element.id;
-      const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
-      if (medidaDeEscena) {
-        bindElementTrim(clip, scene, element, medidaDeEscena);
-        // Los personajes no son medios divisibles; partirlos duplicaría el elenco.
-        if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
-      }
-      const characterStart = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
-      clip.addEventListener('click', () => clipSingleClick(characterStart, () => selectElement(scene.id, element.id), () => selectElementCore(scene.id, element.id)));
-      clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
-      clip.addEventListener('contextmenu', (event) => {
-        event.preventDefault();
-        openContextMenu(clip, characterMenuItems(scene.id, element.id, clip));
-      });
-      acceptResourceDrop(clip, CHARACTER_DRAG_TYPE, (dataTransfer) => applyCharacterDrop(scene.id, element.id, dataTransfer));
-      return [clip];
-    });
-    const track = authoringTrack(`V${slot + 1}`, `Personaje ${slot + 1}`, totalWidth, clips);
-    // C6: soltar un personaje sobre la pista lo agrega a la escena de esa
-    // posición, con el mismo comando que usa el inspector.
+  const authoredWidth = Math.max(1, (positions.at(-1) ?? 0) + (sceneWidths.at(-1) ?? 0));
+  const background = project.scenes[0].background;
+  const backgroundClip = authoringClip(
+    background.resourceId,
+    measured ? `${measured.durationSeconds.toFixed(2)} s` : 'Video completo · sin medir',
+    0,
+    authoredWidth,
+    'background',
+  );
+  bindContinuousBackgroundClip(backgroundClip, project, measured);
+  if (measured && output) attachFilmstripCanvas(backgroundClip, 0, measured.durationSeconds);
+  rows.push(authoringTrack('BG', 'Fondo', totalWidth, [backgroundClip]));
+
+  const characterGroups = groupElementsByResource(project, 'character');
+  for (const [slot, group] of characterGroups.entries()) {
+    const clip = continuousElementClip(group, authoredWidth, measured, 'character');
+    const track = authoringTrack(`V${slot + 1}`, `Personaje ${slot + 1}`, totalWidth, [clip]);
     acceptCharacterDropOnLane(track, project, positions, sceneWidths);
     rows.push(track);
   }
-  const maximumProps = Math.max(0, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'prop').length));
-  for (let slot = 0; slot < maximumProps; slot += 1) {
-    const clips = project.scenes.flatMap((scene, sceneIndex) => {
-      const element = scene.elements.filter((candidate) => candidate.type === 'prop')[slot];
-      if (!element) return [];
-      const clip = authoringClip(
-        element.resourceId ?? element.id,
-        elementClipDetail(element),
-        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).left || positions[sceneIndex],
-        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).width || sceneWidths[sceneIndex],
-        'character',
-        isElementSelected(element.id),
-      );
-      clip.dataset.scene = scene.id;
-      clip.dataset.element = element.id;
-      const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
-      if (medidaDeEscena) {
-        bindElementTrim(clip, scene, element, medidaDeEscena);
-        // Los personajes no son medios divisibles; partirlos duplicaría el elenco.
-        if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
-      }
-      appendElementKeyframes(clip, scene, element, measured?.scenes[sceneIndex] ?? null);
-      const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
-      clip.addEventListener('click', () => clipSingleClick(
-        start,
-        () => selectElement(scene.id, element.id),
-        () => selectElementCore(scene.id, element.id),
-      ));
-      clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
-      return [clip];
-    });
-    rows.push(authoringTrack(`P${slot + 1}`, `Prop ${slot + 1}`, totalWidth, clips));
+  const maximumCharacters = Math.max(1, characterGroups.length);
+  const propGroups = groupElementsByResource(project, 'prop');
+  for (const [slot, group] of propGroups.entries()) {
+    rows.push(authoringTrack(`P${slot + 1}`, `Prop ${slot + 1}`, totalWidth, [continuousElementClip(group, authoredWidth, measured, 'character')]));
   }
-  // Una plantilla dura lo que dura su escena: repite su ciclo hasta el corte.
-  const maximumTemplates = Math.max(0, ...project.scenes.map((scene) => scene.elements.filter((element) => element.type === 'template').length));
-  for (let slot = 0; slot < maximumTemplates; slot += 1) {
-    const clips = project.scenes.flatMap((scene, sceneIndex) => {
-      const element = scene.elements.filter((candidate) => candidate.type === 'template')[slot];
-      if (!element) return [];
-      const clip = authoringClip(
-        element.values?.word ? `«${element.values.word}»` : element.id,
-        elementClipDetail(element),
-        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).left || positions[sceneIndex],
-        elementClipRect(scene, element, measured?.scenes[sceneIndex] ?? null).width || sceneWidths[sceneIndex],
-        'character',
-        isElementSelected(element.id),
-      );
-      clip.dataset.scene = scene.id;
-      clip.dataset.element = element.id;
-      const medidaDeEscena = measured?.scenes[sceneIndex] ?? null;
-      if (medidaDeEscena) {
-        bindElementTrim(clip, scene, element, medidaDeEscena);
-        // Los personajes no son medios divisibles; partirlos duplicaría el elenco.
-        if (element.type !== 'character') bindElementRazor(clip, scene, element, medidaDeEscena);
-      }
-      const start = measured?.scenes[sceneIndex]?.startSeconds ?? 0;
-      clip.addEventListener('click', () => clipSingleClick(
-        start,
-        () => selectElement(scene.id, element.id),
-        () => selectElementCore(scene.id, element.id),
-      ));
-      clip.addEventListener('dblclick', () => selectElement(scene.id, element.id));
-      return [clip];
-    });
-    rows.push(authoringTrack(`E${slot + 1}`, `Efecto ${slot + 1}`, totalWidth, clips));
+  const templateGroups = groupElementsByResource(project, 'template');
+  for (const [slot, group] of templateGroups.entries()) {
+    rows.push(authoringTrack(`E${slot + 1}`, `Efecto ${slot + 1}`, totalWidth, [continuousElementClip(group, authoredWidth, measured, 'character')]));
   }
   rows.push(trackDivider('AUDIO', 'Voces debajo de las capas visuales'));
   for (let slot = 0; slot < maximumCharacters; slot += 1) {
@@ -444,7 +340,7 @@ function renderLayerStack(
           const selection = projectSelection();
           const detail = measuredTurn
             ? `${turn.voiceId} · ${measuredTurn.durationSeconds.toFixed(2)} s medidos`
-            : measured ? `${turn.voiceId} · orden del guion dentro de la escena medida` : `${turn.voiceId} · duración pendiente de voz`;
+            : measured ? `${turn.voiceId} · orden del guion medido` : `${turn.voiceId} · duración pendiente de voz`;
           const clip = authoringClip(
             turn.text,
             detail,
@@ -654,11 +550,138 @@ function isElementSelected(elementId: string): boolean {
   return (selection?.kind === 'element' || selection?.kind === 'keyframe') && selection.elementId === elementId;
 }
 
+interface ElementOccurrence {
+  scene: SceneView;
+  sceneIndex: number;
+  element: ElementView;
+}
+
+function groupElementsByResource(
+  project: ReturnType<ProjectStore['project']>,
+  type: ElementView['type'],
+): ElementOccurrence[][] {
+  const groups = new Map<string, ElementOccurrence[]>();
+  project.scenes.forEach((scene, sceneIndex) => {
+    scene.elements.filter((element) => element.type === type).forEach((element) => {
+      const key = element.type === 'template' ? element.templateId ?? element.id : element.resourceId ?? element.id;
+      const group = groups.get(key) ?? [];
+      group.push({ scene, sceneIndex, element });
+      groups.set(key, group);
+    });
+  });
+  return [...groups.values()];
+}
+
+function occurrenceAtPlayhead(group: ElementOccurrence[], measured: MeasuredProjectTimeline | null): ElementOccurrence {
+  if (measured) {
+    const active = group.find(({ sceneIndex }) => {
+      const timing = measured.scenes[sceneIndex];
+      return timing && currentTime >= timing.startSeconds && currentTime < timing.endSeconds;
+    });
+    if (active) return active;
+  }
+  return group.find(({ scene }) => scene.id === store?.selectedSceneId()) ?? group[0];
+}
+
+function continuousElementClip(
+  group: ElementOccurrence[],
+  width: number,
+  measured: MeasuredProjectTimeline | null,
+  kind: 'character',
+): HTMLButtonElement {
+  const first = group[0].element;
+  const title = first.type === 'template' && first.values?.word
+    ? `«${first.values.word}»`
+    : first.resourceId ?? first.id;
+  const clip = authoringClip(
+    title,
+    elementClipDetail(first),
+    0,
+    width,
+    kind,
+    group.some(({ element }) => isElementSelected(element.id)),
+  );
+  clip.dataset.resource = first.type === 'template' ? first.templateId ?? first.id : first.resourceId ?? first.id;
+  let pending = 0;
+  for (const occurrence of group) {
+    pending += countAnchorsRequiringReview(
+      occurrence.element.id,
+      occurrence.element.tracks ?? [],
+      sceneAnimationReference(occurrence.scene.dialogue),
+    );
+    appendElementKeyframes(
+      clip,
+      occurrence.scene,
+      occurrence.element,
+      measured?.scenes[occurrence.sceneIndex] ?? null,
+      0,
+      measured?.durationSeconds ?? width / pixelsPerSecond,
+    );
+  }
+  if (pending > 0) clip.append(reviewBadge(pending));
+  const select = (withCanvas: boolean): void => {
+    const active = occurrenceAtPlayhead(group, measured);
+    if (withCanvas) selectElement(active.scene.id, active.element.id);
+    else selectElementCore(active.scene.id, active.element.id);
+  };
+  clip.addEventListener('click', () => clipSingleClick(currentTime, () => select(true), () => select(false)));
+  clip.addEventListener('dblclick', () => selectElement(...(() => {
+    const active = occurrenceAtPlayhead(group, measured);
+    return [active.scene.id, active.element.id] as const;
+  })()));
+  if (first.type === 'character') {
+    clip.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      const active = occurrenceAtPlayhead(group, measured);
+      openContextMenu(clip, characterMenuItems(active.scene.id, active.element.id, clip));
+    });
+    acceptResourceDrop(clip, CHARACTER_DRAG_TYPE, (dataTransfer) => {
+      const active = occurrenceAtPlayhead(group, measured);
+      applyCharacterDrop(active.scene.id, active.element.id, dataTransfer);
+    });
+  }
+  return clip;
+}
+
+function bindContinuousBackgroundClip(
+  clip: HTMLButtonElement,
+  project: ReturnType<ProjectStore['project']>,
+  measured: MeasuredProjectTimeline | null,
+): void {
+  const select = (): void => {
+    const index = measured?.scenes.findIndex((timing) => currentTime >= timing.startSeconds && currentTime < timing.endSeconds) ?? -1;
+    selectScene(project.scenes[Math.max(0, index)]?.id ?? project.scenes[0].id);
+  };
+  clip.addEventListener('click', select);
+  clip.addEventListener('dblclick', select);
+  acceptResourceDrop(clip, BACKGROUND_DRAG_TYPE, (dataTransfer) => applyContinuousBackgroundDrop(project, dataTransfer));
+}
+
+function applyContinuousBackgroundDrop(
+  project: ReturnType<ProjectStore['project']>,
+  dataTransfer: DataTransfer,
+): void {
+  const resourceId = readBackgroundDrag(dataTransfer);
+  if (!resourceId || !store) return;
+  const presets = store.resources('background').find((resource) => resource.id === resourceId)?.capabilities?.cameraPresets;
+  const list = Array.isArray(presets) ? (presets as string[]) : ['static'];
+  const cameraPreset = list.includes('static') ? 'static' : list[0];
+  const error = store.dispatchBatch(project.scenes.map((scene) => ({
+    type: 'set-scene-background',
+    sceneId: scene.id,
+    resourceId,
+    cameraPreset,
+  })));
+  if (error) window.alert(error);
+}
+
 function appendElementKeyframes(
   clip: HTMLElement,
   scene: SceneView,
   element: ElementView,
   measured: MeasuredScene | null,
+  clipStartSeconds = measured?.startSeconds ?? 0,
+  clipDurationSeconds = measured ? measured.endSeconds - measured.startSeconds : 0,
 ): void {
   if (!measured || !element.tracks?.length) return;
   const reference = sceneAnimationReference(scene.dialogue);
@@ -670,7 +693,7 @@ function appendElementKeyframes(
     fps: projectFps(),
   });
   const selected = projectSelection();
-  const clipWidth = Math.max(MIN_CLIP_WIDTH, (measured.endSeconds - measured.startSeconds) * pixelsPerSecond);
+  const clipWidth = Math.max(MIN_CLIP_WIDTH, clipDurationSeconds * pixelsPerSecond);
   for (const [laneIndex, lane] of lanes.entries()) {
     for (const keyframe of lane.keyframes) {
       if (keyframe.seconds === null || keyframe.status === 'out-of-scene') continue;
@@ -685,7 +708,7 @@ function appendElementKeyframes(
           && selected.keyframeId === keyframe.id,
       );
       marker.style.left = `${clamp(
-        (keyframe.seconds - measured.startSeconds) * pixelsPerSecond,
+        (keyframe.seconds - clipStartSeconds) * pixelsPerSecond,
         4,
         Math.max(4, clipWidth - 4),
       )}px`;
@@ -813,13 +836,7 @@ function authoringTrack(code: string, label: string, width: number, clips: HTMLE
   return row;
 }
 
-function authoringRuler(
-  project: ReturnType<ProjectStore['project']>,
-  positions: number[],
-  width: number,
-  measured: MeasuredProjectTimeline | null,
-  unifiedDurationSeconds: number,
-): HTMLElement {
+function authoringRuler(width: number, measured: MeasuredProjectTimeline | null, unifiedDurationSeconds: number): HTMLElement {
   const row = document.createElement('div');
   row.className = 'authoring-track-row authoring-ruler-row';
   const label = document.createElement('div');
@@ -843,56 +860,7 @@ function authoringRuler(
       ruler.append(mark);
     }
   }
-  // Fronteras de escena, siempre presentes y por encima de las subdivisiones.
-  positions.forEach((left, index) => {
-    const mark = document.createElement('span');
-    mark.className = 'ruler-scene';
-    mark.style.left = `${left}px`;
-    mark.textContent = measured
-      ? `E${index + 1}`
-      : `E${index + 1} · ${project.scenes[index].title}`;
-    ruler.append(mark);
-  });
   row.append(label, ruler);
-  return row;
-}
-
-function transitionsRow(
-  project: ReturnType<ProjectStore['project']>,
-  positions: number[],
-  sceneWidths: number[],
-  width: number,
-  measured: MeasuredProjectTimeline | null,
-): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'authoring-track-row authoring-junction-row';
-  const label = document.createElement('div');
-  label.className = 'authoring-track-label';
-  label.innerHTML = '<strong>UNIÓN</strong><span>Transiciones</span>';
-  const lane = document.createElement('div');
-  lane.className = 'authoring-junction-lane';
-  lane.style.width = `${Math.ceil(width)}px`;
-  for (let index = 0; index < project.scenes.length - 1; index += 1) {
-    const scene = project.scenes[index];
-    const transition = scene.transitionToNext ?? { preset: 'cut' as const, durationSeconds: 0 };
-    const boundary = measured?.scenes[index]
-      ? measured.scenes[index].endSeconds * pixelsPerSecond
-      : positions[index] + sceneWidths[index];
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = `transition-chip is-${transition.preset}`;
-    chip.style.left = `${boundary}px`;
-    chip.textContent = transitionGlyph(transition.preset, transition.durationSeconds);
-    chip.title = `${transitionLabel(transition.preset, transition.durationSeconds)} · entre ${scene.title} y ${project.scenes[index + 1].title} · clic: cambiar · clic derecho: duración`;
-    // B1: clic cicla corte↔fundido; clic derecho abre el popover de duración.
-    chip.addEventListener('click', () => cycleTransition(scene.id, transition.preset));
-    chip.addEventListener('contextmenu', (event) => {
-      event.preventDefault();
-      openTransitionPopover(chip, scene.id, transition.preset, transition.durationSeconds);
-    });
-    lane.append(chip);
-  }
-  row.append(label, lane);
   return row;
 }
 
@@ -1041,18 +1009,18 @@ function sceneMenuItems(sceneId: string, anchor: HTMLElement): MenuItem[] {
   const canAdd = scenes.length < 8;
   const isLast = index === scenes.length - 1;
   return [
-    { label: 'Duplicar escena', disabled: !canAdd, action: () => duplicateSceneById(sceneId) },
-    { label: 'Insertar escena antes', disabled: !canAdd, action: () => insertSceneAt(sceneId, index) },
-    { label: 'Insertar escena después', disabled: !canAdd, action: () => insertSceneAt(sceneId, index + 1) },
+    { label: 'Duplicar momento', disabled: !canAdd, action: () => duplicateSceneById(sceneId) },
+    { label: 'Insertar momento antes', disabled: !canAdd, action: () => insertSceneAt(sceneId, index) },
+    { label: 'Insertar momento después', disabled: !canAdd, action: () => insertSceneAt(sceneId, index + 1) },
     { label: 'Agregar voz fuera de campo', disabled: !scene || scene.dialogue.length >= 20, action: () => addVoiceoverTurn(sceneId) },
     { separator: true },
     { label: '← Mover a la izquierda', disabled: index <= 0, action: () => moveScene(index, -1) },
     { label: 'Mover a la derecha →', disabled: index < 0 || index >= scenes.length - 1, action: () => moveScene(index, 1) },
     { separator: true },
-    { label: isLast ? 'Transición (no hay escena siguiente)' : 'Editar transición…', disabled: isLast, action: () => openTransitionPopoverForScene(sceneId, anchor) },
+    { label: isLast ? 'Enlace (no hay momento siguiente)' : 'Editar enlace…', disabled: isLast, action: () => openTransitionPopoverForScene(sceneId, anchor) },
     { separator: true },
-    { label: 'Acortar escena…', action: () => openShortenPanel(anchor, sceneId) },
-    { label: 'Eliminar escena', disabled: scenes.length <= 1, action: () => deleteSceneById(sceneId) },
+    { label: 'Acortar momento…', action: () => openShortenPanel(anchor, sceneId) },
+    { label: 'Eliminar momento', disabled: scenes.length <= 1, action: () => deleteSceneById(sceneId) },
   ];
 }
 
@@ -1089,7 +1057,7 @@ function dialogueMenuItems(sceneId: string, turnId: string, anchor: HTMLElement)
     { label: 'Insertar turno antes', disabled: !canAdd || !turn || turnIndex === 0, action: () => turn && insertTurn(sceneId, turn, previous?.id) },
     { label: 'Insertar turno después', disabled: !canAdd || !turn, action: () => turn && insertTurn(sceneId, turn, turn.id) },
     { separator: true },
-    { label: canSplit ? 'Dividir escena aquí' : 'Dividir aquí (necesita 1 turno por lado)', disabled: !canSplit, action: () => splitSceneAtTurn(sceneId, turnId) },
+    { label: canSplit ? 'Dividir momento aquí' : 'Dividir aquí (necesita 1 turno por lado)', disabled: !canSplit, action: () => splitSceneAtTurn(sceneId, turnId) },
     { separator: true },
   ];
   if (turn) {
@@ -1150,7 +1118,7 @@ function insertSceneAt(referenceSceneId: string, targetIndex: number): void {
     type: 'add-scene',
     scene: {
       id: newSceneId,
-      title: 'Nueva escena',
+      title: 'Nuevo momento',
       background: { ...reference.background },
       elements: [],
       dialogue: [],
@@ -1414,7 +1382,7 @@ function commitTrim(
   }
   notify({
     message: cubreTodo
-      ? 'El elemento vuelve a verse durante toda la escena.'
+      ? 'El elemento vuelve a verse durante todo el tramo disponible.'
       : `Se ve de ${window.fromSeconds.toFixed(2)} s a ${window.toSeconds.toFixed(2)} s.`,
   });
 }
@@ -1516,7 +1484,7 @@ function dialogueCutPlan(sceneId: string, turnId: string): DialogueCutPlan {
   const scene = sceneIndex >= 0 ? project!.scenes[sceneIndex] : undefined;
   const turn = scene?.dialogue.find((item) => item.id === turnId);
   if (!scene || !turn) return { atWord: null, blocked: 'El diálogo ya no existe.' };
-  if (scene.dialogue.length >= 20) return { atWord: null, blocked: 'La escena llegó al máximo de diálogos.' };
+  if (scene.dialogue.length >= 20) return { atWord: null, blocked: 'Este tramo llegó al máximo de diálogos.' };
   if (wordCount(turn.text) < 2) return { atWord: null, blocked: 'Necesita al menos dos palabras para cortarse.' };
   const measured = compatibleTimeline(project!.scenes);
   const measuredTurn = measured?.scenes[sceneIndex]?.turns?.find((item) => item.id === turnId);
@@ -1676,13 +1644,13 @@ function splitSceneAtTurn(sceneId: string, turnId: string): void {
   // límite es del motor: una escena renderizable necesita al menos una voz.
   if (!canSplitAtIndex(scene.dialogue.length, turnIndex)) {
     notify({
-      message: 'Para dividir la escena acá tiene que quedar al menos un turno hablado de cada lado. Cortá un diálogo con B para tener más.',
+      message: 'Para dividir acá tiene que quedar al menos un turno hablado de cada lado. Cortá un diálogo con B para tener más.',
       level: 'error',
     });
     return;
   }
   if (store.project().scenes.length >= 8) {
-    notify({ message: 'El proyecto llegó al máximo de ocho escenas.', level: 'error' });
+    notify({ message: 'La secuencia llegó al límite técnico de divisiones internas.', level: 'error' });
     return;
   }
   const newSceneId = nextSceneId(store.project().scenes.map((item) => item.id));
@@ -1694,7 +1662,7 @@ function splitSceneAtTurn(sceneId: string, turnId: string): void {
 function splitSelectedTurn(): void {
   const selection = projectSelection();
   if (selection?.kind !== 'dialogue') {
-    notify({ message: 'Seleccioná un diálogo para dividir la escena antes de él.', level: 'error' });
+    notify({ message: 'Seleccioná un diálogo para dividir antes de él.', level: 'error' });
     return;
   }
   splitSceneAtTurn(selection.sceneId, selection.turnId);
@@ -1788,7 +1756,7 @@ function fillShortenPanel(panel: HTMLElement, sceneId: string): void {
   if (scene.dialogue.length === 0) {
     const empty = document.createElement('span');
     empty.className = 'shorten-empty';
-    empty.textContent = 'La escena quedó sin turnos.';
+    empty.textContent = 'Este tramo quedó sin turnos.';
     list.append(empty);
   }
   panel.append(list);
@@ -1830,9 +1798,9 @@ function sceneInsertButtons(
 ): HTMLElement[] {
   const scenes = project.scenes;
   const canAdd = scenes.length < 8;
-  const title = canAdd ? 'Insertar escena aquí' : 'Máximo de 8 escenas';
+  const title = canAdd ? 'Insertar momento aquí' : 'Máximo de 8 momentos';
   const buttons: HTMLElement[] = [
-    insertButton(positions[0] ?? 0, canAdd ? 'Insertar escena al inicio' : title, !canAdd, () => insertSceneAt(scenes[0].id, 0)),
+    insertButton(positions[0] ?? 0, canAdd ? 'Insertar momento al inicio' : title, !canAdd, () => insertSceneAt(scenes[0].id, 0)),
   ];
   scenes.forEach((scene, index) => {
     const boundary = (positions[index] ?? 0) + (sceneWidths[index] ?? 0);
@@ -2028,6 +1996,14 @@ function authoringClip(
   small.textContent = detail;
   clip.append(strong, small);
   return clip;
+}
+
+function markContinuousSegments(clips: HTMLElement[]): void {
+  clips.forEach((clip, index) => {
+    clip.classList.add('is-continuous-segment');
+    if (index === 0) clip.classList.add('is-sequence-start');
+    if (index === clips.length - 1) clip.classList.add('is-sequence-end');
+  });
 }
 
 function bindSceneClip(clip: HTMLButtonElement, sceneId: string, startSeconds: number): void {
@@ -2452,8 +2428,8 @@ function updateToolbar(): void {
   const canDuplicateKeyframe = selection?.kind === 'keyframe';
   if (duplicate) {
     duplicate.disabled = creator || (!canDuplicateScene && !canDuplicateKeyframe);
-    duplicate.textContent = canDuplicateKeyframe ? 'Duplicar keyframe' : 'Duplicar escena';
-    duplicate.title = canDuplicateKeyframe ? 'Duplicar keyframe seleccionado' : 'Duplicar escena seleccionada';
+    duplicate.textContent = canDuplicateKeyframe ? 'Duplicar keyframe' : 'Duplicar';
+    duplicate.title = canDuplicateKeyframe ? 'Duplicar keyframe seleccionado' : 'Duplicar selección';
     // El aria-label le gana al texto visible: si queda fijo, un lector de
     // pantalla anuncia una acción distinta de la que muestra el botón.
     duplicate.setAttribute('aria-label', duplicate.textContent);
@@ -2467,7 +2443,7 @@ function updateToolbar(): void {
   if (split) {
     split.disabled = creator || !canSplitSelection;
     split.title = canSplitSelection
-      ? 'Dividir la escena antes del diálogo seleccionado (Ctrl+B)'
+      ? 'Dividir antes del diálogo seleccionado (Ctrl+B)'
       : 'Seleccioná un diálogo que deje al menos un turno a cada lado';
   }
   // Medir es la acción que destraba todo lo temporal, así que se ofrece en la
@@ -2493,7 +2469,7 @@ function updateToolbar(): void {
     remove.disabled = creator || !selection || (selection.kind === 'scene' && (store?.project().scenes.length ?? 0) <= 1);
     const kind = selection?.kind === 'dialogue' ? 'diálogo'
       : selection?.kind === 'keyframe' ? 'keyframe'
-        : selection?.kind === 'element' ? 'elemento' : 'escena';
+        : selection?.kind === 'element' ? 'elemento' : 'contenido';
     remove.title = selection ? `Eliminar ${kind} (Supr)` : 'Seleccioná algo para eliminar';
   }
   optional<HTMLButtonElement>('#timeline-fit')?.toggleAttribute('disabled', creator || (!hasProject && !measured));
@@ -2513,7 +2489,7 @@ function nextSceneId(existing: string[]): string {
 function updateTimecode(): void {
   const output = optional<HTMLOutputElement>('#timeline-timecode');
   if (!output) return;
-  output.textContent = isMeasured()
+  output.textContent = hasExactTimelineTime()
     ? `${formatTimecode(currentTime)} / ${formatTimecode(activeDuration())}`
     : '--:--.--- / --:--.---';
 }
@@ -2555,7 +2531,7 @@ function renderTimelineModeExplanation(measured: boolean): void {
   title.textContent = outdated ? 'Preview listo · MP4 anterior' : measured ? 'Preview medido' : 'Preparando preview';
   const body = document.createElement('p');
   body.textContent = outdated
-    ? 'Hay cambios sin exportar. Play usa el audio medido y dibuja las escenas y keyframes actuales sobre el lienzo.'
+    ? 'Hay cambios sin exportar. Play usa el audio medido y dibuja la secuencia y los keyframes actuales sobre el lienzo.'
     : measured
       ? 'Estos tiempos y la reproducción salen del audio real preparado para el preview; coincidirán con el MP4 final.'
       : 'Todavía no hay audio generado, así que la duración de cada diálogo es una estimación por cantidad de palabras. La duración real nace de las voces sintetizadas: medir las genera sin producir un video.';
@@ -2619,7 +2595,7 @@ function setSummary(message: string): void {
 function followPlayhead(): void {
   const state = editorWorkspace();
   const scroll = optional<HTMLElement>('#timeline-layer-stack');
-  if (!state.media || !state.playing || !scroll || !isMeasured()) return;
+  if (!state.playing || !scroll || !hasExactTimelineTime()) return;
   const x = currentTime * pixelsPerSecond + 78;
   const leftEdge = scroll.scrollLeft + 20;
   const rightEdge = scroll.scrollLeft + scroll.clientWidth - 30;
@@ -2638,6 +2614,10 @@ function activeDuration(): number {
 
 function isMeasured(): boolean {
   return Boolean(compatibleTimeline(store?.project().scenes ?? []));
+}
+
+function hasExactTimelineTime(): boolean {
+  return isMeasured() || unifiedMediaDurationSeconds() > 0;
 }
 
 function compatibleTimeline(projectScenes: SceneView[]): MeasuredProjectTimeline | null {

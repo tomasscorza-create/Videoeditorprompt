@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { projectRoot, writeJson } from '../stage1/common.mjs';
-import { buildAssemblyPlan, buildRenderedTurnTimeline, sceneCacheKey } from './project-pipeline.mjs';
+import { buildAssemblyPlan, buildRenderedTurnTimeline, extendAssemblyPlan, sceneCacheKey } from './project-pipeline.mjs';
 
 const results = [];
 
@@ -42,6 +42,18 @@ results.push({ name: 'fade-must-fit-both-scenes', passed: true });
 
 assert.throws(() => buildAssemblyPlan([]), (error) => error.code === 'PROJECT_SCENES_EMPTY');
 results.push({ name: 'empty-project-rejected', passed: true });
+
+const extended = extendAssemblyPlan(cut, {
+  clips: [{ timelineStartSeconds: 6, durationSeconds: 3 }],
+});
+assert.equal(extended.semanticDurationSeconds, 7);
+assert.equal(extended.durationSeconds, 9);
+assert.equal(extended.videoLabel, 'semanticpadvideo');
+assert.equal(extended.audioLabel, 'semanticpadaudio');
+assert.ok(extended.filters.some((filter) => filter.includes('tpad=stop_mode=clone:stop_duration=2')));
+assert.ok(extended.filters.some((filter) => filter.includes('apad=pad_dur=2')));
+assert.equal(extendAssemblyPlan(cut, { clips: [] }), cut);
+results.push({ name: 'free-media-can-extend-final-duration', passed: true });
 
 const renderedTurns = buildRenderedTurnTimeline([
   { id: 'turn-a', speakerId: 'speaker-a', startSeconds: 0, endSeconds: 1.25, durationSeconds: 1.25, gapAfterSeconds: 0.5 },

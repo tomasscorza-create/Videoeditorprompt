@@ -30,6 +30,9 @@ export async function createTimelineProjectRepository(options = {}) {
     validateTimelineDocument(project);
     const file = fileFor(storageRoot, project.id);
     const previous = readStored(file);
+    if (previous && !expectedRevision) {
+      throw timelineProjectError('TIMELINE_PROJECT_REVISION_CONFLICT', 'El montaje ya existe y requiere una revisión conocida para actualizarse.');
+    }
     if (expectedRevision && previous?.revision !== expectedRevision) {
       throw timelineProjectError('TIMELINE_PROJECT_REVISION_CONFLICT', 'El montaje cambió en otra sesión.');
     }

@@ -53,6 +53,13 @@ const BACKGROUND_LAYER_PRESETS = Object.freeze({
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateCompiledProjectSchema = ajv.compile(readJson(path.join(projectRoot, 'schema', 'compiled-project.schema.json')));
+const INTERNAL_CONTINUITY_SECONDS = 0.35;
+
+export function internalContinuityTransition(sceneIndex, sceneCount) {
+  return sceneIndex < sceneCount - 1
+    ? { preset: 'fade', durationSeconds: INTERNAL_CONTINUITY_SECONDS }
+    : null;
+}
 
 export function compileVideoProject(context, options = {}) {
   const report = options.report || createProgressReporter(context);
@@ -78,7 +85,9 @@ export function compileVideoProject(context, options = {}) {
       config: toPortable(path.relative(context.jobRoot, configPath)),
       configSha256,
       bindings: compiled.bindings,
-      ...(scene.transitionToNext ? { transitionToNext: scene.transitionToNext } : {}),
+      ...(internalContinuityTransition(sceneIndex, project.scenes.length)
+        ? { transitionToNext: internalContinuityTransition(sceneIndex, project.scenes.length) }
+        : {}),
     });
   }
 
@@ -176,23 +185,27 @@ function compileScene({ project, scene, sceneIndex, resources, assetsRoot }) {
     const motion = MOTION_PRESETS[element.animationPreset];
     if (!motion) unsupportedScene(sceneIndex, `el preset ${element.animationPreset} no tiene compilación disponible`);
     const toX = element.transform.x - project.video.width / 2;
+    const continuesFromPreviousBlock = project.scenes.slice(0, sceneIndex).some((previous) => (
+      previous.elements.some((candidate) => candidate.type === 'character' && candidate.resourceId === element.resourceId)
+    ));
+    const continuityKey = element.resourceId ?? element.id;
     return {
       id: element.id,
       ...(useDirectManifests
         ? { characterManifest: resolveCharacterManifest(resource, assetsRoot, sceneIndex) }
         : { characterAssetId: resource.characterRef.entryId }),
       transform: {
-        fromX: element.transform.x <= project.video.width / 2 ? -510 : 510,
+        fromX: continuesFromPreviousBlock ? toX : (element.transform.x <= project.video.width / 2 ? -510 : 510),
         toX,
         baseY: element.transform.y - project.video.height / 2,
         entrySeconds: [0.7, 0.85][characterIndex],
         ...motion,
         baseScale: element.transform.scale,
-        idleProfile: IDLE_PROFILES[stableSeed(project.seed, scene.id, element.id, 'idle') % IDLE_PROFILES.length],
-        motionSeed: stableSeed(project.seed, scene.id, element.id, 'motion'),
+        idleProfile: IDLE_PROFILES[stableSeed(project.seed, continuityKey, 'idle') % IDLE_PROFILES.length],
+        motionSeed: stableSeed(project.seed, continuityKey, 'motion'),
       },
       blink: {
-        seed: stableSeed(project.seed, scene.id, element.id),
+        seed: stableSeed(project.seed, continuityKey, 'blink'),
         firstSeconds: [1.1, 1.7][characterIndex],
         minIntervalSeconds: [2.4, 2.7][characterIndex],
         maxIntervalSeconds: [4.3, 4.7][characterIndex],

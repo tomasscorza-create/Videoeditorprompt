@@ -89,6 +89,9 @@ let mediaBound = false;
 let playheadSeconds = 0;
 let authoringPlaying = false;
 let authoringFrame = 0;
+let authoringStartedAtMs = 0;
+let authoringMuted = false;
+let externalMediaDurationSeconds = 0;
 
 /**
  * Instante de trabajo, compartido por timeline y lienzo.
@@ -107,14 +110,28 @@ export function setEditorPlayhead(seconds: number): void {
   if (next === playheadSeconds) return;
   playheadSeconds = next;
   if (authoringPlaying) {
+    authoringStartedAtMs = performance.now() - next * 1000;
     const clock = authoringMedia();
-    if (clock) clock.currentTime = Math.min(editorWorkspace().duration, next);
+    if (clock) {
+      if (next < currentMeasuredDuration()) clock.currentTime = next;
+      else clock.pause();
+    }
   }
   notifyPlayback();
 }
 
+/** Duración de las pistas de medios libres que comparten el transporte del Editor. */
+export function setExternalEditorMediaDuration(seconds: number): void {
+  const next = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  if (Math.abs(next - externalMediaDurationSeconds) < 1e-6) return;
+  externalMediaDurationSeconds = next;
+  const duration = editorDuration();
+  if (playheadSeconds > duration) playheadSeconds = duration;
+  if (authoringPlaying && duration <= 0) stopAuthoringPreview(false);
+  notify();
+}
+
 export function editorWorkspace(): EditorWorkspaceSnapshot {
-  const measuredDuration = currentMeasuredDuration();
   const clock = surface === 'canvas' ? authoringMedia() ?? media : media;
   return {
     mode,
@@ -123,9 +140,9 @@ export function editorWorkspace(): EditorWorkspaceSnapshot {
     output,
     media,
     currentTime: surface === 'canvas' ? playheadSeconds : media?.currentTime ?? 0,
-    duration: measuredDuration || media?.duration || 0,
+    duration: editorDuration(),
     playing: authoringPlaying || Boolean(media && !media.paused),
-    muted: Boolean(clock?.muted),
+    muted: surface === 'canvas' ? authoringMuted : Boolean(clock?.muted),
   };
 }
 
@@ -204,7 +221,7 @@ export function playableEditorOutput(): RenderedOutput | null {
 export function editorCanPlay(): boolean {
   return Boolean(
     playableEditorOutput()
-    || (surface === 'canvas' && authoringMedia() && currentMeasuredDuration() > 0),
+    || (surface === 'canvas' && canvasPreviewDuration() > 0),
   );
 }
 
@@ -380,11 +397,11 @@ export async function showRenderedPlayback(): Promise<void> {
 }
 
 export async function toggleEditorPlayback(): Promise<void> {
-  if (!media) return;
-  if (surface === 'canvas' && authoringMedia() && currentMeasuredDuration() > 0) {
+  if (surface === 'canvas' && canvasPreviewDuration() > 0) {
     await toggleAuthoringPreview();
     return;
   }
+  if (!media) return;
   if (!playableEditorOutput()) return;
   if (surface !== 'playback') {
     await showRenderedPlayback();
@@ -418,9 +435,12 @@ export function pauseEditorPlayback(): void {
 }
 
 export function toggleEditorMute(): void {
-  const clock = surface === 'canvas' ? authoringMedia() : media;
-  if (!clock || !editorCanPlay()) return;
-  clock.muted = !clock.muted;
+  if (!editorCanPlay()) return;
+  if (surface === 'canvas') {
+    authoringMuted = !authoringMuted;
+    const clock = authoringMedia();
+    if (clock) clock.muted = authoringMuted;
+  } else if (media) media.muted = !media.muted;
   notify();
 }
 
@@ -450,21 +470,29 @@ async function toggleAuthoringPreview(): Promise<void> {
     stopAuthoringPreview();
     return;
   }
-  const duration = currentMeasuredDuration();
+  const duration = canvasPreviewDuration();
   const clock = authoringMedia();
-  if (!clock || duration <= 0) return;
+  if (duration <= 0) return;
   if (playheadSeconds >= duration - 1e-6) playheadSeconds = 0;
   authoringPlaying = true;
+  authoringStartedAtMs = performance.now() - playheadSeconds * 1000;
   notifyPlayback();
-  try {
-    await playMediaReliably(clock, playheadSeconds);
-  } catch (error) {
-    stopAuthoringPreview();
-    console.warn('No se pudo iniciar la reproducción de referencia.', error);
-    return;
+  if (clock && playheadSeconds < currentMeasuredDuration()) {
+    clock.muted = authoringMuted;
+    try {
+      await playMediaReliably(clock, playheadSeconds);
+      authoringStartedAtMs = performance.now() - playheadSeconds * 1000;
+    } catch (error) {
+      if (externalMediaDurationSeconds <= 0) {
+        stopAuthoringPreview();
+        console.warn('No se pudo iniciar la reproducción de referencia.', error);
+        return;
+      }
+      console.warn('La referencia de voz no pudo reproducirse; continúan los medios libres.', error);
+    }
   }
   if (!authoringPlaying) {
-    clock.pause();
+    clock?.pause();
     return;
   }
   authoringFrame = window.requestAnimationFrame(advanceAuthoringPreview);
@@ -473,14 +501,16 @@ async function toggleAuthoringPreview(): Promise<void> {
 function advanceAuthoringPreview(): void {
   if (!authoringPlaying) return;
   const clock = authoringMedia();
-  if (!clock || clock.paused || clock.ended) {
-    stopAuthoringPreview();
-    return;
+  const duration = canvasPreviewDuration();
+  const measuredDuration = currentMeasuredDuration();
+  let next = Math.max(0, (performance.now() - authoringStartedAtMs) / 1000);
+  if (clock && !clock.paused && !clock.ended && clock.currentTime < measuredDuration) {
+    next = clock.currentTime;
+    authoringStartedAtMs = performance.now() - next * 1000;
   }
-  const duration = currentMeasuredDuration();
-  playheadSeconds = Math.min(duration, clock.currentTime);
+  playheadSeconds = Math.min(duration, next);
   notifyPlayback();
-  if (playheadSeconds >= duration) {
+  if (playheadSeconds >= duration - 1e-6) {
     stopAuthoringPreview();
     return;
   }
@@ -545,6 +575,14 @@ function currentMeasuredDuration(): number {
   return output?.timeline?.durationSeconds ?? 0;
 }
 
+function canvasPreviewDuration(): number {
+  return Math.max(currentMeasuredDuration(), externalMediaDurationSeconds);
+}
+
+function editorDuration(): number {
+  return Math.max(canvasPreviewDuration(), Number.isFinite(media?.duration) ? media!.duration : 0);
+}
+
 function authoringMedia(): HTMLMediaElement | null {
   if (
     previewAudio
@@ -559,6 +597,7 @@ function authoringMedia(): HTMLMediaElement | null {
 function createPreviewAudio(): HTMLAudioElement {
   const audio = new Audio();
   audio.preload = 'auto';
+  audio.muted = authoringMuted;
   audio.addEventListener('loadedmetadata', notify);
   for (const eventName of ['timeupdate', 'play', 'pause', 'ended', 'volumechange']) {
     audio.addEventListener(eventName, notifyPlayback);

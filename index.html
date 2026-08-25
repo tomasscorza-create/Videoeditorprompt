@@ -52,6 +52,9 @@
       <symbol id="ui-icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.01"/></symbol>
       <symbol id="ui-icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.7"/></symbol>
       <symbol id="ui-icon-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8 21 19.5H3z"/><path d="M12 10v3.6M12 16.6v.01"/></symbol>
+      <symbol id="ui-icon-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.25 2"/></symbol>
+      <symbol id="ui-icon-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.1 3.15L16 7.5l-2.9 1.35L12 12l-1.1-3.15L8 7.5l2.9-1.35L12 3Z"/><path d="m6.5 12.5.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2ZM18 13l.6 1.7 1.7.6-1.7.6L18 17.5l-.6-1.6-1.7-.6 1.7-.6L18 13Z"/></symbol>
+      <symbol id="ui-icon-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h5M15 7h5M4 12h9M18 12h2M4 17h2M12 17h8"/><circle cx="12" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
     </svg>
 
     <div class="app-shell">
@@ -137,8 +140,9 @@
       <main class="workspace">
         <aside class="workspace-panel director-column" aria-label="Creación y exportaciones">
           <section class="director-panel" id="director-panel" aria-label="Director IA local" hidden>
-            <header class="section-header">
-              <div>
+            <header class="section-header director-header">
+              <div class="director-brand">
+                <span class="director-brand-mark" aria-hidden="true">◆</span>
                 <span class="eyebrow">Crear</span>
                 <h1 id="director-title">Director IA</h1>
               </div>
@@ -194,42 +198,40 @@
               <section id="director-composer" class="director-composer" aria-label="Instrucción para el Director">
                 <label for="director-prompt">
                   <span id="director-prompt-label">¿Qué video querés crear?</span>
-                  <textarea id="director-prompt" rows="5" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
+                  <span class="director-prompt-resize-wrap">
+                    <textarea id="director-prompt" rows="5" maxlength="2000" placeholder="Ejemplo: Dos personajes explican con humor por qué conviene verificar las respuestas de una IA."></textarea>
+                    <span id="director-prompt-resize" class="director-prompt-resize-handle" role="separator" aria-label="Ajustar altura del campo de idea" aria-orientation="vertical" tabindex="0"></span>
+                  </span>
                 </label>
                 <div id="director-quick-controls" class="director-quick-controls">
-                  <label for="director-duration"><span>Duración</span>
-                    <select id="director-duration">
-                      <option value="" selected>Auto</option>
-                      <option value="15">15 s</option>
-                      <option value="30">30 s</option>
-                      <option value="45">45 s</option>
-                      <option value="60">60 s</option>
-                    </select>
+                  <label class="director-setting-row" for="director-duration">
+                    <span class="director-setting-identity"><span class="director-setting-icon" aria-hidden="true"><svg class="icon"><use href="#ui-icon-clock"/></svg></span><span>Duración</span></span>
+                    <span class="director-setting-control">
+                      <select id="director-duration">
+                        <option value="" selected>Auto</option>
+                        <option value="15">15 s</option>
+                        <option value="30">30 s</option>
+                        <option value="45">45 s</option>
+                        <option value="60">60 s</option>
+                      </select>
+                      <svg class="icon director-select-chevron" role="button" tabindex="0" aria-label="Abrir o cerrar opciones de duración" aria-expanded="false"><use href="#ui-icon-chevron-down"/></svg>
+                    </span>
                   </label>
-                  <label for="director-scenes"><span>Escenas</span>
-                    <select id="director-scenes">
-                      <option value="" selected>Auto</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
-                      <option value="6">6</option>
-                      <option value="7">7</option>
-                      <option value="8">8</option>
-                    </select>
-                  </label>
-                  <label class="director-model-control" for="director-model"><span>Modelo IA</span>
-                    <select id="director-model" aria-label="Modelo de inteligencia artificial">
-                      <optgroup label="Local">
-                        <option value="ollama:qwen3:8b">Qwen 3 8B · local</option>
-                      </optgroup>
-                      <optgroup label="OpenAI API">
-                        <option value="openai:gpt-5.6-luna">GPT-5.6 Luna · económico</option>
-                        <option value="openai:gpt-5.6-terra">GPT-5.6 Terra · equilibrado</option>
-                        <option value="openai:gpt-5.6-sol">GPT-5.6 Sol · máxima calidad</option>
-                      </optgroup>
-                    </select>
+                  <label class="director-setting-row director-model-control" for="director-model">
+                    <span class="director-setting-identity"><span class="director-setting-icon" aria-hidden="true"><svg class="icon"><use href="#ui-icon-sparkles"/></svg></span><span>Modelo IA</span></span>
+                    <span class="director-setting-control">
+                      <select id="director-model" aria-label="Modelo de inteligencia artificial">
+                        <optgroup label="Local">
+                          <option value="ollama:qwen3:8b">Qwen 3 8B · local</option>
+                        </optgroup>
+                        <optgroup label="OpenAI API">
+                          <option value="openai:gpt-5.6-luna">GPT-5.6 Luna · económico</option>
+                          <option value="openai:gpt-5.6-terra">GPT-5.6 Terra · equilibrado</option>
+                          <option value="openai:gpt-5.6-sol">GPT-5.6 Sol · máxima calidad</option>
+                        </optgroup>
+                      </select>
+                      <svg class="icon director-select-chevron" role="button" tabindex="0" aria-label="Abrir o cerrar opciones de modelo IA" aria-expanded="false"><use href="#ui-icon-chevron-down"/></svg>
+                    </span>
                   </label>
                 </div>
                 <button id="director-generate" class="primary-button director-generate" type="button">Aceptar</button>
@@ -349,12 +351,14 @@
           tabindex="0"
         ></div>
 
-        <aside class="workspace-panel editor-column" aria-label="Recursos y edición">
+        <aside class="workspace-panel editor-column" aria-label="Recursos, edición y archivos">
           <header class="right-panel-header">
             <div class="right-panel-tabs" role="tablist" aria-label="Páginas del panel derecho">
               <button id="right-panel-resources-tab" class="right-panel-tab is-active" data-right-panel-page="resources" type="button" role="tab" aria-selected="true" aria-controls="right-panel-resources">Recursos</button>
               <span class="right-panel-divider" aria-hidden="true">/</span>
               <button id="right-panel-editing-tab" class="right-panel-tab" data-right-panel-page="editing" type="button" role="tab" aria-selected="false" aria-controls="right-panel-editing">Edición</button>
+              <span class="right-panel-divider" aria-hidden="true">/</span>
+              <button id="right-panel-files-tab" class="right-panel-tab" data-right-panel-page="files" type="button" role="tab" aria-selected="false" aria-controls="right-panel-files">Archivos</button>
             </div>
             <div class="section-header-actions">
               <button id="resource-register" class="text-button" type="button">Agregar fondo</button>
@@ -514,6 +518,30 @@
             </div>
           </section>
 
+          <section id="right-panel-files" class="right-panel-page media-files-panel" role="tabpanel" aria-labelledby="right-panel-files-tab" hidden>
+            <div class="media-files-intro">
+              <div>
+                <strong>Videos y audios</strong>
+                <span>Al importar se agregan al final de la timeline actual.</span>
+              </div>
+              <button id="media-files-import" class="text-button" type="button">Importar</button>
+              <input id="timeline-v2-file" type="file" accept=".mp4,.mov,.webm,.wav,.mp3,.ogg,.m4a,video/mp4,video/webm,video/quicktime,audio/wav,audio/mpeg,audio/ogg,audio/mp4" multiple hidden>
+            </div>
+            <button id="media-files-dropzone" class="media-files-dropzone" type="button">
+              <strong>Soltá archivos acá</strong>
+              <span>MP4, MOV, WebM, WAV, MP3, OGG o M4A</span>
+            </button>
+            <div class="media-files-filters" role="group" aria-label="Filtrar archivos">
+              <button class="is-active" type="button" data-media-filter="all" aria-pressed="true">Todos</button>
+              <button type="button" data-media-filter="video" aria-pressed="false">Video</button>
+              <button type="button" data-media-filter="audio" aria-pressed="false">Audio</button>
+            </div>
+            <p id="media-files-status" class="media-files-status" role="status" aria-live="polite"></p>
+            <div id="media-files-list" class="media-files-list" aria-label="Archivos multimedia importados">
+              <p class="empty-state">Todavía no importaste videos o audios.</p>
+            </div>
+          </section>
+
         </aside>
       </main>
 
@@ -530,11 +558,9 @@
         <header class="timeline-toolbar">
           <div class="timeline-title-block">
             <span class="eyebrow">Timeline</span>
-            <h2 id="timeline-title">Timeline unificada</h2>
+            <h2 id="timeline-title">Secuencia continua</h2>
           </div>
           <div class="timeline-tool-group timeline-v2-actions" aria-label="Medios libres">
-            <button id="timeline-v2-import" class="timeline-tool" type="button">Importar medios</button>
-            <input id="timeline-v2-file" type="file" accept=".mp4,.mov,.webm,.wav,.mp3,.ogg,.m4a,video/mp4,video/webm,video/quicktime,audio/wav,audio/mpeg,audio/ogg,audio/mp4" multiple hidden>
             <button id="timeline-v2-ripple" class="timeline-tool" type="button" aria-pressed="false" title="Al borrar, cerrar el hueco en la misma pista">Ripple</button>
             <button id="timeline-v2-unlink" class="timeline-tool" type="button" disabled>Desvincular</button>
             <button id="timeline-v2-director" class="timeline-tool" type="button">Director de timeline</button>
@@ -544,9 +570,9 @@
             <button id="timeline-redo" class="timeline-tool" type="button" disabled title="Rehacer (Ctrl+Y)" aria-label="Rehacer"><svg class="icon" aria-hidden="true"><use href="#ui-icon-redo"/></svg></button>
           </div>
           <div class="timeline-tool-group transport-tools" aria-label="Transporte">
-            <button id="timeline-previous" class="timeline-tool" type="button" disabled title="Escena anterior (↑)" aria-label="Escena anterior"><svg class="icon" aria-hidden="true"><use href="#ui-icon-clip-previous"/></svg></button>
+            <button id="timeline-previous" class="timeline-tool" type="button" disabled title="Punto anterior (↑)" aria-label="Punto anterior"><svg class="icon" aria-hidden="true"><use href="#ui-icon-clip-previous"/></svg></button>
             <button id="timeline-play" class="timeline-play" type="button" disabled title="Reproducir o pausar (Espacio)" aria-label="Reproducir o pausar"><svg class="icon" aria-hidden="true"><use href="#ui-icon-play"/></svg></button>
-            <button id="timeline-next" class="timeline-tool" type="button" disabled title="Escena siguiente (↓)" aria-label="Escena siguiente"><svg class="icon" aria-hidden="true"><use href="#ui-icon-clip-next"/></svg></button>
+            <button id="timeline-next" class="timeline-tool" type="button" disabled title="Punto siguiente (↓)" aria-label="Punto siguiente"><svg class="icon" aria-hidden="true"><use href="#ui-icon-clip-next"/></svg></button>
             <button id="timeline-mute" class="timeline-tool" type="button" disabled aria-pressed="false" title="Silenciar preview (M)" aria-label="Silenciar preview">M</button>
           </div>
           <div class="timeline-tool-group" aria-label="Ajuste temporal">
@@ -554,8 +580,8 @@
           </div>
           <div class="timeline-tool-group" aria-label="Editar selección">
             <button id="timeline-cut" class="timeline-tool" type="button" disabled aria-pressed="false" title="Modo tijera: cortar un diálogo con un clic (B)" aria-label="Modo tijera">✂</button>
-            <button id="timeline-duplicate" class="timeline-tool" type="button" disabled title="Duplicar escena seleccionada" aria-label="Duplicar escena">Duplicar</button>
-            <button id="timeline-split" class="timeline-tool" type="button" disabled title="Seleccioná un diálogo para dividir la escena" aria-label="Dividir escena">Dividir</button>
+            <button id="timeline-duplicate" class="timeline-tool" type="button" disabled title="Duplicar selección" aria-label="Duplicar selección">Duplicar</button>
+            <button id="timeline-split" class="timeline-tool" type="button" disabled title="Dividir antes del diálogo seleccionado" aria-label="Dividir antes del diálogo">Dividir</button>
             <button id="timeline-delete" class="timeline-tool" type="button" disabled title="Eliminar selección (Supr)" aria-label="Eliminar selección">Eliminar</button>
           </div>
           <div class="timeline-spacer"></div>
@@ -572,10 +598,10 @@
           </div>
         </header>
 
-        <div id="timeline-layer-stack" class="timeline-layer-stack" aria-label="Capas de la escena seleccionada"></div>
+        <div id="timeline-layer-stack" class="timeline-layer-stack" aria-label="Capas de la secuencia continua"></div>
         <p id="timeline-live" class="visually-hidden" role="status" aria-live="polite"></p>
         <p id="timeline-v2-status" class="timeline-v2-status" role="status" aria-live="polite"></p>
-        <p id="timeline-summary" class="timeline-summary">Abrí un proyecto para ver sus escenas y diálogos.</p>
+        <p id="timeline-summary" class="timeline-summary">Abrí un proyecto para ver su secuencia, capas y diálogos.</p>
       </section>
     </div>
 
@@ -657,7 +683,7 @@
           <div><dt>F / + / −</dt><dd>Ajustar al ancho / acercar / alejar</dd></div>
           <div><dt>B</dt><dd>Cortar en el cabezal el diálogo que hay debajo</dd></div>
           <div><dt>Alt (mantener)</dt><dd>Modo tijera: clic sobre un diálogo para cortar ahí</dd></div>
-          <div><dt>Ctrl+B</dt><dd>Dividir la escena antes del diálogo seleccionado</dd></div>
+          <div><dt>Ctrl+B</dt><dd>Dividir antes del diálogo seleccionado</dd></div>
           <div><dt>Supr</dt><dd>Eliminar la selección</dd></div>
           <div><dt>Ctrl+Z / Ctrl+Y</dt><dd>Deshacer / rehacer edición</dd></div>
         </dl>

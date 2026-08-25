@@ -65,12 +65,6 @@ export function analyzeDirectorContinuity(plan, options = {}) {
     }
   }
   const bible = buildContinuityBible(plan);
-  const needsBackgroundVariation = ['varied', 'dynamic'].includes(plan?.richnessProfile)
-    && (plan?.scenes?.length ?? 0) >= 3
-    && (options.availableBackgroundCount ?? Number.POSITIVE_INFINITY) > 1;
-  if (needsBackgroundVariation && bible.backgroundResourceIds.length < 2) {
-    add(issues, 'BACKGROUND_MONOTONY', '/scenes', 'El perfil pide variación, pero todas las escenas conservan el mismo fondo.');
-  }
   return {
     version: CONTINUITY_BIBLE_VERSION,
     passed: issues.length === 0,
@@ -90,6 +84,6 @@ function add(issues, code, path, message) {
     code,
     path,
     message,
-    severity: code === 'BACKGROUND_MONOTONY' ? 'quality' : 'error',
+    severity: 'error',
   });
 }

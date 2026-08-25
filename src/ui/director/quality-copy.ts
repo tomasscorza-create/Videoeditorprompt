@@ -15,7 +15,7 @@ const ISSUE_LABELS: Record<string, string> = {
   LOW_RELEVANCE: 'Se aleja de tu idea',
   PARTIAL_RELEVANCE: 'Relación parcial con tu idea',
   REPETITIVE_TURNS: 'Diálogos que se repiten',
-  UNBALANCED_SCENES: 'Escenas desbalanceadas',
+  UNBALANCED_SCENES: 'Ritmo desbalanceado',
   SPEAKER_MONOLOGUE: 'Un personaje habla de más',
   TTS_FRICTION: 'Texto difícil de locutar',
 };

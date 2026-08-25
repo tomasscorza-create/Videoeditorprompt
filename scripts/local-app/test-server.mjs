@@ -239,12 +239,6 @@ const app = await createLocalAppServer({
   timelineMediaLibrary,
   timelineProjects,
   timelineExporter,
-  timelineDirector: async ({ instruction, project: value }) => ({
-    version: 1,
-    commands: [{ type: 'set-clip-enabled', clipId: value.clips[0].id, enabled: false }],
-    project: { ...value, clips: value.clips.map((clip, index) => index === 0 ? { ...clip, enabled: false } : clip) },
-    explanation: instruction,
-  }),
   ollamaInspector: async () => {
     inspectionCalls += 1;
     return {
@@ -452,10 +446,7 @@ const timelineDirectorResponse = await request('/api/timeline/director', {
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ instruction: 'Desactivá el primer clip.', project: timelineProject }),
 });
-assert.equal(timelineDirectorResponse.status, 200);
-const timelineDirectorBody = await timelineDirectorResponse.json();
-assert.equal(timelineDirectorBody.commands[0].type, 'set-clip-enabled');
-assert.equal(timelineDirectorBody.project.clips[0].enabled, false);
+assert.equal(timelineDirectorResponse.status, 404);
 
 const timelineUploadResponse = await request('/api/timeline/media', {
   method: 'POST',

@@ -18,9 +18,14 @@ export interface LabelContext {
 }
 
 function sceneName(sceneId: unknown, context?: LabelContext): string {
-  if (typeof sceneId !== 'string') return 'una escena';
+  if (typeof sceneId !== 'string') return 'el contenido';
   const index = context?.sceneIds?.indexOf(sceneId) ?? -1;
-  return index >= 0 ? `la escena ${index + 1}` : 'una escena';
+  return index >= 0 ? 'el contenido' : 'el contenido';
+}
+
+function ofSceneName(sceneId: unknown, context?: LabelContext): string {
+  const name = sceneName(sceneId, context);
+  return name.startsWith('el ') ? `del ${name.slice(3)}` : `de ${name}`;
 }
 
 /** Nombre del parámetro animable en lenguaje de usuario, no en vocabulario del motor. */
@@ -51,42 +56,42 @@ function ofParameter(parameterId: unknown): string {
 }
 
 const LABELS: Record<string, (command: CommandLike, context?: LabelContext) => string> = {
-  'add-scene': () => 'Agregó una escena',
+  'add-scene': () => 'Agregó contenido',
   'delete-scene': (command, context) => `Eliminó ${sceneName(command.sceneId, context)}`,
   'duplicate-scene': (command, context) => `Duplicó ${sceneName(command.sceneId, context)}`,
   'split-scene': (command, context) => `Dividió ${sceneName(command.sceneId, context)}`,
-  'reorder-scenes': () => 'Reordenó las escenas',
+  'reorder-scenes': () => 'Reordenó el contenido',
   'set-scene-title': (command, context) => `Renombró ${sceneName(command.sceneId, context)}`,
   'set-project-title': () => 'Cambió el título del proyecto',
   'set-project-music': () => 'Cambió la música del proyecto',
   'clear-project-music': () => 'Quitó la música del proyecto',
   'set-scene-background': (command, context) => `Cambió el fondo de ${sceneName(command.sceneId, context)}`,
-  'set-transition': (command, context) => `Ajustó la transición que sale de ${sceneName(command.sceneId, context)}`,
+  'set-transition': (command, context) => `Ajustó el enlace que sale de ${sceneName(command.sceneId, context)}`,
   'add-character': (command, context) => `Agregó un personaje en ${sceneName(command.sceneId, context)}`,
   'add-prop': (command, context) => `Agregó un prop en ${sceneName(command.sceneId, context)}`,
-  'set-prop-resource': (command, context) => `Cambió un prop de ${sceneName(command.sceneId, context)}`,
-  'delete-element': (command, context) => `Quitó un elemento de ${sceneName(command.sceneId, context)}`,
+  'set-prop-resource': (command, context) => `Cambió un prop ${ofSceneName(command.sceneId, context)}`,
+  'delete-element': (command, context) => `Quitó un elemento ${ofSceneName(command.sceneId, context)}`,
   'place-character-resource': (command, context) => `Colocó un personaje en ${sceneName(command.sceneId, context)}`,
-  'set-character-resource': (command, context) => `Cambió el personaje de ${sceneName(command.sceneId, context)}`,
+  'set-character-resource': (command, context) => `Cambió el personaje ${ofSceneName(command.sceneId, context)}`,
   'set-character-animation': (command, context) => `Cambió el movimiento de un personaje en ${sceneName(command.sceneId, context)}`,
   'set-character-transform': (command, context) => `Movió un personaje en ${sceneName(command.sceneId, context)}`,
   'set-element-transform': (command, context) => `Ajustó un elemento en ${sceneName(command.sceneId, context)}`,
   'add-dialogue-turn': (command, context) => `Agregó un diálogo en ${sceneName(command.sceneId, context)}`,
   'add-voiceover-turn': (command, context) => `Agregó una voz fuera de campo en ${sceneName(command.sceneId, context)}`,
-  'delete-dialogue-turn': (command, context) => `Eliminó un diálogo de ${sceneName(command.sceneId, context)}`,
-  'set-dialogue-turn': (command, context) => `Cambió un diálogo de ${sceneName(command.sceneId, context)}`,
+  'delete-dialogue-turn': (command, context) => `Eliminó un diálogo ${ofSceneName(command.sceneId, context)}`,
+  'set-dialogue-turn': (command, context) => `Cambió un diálogo ${ofSceneName(command.sceneId, context)}`,
   'set-dialogue-speaker': (command, context) => `Cambió quién habla en ${sceneName(command.sceneId, context)}`,
   'set-dialogue-voiceover': (command, context) => `Pasó un diálogo a voz fuera de campo en ${sceneName(command.sceneId, context)}`,
-  'reorder-dialogue-turns': (command, context) => `Reordenó los diálogos de ${sceneName(command.sceneId, context)}`,
-  'split-dialogue-turn': (command, context) => `Cortó un diálogo de ${sceneName(command.sceneId, context)}`,
-  'set-element-window': (command, context) => `Recortó un elemento de ${sceneName(command.sceneId, context)}`,
-  'split-element': (command, context) => `Partió un elemento de ${sceneName(command.sceneId, context)}`,
-  'clear-element-window': (command, context) => `Devolvió un elemento a durar toda ${sceneName(command.sceneId, context)}`,
+  'reorder-dialogue-turns': (command, context) => `Reordenó los diálogos ${ofSceneName(command.sceneId, context)}`,
+  'split-dialogue-turn': (command, context) => `Cortó un diálogo ${ofSceneName(command.sceneId, context)}`,
+  'set-element-window': (command, context) => `Recortó un elemento ${ofSceneName(command.sceneId, context)}`,
+  'split-element': (command, context) => `Partió un elemento ${ofSceneName(command.sceneId, context)}`,
+  'clear-element-window': (command, context) => `Devolvió un elemento a durar durante ${sceneName(command.sceneId, context)}`,
   // Animación. Se nombra el preset cuando el comando lo trae: «Aplicó enter-left»
   // le dice al usuario qué deshace, y «Aplicó un movimiento» no.
   'apply-animation-preset': (command, context) => {
     const preset = typeof command.presetId === 'string' ? `«${command.presetId}»` : 'un movimiento';
-    return `Aplicó ${preset} a un personaje de ${sceneName(command.sceneId, context)}`;
+    return `Aplicó ${preset} a un personaje ${ofSceneName(command.sceneId, context)}`;
   },
   'create-track': (command, context) => `Animó ${parameterName(command.parameterId)} de un personaje en ${sceneName(command.sceneId, context)}`,
   'add-keyframe': (command, context) => `Agregó un keyframe ${ofParameter(command.parameterId)} en ${sceneName(command.sceneId, context)}`,

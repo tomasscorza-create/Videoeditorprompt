@@ -132,7 +132,7 @@ export async function createDirectorProposal(options) {
       try {
         emitProgress(options, 'cache');
         const cachedPlan = cached.plan?.version === 2
-          ? applyPreconfigurationToPlan(canonicalizeDirectorPlanV2(cached.plan, catalog), preconfiguration)
+          ? canonicalizeDirectorPlanV2(applyPreconfigurationToPlan(cached.plan, preconfiguration), catalog)
           : cached.plan;
         const normalizeCachedPlan = cachedPlan?.version === 2 ? normalizeDirectorPlanV2 : normalizeDirectorPlan;
         const normalized = normalizeCachedPlan(cachedPlan, catalog, {
@@ -189,7 +189,7 @@ export async function createDirectorProposal(options) {
       candidateIndex: candidateIndex + 1,
       candidateCount: bestOf,
       promptCacheKey,
-      tokenBudget: tokenBudget === null ? null : Math.max(1, tokenBudget - consumed),
+      tokenBudget: tokenBudget === null ? null : tokenBudget - consumed,
       preconfiguration,
     });
     candidates.push(candidate);
@@ -249,7 +249,7 @@ export async function createDirectorProposal(options) {
         candidateIndex: revisionIndex + 1,
         candidateCount: bestOf,
         promptCacheKey,
-        tokenBudget: tokenBudget === null ? null : Math.max(1, tokenBudget - consumedBeforeRevision),
+        tokenBudget: tokenBudget === null ? null : tokenBudget - consumedBeforeRevision,
         preconfiguration,
       });
       candidates[revisionIndex] = revisedCandidate;
@@ -378,6 +378,9 @@ async function generateCandidate({
   tokenBudget,
   preconfiguration,
 }) {
+  if (tokenBudget !== null && tokenBudget < 1) {
+    directorError('DIRECTOR_TOKEN_BUDGET_RESERVED', 'El tope operativo local no alcanza para iniciar otra propuesta.');
+  }
   const startedAt = Date.now();
   let plan;
   let normalized;
@@ -387,6 +390,11 @@ async function generateCandidate({
   let feedback = initialFeedback;
   let previousOutputForRepair = null;
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
+    const consumedByCandidate = aggregateProviderUsage(usageEntries).totalTokens ?? 0;
+    const remainingBudget = tokenBudget === null ? null : tokenBudget - consumedByCandidate;
+    if (remainingBudget !== null && remainingBudget < 1) {
+      directorError('DIRECTOR_TOKEN_BUDGET_RESERVED', 'El tope operativo local no alcanza para reparar esta propuesta.');
+    }
     onProgress?.({
       stage: 'generating',
       candidateIndex,
@@ -411,12 +419,12 @@ async function generateCandidate({
         temperature,
         think,
         seed: seedFrom(seedKey) + attempt,
-        maxOutputTokens: 4000,
+        maxOutputTokens: remainingBudget === null ? 4000 : Math.min(4000, remainingBudget),
         timeoutMs,
         promptCacheKey,
       },
       constraints,
-      tokenBudget,
+      tokenBudget: remainingBudget,
       onProgress,
       candidateIndex,
       candidateCount,
@@ -452,8 +460,8 @@ async function generateCandidate({
     }
     try {
       if (plan.version === 2) {
-        plan = canonicalizeDirectorPlanV2(plan, catalog);
         plan = applyPreconfigurationToPlan(plan, preconfiguration);
+        plan = canonicalizeDirectorPlanV2(plan, catalog);
       }
       if (plan.narrativeTemplateId === undefined) {
         plan.narrativeTemplateId = directorContext.summary.recommendedTemplateId;
@@ -740,6 +748,8 @@ function buildOllamaPlanV2Schema(catalog, constraints, templates) {
     type: 'string',
     enum: [...new Set(catalog.entries.filter((entry) => entry.type === 'background').flatMap((entry) => entry.capabilities.cameraPresets))],
   };
+  schema.$defs.scene.properties.transitionPreset = { const: 'fade' };
+  schema.$defs.scene.properties.transitionDurationSeconds = { const: 0.35 };
   const recipes = creativeCatalogForConstraints(constraints);
   schema.$defs.scene.properties.sceneRecipeId = { type: 'string', enum: recipes.sceneRecipes.map((entry) => entry.id) };
   schema.$defs.scene.properties.effectSequenceIds = {
@@ -803,9 +813,9 @@ function buildSystemPrompt(directorContext, constraints = {}, preconfiguration =
     constraints.planVersion === 2 ? 'Usá estructura flexible por escena: voiceover, solo, dialogue o visual-with-voiceover. No agregues personajes si la idea funciona mejor narrada.' : null,
     constraints.planVersion === 2 ? 'Cada escena admite de cero a dos participantes y desde un turno. Elegí recetas, props, plantillas y secuencias solo por IDs permitidos.' : null,
     constraints.planVersion === 2 ? 'Una plantilla ocupa toda la pantalla: usala como único elemento visual, sin personajes, y solo con voz fuera de campo. Nunca superpongas dos plantillas.' : null,
-    constraints.planVersion === 2 ? 'La identidad es global: un roleId conserva siempre el mismo personaje y voz; un personaje no cambia de voz; la voz narradora permanece estable. En perfiles varied o dynamic de tres o más escenas, cambiá de fondo en un beat narrativo, no en cada plano.' : null,
+    constraints.planVersion === 2 ? 'La identidad visual es global: un roleId conserva siempre el mismo personaje y voz; un personaje no cambia de voz; la voz narradora, el fondo y la disposición permanecen estables durante todo el video.' : null,
     constraints.planVersion === 2 ? 'Distribuí el movimiento durante toda la escena: combiná secuencias opening, development y closing cuando el perfil sea variado o dinámico. Priorizá secuencias exclusivas de prop si agregaste un prop.' : null,
-    constraints.planVersion === 2 ? 'Para fondos con parallax, elegí cámaras móviles variadas en perfiles varied o dynamic; reservá static para una pausa visual intencional.' : null,
+    constraints.planVersion === 2 ? 'Usá cámara static para que el fondo no se reinicie ni salte en los límites técnicos.' : null,
     constraints.planVersion === 2 ? 'Usá durationWeight para repartir el objetivo: valores mayores reservan proporcionalmente más narración; no hagas todas las escenas iguales salvo que el contenido lo justifique.' : null,
     constraints.planVersion === 2 ? `Perfil de riqueza: ${constraints.richnessProfile || 'automatic'}. Preferencia estructural: ${constraints.structure || 'automatic'}.` : null,
     preconfiguration ? `PRECONFIGURACIÓN ELEGIDA POR EL USUARIO (obligatoria): ${JSON.stringify(describeDirectorPreconfiguration(preconfiguration))}. Conservá exactamente esos vínculos de rol, personaje y voz; usá únicamente sus fondos y su voz narradora cuando corresponda.` : null,
@@ -815,7 +825,9 @@ function buildSystemPrompt(directorContext, constraints = {}, preconfiguration =
     'Elegí para cada personaje una pose y una animación entre las que declara su catálogo (capabilities).',
     'Podés elegir música del catálogo, pace slow|normal|fast y un layout por turno cuando aporten intención.',
     'gestureAtWord es un índice desde 0: usalo para disparar gestos cerca de la palabra importante.',
-    'transitionDurationSeconds solo importa cuando transitionPreset es «fade»: usá entre 0.15 y 1.0 segundos; con «cut» dejá 0.',
+    constraints.planVersion === 2
+      ? 'Todo el video se percibe como una sola secuencia: cada bloque interno usa transitionPreset «fade» y transitionDurationSeconds 0.35. Conservá exactamente el fondo, la cámara, la disposición, el reparto y las voces entre bloques.'
+      : 'transitionDurationSeconds solo importa cuando transitionPreset es «fade»: usá entre 0.15 y 1.0 segundos; con «cut» dejá 0.',
     constraints.planVersion === 2 ? 'En dialogue deben hablar ambos participantes; en solo habla el único personaje; en voiceover la voz no referencia personajes.' : 'Cada escena debe tener de 2 a 6 turnos e incluir a ambos personajes.',
     'Escribí español natural para voz, sin markdown, acotaciones, emojis ni instrucciones técnicas.',
     'La duración es un objetivo editorial: mantené el guion conciso para no pasarte del presupuesto de palabras.',
@@ -916,13 +928,15 @@ function sanitizeRepairDetail(value) {
     .slice(0, 1200);
 }
 
-function isRepairableDirectorError(error) {
+export function isRepairableDirectorError(error) {
   return error instanceof PipelineError && new Set([
     'DIRECTOR_PLAN_SCHEMA_INVALID',
     'DIRECTOR_TEMPLATE_INVALID',
     'DIRECTOR_RESOURCE_INVALID',
     'DIRECTOR_RESOURCE_UNSUPPORTED',
     'DIRECTOR_RECIPE_INVALID',
+    'DIRECTOR_COMPOSITION_INVALID',
+    'DIRECTOR_CONTINUITY_INVALID',
     'DIRECTOR_CAST_INVALID',
     'DIRECTOR_TRANSITION_INVALID',
     'DIRECTOR_GESTURE_TIMING_INVALID',

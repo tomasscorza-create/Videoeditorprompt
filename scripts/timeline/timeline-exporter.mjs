@@ -1,7 +1,7 @@
 import { existsSync, renameSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { ensureDirectory, ffprobe, run, sha256 } from '../stage1/common.mjs';
-import { exportTimelineDocument, timelineDurationTicks, validateTimelineDocument } from '../../shared/timeline-clip-core.js';
+import { exportTimelineDocument, validateTimelineDocument } from '../../shared/timeline-clip-core.js';
 
 const TICKS_PER_SECOND = 48_000;
 
@@ -30,7 +30,10 @@ export function createTimelineExportPlan(project, mediaEntries, options = {}) {
     }));
     return { ...clip, mediaId: media.id, trackOrder: trackOrder.get(clip.trackId), segmentKey };
   });
-  const durationTicks = timelineDurationTicks(project);
+  const durationTicks = clips.reduce(
+    (maximum, clip) => Math.max(maximum, clip.timelineStartTick + clip.durationTicks),
+    0,
+  );
   if (durationTicks < 1) throw exportError('TIMELINE_EXPORT_EMPTY', 'Agregá al menos un clip antes de exportar.');
   const projectKey = sha256(`${exportTimelineDocument(project)}${clips.map((clip) => clip.segmentKey).join('')}`);
   return Object.freeze({

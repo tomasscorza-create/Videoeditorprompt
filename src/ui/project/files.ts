@@ -85,7 +85,7 @@ async function renderProjects(root: HTMLElement): Promise<void> {
       const title = document.createElement('strong');
       title.textContent = project.title;
       const meta = document.createElement('span');
-      meta.textContent = `${project.scenes} escena${project.scenes === 1 ? '' : 's'} · ${new Date(project.updatedAt).toLocaleString()}`;
+      meta.textContent = `Secuencia continua · ${new Date(project.updatedAt).toLocaleString()}`;
       copy.append(title, meta);
       const actions = document.createElement('div');
       const edit = document.createElement('button');

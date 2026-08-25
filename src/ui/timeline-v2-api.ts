@@ -29,6 +29,11 @@ export interface TimelineExportResult {
   downloadName: string;
 }
 
+export interface TimelineMediaImportResult {
+  entry: TimelineMediaEntry;
+  created: boolean;
+}
+
 export async function directTimelineProject(instruction: string, project: TimelineDocumentV2): Promise<{
   version: number;
   commands: unknown[];
@@ -46,7 +51,11 @@ export async function listTimelineMedia(): Promise<TimelineMediaEntry[]> {
 }
 
 export async function importTimelineMedia(file: File): Promise<TimelineMediaEntry> {
-  const response = await request<{ entry: TimelineMediaEntry }>('/api/timeline/media', {
+  return (await uploadTimelineMedia(file)).entry;
+}
+
+export async function uploadTimelineMedia(file: File): Promise<TimelineMediaImportResult> {
+  return request<TimelineMediaImportResult>('/api/timeline/media', {
     method: 'POST',
     headers: {
       'content-type': file.type || mimeFromName(file.name),
@@ -54,7 +63,6 @@ export async function importTimelineMedia(file: File): Promise<TimelineMediaEntr
     },
     body: file,
   });
-  return response.entry;
 }
 
 export async function importTimelineRender(jobId: string): Promise<TimelineMediaEntry> {
@@ -74,6 +82,19 @@ export async function saveTimelineProject(project: TimelineDocumentV2, expectedR
     method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project, expectedRevision: expectedRevision || undefined }),
   });
   return response.revision;
+}
+
+export async function getTimelineProject(projectId: string): Promise<{
+  project: TimelineDocumentV2;
+  revision: string;
+  updatedAt: string;
+} | null> {
+  try {
+    return await request(`/api/timeline/projects/${encodeURIComponent(projectId)}`);
+  } catch (error) {
+    if (error instanceof TimelineApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 export async function exportTimelineProject(project: TimelineDocumentV2): Promise<TimelineExportResult> {
@@ -96,9 +117,22 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   } catch {
     throw new Error('No se pudo conectar con el servicio local. Iniciá la aplicación con npm run dev.');
   }
-  const body = await response.json().catch(() => null) as (T & { error?: { message?: string } }) | null;
-  if (!response.ok || !body) throw new Error(body?.error?.message || `El servicio respondió HTTP ${response.status}.`);
+  const body = await response.json().catch(() => null) as (T & { error?: { code?: string; message?: string } }) | null;
+  if (!response.ok || !body) {
+    throw new TimelineApiError(
+      body?.error?.message || `El servicio respondió HTTP ${response.status}.`,
+      response.status,
+      body?.error?.code,
+    );
+  }
   return body;
+}
+
+export class TimelineApiError extends Error {
+  constructor(message: string, readonly status: number, readonly code?: string) {
+    super(message);
+    this.name = 'TimelineApiError';
+  }
 }
 
 function mimeFromName(name: string): string {

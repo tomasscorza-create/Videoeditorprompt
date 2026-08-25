@@ -144,7 +144,7 @@ export function initEditingPanel(store: ProjectStore): void {
     const nodes: HTMLElement[] = [];
     if (localMessage) nodes.push(statusMessage(localMessage.text, localMessage.error));
     if (!selection) {
-      nodes.push(emptyState('Seleccioná una escena, diálogo, elemento o keyframe en el visor o la timeline.'));
+      nodes.push(emptyState('Seleccioná un diálogo, elemento, keyframe o el fondo en el visor o la timeline.'));
     } else {
       const identity = editingSelectionIdentity(selection);
       const pages = editingSubpages(selection);
@@ -209,19 +209,12 @@ export function initEditingPanel(store: ProjectStore): void {
     page: EditingSubpage,
   ): HTMLElement {
     const scene = store.project().scenes.find((item) => item.id === selection.sceneId);
-    if (!scene) return emptyState('La escena seleccionada ya no existe.');
+    if (!scene) return emptyState('La selección ya no existe.');
     if (page === 'background') return sceneBackgroundEditor(scene);
-    if (page === 'transition') return sceneTransitionEditor(scene);
-    const card = editingCard('Escena', scene.title);
+    const card = editingCard('Video', 'Ajustes generales');
     card.dataset.inspectorScene = scene.id;
-    const titleInput = input('text', scene.title, { maxLength: 120 });
-    titleInput.addEventListener('change', () => {
-      const value = titleInput.value.trim();
-      if (value) send({ type: 'set-scene-title', sceneId: scene.id, title: value });
-    });
-    card.append(compactFieldRow('Título', titleInput, 'wide'));
     const characterCount = scene.elements.filter((element) => element.type === 'character').length;
-    card.append(contextNote(`${characterCount} personaje${characterCount === 1 ? '' : 's'} · ${scene.dialogue.length} turno${scene.dialogue.length === 1 ? '' : 's'}. La escena puede usar voz fuera de campo y no necesita personajes visibles.`));
+    card.append(contextNote(`${characterCount} personaje${characterCount === 1 ? '' : 's'} y ${scene.dialogue.length} intervención${scene.dialogue.length === 1 ? '' : 'es'} en la posición actual.`));
     const voice = store.resources('voice')[0];
     const addVoiceover = actionButton('Agregar voz fuera de campo', () => {
       if (!voice || scene.dialogue.length >= 20) return;
@@ -236,43 +229,44 @@ export function initEditingPanel(store: ProjectStore): void {
     });
     addVoiceover.disabled = !voice || scene.dialogue.length >= 20;
     card.append(addVoiceover);
-    card.append(contextNote('Ordenar, duplicar, dividir y eliminar escenas corresponde a la timeline. Acá se ajustan sus propiedades.'));
     return card;
   }
 
   function sceneBackgroundEditor(scene: SceneView): HTMLElement {
-    const card = editingCard('Fondo y cámara', scene.title);
+    const project = store.project();
+    const continuousBackground = project.scenes[0]?.background ?? scene.background;
+    const card = editingCard('Fondo y cámara', 'Aplicado a todo el video');
     const backgrounds = store.resources('background');
-    const current = backgrounds.find((item) => item.id === scene.background.resourceId);
+    const current = backgrounds.find((item) => item.id === continuousBackground.resourceId);
     const background = select(
       backgrounds.map((item) => ({ value: item.id, label: item.label })),
-      scene.background.resourceId,
+      continuousBackground.resourceId,
     );
     const camera = select(
       (readStringCapability(current?.capabilities, 'cameraPresets').length > 0
         ? readStringCapability(current?.capabilities, 'cameraPresets')
-        : [scene.background.cameraPreset])
+        : [continuousBackground.cameraPreset])
         .map((value) => ({ value, label: readableOption(value) })),
-      scene.background.cameraPreset,
+      continuousBackground.cameraPreset,
     );
     background.addEventListener('change', () => {
       const resource = backgrounds.find((item) => item.id === background.value);
       const presets = readStringCapability(resource?.capabilities, 'cameraPresets');
-      send({
+      sendBatch(project.scenes.map((item) => ({
         type: 'set-scene-background',
-        sceneId: scene.id,
+        sceneId: item.id,
         resourceId: background.value,
-        cameraPreset: presets.includes(scene.background.cameraPreset)
-          ? scene.background.cameraPreset
-          : (presets[0] ?? scene.background.cameraPreset),
-      });
+        cameraPreset: presets.includes(continuousBackground.cameraPreset)
+          ? continuousBackground.cameraPreset
+          : (presets.includes('static') ? 'static' : (presets[0] ?? continuousBackground.cameraPreset)),
+      })));
     });
-    camera.addEventListener('change', () => send({
+    camera.addEventListener('change', () => sendBatch(project.scenes.map((item) => ({
       type: 'set-scene-background',
-      sceneId: scene.id,
-      resourceId: scene.background.resourceId,
+      sceneId: item.id,
+      resourceId: continuousBackground.resourceId,
       cameraPreset: camera.value,
-    }));
+    }))));
     card.append(
       compactFieldRow('Fondo', background, 'wide'),
       compactFieldRow('Cámara', camera, 'wide'),
@@ -283,9 +277,9 @@ export function initEditingPanel(store: ProjectStore): void {
   function sceneTransitionEditor(scene: SceneView): HTMLElement {
     const project = store.project();
     const index = project.scenes.findIndex((item) => item.id === scene.id);
-    const card = editingCard('Salida de escena', scene.title);
+    const card = editingCard('Enlace al momento siguiente', scene.title);
     if (index < 0 || index === project.scenes.length - 1) {
-      card.append(contextNote('La última escena termina el video y no tiene transición de salida.'));
+      card.append(contextNote('El último momento termina el video y no necesita un enlace de salida.'));
       return card;
     }
     const preset = select([
@@ -471,7 +465,7 @@ export function initEditingPanel(store: ProjectStore): void {
     card.append(field('Palabra destacada', word));
     card.append(layerOrderField(scene, element));
     card.append(contextNote(
-      'El efecto ocupa el cuadro completo y repite su ciclo mientras dura la escena. '
+      'El efecto ocupa el cuadro completo y repite su ciclo durante el tramo disponible. '
       + 'Para quitarlo, borralo desde la timeline.',
     ));
     return card;
@@ -1080,7 +1074,7 @@ export function initEditingPanel(store: ProjectStore): void {
       edit({ anchor: proposal.anchor, offsetSeconds: proposal.offsetSeconds });
     });
     reanchor.disabled = !scope.timing || !isPlayheadInside(scope.timing);
-    reanchor.title = reanchor.disabled ? 'El cabezal debe estar dentro de esta escena medida.' : 'Mueve este keyframe a la línea del cabezal.';
+    reanchor.title = reanchor.disabled ? 'El cabezal debe estar dentro del tramo medido.' : 'Mueve este keyframe a la línea del cabezal.';
     actions.append(reanchor);
     actions.append(actionButton('Duplicar', () => {
       const command = duplicateKeyframeCommand({
@@ -1130,7 +1124,7 @@ export function initEditingPanel(store: ProjectStore): void {
     if (!isPlayheadInside(scope.timing)) return {
       available: false,
       label: `Cabezal en ${formatSeconds(editorPlayhead())}`,
-      detail: 'Mové el cabezal dentro de la escena seleccionada.',
+      detail: 'Mové el cabezal dentro del tramo disponible.',
     };
     const proposal = nearestAnchorFor(editorPlayhead(), scope.timing, scope.fps);
     return {
@@ -1171,7 +1165,6 @@ export function editingSubpages(selection: ProjectSelection): EditingSubpageOpti
   if (selection.kind === 'scene') return [
     { id: 'scene', label: 'General' },
     { id: 'background', label: 'Fondo' },
-    { id: 'transition', label: 'Transición' },
   ];
   if (selection.kind === 'dialogue') return [
     { id: 'dialogue', label: 'Texto' },
@@ -1531,13 +1524,13 @@ function animationPlacement(
 ): AnimationPlacement {
   if (!scope.timing) return {
     allowed: false,
-    reason: 'Medí la escena antes de ubicar esta animación; no hace falta exportar.',
+    reason: 'Medí el video antes de ubicar esta animación; no hace falta exportar.',
     proposal: null,
   };
   const playhead = editorPlayhead();
   if (playhead < scope.timing.startSeconds || playhead > scope.timing.endSeconds) return {
     allowed: false,
-    reason: 'Mové el cabezal dentro de la escena seleccionada.',
+    reason: 'Mové el cabezal dentro del tramo disponible.',
     proposal: null,
   };
   const proposal = nearestAnchorFor(playhead, scope.timing, scope.fps);
@@ -1549,7 +1542,7 @@ function animationPlacement(
   const resolved = resolveAnchorSeconds(proposal.anchor, scope.timing) + proposal.offsetSeconds;
   if (Math.abs(resolved - playhead) > 0.5 / scope.fps) return {
     allowed: false,
-    reason: 'No se pudo representar este punto con precisión. Acercá el cabezal a un diálogo o borde de escena.',
+    reason: 'No se pudo representar este punto con precisión. Acercá el cabezal a un diálogo o límite disponible.',
     proposal: null,
   };
   const tolerance = 0.5 / scope.fps;
@@ -1559,7 +1552,7 @@ function animationPlacement(
   ) {
     return {
       allowed: false,
-      reason: 'La animación no entra completa desde este punto. Alejá el cabezal del borde de la escena.',
+      reason: 'La animación no entra completa desde este punto. Alejá el cabezal del límite disponible.',
       proposal,
     };
   }
@@ -1577,7 +1570,7 @@ function humanPlayheadReference(
   const anchor = proposal.anchor;
   let reference: string;
   if (anchor.kind === 'scene') {
-    reference = anchor.edge === 'start' ? 'el inicio de la escena' : 'el final de la escena';
+    reference = anchor.edge === 'start' ? 'el inicio disponible' : 'el final disponible';
   } else {
     const turnIndex = timing.turns.findIndex((turn) => turn.id === anchor.turnId);
     const dialogue = turnIndex >= 0 ? turnIndex + 1 : null;
@@ -1603,7 +1596,7 @@ function friendlyEditingError(message: string): string {
     return 'Esta propiedad ya tiene una pista manual o editada. Abrila en Pistas para decidir qué conservar.';
   }
   if (message.includes('ANIM_TRACK_OUT_OF_SCENE')) {
-    return 'La animación quedó fuera de la escena. Mové el cabezal más lejos del borde y volvé a intentarlo.';
+    return 'La animación quedó fuera del tramo disponible. Mové el cabezal más lejos del límite y volvé a intentarlo.';
   }
   return message.replace(/^[A-Z0-9_]+(?:\s+\([^)]*\))?:\s*/u, '');
 }

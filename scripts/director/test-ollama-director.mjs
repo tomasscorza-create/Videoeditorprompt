@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createDirectorProposal, inspectOllama } from './ollama-director.mjs';
+import { createDirectorProposal, inspectOllama, isRepairableDirectorError } from './ollama-director.mjs';
+import { PipelineError } from '../stage1/errors.mjs';
 
 const plan = {
   version: 1,
@@ -73,6 +74,8 @@ const judgeScore = (value) => ({
 });
 
 const cacheRoot = mkdtempSync(path.join(os.tmpdir(), 'local-video-director-'));
+assert.equal(isRepairableDirectorError(new PipelineError({ code: 'DIRECTOR_COMPOSITION_INVALID' })), true);
+assert.equal(isRepairableDirectorError(new PipelineError({ code: 'DIRECTOR_CONTINUITY_INVALID' })), true);
 const health = await inspectOllama({ fetchImpl: fakeFetch });
 assert.equal(health.modelInstalled, true);
 assert.equal(health.digest, 'sha256:qwen3-test');

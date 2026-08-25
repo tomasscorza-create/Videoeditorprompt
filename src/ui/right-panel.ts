@@ -1,6 +1,6 @@
 import { optional } from './dom.js';
 
-export type RightPanelPage = 'resources' | 'editing';
+export type RightPanelPage = 'resources' | 'editing' | 'files';
 
 const RIGHT_PANEL_PAGE_EVENT = 'local-video:right-panel-page';
 const REVEAL_RESOURCE_EVENT = 'local-video:reveal-resource';
@@ -15,9 +15,10 @@ export function initRightPanel(): void {
   const pages = new Map<RightPanelPage, HTMLElement>([
     ['resources', optional<HTMLElement>('#right-panel-resources')!],
     ['editing', optional<HTMLElement>('#right-panel-editing')!],
+    ['files', optional<HTMLElement>('#right-panel-files')!],
   ]);
   const resourceAction = optional<HTMLButtonElement>('#resource-register');
-  if (tabs.length !== 2 || Array.from(pages.values()).some((page) => !page)) return;
+  if (tabs.length !== pages.size || Array.from(pages.values()).some((page) => !page)) return;
 
   let activePage = readActivePage();
   const activate = (page: RightPanelPage): void => {
@@ -64,5 +65,5 @@ function readActivePage(): RightPanelPage {
 }
 
 function isRightPanelPage(value: string | null | undefined): value is RightPanelPage {
-  return value === 'resources' || value === 'editing';
+  return value === 'resources' || value === 'editing' || value === 'files';
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { ensureDirectory, projectRoot, readJson, writeJson } from '../stage1/common.mjs';
-import { compileVideoProject } from './compile-video-project.mjs';
+import { compileVideoProject, internalContinuityTransition } from './compile-video-project.mjs';
 import { selectCompositorBackend } from '../stage1/export-dialogue.mjs';
 import { createProjectCompilationContext } from './project-compilation-context.mjs';
 
@@ -16,6 +16,10 @@ const source = readJson(sourcePath);
 const results = [];
 const silentReport = () => undefined;
 let passed = false;
+
+assert.deepEqual(internalContinuityTransition(0, 2), { preset: 'fade', durationSeconds: 0.35 });
+assert.equal(internalContinuityTransition(1, 2), null);
+results.push({ name: 'internal-boundaries-always-compile-as-continuous-fades', passed: true });
 
 process.on('exit', () => {
   if (passed) rmSync(testRoot, { recursive: true, force: true });

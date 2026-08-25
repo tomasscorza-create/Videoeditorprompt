@@ -192,7 +192,7 @@ export async function createBlankProjectStore(): Promise<ProjectStore> {
     resourceCatalog: activeCatalog.path,
     scenes: [{
       id: 'escena-01',
-      title: 'Escena 1',
+      title: 'Momento 1',
       background: {
         resourceId: background.id,
         cameraPreset: background.capabilities?.cameraPresets?.[0] ?? 'static',

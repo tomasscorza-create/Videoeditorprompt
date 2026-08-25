@@ -147,7 +147,7 @@ export async function initCompositionPreview(store: ProjectStore): Promise<void>
     const scene = project.scenes.find((item) => item.id === (previewTiming?.id ?? store.selectedSceneId()))
       ?? project.scenes[0];
     if (!scene) {
-      canvas.replaceChildren(empty('No hay una escena seleccionada.'));
+      canvas.replaceChildren(empty('No hay contenido seleccionado.'));
       return;
     }
     const sceneTiming = measured?.scenes.find((item) => item.id === scene.id) ?? null;
@@ -917,7 +917,7 @@ function placeResource(
       word: placement.word ?? 'IDEA',
       zIndex: nextVisualZIndex(scene),
     });
-    reportPlacement(error || `«${placement.label}» se agregó a la escena.`, Boolean(error));
+    reportPlacement(error || `«${placement.label}» se agregó en la posición actual.`, Boolean(error));
     if (!error) finishCharacterPlacement();
     return;
   }
@@ -933,7 +933,7 @@ function placeResource(
       scale: 0.65,
       zIndex: nextVisualZIndex(scene),
     });
-    reportPlacement(error || `«${placement.label}» se agregó a la escena.`, Boolean(error));
+    reportPlacement(error || `«${placement.label}» se agregó en la posición actual.`, Boolean(error));
     if (!error) finishCharacterPlacement();
     return;
   }
@@ -949,7 +949,7 @@ function placeResource(
       scale: 0.75,
       zIndex: nextVisualZIndex(scene),
     });
-    reportPlacement(error || `«${placement.label}» se agregó a la escena.`, Boolean(error));
+    reportPlacement(error || `«${placement.label}» se agregó en la posición actual.`, Boolean(error));
     if (!error) finishCharacterPlacement();
     return;
   }
@@ -968,7 +968,7 @@ function placeResource(
     y,
   });
   reportPlacement(
-    error || `«${placement.label}» reemplazó a «${previous?.label || target.id}» y quedó colocado en la escena.`,
+    error || `«${placement.label}» reemplazó a «${previous?.label || target.id}» en la posición actual.`,
     Boolean(error),
   );
   if (!error) finishCharacterPlacement();

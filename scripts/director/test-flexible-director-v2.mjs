@@ -34,19 +34,19 @@ function basePlan() {
     scenes: [
       {
         title: 'El dato', purpose: 'Abrir con una narración visual.', mode: 'voiceover', durationWeight: 0.7, sceneRecipeId: 'voiceover-feature-v1', effectSequenceIds: ['visual-reveal-v1'],
-        backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'slow-zoom', layoutPreset: 'wide', transitionPreset: 'fade', transitionDurationSeconds: 0.3,
+        backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'slow-zoom', layoutPreset: 'wide', transitionPreset: 'fade', transitionDurationSeconds: 0.35,
         participants: [], visualElements: [{ roleId: 'dato', type: 'prop', resourceId: 'cartel-dato-v1' }],
         speech: [{ kind: 'voiceover', voiceId: 'voz-elevenlabs-ce6ff01ff0d4', text: 'Primero vemos el dato que cambia la pregunta y abre una forma concreta de entender el problema antes de buscar respuestas apresuradas.', gapAfterSeconds: 0 }],
       },
       {
         title: 'La explicación', purpose: 'Explicar con una persona.', mode: 'solo', durationWeight: 1.3, sceneRecipeId: 'solo-explainer-v1', effectSequenceIds: ['rise-and-settle-v2'],
-        backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'static', layoutPreset: 'focus-a', transitionPreset: 'cut', transitionDurationSeconds: 0,
+        backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'static', layoutPreset: 'focus-a', transitionPreset: 'fade', transitionDurationSeconds: 0.35,
         participants: [{ roleId: 'guia', characterResourceId: 'mono-azul-v1', voiceId: 'voz-elevenlabs-c8ff047a678d', animationPresetId: 'talk-calm' }], visualElements: [],
         speech: [{ kind: 'character', speakerRoleId: 'guia', text: 'Una sola voz puede desarrollar la idea con claridad, presentar un ejemplo útil y llegar a una conclusión sin forzar un diálogo innecesario.', gestureId: 'point', gestureAtWord: 2, gapAfterSeconds: 0 }],
       },
       {
         title: 'El contraste', purpose: 'Cerrar comparando dos miradas.', mode: 'dialogue', durationWeight: 1, sceneRecipeId: 'dialogue-contrast-v1', effectSequenceIds: ['speaker-focus-reaction-v1'],
-        backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'slow-pan', layoutPreset: 'balanced', transitionPreset: 'cut', transitionDurationSeconds: 0,
+        backgroundResourceId: 'fondo-estudio-parallax-v1', cameraPreset: 'slow-pan', layoutPreset: 'balanced', transitionPreset: 'fade', transitionDurationSeconds: 0.35,
         participants: [
           { roleId: 'rol-a', characterResourceId: 'mono-ciruela-v1', voiceId: 'voz-elevenlabs-e029c0d67044', animationPresetId: 'talk-calm' },
           { roleId: 'rol-b', characterResourceId: 'el-peque-v1', voiceId: 'voz-elevenlabs-ce6ff01ff0d4', animationPresetId: 'talk-calm' },
@@ -73,7 +73,20 @@ await test('plan-v2-normaliza-cero-uno-dos-personajes-y-musica', () => {
   assert.ok(project.scenes[1].elements[0].tracks?.some((track) => track.source.presetId === 'enter-bottom'));
   assert.ok(project.scenes[2].elements[0].tracks?.some((track) => track.source.presetId === 'emphasis-pulse'));
   assert.ok(project.scenes[2].elements[1].tracks?.some((track) => track.source.presetId === 'head-nod'));
+  assert.ok(project.scenes.slice(0, -1).every((scene) => (
+    scene.transitionToNext?.preset === 'fade' && scene.transitionToNext.durationSeconds === 0.35
+  )));
   assert.equal(validateEditableProject(project, catalog), true);
+});
+
+await test('plan-v2-convierte-cortes-del-modelo-en-enlaces-continuos', () => {
+  const plan = basePlan();
+  plan.scenes[0].transitionPreset = 'cut';
+  plan.scenes[0].transitionDurationSeconds = 0;
+  const canonical = canonicalizeDirectorPlanV2(plan, catalog, recipes);
+  assert.ok(canonical.scenes.every((scene) => (
+    scene.transitionPreset === 'fade' && scene.transitionDurationSeconds === 0.35
+  )));
 });
 
 await test('plan-v2-ajusta-el-texto-al-limite-especifico-de-cada-plantilla', () => {
@@ -114,7 +127,7 @@ await test('plan-dinamico-reparte-prop-entre-inicio-desarrollo-y-cierre-sin-tapa
   const prop = scene.elements.find((element) => element.type === 'prop');
   assert.ok(Math.abs(character.transform.x - prop.transform.x) >= 300);
   assert.ok(prop.transform.zIndex < character.transform.zIndex);
-  assert.equal(scene.background.cameraPreset, 'push-in');
+  assert.equal(scene.background.cameraPreset, 'static');
   const byPreset = new Map(prop.tracks.map((track) => [track.source.presetId, track]));
   assert.equal(byPreset.get('fade-in').keyframes[0].anchor.edge, 'start');
   assert.equal(byPreset.get('drift-horizontal').keyframes[0].anchor.kind, 'word');
@@ -131,6 +144,8 @@ await test('schema-ollama-v2-ofrece-ocho-escenas-y-recetas-cerradas', () => {
   assert.ok(JSON.stringify(schema).includes('voiceover-feature-v1'));
   assert.ok(JSON.stringify(schema).includes('participants'));
   assert.ok(schema.$defs.scene.properties.cameraPreset.enum.includes('push-in'));
+  assert.equal(schema.$defs.scene.properties.transitionPreset.const, 'fade');
+  assert.equal(schema.$defs.scene.properties.transitionDurationSeconds.const, 0.35);
   assert.equal(schema.$defs.scene.properties.effectSequenceIds.items.enum.includes('entrance-emphasis-exit-v1'), false);
   const threeSceneSchema = buildOllamaPlanSchema(catalog, { planVersion: 2, sceneCount: 3, richnessProfile: 'dynamic', structure: 'automatic' });
   const validate = new Ajv2020({ allErrors: true, strict: true }).compile(threeSceneSchema);
@@ -336,7 +351,7 @@ await test('plan-v2-corrige-contradicciones-del-modelo-sin-reescribir-el-texto',
   assert.doesNotThrow(() => validateDirectorPlanV2(repaired, catalog, recipes));
 });
 
-await test('plan-v2-construye-una-biblia-estable-y-varia-el-fondo-por-beat', () => {
+await test('plan-v2-construye-una-biblia-y-una-direccion-visual-estables', () => {
   const plan = basePlan();
   plan.scenes[2].participants[0] = {
     roleId: 'otra-guia', characterResourceId: 'mono-azul-v1',
@@ -347,7 +362,9 @@ await test('plan-v2-construye-una-biblia-estable-y-varia-el-fondo-por-beat', () 
     repaired.scenes[2].participants[0],
     repaired.scenes[1].participants[0],
   );
-  assert.equal(new Set(repaired.scenes.map((scene) => scene.backgroundResourceId)).size, 2);
+  assert.equal(new Set(repaired.scenes.map((scene) => scene.backgroundResourceId)).size, 1);
+  assert.equal(new Set(repaired.scenes.map((scene) => scene.cameraPreset)).size, 1);
+  assert.equal(new Set(repaired.scenes.map((scene) => scene.layoutPreset)).size, 1);
   assert.doesNotThrow(() => validateDirectorPlanV2(repaired, catalog, recipes));
 
   const broken = basePlan();

@@ -23,9 +23,10 @@ import { initProjectFiles } from './project/files.js';
 import { setActiveEditorProject, syncActiveEditorProject } from './editor-workspace.js';
 import { projectFingerprint, projectTimingFingerprint } from '../../shared/project-fingerprint.js';
 import { initVideoTemplateEditor } from './video-template-editor.js';
-import { initTimelineV2 } from './timeline-v2.js';
+import { attachTimelineProject, initTimelineV2 } from './timeline-v2.js';
 import { initDirectorProviderSettings } from './director/provider-settings.js';
 import { initElevenLabsVoices } from './elevenlabs-voices.js';
+import { initMediaFilesPanel } from './project/media-files-panel.js';
 
 export { renderJobGallery } from './gallery.js';
 
@@ -47,6 +48,7 @@ export function initShellUi(): void {
   initVideoTemplateEditor();
   initTimelineShell();
   initTimelineV2();
+  initMediaFilesPanel();
 }
 
 // Editor del proyecto de autoría. Es independiente del preview: si el proyecto no
@@ -91,6 +93,7 @@ function showRecoveryWarnings(warnings: readonly string[]): void {
 function attachProjectUi(store: ProjectStore): void {
   let projectRevision = projectFingerprint(store.project());
   setActiveEditorProject(store.project().id, projectRevision, projectTimingFingerprint(store.project()));
+  void attachTimelineProject(store.project().id);
   initProjectIdentity(store);
   initOnboarding(store);
   initProjectFiles(store);
